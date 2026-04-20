@@ -1,0 +1,472 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ═══════════════════════════════════════════════════════════
+       Edge Setter — Combined Palette System
+       ─────────────────────────────────────────────────────────
+       Foundation: dark charcoal shell (dominant)
+       Secondary:  parchment / warm paper surfaces (selective)
+       Accents:    analytics palette — muted, premium, data-specific
+
+       ─── DARK SHELL ──────────────────────────────────────────
+       #13110F  Abyss bg         hsl(22 10%  7%)
+       #181513  Deep charcoal    hsl(22 10%  9%)
+       #1D1916  Surface          hsl(22 10% 11%)
+       #231F1B  Graphite panel   hsl(22 10% 13%)
+       #2B2521  Lifted panel     hsl(22 10% 15%)
+       #332D28  Elevated card    hsl(22 10% 18%)
+       #3C3530  Card surface     hsl(22 10% 21%)
+
+       ─── TEXT ────────────────────────────────────────────────
+       #F0E6D6  Ivory primary    hsl(34 52% 89%)
+       #D4C8B8  Warm secondary   hsl(34 22% 77%)
+       #9E948A  Muted tertiary   hsl(30 10% 58%)
+       #665E56  Subdued          hsl(25  9% 37%)
+
+       ─── PARCHMENT (secondary surface, selective) ────────────
+       #EDE4D3  Parchment bg     hsl(38 34% 88%)
+       #E3D9C6  Soft parchment   hsl(38 30% 83%)
+       #D5C9B0  Aged parchment   hsl(38 26% 76%)
+       #1A1613  Ink on parchment hsl(22 12% 10%)
+       #3D3429  Deep ink         hsl(28 22% 20%)
+       #5C5247  Mid ink          hsl(28 13% 32%)
+
+       ─── ANALYTICS ACCENTS (data moments only) ───────────────
+       Cyan-blue:  #3AACCC / hsl(194 56% 51%)  — confirmed / trust
+       Teal-green: #2E9E6B / hsl(152 55% 40%)  — positive / verified
+       Amber-gold: #C49A2E / hsl(42  61% 47%)  — caution / likely / brass
+       Magenta:    #B04A7A / hsl(330 42% 49%)  — contradicted / alert
+       Violet:     #7A56B8 / hsl(264 41% 53%)  — rumor / speculative
+       Slate-blue: #4E6FA0 / hsl(214 36% 47%)  — neutral data
+
+       ─── LEGACY COMPATIBILITY ────────────────────────────────
+       Signal red: #9E3A30 / hsl(4 52% 41%)    — destructive
+
+    ═══════════════════════════════════════════════════════════ */
+
+    /* ── Base tokens (dark charcoal = global default) ── */
+    --background:           22 10% 9%;         /* #181513 deep charcoal */
+    --foreground:           34 52% 89%;        /* #F0E6D6 ivory */
+    --card:                 22 10% 13%;        /* #231F1B graphite panel */
+    --card-foreground:      34 52% 89%;
+    --popover:              22 10% 11%;
+    --popover-foreground:   34 52% 89%;
+
+    /* Primary — amber/brass: warmth, editorial */
+    --primary:              42 58% 46%;        /* #C49A2E warm amber-gold */
+    --primary-foreground:   22 10% 9%;
+
+    /* Secondary */
+    --secondary:            22 10% 15%;
+    --secondary-foreground: 34 22% 77%;
+
+    /* Muted */
+    --muted:                22 10% 15%;
+    --muted-foreground:     30 10% 58%;
+
+    /* Accent — cyan-blue for links, data highlights */
+    --accent:               194 54% 46%;       /* muted cyan */
+    --accent-foreground:    22 10% 9%;
+
+    /* Destructive */
+    --destructive:          4 52% 41%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Border / input */
+    --border:               22 10% 20%;
+    --input:                22 10% 20%;
+    --ring:                 42 58% 46%;
+
+    /* Parchment surface variables — used by .surface-parchment */
+    --parchment-bg:         38 34% 88%;
+    --parchment-soft:       38 30% 83%;
+    --parchment-aged:       38 26% 76%;
+    --parchment-text:       22 12% 10%;
+    --parchment-text-mid:   28 13% 32%;
+    --parchment-border:     38 20% 70%;
+    --parchment-primary:    42 58% 36%;        /* darker brass on parchment */
+
+    /* Analytics accent palette */
+    --ana-cyan:             194 56% 51%;       /* confirmed, top-tier */
+    --ana-green:            152 55% 40%;       /* positive, verified */
+    --ana-amber:            42 61% 47%;        /* caution, likely, warmth */
+    --ana-magenta:          330 42% 49%;       /* contradicted, alert */
+    --ana-violet:           264 41% 53%;       /* rumor, speculative */
+    --ana-slate:            214 36% 47%;       /* neutral data */
+
+    /* Chart tokens — analytics accents */
+    --chart-1: 194 56% 51%;  /* cyan */
+    --chart-2: 152 55% 40%;  /* green */
+    --chart-3: 42 61% 47%;   /* amber */
+    --chart-4: 330 42% 49%;  /* magenta */
+    --chart-5: 264 41% 53%;  /* violet */
+
+    /* Geometry */
+    --radius: 0.375rem;
+  }
+
+  /* ── Dark explicit (same as :root) ── */
+  .dark {
+    --background:           22 10% 9%;
+    --foreground:           34 52% 89%;
+    --card:                 22 10% 13%;
+    --card-foreground:      34 52% 89%;
+    --popover:              22 10% 11%;
+    --popover-foreground:   34 52% 89%;
+    --primary:              42 58% 46%;
+    --primary-foreground:   22 10% 9%;
+    --secondary:            22 10% 15%;
+    --secondary-foreground: 34 22% 77%;
+    --muted:                22 10% 15%;
+    --muted-foreground:     30 10% 58%;
+    --accent:               194 54% 46%;
+    --accent-foreground:    22 10% 9%;
+    --destructive:          4 52% 41%;
+    --destructive-foreground: 0 0% 100%;
+    --border:               22 10% 20%;
+    --input:                22 10% 20%;
+    --ring:                 42 58% 46%;
+    --chart-1: 194 56% 51%;
+    --chart-2: 152 55% 40%;
+    --chart-3: 42 61% 47%;
+    --chart-4: 330 42% 49%;
+    --chart-5: 264 41% 53%;
+  }
+}
+
+@layer base {
+  * { @apply border-border; }
+
+  :root {
+    --font-sans:  'DM Sans', 'General Sans', system-ui, sans-serif;
+    --font-serif: 'Playfair Display', Georgia, serif;
+    --font-mono:  'JetBrains Mono', 'Fira Code', monospace;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    background-color: hsl(22, 10%, 9%);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "cv08", "ss01";
+  }
+
+  h1, h2, h3 {
+    font-family: var(--font-serif);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  h4, h5, h6 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   PARCHMENT SURFACE — selective inset treatment
+   Apply to specific cards, sections, or modules
+   that need warm paper contrast against the dark shell.
+   ═══════════════════════════════════════════════ */
+.surface-parchment {
+  background: hsl(var(--parchment-bg));
+  color: hsl(var(--parchment-text));
+  --foreground:           22 12% 10%;
+  --muted-foreground:     28 13% 32%;
+  --border:               38 20% 70%;
+  --card:                 38 26% 94%;
+  --primary:              42 58% 36%;
+}
+
+/* ═══════════════════════════════════════════════
+   VERDICT BADGES — analytics accent palette
+   ═══════════════════════════════════════════════ */
+
+/* Confirmed — cyan: trust, verified */
+.verdict-confirmed {
+  background: hsl(194 56% 51% / 0.12);
+  color: hsl(194 56% 62%);
+  border: 1px solid hsl(194 56% 51% / 0.3);
+}
+/* Likely — amber: warm confidence */
+.verdict-likely {
+  background: hsl(42 58% 46% / 0.12);
+  color: hsl(42 62% 60%);
+  border: 1px solid hsl(42 58% 46% / 0.3);
+}
+/* Rumor — violet: speculative */
+.verdict-rumor {
+  background: hsl(264 41% 53% / 0.12);
+  color: hsl(264 44% 68%);
+  border: 1px solid hsl(264 41% 53% / 0.3);
+}
+/* Contradicted — magenta: alert */
+.verdict-contradicted {
+  background: hsl(330 42% 49% / 0.12);
+  color: hsl(330 52% 66%);
+  border: 1px solid hsl(330 42% 49% / 0.3);
+}
+/* In Review — slate-blue: neutral pending */
+.verdict-review {
+  background: hsl(214 36% 47% / 0.12);
+  color: hsl(214 44% 64%);
+  border: 1px solid hsl(214 36% 47% / 0.3);
+}
+
+/* Dark explicit re-override */
+.dark .verdict-confirmed    { background: hsl(194 56% 51% / 0.12); color: hsl(194 56% 62%); border: 1px solid hsl(194 56% 51% / 0.3); }
+.dark .verdict-likely       { background: hsl(42 58% 46% / 0.12);  color: hsl(42 62% 60%);  border: 1px solid hsl(42 58% 46% / 0.3); }
+.dark .verdict-rumor        { background: hsl(264 41% 53% / 0.12); color: hsl(264 44% 68%); border: 1px solid hsl(264 41% 53% / 0.3); }
+.dark .verdict-contradicted { background: hsl(330 42% 49% / 0.12); color: hsl(330 52% 66%); border: 1px solid hsl(330 42% 49% / 0.3); }
+.dark .verdict-review       { background: hsl(214 36% 47% / 0.12); color: hsl(214 44% 64%); border: 1px solid hsl(214 36% 47% / 0.3); }
+
+/* ═══════════════════════════════════════════════
+   TIER BADGES — analytics accents, muted
+   ═══════════════════════════════════════════════ */
+.tier-1 { background: hsl(194 56% 51% / 0.12); color: hsl(194 56% 60%); }
+.tier-2 { background: hsl(152 55% 40% / 0.12); color: hsl(152 48% 56%); }
+.tier-3 { background: hsl(42 58% 46% / 0.11);  color: hsl(42 54% 57%); }
+.tier-4 { background: hsl(30 30% 40% / 0.14);  color: hsl(30 26% 54%); }
+.tier-5 { background: hsl(4 52% 41% / 0.12);   color: hsl(4 46% 56%); }
+
+.dark .tier-1 { background: hsl(194 56% 51% / 0.12); color: hsl(194 56% 60%); }
+.dark .tier-2 { background: hsl(152 55% 40% / 0.12); color: hsl(152 48% 56%); }
+.dark .tier-3 { background: hsl(42 58% 46% / 0.11);  color: hsl(42 54% 57%); }
+.dark .tier-4 { background: hsl(30 30% 40% / 0.14);  color: hsl(30 26% 54%); }
+.dark .tier-5 { background: hsl(4 52% 41% / 0.12);   color: hsl(4 46% 56%); }
+
+/* ═══════════════════════════════════════════════
+   SIGNAL CARD
+   ═══════════════════════════════════════════════ */
+.signal-card {
+  @apply transition-all duration-150;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius);
+}
+.signal-card:hover {
+  @apply -translate-y-px;
+  box-shadow: 0 4px 24px hsl(22 10% 4% / 0.6);
+  border-left-color: hsl(var(--primary) / 0.5);
+}
+
+/* ═══════════════════════════════════════════════
+   MASTHEAD — editorial top rule
+   ═══════════════════════════════════════════════ */
+.masthead-dateline {
+  @apply border-b border-border;
+  background: hsl(22 10% 10% / 0.93);
+  border-top: 2px solid hsl(var(--primary) / 0.75);
+  backdrop-filter: blur(12px);
+}
+
+/* ═══════════════════════════════════════════════
+   BRIEFING RULE
+   ═══════════════════════════════════════════════ */
+.briefing-rule {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  position: relative;
+}
+.briefing-rule::before {
+  content: '';
+  position: absolute;
+  top: -1px; left: 0;
+  width: 2.5rem;
+  height: 2px;
+  background: hsl(var(--primary));
+}
+
+/* ═══════════════════════════════════════════════
+   SECTION KICKER
+   ═══════════════════════════════════════════════ */
+.section-kicker {
+  font-family: var(--font-sans);
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: hsl(var(--primary));
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+.section-kicker::after {
+  content: '';
+  flex: 1;
+  max-width: 3rem;
+  height: 1px;
+  background: hsl(var(--primary) / 0.35);
+}
+
+/* ═══════════════════════════════════════════════
+   LIVE PULSE
+   ═══════════════════════════════════════════════ */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.2; }
+}
+.live-dot { animation: pulse-dot 2.4s ease-in-out infinite; }
+
+/* ═══════════════════════════════════════════════
+   FILM GRAIN — restrained texture
+   ═══════════════════════════════════════════════ */
+.film-grain::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.032;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E");
+  background-size: 175px 175px;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   CHALK RULE
+   ═══════════════════════════════════════════════ */
+.chalk-rule { position: relative; }
+.chalk-rule::before {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, hsl(var(--primary) / 0.22) 25%, hsl(var(--primary) / 0.22) 75%, transparent 100%);
+}
+
+/* ═══════════════════════════════════════════════
+   TYPOGRAPHY UTILITIES
+   ═══════════════════════════════════════════════ */
+.display-serif {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+}
+
+/* Editorial italic gradient — amber-ivory on dark */
+.gradient-text {
+  background: linear-gradient(135deg, hsl(42 60% 54%) 0%, hsl(34 56% 72%) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-style: italic;
+}
+
+/* Parchment surface — amber italic */
+.surface-parchment .gradient-text {
+  background: linear-gradient(135deg, hsl(38 58% 28%) 0%, hsl(34 52% 42%) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Data label caps */
+.data-label {
+  font-family: var(--font-sans);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+.tabular-nums { font-variant-numeric: tabular-nums lining-nums; }
+
+/* ═══════════════════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════════════════ */
+::-webkit-scrollbar          { width: 4px; height: 4px; }
+::-webkit-scrollbar-track    { background: transparent; }
+::-webkit-scrollbar-thumb    { background: hsl(var(--border)); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.4); }
+
+/* ═══════════════════════════════════════════════
+   EDITORIAL SECTION RULE
+   ═══════════════════════════════════════════════ */
+.editorial-section-rule {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 0;
+}
+
+/* ═══════════════════════════════════════════════
+   STAT NUM — Playfair numerals
+   ═══════════════════════════════════════════════ */
+.stat-num-display {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+/* ═══════════════════════════════════════════════
+   EDITORIAL TABLE
+   ═══════════════════════════════════════════════ */
+.editorial-table thead th {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: hsl(var(--muted-foreground));
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 10px 16px;
+}
+.editorial-table tbody tr {
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+  transition: background 0.1s;
+}
+.editorial-table tbody tr:hover { background: hsl(var(--muted) / 0.5); }
+.editorial-table tbody td { padding: 11px 16px; }
+
+/* ═══════════════════════════════════════════════
+   ANALYTICS ACCENT HELPERS
+   Quick-use classes for data-specific moments
+   ═══════════════════════════════════════════════ */
+.ana-cyan    { color: hsl(var(--ana-cyan)); }
+.ana-green   { color: hsl(var(--ana-green)); }
+.ana-amber   { color: hsl(var(--ana-amber)); }
+.ana-magenta { color: hsl(var(--ana-magenta)); }
+.ana-violet  { color: hsl(var(--ana-violet)); }
+.ana-slate   { color: hsl(var(--ana-slate)); }
+
+/* Parchment inset card — drop inside dark shell for contrast */
+.parchment-card {
+  background: hsl(var(--parchment-bg));
+  color: hsl(var(--parchment-text));
+  border: 1px solid hsl(var(--parchment-border));
+  border-radius: var(--radius);
+}
+.parchment-card .data-label {
+  color: hsl(var(--parchment-text-mid));
+}
+
+/* ═══════════════════════════════════════════════
+   ACCENT BORDER HELPERS
+   ═══════════════════════════════════════════════ */
+.border-top-cyan    { border-top: 2px solid hsl(var(--ana-cyan)); }
+.border-top-amber   { border-top: 2px solid hsl(var(--primary)); }
+.border-top-green   { border-top: 2px solid hsl(var(--ana-green)); }
+.border-top-magenta { border-top: 2px solid hsl(var(--ana-magenta)); }
+.border-top-violet  { border-top: 2px solid hsl(var(--ana-violet)); }
+
+/* ═══════════════════════════════════════════════
+   PARCHMENT BAND — full-width editorial section
+   ═══════════════════════════════════════════════ */
+.band-parchment {
+  background: hsl(var(--parchment-bg));
+  color: hsl(var(--parchment-text));
+  border-top: 1px solid hsl(var(--parchment-border));
+  border-bottom: 1px solid hsl(var(--parchment-border));
+}
+.band-parchment-soft {
+  background: hsl(var(--parchment-soft));
+  color: hsl(var(--parchment-text));
+}

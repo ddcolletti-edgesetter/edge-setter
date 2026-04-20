@@ -1,0 +1,411 @@
+import type { Express } from "express";
+import { Server } from "http";
+import { storage } from "./storage";
+import { insertWaitlistSchema } from "@shared/schema";
+import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
+import { seedDemoData } from "./seed";
+import { seedSignals } from "./seed-signals";
+import { getStripe, STRIPE_PRO_PRICE_ID, STRIPE_WEBHOOK_SECRET } from "./stripe";
+import { sendWaitlistConfirmation, sendProWelcome, sendBillingRetryEmail } from "./email";
+import express from "express";
+import { syncToSupabase } from "./supabase-sync";
+
+export function registerRoutes(httpServer: Server, app: Express) {
+  // ─── Seed demo data on startup (non-blocking) ─────────────────────────────────
+  seedDemoData().catch(e => console.error("Seed error:", e));
+  seedSignals().catch(e => console.error("Signal seed error:", e));
+
+  // Hydrate SQLite from Supabase on startup (non-blocking)
+  // This ensures sandbox restarts pick up any signals/notes created via Supabase dashboard
+  import("./supabase-sync").then(async ({ pullSignalsFromSupabase, pullSourceNotesFromSupabase }) => {
+    const remoteSignals = await pullSignalsFromSupabase();
+    for (const s of remoteSignals) {
+      try { storage.createSignal(s); } catch (_) {}
+    }
+    const remoteNotes = await pullSourceNotesFromSupabase();
+    for (const n of remoteNotes) {
+      try { storage.createSourceNote(n); } catch (_) {}
+    }
+    if (remoteSignals.length > 0) console.log(`[supabase] hydrated ${remoteSignals.length} signals from Supabase`);
+  }).catch(() => {});
+
+  // ─── Waitlist ─────────────────────────────────────────────────────────────────
+  app.post("/api/waitlist", async (req, res) => {
+    try {
+      const data = insertWaitlistSchema.parse(req.body);
+      if (storage.waitlistEmailExists(data.email)) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+      const entry = storage.addToWaitlist(data);
+      storage.logEvent({ event_name: "request_access_submit", email: data.email, metadata: JSON.stringify({ source: "landing_page" }) });
+      syncToSupabase("waitlist", { email: data.email, name: data.name, role: data.role, source: "landing_page" }, "insert").catch(() => {});
+      syncToSupabase("event_log", { event_name: "request_access_submit", email: data.email, metadata: { source: "landing_page" } }, "insert").catch(() => {});
+      sendWaitlistConfirmation(data.email).catch(() => {});
+      return res.json({ success: true, id: entry.id });
+    } catch (err: any) {
+      return res.status(400).json({ error: err.message ?? "Invalid input" });
+    }
+  });
+
+  app.get("/api/waitlist/count", (_req, res) => {
+    const list = storage.getWaitlist();
+    res.json({ count: list.length });
+  });
+
+  // ─── Signal Feed ──────────────────────────────────────────────────────────────
+  app.get("/api/signal", (req, res) => {
+    const { league, topic, verdict } = req.query as Record<string, string>;
+    const feed = storage.getSignalFeed({ league, topic, verdict });
+    res.json(feed);
+  });
+
+  // ─── Sources ─────────────────────────────────────────────────────────────────
+  app.get("/api/sources", (_req, res) => {
+    const srcs = storage.getSources();
+    res.json(srcs);
+  });
+
+  // ─── Source Leaderboard ───────────────────────────────────────────────────────
+  app.get("/api/leaderboard", (_req, res) => {
+    const scores = storage.getSourceScores();
+    res.json(scores);
+  });
+
+  // ─── Admin Review Queue ───────────────────────────────────────────────────────
+  app.get("/api/admin/review", (_req, res) => {
+    const queue = storage.getReviewQueue();
+    // Enrich with claim + event data
+    const enriched = queue.map(v => {
+      const claim = v.claim_id ? storage.getClaim(v.claim_id) : null;
+      const event = claim?.event_id ? storage.getEvent(claim.event_id) : null;
+      const source = claim?.source_id ? storage.getSource(claim.source_id) : null;
+      return { ...v, claim, event, source };
+    });
+    res.json(enriched);
+  });
+
+  app.post("/api/admin/review/:id/resolve", (req, res) => {
+    const verdict = storage.resolveReview(req.params.id);
+    if (!verdict) return res.status(404).json({ error: "Not found" });
+    // Now publish the alert since it's resolved
+    if (verdict.claim_id) {
+      publisherAgent(verdict.claim_id).catch(() => {});
+    }
+    return res.json({ success: true, verdict });
+  });
+
+  // ─── Alerts ──────────────────────────────────────────────────────────────────
+  app.get("/api/alerts", (_req, res) => {
+    const alertList = storage.getAlerts();
+    res.json(alertList);
+  });
+
+  app.post("/api/alerts/:id/send", (req, res) => {
+    const alert = storage.markAlertSent(req.params.id);
+    if (!alert) return res.status(404).json({ error: "Not found" });
+    return res.json({ success: true, alert });
+  });
+
+  // ─── Agent Pipeline (manual trigger for demo) ─────────────────────────────────
+  app.post("/api/pipeline/run", async (req, res) => {
+    try {
+      const { source_id, raw_text, player, team, league, topic } = req.body;
+      if (!source_id || !raw_text) {
+        return res.status(400).json({ error: "source_id and raw_text are required" });
+      }
+      const result = await runFullPipeline({ source_id, raw_text, player, team, league, topic });
+      return res.json(result);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ─── QA Audit ─────────────────────────────────────────────────────────────────
+  app.get("/api/qa/audit", async (_req, res) => {
+    const result = await qaAuditAgent();
+    res.json(result);
+  });
+
+  // ─── Agent Logs ───────────────────────────────────────────────────────────────
+  app.get("/api/logs", (req, res) => {
+    const limit = parseInt((req.query.limit as string) ?? "50");
+    const logs = storage.getAgentLogs(limit);
+    res.json(logs);
+  });
+
+  // ─── Dashboard Stats ──────────────────────────────────────────────────────────
+  app.get("/api/stats", (_req, res) => {
+    const feed = storage.getSignalFeed();
+    const reviewQueue = storage.getReviewQueue();
+    const alerts = storage.getAlerts();
+    const sources = storage.getSources();
+    const waitlist = storage.getWaitlist();
+
+    const verdictCounts = feed.reduce((acc: Record<string, number>, item) => {
+      const v = item.verdict ?? "unknown";
+      acc[v] = (acc[v] ?? 0) + 1;
+      return acc;
+    }, {});
+
+    res.json({
+      total_signals: feed.length,
+      review_queue: reviewQueue.length,
+      alerts_published: alerts.length,
+      sources_tracked: sources.length,
+      waitlist_count: waitlist.length,
+      verdict_breakdown: verdictCounts,
+    });
+  });
+
+  // ─── Events ──────────────────────────────────────────────────────────────────
+  app.get("/api/events", (_req, res) => {
+    const evts = storage.getEvents();
+    res.json(evts);
+  });
+
+  // ─── Verdicts ─────────────────────────────────────────────────────────────────
+  app.get("/api/verdicts", (_req, res) => {
+    const vdicts = storage.getVerdicts();
+    res.json(vdicts);
+  });
+
+
+  // ─── MVP: Signals ─────────────────────────────────────────────────────────────
+  app.get("/api/signals", (_req, res) => {
+    res.json(storage.getSignals(true));
+  });
+  app.get("/api/signals/all", (_req, res) => {
+    res.json(storage.getSignals(false));
+  });
+  app.get("/api/signals/:id", (req, res) => {
+    const sig = storage.getSignal(req.params.id);
+    if (!sig) return res.status(404).json({ error: "Not found" });
+    res.json(sig);
+  });
+  app.get("/api/signals/:id/notes", (req, res) => {
+    res.json(storage.getSourceNotes(req.params.id));
+  });
+  app.post("/api/signals", (req, res) => {
+    try {
+      const data = insertSignalSchema.parse(req.body);
+      return res.json(storage.createSignal(data));
+    } catch (e: any) {
+      return res.status(400).json({ error: e.message });
+    }
+  });
+  app.patch("/api/signals/:id", (req, res) => {
+    const sig = storage.updateSignal(req.params.id, req.body);
+    if (!sig) return res.status(404).json({ error: "Not found" });
+    return res.json(sig);
+  });
+
+  // ─── MVP: Event Log ────────────────────────────────────────────────────────────
+  app.post("/api/events/log", (req, res) => {
+    const { event_name, email, user_id, metadata } = req.body;
+    if (!event_name) return res.status(400).json({ error: "event_name required" });
+    const entry = storage.logEvent({ event_name, email, user_id, metadata: metadata ? JSON.stringify(metadata) : undefined });
+    res.json({ success: true, id: entry.id });
+  });
+
+  // ─── MVP: Users ────────────────────────────────────────────────────────────────
+  app.get("/api/user", (req, res) => {
+    const email = req.query.email as string;
+    if (!email) return res.json(null);
+    res.json(storage.getUserByEmail(email) ?? null);
+  });
+
+  // ─── MVP: Stripe Checkout ──────────────────────────────────────────────────────
+  app.post("/api/checkout", async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "email required" });
+    try {
+      const stripe = getStripe();
+      const baseUrl = process.env.BASE_URL ?? "https://www.perplexity.ai/computer/a/edge-setter-vADZV2KoR6ycN8jYEh32ew";
+      let customerId: string | undefined;
+      const existingUser = storage.getUserByEmail(email);
+      if (existingUser?.stripe_customer_id) {
+        customerId = existingUser.stripe_customer_id;
+      } else {
+        const customer = await stripe.customers.create({ email });
+        customerId = customer.id;
+        storage.upsertUser({ email, stripe_customer_id: customerId, plan: "free", access_status: "pending" });
+      }
+      const lineItems: any[] = STRIPE_PRO_PRICE_ID
+        ? [{ price: STRIPE_PRO_PRICE_ID, quantity: 1 }]
+        : [{
+            price_data: {
+              currency: "usd", unit_amount: 1900,
+              recurring: { interval: "month" },
+              product_data: { name: "Edge Setter Pro Intelligence", description: "Full signal feed · confidence scores · source notes · verdict detail" },
+            },
+            quantity: 1,
+          }];
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId, mode: "subscription",
+        line_items: lineItems,
+        success_url: `${baseUrl}/#/success?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(email)}`,
+        cancel_url: `${baseUrl}/#/signals`,
+        metadata: { email },
+      });
+      storage.logEvent({ event_name: "checkout_started", email, metadata: JSON.stringify({ session_id: session.id }) });
+      syncToSupabase("event_log", { event_name: "checkout_started", email, metadata: { session_id: session.id } }, "insert").catch(() => {});
+      return res.json({ url: session.url });
+    } catch (e: any) {
+      console.error("[checkout]", e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ─── Stripe Webhook (hardened) ─────────────────────────────────────────────
+  app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+    const sig = req.headers["stripe-signature"] as string;
+    let event: any;
+    try {
+      const stripe = getStripe();
+      if (STRIPE_WEBHOOK_SECRET && sig) {
+        // Verified: signature matches — production path
+        // express.raw() gives us a Buffer here when Content-Type is application/json
+        event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
+      } else if (!STRIPE_WEBHOOK_SECRET) {
+        // No secret configured: allow unsigned (test/local only)
+        // req.body may already be parsed by express.json() global middleware
+        if (typeof req.body === "object" && req.body !== null && !Buffer.isBuffer(req.body)) {
+          event = req.body;
+        } else {
+          event = JSON.parse(Buffer.isBuffer(req.body) ? req.body.toString() : String(req.body));
+        }
+      } else {
+        // Secret set but no signature — reject
+        return res.status(400).json({ error: "Missing stripe-signature header" });
+      }
+    } catch (e: any) { return res.status(400).json({ error: e.message }); }
+
+    try {
+      const stripe = getStripe();
+
+      // ── checkout.session.completed ─────────────────────────────────────────
+      if (event.type === "checkout.session.completed") {
+        const session = event.data.object;
+        const email = session.metadata?.email ?? session.customer_email;
+        if (email) {
+          const proData = {
+            email,
+            stripe_customer_id: session.customer as string,
+            stripe_subscription_id: session.subscription as string,
+            plan: "pro",
+            access_status: "active",
+            billing_status: "active",
+          };
+          storage.upsertUser(proData);
+          storage.logEvent({ event_name: "subscription_started", email, metadata: JSON.stringify({ session_id: session.id, source: "webhook" }) });
+          syncToSupabase("users", proData, "upsert").catch(() => {});
+          syncToSupabase("event_log", { event_name: "subscription_started", email, metadata: { session_id: session.id, source: "webhook" } }, "insert").catch(() => {});
+          sendProWelcome(email).catch(() => {});
+        }
+      }
+
+      // ── customer.subscription.deleted ──────────────────────────────────────
+      if (event.type === "customer.subscription.deleted") {
+        const sub = event.data.object;
+        const user = storage.getUserByStripeCustomer(sub.customer as string);
+        if (user) {
+          const downgradeData = {
+            ...user,
+            plan: "free",
+            access_status: "canceled",
+            billing_status: "canceled",
+          };
+          storage.upsertUser(downgradeData);
+          storage.logEvent({ event_name: "subscription_canceled", email: user.email, metadata: JSON.stringify({ subscription_id: sub.id, customer_id: sub.customer }) });
+          syncToSupabase("users", downgradeData, "upsert").catch(() => {});
+          syncToSupabase("event_log", { event_name: "subscription_canceled", email: user.email, metadata: { subscription_id: sub.id } }, "insert").catch(() => {});
+          console.log(`[webhook] subscription.deleted: ${user.email} downgraded to free`);
+        } else {
+          console.warn(`[webhook] subscription.deleted: no user found for customer ${sub.customer}`);
+        }
+      }
+
+      // ── invoice.payment_failed ─────────────────────────────────────────────
+      if (event.type === "invoice.payment_failed") {
+        const invoice = event.data.object;
+        const customerId = invoice.customer as string;
+        const user = storage.getUserByStripeCustomer(customerId);
+        if (user) {
+          // Grace period: keep Pro access alive, but mark billing_status as past_due.
+          // Access is revoked only when subscription.deleted fires (after Stripe retries exhaust).
+          const failData = {
+            ...user,
+            billing_status: "past_due",
+            billing_email_sent: new Date().toISOString(),
+          };
+          storage.upsertUser(failData);
+          storage.logEvent({ event_name: "payment_failed", email: user.email, metadata: JSON.stringify({ invoice_id: invoice.id, attempt: invoice.attempt_count, next_attempt: invoice.next_payment_attempt }) });
+          syncToSupabase("users", failData, "upsert").catch(() => {});
+          syncToSupabase("event_log", { event_name: "payment_failed", email: user.email, metadata: { invoice_id: invoice.id, attempt: invoice.attempt_count } }, "insert").catch(() => {});
+          // Email stub — fires when Resend is configured
+          sendBillingRetryEmail(user.email, invoice.attempt_count ?? 1).catch(() => {});
+          console.log(`[webhook] invoice.payment_failed: ${user.email} marked past_due (attempt ${invoice.attempt_count})`);
+        }
+      }
+
+    } catch (e) { console.error("[webhook]", e); }
+    res.json({ received: true });
+  });
+
+  // ─── Stripe Customer Portal ────────────────────────────────────────────────
+  app.post("/api/billing/portal", async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: "email required" });
+    try {
+      const stripe = getStripe();
+      const user = storage.getUserByEmail(email);
+      if (!user?.stripe_customer_id) return res.status(404).json({ error: "No billing account found for this email" });
+      const session = await stripe.billingPortal.sessions.create({
+        customer: user.stripe_customer_id,
+        return_url: `${process.env.BASE_URL ?? ""}/#/pro`,
+      });
+      storage.logEvent({ event_name: "billing_portal_opened", email, metadata: JSON.stringify({ customer_id: user.stripe_customer_id }) });
+      return res.json({ url: session.url });
+    } catch (e: any) {
+      console.error("[billing/portal]", e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ─── MVP: Verify subscription after Stripe redirect ───────────────────────────
+  app.post("/api/verify-subscription", async (req, res) => {
+    const { session_id, email } = req.body;
+    if (!session_id || !email) return res.status(400).json({ error: "session_id and email required" });
+    try {
+      const stripe = getStripe();
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      if (session.payment_status === "paid" || session.status === "complete") {
+        const proData = { email, stripe_customer_id: session.customer as string, stripe_subscription_id: session.subscription as string, plan: "pro", access_status: "active" };
+        storage.upsertUser(proData);
+        storage.logEvent({ event_name: "success_page_view", email, metadata: JSON.stringify({ session_id }) });
+        syncToSupabase("users", proData, "upsert").catch(() => {});
+        syncToSupabase("event_log", { event_name: "subscription_started", email, metadata: { session_id } }, "insert").catch(() => {});
+        sendProWelcome(email).catch(() => {});
+        return res.json({ success: true, plan: "pro" });
+      }
+      return res.json({ success: false, plan: "free" });
+    } catch (e: any) {
+      console.error("[verify-subscription]", e.message);
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ─── MVP: Admin ────────────────────────────────────────────────────────────────
+  app.get("/api/admin/waitlist", (_req, res) => { res.json(storage.getWaitlist()); });
+  app.get("/api/admin/waitlist/csv", (_req, res) => {
+    const list = storage.getWaitlist();
+    const csv = ["id,email,name,role,created_at", ...list.map(r => `${r.id},${r.email},${r.name ?? ""},${r.role ?? ""},${r.created_at}`)].join("\n");
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=waitlist.csv");
+    res.send(csv);
+  });
+  app.get("/api/admin/users", (_req, res) => { res.json(storage.getAllUsers()); });
+  app.get("/api/admin/event-log", (_req, res) => { res.json(storage.getEventLog()); });
+
+  return httpServer;
+}
