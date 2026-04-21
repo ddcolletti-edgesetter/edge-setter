@@ -23,12 +23,32 @@ import {
   type EventLog, type InsertEventLog,
 } from "@shared/schema";
 
-// Use DATA_DIR env var for persistent disk on Render/Railway/Fly.
-// Falls back to project root for local dev.
-const dataDir = process.env.DATA_DIR ?? ".";
-if (dataDir !== "." && !fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+// Resolve a writable directory for SQLite.
+// Priority: DATA_DIR env var → /tmp (always writable) → . (local dev)
+function resolveDataDir(): string {
+  const candidates = [
+    process.env.DATA_DIR,
+    "/tmp",
+    ".",
+  ].filter(Boolean) as string[];
+
+  for (const dir of candidates) {
+    try {
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      // Probe write access
+      const probe = path.join(dir, ".write_probe");
+      fs.writeFileSync(probe, "1");
+      fs.unlinkSync(probe);
+      return dir;
+    } catch {
+      // Not writable — try next candidate
+    }
+  }
+  return ".";
 }
+
+const dataDir = resolveDataDir();
+console.log(`[db] SQLite data directory: ${dataDir}`);
 const dbPath = path.join(dataDir, "edge_setter.db");
 const sqlite = new Database(dbPath);
 sqlite.pragma("journal_mode = WAL");
