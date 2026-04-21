@@ -220,7 +220,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     if (!email) return res.status(400).json({ error: "email required" });
     try {
       const stripe = getStripe();
-      const baseUrl = process.env.BASE_URL ?? "https://www.perplexity.ai/computer/a/edge-setter-vADZV2KoR6ycN8jYEh32ew";
+      const baseUrl = process.env.BASE_URL ?? "https://edgesetter.net";
       let customerId: string | undefined;
       const existingUser = storage.getUserByEmail(email);
       if (existingUser?.stripe_customer_id) {
@@ -362,7 +362,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       if (!user?.stripe_customer_id) return res.status(404).json({ error: "No billing account found for this email" });
       const session = await stripe.billingPortal.sessions.create({
         customer: user.stripe_customer_id,
-        return_url: `${process.env.BASE_URL ?? ""}/#/pro`,
+        return_url: `${process.env.BASE_URL ?? "https://edgesetter.net"}/#/pro`,
       });
       storage.logEvent({ event_name: "billing_portal_opened", email, metadata: JSON.stringify({ customer_id: user.stripe_customer_id }) });
       return res.json({ url: session.url });

@@ -5,7 +5,7 @@
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
 const FROM_EMAIL = process.env.FROM_EMAIL ?? "Edge Setter <hello@edgesetter.com>";
-const BASE_URL = process.env.BASE_URL ?? "https://www.perplexity.ai/computer/a/edge-setter-vADZV2KoR6ycN8jYEh32ew";
+const BASE_URL = process.env.BASE_URL ?? "https://edgesetter.net";
 
 interface SendEmailOptions {
   to: string;
