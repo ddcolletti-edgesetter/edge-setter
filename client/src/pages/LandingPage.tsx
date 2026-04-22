@@ -11,13 +11,13 @@
  * - Intel grid: tighter gap + reduced top margin
  * - Overall: one unified black/gold board, not a sequence of bands
  */
-import { useState } from "react";
-import { Link } from "wouter";
+import { useState, useRef, useEffect } from "react";
+import { Link, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { type Theme } from "../App";
-import { Sun, Moon, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Sun, Moon, ChevronRight, CheckCircle2, X } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
@@ -369,6 +369,21 @@ function SignalTileRow() {
 
 /* ══ MAIN COMPONENT ════════════════════════════════════════════════ */
 export default function LandingPage({ theme, toggleTheme }: Props) {
+  const [, navigate] = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
+
+  // Close nav when clicking outside
+  useEffect(() => {
+    if (!navOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setNavOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [navOpen]);
   const [email, setEmail]  = useState("");
   const [name, setName]    = useState("");
   const [role, setRole]    = useState("bettor");
@@ -444,8 +459,58 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           maxWidth: 1440, margin: "0 auto", padding: "0 20px",
           height: 46, display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <Logo />
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }} ref={navRef}>
+            {/* Logo doubles as nav toggle */}
+            <button
+              onClick={() => setNavOpen(o => !o)}
+              data-testid="button-nav-menu"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
+              aria-label="Navigation menu"
+            >
+              <Logo />
+            </button>
+
+            {/* Nav dropdown */}
+            {navOpen && (
+              <div style={{
+                position: "absolute", top: 54, left: 20,
+                background: C.shell, border: `1px solid ${C.gold}`,
+                zIndex: 200, minWidth: 180, padding: "6px 0",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
+              }}>
+                <button
+                  onClick={() => setNavOpen(false)}
+                  style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: C.ivoryDim, cursor: "pointer" }}
+                >
+                  <X size={12} />
+                </button>
+                {([
+                  { href: "/signals",     label: "Signal Board" },
+                  { href: "/draft",       label: "Draft Board"  },
+                  { href: "/leaderboard", label: "Sources"      },
+                  { href: "/pro",         label: "Go Pro — $19/mo", highlight: true },
+                ] as { href: string; label: string; highlight?: boolean }[]).map(item => (
+                  <Link key={item.href} href={item.href}>
+                    <div
+                      onClick={() => setNavOpen(false)}
+                      style={{
+                        display: "block", padding: "9px 20px",
+                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                        fontSize: 10, fontWeight: 700, letterSpacing: "0.16em",
+                        textTransform: "uppercase",
+                        color: item.highlight ? C.gold : C.ivory,
+                        cursor: "pointer",
+                        borderTop: item.highlight ? `1px solid ${C.gold}40` : "none",
+                        marginTop: item.highlight ? 4 : 0,
+                      }}
+                    >
+                      {item.label}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+
             <div>
               <p style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -888,7 +953,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                 </div>
               ))}
               <button
-                onClick={scrollTo("waitlist")}
+                onClick={() => navigate("/pro")}
                 data-testid="button-pricing-pro-cta"
                 style={{
                   marginTop: 10, width: "100%",

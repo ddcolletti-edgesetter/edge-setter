@@ -38,7 +38,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
 
   return (
     <AppLayout theme={theme} toggleTheme={toggleTheme}>
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto" data-testid="dashboard-page">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto" data-testid="dashboard-page">
 
         {/* Header — briefing document */}
         <div className="flex items-start justify-between gap-4 mb-5">

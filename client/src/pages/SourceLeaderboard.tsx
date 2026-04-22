@@ -64,7 +64,7 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
         data-testid="leaderboard-page"
         style={{ background: C.bgBase }}
       >
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-7xl mx-auto">
 
           {/* Header */}
           <div className="flex items-start justify-between gap-4 mb-5">

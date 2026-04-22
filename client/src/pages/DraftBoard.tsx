@@ -34,7 +34,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
 
   return (
     <AppLayout theme={theme} toggleTheme={toggleTheme}>
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto" data-testid="draft-board-page">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto" data-testid="draft-board-page">
 
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-5">
