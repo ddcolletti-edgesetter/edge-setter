@@ -873,7 +873,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           </Link>
 
           {/* Card 2 — Draft Board */}
-          <Link href="/dashboard">
+          <Link href="/draft">
             <div style={{
               background: T.surface1,
               border: `1px solid rgba(61,174,114,0.28)`,
@@ -893,13 +893,13 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                 Draft Board
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.55, color: T.textMuted }}>
-                2026 NFL Draft prospect rankings — Shedeur Sanders, Cam Ward, Travis Hunter, and the full class. Updated April 22, 2026.
+                2026 NFL Draft prospect rankings — Fernando Mendoza, Arvell Reese, Rueben Bain Jr., and the full class. Updated April 22, 2026.
               </div>
             </div>
           </Link>
 
           {/* Card 3 — Source Leaderboard */}
-          <Link href="/dashboard">
+          <Link href="/leaderboard">
             <div style={{
               background: T.surface1,
               border: `1px solid rgba(202,168,90,0.22)`,
