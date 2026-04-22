@@ -144,12 +144,13 @@ function LandingLogo() {
 /* ── Featured Player Card (Kane-style) ── */
 /* ── Live Signal Preview Panel ── replaces the old ambiguous player card ── */
 function FeaturedCard({ signal }: { signal: any }) {
-  const name   = signal?.player_name ?? "Patrick Mahomes";
+  const signalId = signal?.id ?? null;
+  const name   = signal?.player_name ?? signal?.player ?? "Patrick Mahomes";
   const team   = signal?.team ?? "KC Chiefs";
-  const title  = signal?.title ?? "Full go after mid-week ankle scare";
+  const title  = signal?.title ?? signal?.normalized_claim ?? "Full go after mid-week ankle scare";
   const conf   = signal?.confidence_score ?? 92;
   const verdict = signal?.verdict ?? "confirmed";
-  const summary = signal?.summary ?? "Multiple KC beat writers confirm full participation in Friday practice after early-week limited tags.";
+  const summary = signal?.summary ?? signal?.rationale ?? "Multiple KC beat writers confirm full participation in Friday practice after early-week limited tags.";
   const action  = signal?.action_takeaway ?? "Treat as full-go; downgrade mobility concern only.";
   const source  = signal?.primary_source ?? "Ian Rapoport";
 
@@ -273,7 +274,7 @@ function FeaturedCard({ signal }: { signal: any }) {
         </div>
         {/* View in Signal Board link */}
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(202,168,90,0.10)" }}>
-          <Link href="/dashboard">
+          <Link href={signalId ? `/dashboard?highlight=${signalId}` : "/dashboard"}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 6,
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",

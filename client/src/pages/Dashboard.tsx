@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import AppLayout from "../components/AppLayout";
@@ -9,10 +9,10 @@ import { type Theme } from "../App";
 import { type SignalFeedItem } from "@shared/schema";
 import { RefreshCw, SlidersHorizontal, Clock } from "lucide-react";
 
-/** Parse a query param from the hash fragment, e.g. #/dashboard?topic=free_agency */
+/** Parse a query param from the hash fragment, e.g. #/dashboard?topic=free_agency&highlight=abc */
 function getHashParam(key: string): string {
   try {
-    const hash = window.location.hash; // e.g. "#/dashboard?topic=free_agency"
+    const hash = window.location.hash;
     const qIdx = hash.indexOf("?");
     if (qIdx === -1) return "";
     const search = hash.slice(qIdx + 1);
@@ -46,6 +46,8 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
   const [league, setLeague] = useState("");
   const [topic, setTopic] = useState(() => getHashParam("topic"));
   const [verdict, setVerdict] = useState("");
+  const highlightId = useRef<string>(getHashParam("highlight"));
+  const didScroll = useRef(false);
 
   const params = new URLSearchParams();
   if (league) params.set("league", league);
@@ -62,6 +64,29 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
     }),
     refetchInterval: 60000,
   });
+
+  /* ── Highlight + scroll to a specific signal on deep-link ── */
+  useEffect(() => {
+    const id = highlightId.current;
+    if (!id || didScroll.current || isLoading) return;
+    // Give the DOM a tick to paint the feed
+    const tryScroll = () => {
+      const el = document.querySelector(`[data-testid="signal-card-${id}"]`) as HTMLElement | null;
+      if (!el) return;
+      didScroll.current = true;
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      // Flash-highlight: gold ring that fades out
+      el.style.transition = "box-shadow 0.3s ease, border-color 0.3s ease";
+      el.style.boxShadow = "0 0 0 2px #CAA85A, 0 0 24px rgba(202,168,90,0.35)";
+      el.style.borderLeftColor = "#CAA85A";
+      setTimeout(() => {
+        el.style.boxShadow = "";
+        el.style.borderLeftColor = "";
+      }, 2200);
+    };
+    const t = setTimeout(tryScroll, 120);
+    return () => clearTimeout(t);
+  }, [isLoading]);
 
   const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
