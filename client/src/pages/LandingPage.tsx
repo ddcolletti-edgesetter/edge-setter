@@ -1262,7 +1262,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           gap: 2,
         }}>
           {[
-            { n: "01", title: "Signal Ingestion", body: "Beat writers, beat podcasters, and team insiders monitored in real time across 12+ verified sources." },
+            { n: "01", title: "Signal Ingestion", body: "Beat writers, beat reporters, team insiders, and analytics services (incl. PFF) monitored in real time across 13+ verified sources." },
             { n: "02", title: "Confidence Scoring", body: "Each signal receives a 0–100 confidence score based on source reliability, corroboration, and timing." },
             { n: "03", title: "Verdict Assignment", body: "Signals are classified: Confirmed, Likely, Rumor, or Contradicted — with reasoning you can trust." },
             { n: "04", title: "Action Takeaway", body: "Every signal includes a concrete action step — what to do with this intelligence in your leagues." },

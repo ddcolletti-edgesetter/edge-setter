@@ -60,6 +60,13 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const feed = storage.getSignalFeed({ league, topic, verdict });
 
     // Helper: map Signal rows to SignalFeedItem shape
+    // Map signal_type to a friendly source label for the feed card
+    const signalTypeToSource = (st: string | null): string => {
+      if (!st) return "Edge Setter Intel";
+      if (st.toLowerCase().includes("pff")) return "Pro Football Focus";
+      return st;
+    };
+
     const mapSig = (s: any) => ({
       id: s.id,
       player: s.player_name ?? null,
@@ -72,7 +79,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       needs_human_review: 0,
       urgency_score: null,
       impact_score: null,
-      source_name: s.signal_type ?? "Edge Setter Intel",
+      source_name: signalTypeToSource(s.signal_type),
       trust_tier: "A",
       rationale: s.action_takeaway ?? null,
       event_id: null,

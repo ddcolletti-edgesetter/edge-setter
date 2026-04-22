@@ -196,6 +196,43 @@ export async function seedSignals() {
       is_featured: false,
       is_public: true,
     },
+    // ── PFF ANALYTICS ──────────────────────────────────────────────
+    {
+      id: "sig-d12",
+      title: "PFF grades Mendoza as highest-rated QB prospect in 6 years of college grading",
+      slug: "pff-mendoza-grade-2026",
+      player_name: "Fernando Mendoza",
+      team: "Indiana / LV Raiders",
+      topic: "draft_week",
+      signal_type: "PFF grade spike",
+      status_tag: "verified" as const,
+      confidence_score: 96,
+      source_count: 1,
+      verdict: "confirmed",
+      summary: "Pro Football Focus released their final 2026 pre-draft grading. Mendoza earned a 96.2 overall passing grade — the highest PFF has recorded for a college QB in their six-year grading history. His pressure-to-clean pocket differential (the gap between how he grades under pressure vs. in a clean pocket) is the smallest PFF has ever measured, indicating elite pocket processing rather than system dependence.",
+      action_takeaway: "Grade confirms the consensus: Mendoza is a generational prospect, not just a class leader. Max dynasty buy. DFS: locked as the first QB taken barring injury.",
+      published_at: ago(4),
+      is_featured: false,
+      is_public: true,
+    },
+    {
+      id: "sig-d13",
+      title: "PFF pressure metrics back Rueben Bain Jr. as the top EDGE off the board",
+      slug: "pff-bain-pressure-rate",
+      player_name: "Rueben Bain Jr.",
+      team: "Miami (FL) / ARI Cardinals",
+      topic: "draft_week",
+      signal_type: "PFF coverage / pressure metrics",
+      status_tag: "verified" as const,
+      confidence_score: 91,
+      source_count: 1,
+      verdict: "confirmed",
+      summary: "PFF's 2026 edge rusher rankings put Bain at 94.7 pass-rush grade — the top mark in the class. His 26.1% pressure rate led all FBS edge defenders last season. In PFF's scheme-fit model, Bain's burst/bend profile grades highest in wide-9 alignments (Cards' base front), which is why Arizona has not fielded serious trade-down calls despite interest.",
+      action_takeaway: "PFF data reinforces Bain staying at #3. Dynasty: buy the dip if ADP is inflated. DFS: Cardinals EDGE target for rookie showdowns.",
+      published_at: ago(5),
+      is_featured: false,
+      is_public: true,
+    },
     // ── GENERAL INTEL ─────────────────────────────────────────────
     {
       id: "sig-d11",
@@ -248,6 +285,20 @@ export async function seedSignals() {
       trust_score: 91,
       note: "Draft analysts unanimous: Mendoza #1 overall, Raiders on the clock Thursday night.",
     },
+    {
+      signal_id: "sig-d12",
+      source_name: "Pro Football Focus",
+      source_type: "analytics",
+      trust_score: 91,
+      note: "PFF 2026 pre-draft grades: Mendoza 96.2 overall — highest college QB grade in PFF history.",
+    },
+    {
+      signal_id: "sig-d13",
+      source_name: "Pro Football Focus",
+      source_type: "analytics",
+      trust_score: 91,
+      note: "PFF pass-rush grade 94.7, pressure rate 26.1% — best in FBS 2025. Scheme fit: wide-9 optimal.",
+    },
   ];
 
   for (const n of notes) {
@@ -256,5 +307,5 @@ export async function seedSignals() {
     } catch (e) {}
   }
 
-  console.log("[seed] 11 draft-week signals seeded");
+  console.log("[seed] 13 draft-week signals seeded (incl. 2 PFF analytics signals)");
 }

@@ -50,6 +50,47 @@ function TierBadge({ tier }: { tier: string | null }) {
   );
 }
 
+/* Source-type badge — distinguishes analytics services from beat reporters */
+function SourceTypeBadge({ sourceType, sourceName }: { sourceType?: string | null; sourceName?: string }) {
+  if (sourceType === "analytics") {
+    return (
+      <span
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          padding: "2px 7px", borderRadius: 3,
+          border: "1px solid rgba(202,168,90,0.30)",
+          background: "rgba(202,168,90,0.08)",
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+          textTransform: "uppercase", color: "#CAA85A",
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          whiteSpace: "nowrap",
+        }}
+      >
+        Analytics
+      </span>
+    );
+  }
+  if (sourceType === "analyst") {
+    return (
+      <span
+        style={{
+          display: "inline-flex", alignItems: "center",
+          padding: "2px 7px", borderRadius: 3,
+          border: "1px solid rgba(56,170,203,0.25)",
+          background: "rgba(56,170,203,0.07)",
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+          textTransform: "uppercase", color: "#38AACB",
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          whiteSpace: "nowrap",
+        }}
+      >
+        Analyst
+      </span>
+    );
+  }
+  return null;
+}
+
 export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
   const { data: scores, isLoading } = useQuery({
     queryKey: ["/api/leaderboard"],
@@ -217,7 +258,13 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
                         >
                           <td className="px-4 py-3 text-xs font-bold tabular-nums" style={{ color: C.ivorySub }}>{i + 1}</td>
                           <td className="px-4 py-3">
-                            <p className="font-semibold text-sm" style={{ color: C.ivoryPrimary }}>{s.source_name}</p>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                              <p className="font-semibold text-sm" style={{ color: C.ivoryPrimary, margin: 0 }}>{s.source_name}</p>
+                              <SourceTypeBadge sourceType={s.source_type} sourceName={s.source_name} />
+                            </div>
+                            {s.source_type === "analytics" && (
+                              <p style={{ fontSize: 10, color: C.ivoryMuted, marginTop: 2 }}>Grading · analytics service</p>
+                            )}
                           </td>
                           <td className="px-4 py-3 hidden sm:table-cell">
                             <TierBadge tier={s.trust_tier ?? null} />

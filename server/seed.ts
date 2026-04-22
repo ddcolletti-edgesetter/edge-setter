@@ -25,6 +25,7 @@ export async function seedDemoData() {
     { name: "Reddit r/nfl", source_type: "commentary", platform: "Reddit", url: "https://reddit.com/r/nfl", trust_tier: "tier4", reliability_score: "45", speed_score: "65" },
     { name: "OverTheCap", source_type: "analyst", platform: "OTC", url: "https://overthecap.com", trust_tier: "tier2", reliability_score: "91", speed_score: "70" },
     { name: "The Athletic NFL", source_type: "reporter", platform: "The Athletic", url: "https://theathletic.com", trust_tier: "tier1", reliability_score: "93", speed_score: "88" },
+    { name: "Pro Football Focus", source_type: "analytics", platform: "PFF", url: "https://www.pff.com", trust_tier: "tier2", reliability_score: "91", speed_score: "60" },
   ];
 
   const sourceIds: string[] = [];
@@ -120,6 +121,11 @@ export async function seedDemoData() {
       source_id: sourceIds[2], // Rapoport
       raw_text: "Depth Chart: Ravens WR room shake up — Odell Beckham Jr. moves to slot role after Nelson Agholor named starter.",
       player: "Odell Beckham Jr.", team: "Baltimore Ravens", league: "NFL", topic: "depth_chart"
+    },
+    {
+      source_id: sourceIds[12], // PFF
+      raw_text: "PFF Grade Report: Fernando Mendoza leads all 2026 draft-eligible QBs with a 96.2 passing grade. His pressure-to-clean pocket differential is the highest PFF has recorded in six years of college grading.",
+      player: "Fernando Mendoza", team: "Las Vegas Raiders", league: "NFL", topic: "draft"
     },
   ];
 

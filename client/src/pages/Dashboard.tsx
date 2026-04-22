@@ -464,9 +464,22 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
             {conf.toFixed(0)}<span style={{ fontSize: 14 }}>%</span>
           </div>
           <p className="data-label" style={{ marginTop: 2 }}>Conf.</p>
-          {item.source_name && (
-            <p style={{ fontSize: 11, color: "#7E776A", marginTop: 4, maxWidth: 88 }} className="truncate">{item.source_name}</p>
-          )}
+          {item.source_name && (() => {
+            const isPFF = item.source_name === "Pro Football Focus" || item.source_name === "PFF";
+            return isPFF ? (
+              <span style={{
+                display: "inline-block", marginTop: 5,
+                padding: "2px 6px", borderRadius: 3,
+                border: "1px solid rgba(202,168,90,0.35)",
+                background: "rgba(202,168,90,0.10)",
+                fontSize: 9, fontWeight: 700, letterSpacing: "0.13em",
+                textTransform: "uppercase", color: "#CAA85A",
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              }}>PFF</span>
+            ) : (
+              <p style={{ fontSize: 11, color: "#7E776A", marginTop: 4, maxWidth: 88 }} className="truncate">{item.source_name}</p>
+            );
+          })()}
         </div>
       </div>
     </div>

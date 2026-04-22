@@ -48,7 +48,7 @@ const PROSPECTS_2026: Prospect[] = [
     momentum: "stable",
     buzz: "Medical cleared",
     teamFitWatch: "LV Raiders — locked",
-    latestUpdate: "All medicals passed. Raiders confirmed as pick.",
+    latestUpdate: "All medicals passed. Raiders confirmed as pick. PFF grades Mendoza 96.2 — highest college QB grade in PFF history.",
   },
   {
     rank: 2, name: "Arvell Reese", pos: "EDGE", school: "Ohio State",
@@ -80,7 +80,7 @@ const PROSPECTS_2026: Prospect[] = [
     momentum: "stable",
     buzz: "Trade-down buzz",
     teamFitWatch: "ARI Cardinals — trade-down possible",
-    latestUpdate: "Cards taking calls to move down. Bain stays favored if pick holds.",
+    latestUpdate: "Cards taking calls to move down. Bain stays favored if pick holds. PFF: 94.7 pass-rush grade, 26.1% pressure rate — best in FBS.",
   },
   {
     rank: 4, name: "Jeremiyah Love", pos: "RB", school: "Notre Dame",

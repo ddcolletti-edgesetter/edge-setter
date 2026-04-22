@@ -241,7 +241,7 @@ export interface IStorage {
   getReviewQueue(): Verdict[];
   resolveReview(verdict_id: string): Verdict | undefined;
   // Source Scores
-  getSourceScores(): (SourceScore & { source_name: string })[];
+  getSourceScores(): (SourceScore & { source_name: string; trust_tier: string | null; source_type: string | null; source_url: string | null })[];
   getSourceScore(source_id: string): SourceScore | undefined;
   upsertSourceScore(data: InsertSourceScore): SourceScore;
   // Alerts
@@ -336,13 +336,19 @@ export class SqliteStorage implements IStorage {
       .returning().get();
   }
 
-  getSourceScores(): (SourceScore & { source_name: string; trust_tier: string | null })[] {
+  getSourceScores(): (SourceScore & { source_name: string; trust_tier: string | null; source_type: string | null; source_url: string | null })[] {
     const rows = db.select().from(source_scores)
       .orderBy(desc(source_scores.overall_accuracy))
       .all();
     return rows.map(r => {
       const src = this.getSource(r.source_id ?? "");
-      return { ...r, source_name: src?.name ?? "Unknown", trust_tier: src?.trust_tier ?? null };
+      return {
+        ...r,
+        source_name: src?.name ?? "Unknown",
+        trust_tier: src?.trust_tier ?? null,
+        source_type: src?.source_type ?? null,
+        source_url: src?.url ?? null,
+      };
     });
   }
   getSourceScore(source_id: string): SourceScore | undefined {
