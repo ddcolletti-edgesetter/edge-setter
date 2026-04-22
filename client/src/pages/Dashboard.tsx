@@ -4,6 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import AppLayout from "../components/AppLayout";
 import VerdictBadge from "../components/VerdictBadge";
 import TopicBadge from "../components/TopicBadge";
+import DataBadge from "../components/DataBadge";
 import { type Theme } from "../App";
 import { type SignalFeedItem } from "@shared/schema";
 import { RefreshCw, SlidersHorizontal, Clock } from "lucide-react";
@@ -13,6 +14,22 @@ interface Props { theme: Theme; toggleTheme: () => void; }
 const LEAGUES = ["", "NFL", "College"];
 const TOPICS = ["", "injury", "draft", "trade", "coaching", "transaction", "depth_chart", "general"];
 const VERDICTS = ["", "confirmed", "likely", "rumor", "contradicted", "review"];
+
+// Signals created on or after this date are considered "live 2026 data"
+const LIVE_CUTOFF_MS = new Date("2026-01-01T00:00:00Z").getTime();
+
+/** Returns true if a signal's created_at is within the 2026 season window. */
+function isLive2026(createdAt: string | null): boolean {
+  if (!createdAt) return false;
+  return new Date(createdAt).getTime() >= LIVE_CUTOFF_MS;
+}
+
+/** Strip raw DB metadata debug strings from rationale. */
+function cleanRationale(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  if (/^Tier:\s*tier\d/i.test(raw)) return null;
+  return raw;
+}
 
 export default function Dashboard({ theme, toggleTheme }: Props) {
   const [league, setLeague] = useState("");
@@ -41,33 +58,44 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
     refetchInterval: 30000,
   });
 
+  // Count live vs demo signals
+  const liveCount = feed?.filter(s => isLive2026(s.created_at)).length ?? 0;
+  const totalCount = feed?.length ?? 0;
+  const hasDemoSignals = totalCount > 0 && liveCount < totalCount;
+
   return (
     <AppLayout theme={theme} toggleTheme={toggleTheme}>
       <div className="p-4 sm:p-6 max-w-7xl mx-auto" data-testid="dashboard-page">
 
         {/* Header — briefing document */}
-        <div className="flex items-start justify-between gap-4 mb-5">
+        <div className="flex items-start justify-between gap-4 mb-4">
           <div>
             <p className="section-kicker">
               <span className="data-label" style={{ color: "hsl(194 56% 51%)" }}>Intelligence Feed</span>
             </p>
-            <h1
-              className="text-xl font-bold tracking-tight text-foreground mt-3"
-              style={{ fontFamily: "'Playfair Display', Georgia, serif", letterSpacing: "-0.02em" }}
-            >
-              Signal Board
-            </h1>
+            <div className="flex items-center gap-3 mt-2 flex-wrap">
+              <h1
+                className="text-xl font-bold tracking-tight text-foreground"
+                style={{ fontFamily: "'Playfair Display', Georgia, serif", letterSpacing: "-0.02em", margin: 0 }}
+              >
+                Live Signals — 2026 Offseason
+              </h1>
+              <DataBadge
+                type={liveCount > 0 ? "live" : "demo"}
+                label={liveCount > 0 ? `Live · ${liveCount} signal${liveCount !== 1 ? "s" : ""}` : "Demo Data"}
+              />
+            </div>
           </div>
           <div className="flex items-center gap-3 mt-1">
             {lastUpdated && (
-              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+              <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
                 <Clock size={10} />
-                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                Updated {lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </div>
             )}
             <button
               onClick={() => { refetch(); setLastUpdated(new Date()); }}
-              className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded border border-border hover:bg-muted"
+              className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded border border-border hover:bg-muted"
               data-testid="button-refresh-feed"
             >
               <RefreshCw size={11} />
@@ -78,76 +106,64 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
 
         <hr className="briefing-rule mb-4" />
 
-        {/* Data freshness indicator */}
+        {/* Data status bar */}
         <div
           style={{
-            display: "flex", alignItems: "center", gap: 8,
+            display: "flex", alignItems: "center", gap: 10,
             marginBottom: 20,
-            padding: "8px 14px",
-            background: "rgba(202,168,90,0.05)",
-            border: "1px solid rgba(202,168,90,0.14)",
+            padding: "9px 14px",
+            background: liveCount > 0 ? "rgba(61,174,114,0.05)" : "rgba(202,168,90,0.05)",
+            border: liveCount > 0 ? "1px solid rgba(61,174,114,0.18)" : "1px solid rgba(202,168,90,0.14)",
             borderRadius: 3,
+            flexWrap: "wrap",
+            gap: 10,
           }}
-          data-testid="demo-data-banner"
+          data-testid="data-status-bar"
         >
-          <span style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
-            textTransform: "uppercase",
-            color: "#CAA85A",
-            padding: "2px 6px",
-            background: "rgba(202,168,90,0.12)",
-            borderRadius: 2,
-            border: "1px solid rgba(202,168,90,0.28)",
-          }}>Demo Data</span>
-          <span style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, color: "#7E776A", letterSpacing: "0.06em",
-          }}>
-            Signals shown are sample intelligence. Live data posts when verified signals are published via the admin panel.
-          </span>
+          {liveCount > 0 ? (
+            <>
+              <DataBadge type="live" label="Live · 2026 Season" />
+              <span style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 12, color: "#7E776A", letterSpacing: "0.06em",
+              }}>
+                {liveCount} verified signal{liveCount !== 1 ? "s" : ""} from the 2026 NFL offseason.
+                {hasDemoSignals && ` ${totalCount - liveCount} older signal${totalCount - liveCount !== 1 ? "s" : ""} shown as archive reference.`}
+              </span>
+            </>
+          ) : (
+            <>
+              <DataBadge type="demo" />
+              <span style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 12, color: "#7E776A", letterSpacing: "0.06em",
+              }}>
+                Sample intelligence shown. Live 2026 signals post automatically when published via the admin panel.
+              </span>
+            </>
+          )}
         </div>
 
         {/* KPI strip — parchment inset cards with analytics accent numerals */}
         {stats && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-6" data-testid="stats-strip">
-            {/* Total Signals — amber */}
-            <StatCard
-              label="Total Signals"
-              value={stats.total_signals ?? 0}
-              accentColor="hsl(42 61% 57%)"
-            />
-            {/* Confirmed — cyan (trust/verified) */}
-            <StatCard
-              label="Confirmed"
-              value={stats.verdict_breakdown?.confirmed ?? 0}
-              accentColor="hsl(194 56% 58%)"
-            />
-            {/* Review Queue — magenta (alert) */}
-            <StatCard
-              label="Review Queue"
-              value={stats.review_queue ?? 0}
-              accentColor="hsl(330 42% 62%)"
-            />
-            {/* Sources — slate (neutral data) */}
-            <StatCard
-              label="Sources"
-              value={stats.sources_tracked ?? 0}
-              accentColor="hsl(34 52% 89%)"
-            />
+            <StatCard label="Total Signals" value={stats.total_signals ?? 0} accentColor="hsl(42 61% 57%)" />
+            <StatCard label="Confirmed" value={stats.verdict_breakdown?.confirmed ?? 0} accentColor="hsl(194 56% 58%)" />
+            <StatCard label="Review Queue" value={stats.review_queue ?? 0} accentColor="hsl(330 42% 62%)" />
+            <StatCard label="Sources" value={stats.sources_tracked ?? 0} accentColor="hsl(34 52% 89%)" />
           </div>
         )}
 
         {/* Filters — inline editorial toolbar */}
         <div className="flex flex-wrap items-center gap-2 mb-5 py-2.5 border-y border-border" data-testid="filter-bar">
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">
+          <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground uppercase tracking-widest font-semibold">
             <SlidersHorizontal size={10} />
             <span>Filter</span>
           </div>
           <select
             value={league}
             onChange={e => setLeague(e.target.value)}
-            className="text-[10px] uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+            className="text-[11px] uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
             data-testid="filter-league"
           >
             <option value="">All Leagues</option>
@@ -156,7 +172,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
           <select
             value={topic}
             onChange={e => setTopic(e.target.value)}
-            className="text-[10px] uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+            className="text-[11px] uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
             data-testid="filter-topic"
           >
             <option value="">All Topics</option>
@@ -165,7 +181,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
           <select
             value={verdict}
             onChange={e => setVerdict(e.target.value)}
-            className="text-[10px] uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+            className="text-[11px] uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded border border-border bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
             data-testid="filter-verdict"
           >
             <option value="">All Verdicts</option>
@@ -174,7 +190,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
           {(league || topic || verdict) && (
             <button
               onClick={() => { setLeague(""); setTopic(""); setVerdict(""); }}
-              className="text-[10px] uppercase tracking-widest font-semibold px-2.5 py-1.5 rounded text-muted-foreground hover:text-foreground border border-border hover:bg-muted"
+              className="text-[11px] uppercase tracking-widest font-semibold px-2.5 py-1.5 rounded text-muted-foreground hover:text-foreground border border-border hover:bg-muted"
               data-testid="button-clear-filters"
             >
               Clear
@@ -194,7 +210,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
         {!isLoading && (!feed || feed.length === 0) && (
           <div className="text-center py-16 border border-border rounded bg-card" data-testid="empty-state-feed">
             <p className="text-sm font-semibold text-foreground mb-1">No signals match your filters</p>
-            <p className="text-[11px] text-muted-foreground">Try clearing filters or refreshing the feed</p>
+            <p className="text-[12px] text-muted-foreground">Try clearing filters or refreshing the feed</p>
           </div>
         )}
 
@@ -236,14 +252,6 @@ function StatCard({ label, value, accentColor }: { label: string; value: number;
   );
 }
 
-/** Strip raw DB metadata debug strings from rationale. */
-function cleanRationale(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  // Suppress old-style debug rationale: "Tier: tierN, Support: N, Contradict: N, High-risk: bool"
-  if (/^Tier:\s*tier\d/i.test(raw)) return null;
-  return raw;
-}
-
 /* SignalCard — Film Ledger premium signal card */
 function SignalCard({ item }: { item: SignalFeedItem }) {
   const conf = parseFloat(item.confidence_score ?? "0");
@@ -252,18 +260,20 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
     conf >= 75 ? "#CAA85A" :
     "#B7AFA0";
 
+  const live = isLive2026(item.created_at);
+
   return (
     <div
       className="signal-card rounded"
       style={{
         background: "#16191E",
         border: "1px solid rgba(202,168,90,0.10)",
-        borderLeft: "3px solid rgba(202,168,90,0.35)",
+        borderLeft: `3px solid ${live ? "rgba(61,174,114,0.50)" : "rgba(202,168,90,0.35)"}`,
         padding: "18px 20px",
       }}
       data-testid={`signal-card-${item.id}`}
-      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = "#CAA85A"; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = "rgba(202,168,90,0.35)"; }}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = live ? "#3DAE72" : "#CAA85A"; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = live ? "rgba(61,174,114,0.50)" : "rgba(202,168,90,0.35)"; }}
     >
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <VerdictBadge verdict={item.verdict} />
@@ -280,8 +290,22 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
             {item.league}
           </span>
         )}
+        {/* Per-signal data status label */}
+        {live
+          ? <span style={{
+              display: "inline-flex", alignItems: "center", gap: 4,
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+              color: "#3DAE72",
+            }}><span className="live-dot" style={{ width: 5, height: 5, borderRadius: "50%", background: "#3DAE72", display: "inline-block" }} />Live · 2026</span>
+          : <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+              color: "#7E776A",
+            }}>Demo</span>
+        }
         <span style={{ fontSize: 12, color: "#7E776A", marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
-          {item.created_at ? new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+          {item.created_at ? new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
         </span>
       </div>
       <div className="flex items-start gap-4">
@@ -290,7 +314,7 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
             <p
               style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
                 textTransform: "uppercase", color: "#CAA85A",
                 marginBottom: 6,
               }}

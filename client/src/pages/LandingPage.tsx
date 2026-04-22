@@ -12,6 +12,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { type Theme } from "../App";
 import { Moon, ChevronRight, CheckCircle2, X, Menu, Activity } from "lucide-react";
+import DataBadge from "../components/DataBadge";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
@@ -706,7 +707,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       >
         {/* Left: copy */}
         <div style={{ maxWidth: 620 }}>
-          <Eyebrow>Premium NFL Intelligence</Eyebrow>
+          <Eyebrow>Premium NFL Intelligence · 2026 Season</Eyebrow>
 
           <h1
             className="display-serif"
@@ -736,9 +737,9 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             maxWidth: 520,
             marginBottom: 36,
           }}>
-            Real-time NFL signals with verified sources, confidence scoring,
-            and tactical context — built for serious fantasy players and analysts
-            who need actionable intelligence before the market moves.
+            Real-time 2026 NFL offseason signals — free agency moves, draft
+            intelligence, injury updates, and coaching changes — verified,
+            confidence-scored, and ready before the market moves.
           </p>
 
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
@@ -767,7 +768,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           }}>
             {[
               { val: "12+",    label: "Sources Tracked" },
-              { val: "Live",   label: "Signal Updates" },
+              { val: "2026",   label: "Active Season" },
               { val: "$19",    label: "Per Month Pro" },
             ].map(stat => (
               <div key={stat.label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
@@ -803,10 +804,106 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
         <GoldRule opacity={0.18} />
       </div>
 
+      {/* ══ WHAT'S LIVE NOW ══════════════════════════════════════════ */}
+      <section style={{ maxWidth: 1440, margin: "0 auto", padding: "64px 32px 56px" }}>
+        <Eyebrow>Platform Status · April 2026</Eyebrow>
+        <h2 style={{
+          fontSize: "clamp(1.375rem, 2vw, 1.875rem)",
+          color: T.text,
+          margin: "0 0 40px",
+          fontFamily: "'Playfair Display', Georgia, serif",
+        }}>
+          What's Live Now
+        </h2>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: 20,
+        }}>
+          {/* Card 1 — Signal Board */}
+          <Link href="/dashboard">
+            <div style={{
+              background: T.surface1,
+              border: `1px solid rgba(61,174,114,0.28)`,
+              borderTop: `3px solid #3DAE72`,
+              borderRadius: 6,
+              padding: "24px 28px",
+              cursor: "pointer",
+              transition: "border-color 0.2s, background 0.2s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = T.surface2; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = T.surface1; }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <DataBadge type="live" label="Live · 2026 Offseason" />
+                <ChevronRight size={14} style={{ color: T.textFaint }} />
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 600, color: T.text, marginBottom: 8, fontFamily: "'Playfair Display', Georgia, serif" }}>
+                Signal Board
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.55, color: T.textMuted }}>
+                Free agency moves, injury reports, depth chart changes, and draft intelligence — updated as signals break.
+              </div>
+            </div>
+          </Link>
+
+          {/* Card 2 — Draft Board */}
+          <Link href="/dashboard">
+            <div style={{
+              background: T.surface1,
+              border: `1px solid rgba(61,174,114,0.28)`,
+              borderTop: `3px solid #3DAE72`,
+              borderRadius: 6,
+              padding: "24px 28px",
+              cursor: "pointer",
+              transition: "border-color 0.2s, background 0.2s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = T.surface2; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = T.surface1; }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <DataBadge type="live" label="Live · 2026 Class" />
+                <ChevronRight size={14} style={{ color: T.textFaint }} />
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 600, color: T.text, marginBottom: 8, fontFamily: "'Playfair Display', Georgia, serif" }}>
+                Draft Board
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.55, color: T.textMuted }}>
+                2026 NFL Draft prospect rankings — Shedeur Sanders, Cam Ward, Travis Hunter, and the full class. Updated April 22, 2026.
+              </div>
+            </div>
+          </Link>
+
+          {/* Card 3 — Source Leaderboard */}
+          <Link href="/dashboard">
+            <div style={{
+              background: T.surface1,
+              border: `1px solid rgba(202,168,90,0.22)`,
+              borderTop: `3px solid rgba(202,168,90,0.55)`,
+              borderRadius: 6,
+              padding: "24px 28px",
+              cursor: "pointer",
+              transition: "border-color 0.2s, background 0.2s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = T.surface2; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = T.surface1; }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <DataBadge type="demo" label="Demo" />
+                <ChevronRight size={14} style={{ color: T.textFaint }} />
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 600, color: T.text, marginBottom: 8, fontFamily: "'Playfair Display', Georgia, serif" }}>
+                Source Leaderboard
+              </div>
+              <div style={{ fontSize: 14, lineHeight: 1.55, color: T.textMuted }}>
+                Analyst accuracy scoring by beat reporter, insider, and media outlet. Live source tracking coming with Pro launch.
+              </div>
+            </div>
+          </Link>
+        </div>
+      </section>
+
       {/* ══ INTELLIGENCE FEED ════════════════════════════════════════ */}
       {publicSignals.length > 0 && (
         <section style={{ maxWidth: 1440, margin: "0 auto", padding: "72px 32px 64px" }}>
-          <Eyebrow>Live Intelligence Feed</Eyebrow>
+          <Eyebrow>Live Intelligence Feed · 2026 Offseason</Eyebrow>
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 32, gap: 16 }}>
             <h2 style={{ fontSize: "clamp(1.375rem, 2vw, 1.875rem)", color: T.text, margin: 0 }}>
               Latest Signals
@@ -1157,7 +1254,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           flexWrap: "wrap", gap: 12,
         }}>
           <span style={{ fontSize: 13, color: T.textFaint }}>
-            © 2025 Edge Setter. All rights reserved.
+            © 2026 Edge Setter. All rights reserved.
           </span>
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
