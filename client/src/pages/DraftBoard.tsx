@@ -23,38 +23,162 @@ interface Prospect {
   trend: number[];
 }
 
+/* ── Static prospect data (module-level to avoid esbuild TDZ) ──────
+   Declared outside component so the const is fully initialized before
+   any function body runs — prevents minifier TDZ collisions.          */
+const ROUND_ORDER: Record<string, number> = {
+  "1st Round": 1, "1st–2nd Round": 2, "2nd Round": 3, "2nd–3rd Round": 4, "3rd Round": 5,
+};
+
+const PROSPECTS: Prospect[] = [
+  {
+    rank: 1, name: "Cam Ward", pos: "QB", school: "Miami (FL)",
+    projected: "1st Round", conf: 96, team: "Tennessee Titans",
+    trend: [91, 92, 93, 94, 94, 95, 96],
+    breakdown: [
+      { label: "Arm Talent", score: 97 },
+      { label: "Accuracy", score: 94 },
+      { label: "Mobility", score: 88 },
+      { label: "NFL Readiness", score: 95 },
+    ],
+    note: "Elite arm talent with rare touch and zip. Tennessee's clear franchise QB target. No significant combine red flags.",
+  },
+  {
+    rank: 2, name: "Travis Hunter", pos: "WR/CB", school: "Colorado",
+    projected: "1st Round", conf: 94, team: "Cleveland Browns",
+    trend: [96, 95, 95, 94, 93, 94, 94],
+    breakdown: [
+      { label: "Receiving", score: 96 },
+      { label: "Coverage", score: 91 },
+      { label: "Athleticism", score: 98 },
+      { label: "NFL Readiness", score: 90 },
+    ],
+    note: "Two-way generational talent. Heisman winner. Cleveland values the WR role primarily; CB is a bonus weapon.",
+  },
+  {
+    rank: 3, name: "Abdul Carter", pos: "EDGE", school: "Penn State",
+    projected: "1st Round", conf: 91, team: "NY Giants",
+    trend: [87, 88, 89, 90, 90, 91, 91],
+    breakdown: [
+      { label: "Pass Rush", score: 95 },
+      { label: "Run Defense", score: 86 },
+      { label: "Athleticism", score: 93 },
+      { label: "NFL Readiness", score: 89 },
+    ],
+    note: "Explosive first step and elite bend. Giants desperately need edge presence; Carter fills immediately.",
+  },
+  {
+    rank: 4, name: "Will Johnson", pos: "CB", school: "Michigan",
+    projected: "1st Round", conf: 88, team: "New England Patriots",
+    trend: [90, 90, 89, 88, 89, 88, 88],
+    breakdown: [
+      { label: "Coverage", score: 92 },
+      { label: "Tackling", score: 87 },
+      { label: "Ball Skills", score: 90 },
+      { label: "NFL Readiness", score: 85 },
+    ],
+    note: "Long, physical corner with elite press coverage. New England rebuilding secondary around him.",
+  },
+  {
+    rank: 5, name: "Ashton Jeanty", pos: "RB", school: "Boise State",
+    projected: "1st Round", conf: 85, team: "Jacksonville Jaguars",
+    trend: [82, 83, 85, 86, 85, 85, 85],
+    breakdown: [
+      { label: "Explosiveness", score: 96 },
+      { label: "Vision", score: 89 },
+      { label: "Pass Pro", score: 78 },
+      { label: "NFL Readiness", score: 84 },
+    ],
+    note: "Heisman runner-up. Historic production at Boise State. Jacksonville needs a backfield centerpiece.",
+  },
+  {
+    rank: 6, name: "Mason Graham", pos: "DT", school: "Michigan",
+    projected: "1st Round", conf: 83, team: "Las Vegas Raiders",
+    trend: [86, 85, 84, 83, 84, 83, 83],
+    breakdown: [
+      { label: "Pass Rush", score: 87 },
+      { label: "Run Stop", score: 92 },
+      { label: "Leverage", score: 90 },
+      { label: "NFL Readiness", score: 83 },
+    ],
+    note: "Dominant interior anchor. Run-stopping specialist who flashes pass rush upside on 3-tech snaps.",
+  },
+  {
+    rank: 7, name: "Tetairoa McMillan", pos: "WR", school: "Arizona",
+    projected: "1st Round", conf: 81, team: "Carolina Panthers",
+    trend: [78, 79, 80, 81, 80, 81, 81],
+    breakdown: [
+      { label: "Route Running", score: 85 },
+      { label: "Catch Radius", score: 94 },
+      { label: "YAC", score: 80 },
+      { label: "NFL Readiness", score: 80 },
+    ],
+    note: "6'5\" contested-catch specialist. Carolina needs a true X receiver to build their passing game around.",
+  },
+  {
+    rank: 8, name: "Kelvin Banks Jr.", pos: "OT", school: "Texas",
+    projected: "1st Round", conf: 79, team: "New York Giants",
+    trend: [83, 82, 81, 80, 80, 79, 79],
+    breakdown: [
+      { label: "Pass Block", score: 88 },
+      { label: "Run Block", score: 82 },
+      { label: "Footwork", score: 86 },
+      { label: "NFL Readiness", score: 80 },
+    ],
+    note: "Elite pass protector with three-year starting pedigree. Anchors left side immediately at NFL level.",
+  },
+  {
+    rank: 9, name: "Jalon Walker", pos: "LB", school: "Georgia",
+    projected: "1st\u20132nd Round", conf: 74, team: "Atlanta Falcons",
+    trend: [71, 72, 73, 73, 74, 74, 74],
+    breakdown: [
+      { label: "Coverage", score: 82 },
+      { label: "Run Stop", score: 79 },
+      { label: "Pass Rush", score: 76 },
+      { label: "NFL Readiness", score: 74 },
+    ],
+    note: "Versatile chess piece linebacker. Atlanta values his coverage ability in modern 2-high shell schemes.",
+  },
+  {
+    rank: 10, name: "Jihaad Campbell", pos: "LB", school: "Alabama",
+    projected: "1st\u20132nd Round", conf: 72, team: "Philadelphia Eagles",
+    trend: [76, 75, 74, 73, 72, 72, 72],
+    breakdown: [
+      { label: "Coverage", score: 78 },
+      { label: "Run Stop", score: 80 },
+      { label: "Blitz", score: 82 },
+      { label: "NFL Readiness", score: 72 },
+    ],
+    note: "High-motor off-ball linebacker with blitz upside. Eagles' defensive scheme maximizes his versatility.",
+  },
+];
+
+const AVAILABLE_POS = ["ALL", ...Array.from(new Set(PROSPECTS.map(p => p.pos)))];
+
 /* ── Sparkline ──────────────────────────────────────────────────────
    Pure SVG inline sparkline. W×H canvas, no deps.
    Color: green if last > first, red if down, gold if flat (±1).    */
+function buildSparkPath(data: number[], width: number, height: number): { linePath: string; areaPath: string; lastPt: number[]; strokeColor: string } {
+  const vMin = Math.min(...data) - 2;
+  const vMax = Math.max(...data) + 2;
+  const vRange = vMax - vMin || 1;
+  const vStep = width / (data.length - 1);
+  const coords: number[][] = data.map((v, i) => [i * vStep, height - ((v - vMin) / vRange) * height]);
+  const linePath = coords.map((pt, i) => `${i === 0 ? "M" : "L"}${pt[0].toFixed(1)},${pt[1].toFixed(1)}`).join(" ");
+  const areaPath = linePath + ` L${(data.length - 1) * vStep},${height} L0,${height} Z`;
+  const vDelta = data[data.length - 1] - data[0];
+  const strokeColor = vDelta > 1 ? "#3DAE72" : vDelta < -1 ? "#C04040" : "#C9A84C";
+  return { linePath, areaPath, lastPt: coords[coords.length - 1], strokeColor };
+}
+
 function Sparkline({ data, width = 64, height = 24 }: { data: number[]; width?: number; height?: number }) {
   if (data.length < 2) return null;
-  const min = Math.min(...data) - 2;
-  const max = Math.max(...data) + 2;
-  const range = max - min || 1;
-  const step = width / (data.length - 1);
-
-  const pts = data.map((v, i) => [
-    i * step,
-    height - ((v - min) / range) * height,
-  ]);
-
-  const d = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-
-  // Area fill path (close below)
-  const area = d + ` L${(data.length - 1) * step},${height} L0,${height} Z`;
-
-  const delta = data[data.length - 1] - data[0];
-  const color = delta > 1 ? "#3DAE72" : delta < -1 ? "#C04040" : "#C9A84C";
-  const [lastX, lastY] = pts[pts.length - 1];
-
+  const sp = buildSparkPath(data, width, height);
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block", overflow: "visible" }}>
-      {/* Area fill */}
-      <path d={area} fill={color} fillOpacity={0.12} />
-      {/* Line */}
-      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-      {/* Terminal dot */}
-      <circle cx={lastX} cy={lastY} r={2} fill={color} />
+      <path d={sp.areaPath} fill={sp.strokeColor} fillOpacity={0.12} />
+      <path d={sp.linePath} fill="none" stroke={sp.strokeColor} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      <circle cx={sp.lastPt[0]} cy={sp.lastPt[1]} r={2} fill={sp.strokeColor} />
     </svg>
   );
 }
@@ -77,15 +201,8 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     setExpandedRank(null); // collapse on re-sort
   };
 
-  // Round order for sorting projected round
-  const roundOrder: Record<string, number> = {
-    "1st Round": 1, "1st–2nd Round": 2, "2nd Round": 3, "2nd–3rd Round": 4, "3rd Round": 5,
-  };
-
-  const availablePos = ["ALL", ...Array.from(new Set(prospects.map(p => p.pos)))];
-
   const sortedProspects = useMemo(() => {
-    let list = [...prospects];
+    let list = [...PROSPECTS];
     if (posFilter !== "ALL") list = list.filter(p => p.pos === posFilter);
     list.sort((a, b) => {
       let cmp = 0;
@@ -93,8 +210,8 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
       else if (sortKey === "conf") cmp = a.conf - b.conf;
       else if (sortKey === "pos")  cmp = a.pos.localeCompare(b.pos);
       else if (sortKey === "projected") {
-        const ao = roundOrder[a.projected] ?? 9;
-        const bo = roundOrder[b.projected] ?? 9;
+        const ao = ROUND_ORDER[a.projected] ?? 9;
+        const bo = ROUND_ORDER[b.projected] ?? 9;
         cmp = ao - bo;
       }
       return sortDir === "asc" ? cmp : -cmp;
@@ -115,129 +232,6 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
   });
 
   const items = draftItems ?? [];
-
-  const prospects: Prospect[] = [
-    {
-      rank: 1, name: "Cam Ward", pos: "QB", school: "Miami (FL)",
-      projected: "1st Round", conf: 96, team: "Tennessee Titans",
-      trend: [91, 92, 93, 94, 94, 95, 96],
-      breakdown: [
-        { label: "Arm Talent", score: 97 },
-        { label: "Accuracy", score: 94 },
-        { label: "Mobility", score: 88 },
-        { label: "NFL Readiness", score: 95 },
-      ],
-      note: "Elite arm talent with rare touch and zip. Tennessee's clear franchise QB target. No significant combine red flags.",
-    },
-    {
-      rank: 2, name: "Travis Hunter", pos: "WR/CB", school: "Colorado",
-      projected: "1st Round", conf: 94, team: "Cleveland Browns",
-      trend: [96, 95, 95, 94, 93, 94, 94],
-      breakdown: [
-        { label: "Receiving", score: 96 },
-        { label: "Coverage", score: 91 },
-        { label: "Athleticism", score: 98 },
-        { label: "NFL Readiness", score: 90 },
-      ],
-      note: "Two-way generational talent. Heisman winner. Cleveland values the WR role primarily; CB is a bonus weapon.",
-    },
-    {
-      rank: 3, name: "Abdul Carter", pos: "EDGE", school: "Penn State",
-      projected: "1st Round", conf: 91, team: "NY Giants",
-      trend: [87, 88, 89, 90, 90, 91, 91],
-      breakdown: [
-        { label: "Pass Rush", score: 95 },
-        { label: "Run Defense", score: 86 },
-        { label: "Athleticism", score: 93 },
-        { label: "NFL Readiness", score: 89 },
-      ],
-      note: "Explosive first step and elite bend. Giants desperately need edge presence; Carter fills immediately.",
-    },
-    {
-      rank: 4, name: "Will Johnson", pos: "CB", school: "Michigan",
-      projected: "1st Round", conf: 88, team: "New England Patriots",
-      trend: [90, 90, 89, 88, 89, 88, 88],
-      breakdown: [
-        { label: "Coverage", score: 92 },
-        { label: "Tackling", score: 87 },
-        { label: "Ball Skills", score: 90 },
-        { label: "NFL Readiness", score: 85 },
-      ],
-      note: "Long, physical corner with elite press coverage. New England rebuilding secondary around him.",
-    },
-    {
-      rank: 5, name: "Ashton Jeanty", pos: "RB", school: "Boise State",
-      projected: "1st Round", conf: 85, team: "Jacksonville Jaguars",
-      trend: [82, 83, 85, 86, 85, 85, 85],
-      breakdown: [
-        { label: "Explosiveness", score: 96 },
-        { label: "Vision", score: 89 },
-        { label: "Pass Pro", score: 78 },
-        { label: "NFL Readiness", score: 84 },
-      ],
-      note: "Heisman runner-up. Historic production at Boise State. Jacksonville needs a backfield centerpiece.",
-    },
-    {
-      rank: 6, name: "Mason Graham", pos: "DT", school: "Michigan",
-      projected: "1st Round", conf: 83, team: "Las Vegas Raiders",
-      trend: [86, 85, 84, 83, 84, 83, 83],
-      breakdown: [
-        { label: "Pass Rush", score: 87 },
-        { label: "Run Stop", score: 92 },
-        { label: "Leverage", score: 90 },
-        { label: "NFL Readiness", score: 83 },
-      ],
-      note: "Dominant interior anchor. Run-stopping specialist who flashes pass rush upside on 3-tech snaps.",
-    },
-    {
-      rank: 7, name: "Tetairoa McMillan", pos: "WR", school: "Arizona",
-      projected: "1st Round", conf: 81, team: "Carolina Panthers",
-      trend: [78, 79, 80, 81, 80, 81, 81],
-      breakdown: [
-        { label: "Route Running", score: 85 },
-        { label: "Catch Radius", score: 94 },
-        { label: "YAC", score: 80 },
-        { label: "NFL Readiness", score: 80 },
-      ],
-      note: "6'5\" contested-catch specialist. Carolina needs a true X receiver to build their passing game around.",
-    },
-    {
-      rank: 8, name: "Kelvin Banks Jr.", pos: "OT", school: "Texas",
-      projected: "1st Round", conf: 79, team: "New York Giants",
-      trend: [83, 82, 81, 80, 80, 79, 79],
-      breakdown: [
-        { label: "Pass Block", score: 88 },
-        { label: "Run Block", score: 82 },
-        { label: "Footwork", score: 86 },
-        { label: "NFL Readiness", score: 80 },
-      ],
-      note: "Elite pass protector with three-year starting pedigree. Anchors left side immediately at NFL level.",
-    },
-    {
-      rank: 9, name: "Jalon Walker", pos: "LB", school: "Georgia",
-      projected: "1st–2nd Round", conf: 74, team: "Atlanta Falcons",
-      trend: [71, 72, 73, 73, 74, 74, 74],
-      breakdown: [
-        { label: "Coverage", score: 82 },
-        { label: "Run Stop", score: 79 },
-        { label: "Pass Rush", score: 76 },
-        { label: "NFL Readiness", score: 74 },
-      ],
-      note: "Versatile chess piece linebacker. Atlanta values his coverage ability in modern 2-high shell schemes.",
-    },
-    {
-      rank: 10, name: "Jihaad Campbell", pos: "LB", school: "Alabama",
-      projected: "1st–2nd Round", conf: 72, team: "Philadelphia Eagles",
-      trend: [76, 75, 74, 73, 72, 72, 72],
-      breakdown: [
-        { label: "Coverage", score: 78 },
-        { label: "Run Stop", score: 80 },
-        { label: "Blitz", score: 82 },
-        { label: "NFL Readiness", score: 72 },
-      ],
-      note: "High-motor off-ball linebacker with blitz upside. Eagles' defensive scheme maximizes his versatility.",
-    },
-  ];
 
   const confColor = (c: number) =>
     c >= 90 ? "text-[hsl(146,42%,52%)]" : c >= 80 ? "text-primary" : "text-muted-foreground";
@@ -292,7 +286,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
             </h2>
             {/* Position filter pills */}
             <div className="flex items-center gap-1 flex-wrap justify-end">
-              {availablePos.map(pos => (
+              {AVAILABLE_POS.map(pos => (
                 <button
                   key={pos}
                   onClick={() => { setPosFilter(pos); setExpandedRank(null); }}
