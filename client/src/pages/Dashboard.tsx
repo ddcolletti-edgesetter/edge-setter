@@ -9,10 +9,21 @@ import { type Theme } from "../App";
 import { type SignalFeedItem } from "@shared/schema";
 import { RefreshCw, SlidersHorizontal, Clock } from "lucide-react";
 
+/** Parse a query param from the hash fragment, e.g. #/dashboard?topic=free_agency */
+function getHashParam(key: string): string {
+  try {
+    const hash = window.location.hash; // e.g. "#/dashboard?topic=free_agency"
+    const qIdx = hash.indexOf("?");
+    if (qIdx === -1) return "";
+    const search = hash.slice(qIdx + 1);
+    return new URLSearchParams(search).get(key) ?? "";
+  } catch { return ""; }
+}
+
 interface Props { theme: Theme; toggleTheme: () => void; }
 
 const LEAGUES = ["", "NFL", "College"];
-const TOPICS = ["", "injury", "draft", "trade", "coaching", "transaction", "depth_chart", "general"];
+const TOPICS = ["", "free_agency", "injury", "draft", "trade", "coaching", "transaction", "depth_chart", "general"];
 const VERDICTS = ["", "confirmed", "likely", "rumor", "contradicted", "review"];
 
 // Signals created on or after this date are considered "live 2026 data"
@@ -33,7 +44,7 @@ function cleanRationale(raw: string | null | undefined): string | null {
 
 export default function Dashboard({ theme, toggleTheme }: Props) {
   const [league, setLeague] = useState("");
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(() => getHashParam("topic"));
   const [verdict, setVerdict] = useState("");
 
   const params = new URLSearchParams();
@@ -176,7 +187,11 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
             data-testid="filter-topic"
           >
             <option value="">All Topics</option>
-            {TOPICS.filter(Boolean).map(t => <option key={t} value={t}>{t.replace(/_/g, " ")}</option>)}
+            {TOPICS.filter(Boolean).map(t => (
+              <option key={t} value={t}>
+                {t === "free_agency" ? "Free Agency" : t.replace(/_/g, " ")}
+              </option>
+            ))}
           </select>
           <select
             value={verdict}

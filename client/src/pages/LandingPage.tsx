@@ -131,7 +131,7 @@ function ChalkField() {
 
 function LandingLogo() {
   return (
-    <svg width="36" height="36" viewBox="0 0 32 32" fill="none" aria-label="Edge Setter">
+    <svg width="42" height="42" viewBox="0 0 32 32" fill="none" aria-label="Edge Setter">
       <rect width="32" height="32" rx="3" fill="#111317" />
       <rect x="6" y="7" width="20" height="2.5" rx="0.5" fill="#CAA85A" />
       <rect x="6" y="14.75" width="13" height="2.5" rx="0.5" fill="#CAA85A" />
@@ -172,12 +172,21 @@ function FeaturedCard({ signal }: { signal: any }) {
         display: "flex", alignItems: "center", justifyContent: "space-between",
         background: T.surface2,
       }}>
-        <div style={{
-          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          fontSize: 11, fontWeight: 700, letterSpacing: "0.18em",
-          textTransform: "uppercase", color: T.textFaint,
-        }}>
-          Live Signal Preview
+        <div>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.18em",
+            textTransform: "uppercase", color: T.gold,
+          }}>
+            Today's Top Signal
+          </div>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, letterSpacing: "0.06em",
+            color: T.textFaint, marginTop: 2,
+          }}>
+            The highest-confidence intel in today's feed
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <span className="live-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block" }} />
@@ -261,6 +270,26 @@ function FeaturedCard({ signal }: { signal: any }) {
             fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
             textTransform: "uppercase", color: T.textFaint,
           }}>DEMO DATA</div>
+        </div>
+        {/* View in Signal Board link */}
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(202,168,90,0.10)" }}>
+          <Link href="/dashboard">
+            <div style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.16em",
+              textTransform: "uppercase", color: T.gold,
+              cursor: "pointer",
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = T.goldBright; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = T.gold; }}>
+              View in Signal Board
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M1 5h8M6 2l3 3-3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          </Link>
         </div>
       </div>
     </div>
@@ -554,14 +583,14 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             <div>
               <div style={{
                 fontFamily: "'Playfair Display', Georgia, serif",
-                fontWeight: 700, fontSize: 17,
+                fontWeight: 700, fontSize: 20,
                 color: T.text, letterSpacing: "-0.01em",
               }}>
                 Edge Setter
               </div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 9, fontWeight: 700, letterSpacing: "0.20em",
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.20em",
                 textTransform: "uppercase", color: T.textFaint,
               }}>
                 NFL Intelligence
@@ -869,6 +898,21 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               <div style={{ fontSize: 14, lineHeight: 1.55, color: T.textMuted }}>
                 Free agency moves, injury reports, depth chart changes, and draft intelligence — updated as signals break.
               </div>
+              {/* Free Agency first-class callout */}
+              <div style={{
+                marginTop: 14,
+                display: "inline-flex", alignItems: "center", gap: 6,
+                background: "rgba(202,168,90,0.10)",
+                border: "1px solid rgba(202,168,90,0.22)",
+                borderRadius: 3, padding: "4px 10px",
+              }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.gold, display: "inline-block", flexShrink: 0 }} />
+                <span style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                  textTransform: "uppercase", color: T.gold,
+                }}>Free Agency · Active Now</span>
+              </div>
             </div>
           </Link>
 
@@ -923,6 +967,62 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               </div>
             </div>
           </Link>
+        </div>
+      </section>
+
+      {/* ══ KEY TOPICS STRIP ═════════════════════════════════════════ */}
+      <section style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px 56px" }}>
+        <div style={{
+          background: T.surface1,
+          border: `1px solid rgba(202,168,90,0.14)`,
+          borderRadius: 6,
+          padding: "22px 28px",
+          display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12,
+        }}>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.20em",
+            textTransform: "uppercase", color: T.textFaint,
+            marginRight: 8, flexShrink: 0,
+          }}>Jump To</div>
+          {[
+            { label: "Free Agency",        topic: "free_agency",  hot: true  },
+            { label: "Injuries",           topic: "injury",       hot: false },
+            { label: "Depth Chart Moves",  topic: "depth_chart",  hot: false },
+            { label: "Draft Intelligence", topic: "draft",        hot: false },
+            { label: "Trades",             topic: "trade",        hot: false },
+            { label: "Coaching",           topic: "coaching",     hot: false },
+          ].map(({ label, topic, hot }) => (
+            <a
+              key={topic}
+              href={`#/dashboard?topic=${topic}`}
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                background: hot ? "rgba(202,168,90,0.12)" : "rgba(255,255,255,0.04)",
+                border: hot ? "1px solid rgba(202,168,90,0.35)" : "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 3,
+                padding: "6px 14px",
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.13em",
+                textTransform: "uppercase",
+                color: hot ? T.gold : T.textMuted,
+                textDecoration: "none",
+                cursor: "pointer",
+                transition: "background 0.15s, color 0.15s, border-color 0.15s",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLAnchorElement).style.background = hot ? "rgba(202,168,90,0.20)" : "rgba(255,255,255,0.08)";
+                (e.currentTarget as HTMLAnchorElement).style.color = hot ? T.goldBright : T.text;
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLAnchorElement).style.background = hot ? "rgba(202,168,90,0.12)" : "rgba(255,255,255,0.04)";
+                (e.currentTarget as HTMLAnchorElement).style.color = hot ? T.gold : T.textMuted;
+              }}
+            >
+              {hot && <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.gold, display: "inline-block", flexShrink: 0 }} />}
+              {label}
+            </a>
+          ))}
         </div>
       </section>
 
