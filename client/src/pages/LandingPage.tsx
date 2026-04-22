@@ -84,48 +84,167 @@ function VerdictPill({ type }: { type: string }) {
   );
 }
 
-/* ── Chalk football field SVG (background decoration) ── */
+/* ── Chalk field + route diagram (hero background) ── */
 function ChalkField() {
-  const s  = "rgba(255,255,255,0.18)";
-  const yl = "rgba(255,255,255,0.14)";
-  const mid = "rgba(255,255,255,0.26)";
-  const h  = "rgba(255,255,255,0.11)";
-  const ez = "rgba(255,255,255,0.06)";
-  const FL = 60, FR = 740, FT = 16, FB = 340;
+  // Field geometry — top half visible, fades into dark bg
+  const W = 1200, H = 420;
+  // Yard lines: left EZ edge at x=80, right at x=1120, 10 even sections
+  const EZW = 104;                   // end-zone width
+  const FL = 80,  FR = 1120;         // outer sideline x coords
+  const FT = 20,  FB = 400;          // top / bottom sideline y
   const FH = FB - FT;
-  const EZW = 68;
-  const EL = FL + EZW;
-  const ER = FR - EZW;
-  const H1 = FT + FH * 0.185;
-  const H2 = FT + FH * 0.815;
-  const HW = 7;
-  const tenYardLines = [1,2,3,4,5,6,7,8,9].map(i => EL + i * EZW);
+  const EL = FL + EZW;               // left EZ / 10-yd line
+  const ER = FR - EZW;               // right EZ / 10-yd line
+  const playW = ER - EL;             // 100-yard playing field width
+  const YD = playW / 10;             // pixels per 10 yards
+
+  // Hash marks — high & low row
+  const HT = FT + FH * 0.36;        // upper hash y
+  const HB = FT + FH * 0.64;        // lower hash y
+  const HH = 8;                      // hash half-height
+
+  // 10-yard lines (9 internal)
+  const ydLines = Array.from({ length: 9 }, (_, i) => EL + YD * (i + 1));
+
+  // 5-yard hash rows (between each 10-yd line)
+  const fiveYdX = Array.from({ length: 19 }, (_, i) => EL + (YD / 2) * i);
+
+  // Stroke colours — pure white at very low alpha on dark bg
+  const outer  = "rgba(255,255,255,0.15)";   // sideline / boundary
+  const tenYd  = "rgba(255,255,255,0.10)";   // 10-yd interior lines
+  const midLine = "rgba(255,255,255,0.18)";  // 50-yd (centre)
+  const fiveYd = "rgba(255,255,255,0.055)";  // 5-yd lines (very subtle)
+  const hashC  = "rgba(255,255,255,0.09)";   // hash marks
+  const ezFill = "rgba(255,255,255,0.018)";  // end-zone subtle tint
+  const routeC = "rgba(202,168,90,0.22)";    // gold route lines
+
   return (
     <svg
-      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
-      viewBox="0 0 800 356" preserveAspectRatio="xMidYMid slice" fill="none"
+      aria-hidden="true"
+      style={{
+        position: "absolute", inset: 0,
+        width: "100%", height: "100%",
+        pointerEvents: "none",
+        // Fade out bottom third so field blends with section below
+        maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 60%, transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 60%, transparent 100%)",
+      }}
+      viewBox={`0 0 ${W} ${H}`}
+      preserveAspectRatio="xMidYMin slice"
+      fill="none"
     >
-      <rect x={FL} y={FT} width={EZW} height={FH} fill={ez} />
-      <rect x={ER}  y={FT} width={EZW} height={FH} fill={ez} />
-      <rect x={FL} y={FT} width={FR - FL} height={FH} stroke={s} strokeWidth="1.5" />
-      <line x1={EL} y1={FT} x2={EL} y2={FB} stroke={s} strokeWidth="1.4" />
-      <line x1={ER} y1={FT} x2={ER} y2={FB} stroke={s} strokeWidth="1.4" />
-      {tenYardLines.map((x, i) => (
-        <line key={i} x1={x} y1={FT} x2={x} y2={FB}
-          stroke={i === 4 ? mid : yl} strokeWidth={i === 4 ? "1.8" : "0.9"} />
+      {/* End zones — subtle tint */}
+      <rect x={FL} y={FT} width={EZW} height={FH} fill={ezFill} />
+      <rect x={ER}  y={FT} width={EZW} height={FH} fill={ezFill} />
+
+      {/* Outer boundary */}
+      <rect x={FL} y={FT} width={FR - FL} height={FH} stroke={outer} strokeWidth="1.5" />
+
+      {/* EZ inner lines */}
+      <line x1={EL} y1={FT} x2={EL} y2={FB} stroke={outer} strokeWidth="1.2" />
+      <line x1={ER} y1={FT} x2={ER} y2={FB} stroke={outer} strokeWidth="1.2" />
+
+      {/* 5-yard lines — very faint */}
+      {fiveYdX.map((x, i) => (
+        <line key={`5yd-${i}`} x1={x} y1={FT} x2={x} y2={FB}
+          stroke={fiveYd} strokeWidth="0.8" />
       ))}
-      {tenYardLines.map((x, i) => (
-        <line key={`ht${i}`} x1={x} y1={H1 - HW/2} x2={x} y2={H1 + HW/2} stroke={h} strokeWidth="1.2" />
+
+      {/* 10-yard lines */}
+      {ydLines.map((x, i) => (
+        <line key={`10yd-${i}`} x1={x} y1={FT} x2={x} y2={FB}
+          stroke={i === 4 ? midLine : tenYd}
+          strokeWidth={i === 4 ? "1.6" : "1.0"} />
       ))}
-      {tenYardLines.map((x, i) => (
-        <line key={`hb${i}`} x1={x} y1={H2 - HW/2} x2={x} y2={H2 + HW/2} stroke={h} strokeWidth="1.2" />
+
+      {/* Hash marks — upper row */}
+      {fiveYdX.map((x, i) => (
+        <line key={`hu-${i}`} x1={x} y1={HT - HH} x2={x} y2={HT + HH}
+          stroke={hashC} strokeWidth="1.0" />
       ))}
-      {/* Play routes */}
-      <path d="M 200 178 Q 280 118 362 148" stroke="rgba(202,168,90,0.18)" strokeWidth="1.4" strokeDasharray="7 5" />
-      <path d="M 362 148 L 374 138" stroke="rgba(202,168,90,0.18)" strokeWidth="1.4" />
-      <path d="M 600 178 Q 520 238 444 210" stroke="rgba(202,168,90,0.18)" strokeWidth="1.4" strokeDasharray="7 5" />
-      <path d="M 444 210 L 436 222" stroke="rgba(202,168,90,0.18)" strokeWidth="1.4" />
+      {/* Hash marks — lower row */}
+      {fiveYdX.map((x, i) => (
+        <line key={`hd-${i}`} x1={x} y1={HB - HH} x2={x} y2={HB + HH}
+          stroke={hashC} strokeWidth="1.0" />
+      ))}
+
+      {/* ── Play routes — gold dashes with arrowheads ── */}
+
+      {/* Route 1: curl left — WR breaks toward sideline */}
+      <path d={`M ${EL + YD*0.6} ${HT + 20} C ${EL + YD*1.1} ${HT - 40}, ${EL + YD*1.6} ${HT - 50}, ${EL + YD*1.5} ${HT + 15}`}
+        stroke={routeC} strokeWidth="1.6" strokeDasharray="9 6" />
+      <polygon
+        points={`${EL + YD*1.5} ${HT + 15}, ${EL + YD*1.38} ${HT + 4}, ${EL + YD*1.62} ${HT + 3}`}
+        fill={routeC} />
+
+      {/* Route 2: post route — diagonal to middle */}
+      <path d={`M ${EL + YD*1.8} ${HB - 18} L ${EL + YD*1.8} ${HB - 18} Q ${EL + YD*2.4} ${HB - 60} ${EL + YD*3.0} ${FT + FH*0.3}`}
+        stroke={routeC} strokeWidth="1.6" strokeDasharray="9 6" />
+      <polygon
+        points={`${EL + YD*3.0} ${FT + FH*0.3}, ${EL + YD*2.88} ${FT + FH*0.34}, ${EL + YD*3.04} ${FT + FH*0.44}`}
+        fill={routeC} />
+
+      {/* Route 3: fly / go — vertical streak */}
+      <path d={`M ${EL + YD*3.4} ${HT + 30} L ${EL + YD*3.4} ${FT + 30}`}
+        stroke={routeC} strokeWidth="1.6" strokeDasharray="9 6" />
+      <polygon
+        points={`${EL + YD*3.4} ${FT + 30}, ${EL + YD*3.28} ${FT + 46}, ${EL + YD*3.52} ${FT + 46}`}
+        fill={routeC} />
+
+      {/* Route 4: crossing — horizontal slash right */}
+      <path d={`M ${EL + YD*3.8} ${HB - 12} Q ${EL + YD*4.5} ${FT + FH*0.48} ${EL + YD*5.2} ${FT + FH*0.42}`}
+        stroke={routeC} strokeWidth="1.6" strokeDasharray="9 6" />
+      <polygon
+        points={`${EL + YD*5.2} ${FT + FH*0.42}, ${EL + YD*5.06} ${FT + FH*0.37}, ${EL + YD*5.07} ${FT + FH*0.50}`}
+        fill={routeC} />
+
+      {/* Line of scrimmage — thin solid line at the ~40 yd mark */}
+      <line x1={EL + YD*3.0} y1={FT} x2={EL + YD*3.0} y2={FB}
+        stroke="rgba(202,168,90,0.12)" strokeWidth="1.0" strokeDasharray="4 3" />
+
     </svg>
+  );
+}
+
+/* ── YardlineDivider: replaces plain GoldRule between hero & Live Now ── */
+function YardlineDivider() {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        maxWidth: 1440, margin: "0 auto",
+        padding: "0 32px",
+        pointerEvents: "none",
+        position: "relative",
+        height: 28,
+        display: "flex",
+        alignItems: "center",
+      }}
+    >
+      <svg
+        style={{ width: "100%", height: 28, display: "block", overflow: "visible" }}
+        viewBox="0 0 1200 28"
+        preserveAspectRatio="none"
+        fill="none"
+      >
+        {/* Main yard line — gold, low opacity */}
+        <line x1="0" y1="14" x2="1200" y2="14"
+          stroke="rgba(202,168,90,0.22)" strokeWidth="1.2" />
+
+        {/* Hash marks — evenly spaced, like painted yard-line hashes */}
+        {Array.from({ length: 25 }, (_, i) => {
+          const x = 24 + i * 48;
+          const isMid = i === 12;
+          const h = isMid ? 10 : 6;
+          const col = isMid ? "rgba(202,168,90,0.40)" : "rgba(202,168,90,0.18)";
+          return (
+            <line key={i}
+              x1={x} y1={14 - h} x2={x} y2={14 + h}
+              stroke={col} strokeWidth={isMid ? "1.4" : "1.0"} />
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 
@@ -797,9 +916,24 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
         gap: "64px 56px",
         alignItems: "center",
         position: "relative",
+        overflow: "hidden",
       }}
       className="block md:grid"
       >
+        {/* Chalk field diagram — decorative background, desktop only */}
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute", inset: 0,
+            opacity: 0.32,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+          className="hidden md:block"
+        >
+          <ChalkField />
+        </div>
+
         {/* Left: copy */}
         <div style={{ maxWidth: 620, position: "relative", zIndex: 2 }}>
           <Eyebrow>NFL Signal Intelligence · 2026 Draft Week</Eyebrow>
@@ -919,10 +1053,8 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
         </div>
       </section>
 
-      {/* ══ GOLD RULE ════════════════════════════════════════════════ */}
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
-        <GoldRule opacity={0.18} />
-      </div>
+      {/* ══ YARD LINE DIVIDER ════════════════════════════════════════ */}
+      <YardlineDivider />
 
       {/* ══ WHAT'S LIVE NOW ══════════════════════════════════════════ */}
       <section style={{ maxWidth: 1440, margin: "0 auto", padding: "64px 32px 56px" }}>
