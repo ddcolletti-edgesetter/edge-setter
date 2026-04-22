@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import AppLayout from "../components/AppLayout";
@@ -127,12 +128,30 @@ function SourceTypeBadge({ sourceType, sourceName }: { sourceType?: string | nul
   return null;
 }
 
+/* ─── Source type filter chip config ──────────────────────────── */
+type FilterChip = "all" | "insider" | "analytics" | "scouting" | "college";
+
+const FILTER_CHIPS: { id: FilterChip; label: string; types: string[] }[] = [
+  { id: "all",       label: "All",       types: [] },
+  { id: "insider",   label: "Insider",   types: ["reporter", "official"] },
+  { id: "analytics", label: "Analytics", types: ["analytics"] },
+  { id: "scouting",  label: "Scouting",  types: ["scouting"] },
+  { id: "college",   label: "College",   types: ["college_analyst"] },
+];
+
 export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
+  const [activeFilter, setActiveFilter] = useState<FilterChip>("all");
+
   const { data: scores, isLoading } = useQuery({
     queryKey: ["/api/leaderboard"],
     queryFn: () => apiRequest("GET", "/api/leaderboard").then(r => r.json()),
     refetchInterval: 60000,
   });
+
+  const chip = FILTER_CHIPS.find(c => c.id === activeFilter)!;
+  const filteredScores = (!scores || chip.types.length === 0)
+    ? scores
+    : scores.filter((s: any) => chip.types.includes(s.source_type ?? ""));
 
   return (
     <AppLayout theme={theme} toggleTheme={toggleTheme}>
@@ -180,6 +199,52 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
             ))}
           </div>
 
+          {/* Source-type filter chips */}
+          <div
+            className="flex flex-wrap gap-2 mb-5"
+            data-testid="source-filter-chips"
+          >
+            {FILTER_CHIPS.map(c => {
+              const active = activeFilter === c.id;
+              /* Active chip style per type */
+              const activeStyles: Record<FilterChip, { border: string; bg: string; color: string }> = {
+                all:       { border: "rgba(202,168,90,0.50)",  bg: "rgba(202,168,90,0.14)",  color: "#CAA85A" },
+                insider:   { border: "rgba(56,170,203,0.45)",  bg: "rgba(56,170,203,0.10)",  color: "#38AACB" },
+                analytics: { border: "rgba(202,168,90,0.45)",  bg: "rgba(202,168,90,0.12)",  color: "#CAA85A" },
+                scouting:  { border: "rgba(61,174,114,0.45)",  bg: "rgba(61,174,114,0.10)",  color: "#3DAE72" },
+                college:   { border: "rgba(167,120,220,0.45)", bg: "rgba(167,120,220,0.10)", color: "#A778DC" },
+              };
+              const s = active ? activeStyles[c.id] : null;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setActiveFilter(c.id)}
+                  data-testid={`filter-chip-${c.id}`}
+                  style={{
+                    display: "inline-flex", alignItems: "center",
+                    padding: "5px 13px", borderRadius: 3,
+                    border: active ? `1px solid ${s!.border}` : `1px solid ${C.borderMid}`,
+                    background: active ? s!.bg : "transparent",
+                    color: active ? s!.color : C.ivoryMuted,
+                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                    fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                    transition: "all 0.12s",
+                  }}
+                  onMouseEnter={e => {
+                    if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = C.borderSub;
+                  }}
+                  onMouseLeave={e => {
+                    if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = C.borderMid;
+                  }}
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+
           {isLoading && (
             <div className="space-y-2" data-testid="skeleton-leaderboard">
               {[1, 2, 3, 4, 5].map(i => (
@@ -192,17 +257,19 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
             </div>
           )}
 
-          {!isLoading && (!scores || scores.length === 0) && (
+          {!isLoading && (!filteredScores || filteredScores.length === 0) && (
             <div
               className="text-center py-14 rounded"
               style={{ border: `1px solid ${C.borderMid}`, background: C.panelBase }}
               data-testid="empty-leaderboard"
             >
-              <p className="text-sm" style={{ color: C.ivoryMuted }}>No source scores yet</p>
+              <p className="text-sm" style={{ color: C.ivoryMuted }}>
+                {activeFilter === "all" ? "No source scores yet" : `No ${FILTER_CHIPS.find(c => c.id === activeFilter)!.label} sources tracked yet`}
+              </p>
             </div>
           )}
 
-          {!isLoading && scores && scores.length > 0 && (
+          {!isLoading && filteredScores && filteredScores.length > 0 && (
             <div
               className="rounded overflow-hidden"
               style={{ border: `1px solid ${C.borderMid}` }}
@@ -276,7 +343,7 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
                     </tr>
                   </thead>
                   <tbody>
-                    {scores.map((s: any, i: number) => {
+                    {filteredScores.map((s: any, i: number) => {
                       const acc = parseFloat(s.overall_accuracy ?? "0");
                       /* Analytics accuracy tiers: cyan ≥85%, amber ≥70%, muted below */
                       const accColor =
