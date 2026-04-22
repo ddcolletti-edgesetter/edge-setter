@@ -167,88 +167,109 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
   );
 }
 
-/* StatCard — dark graphite card with analytics accent numeral */
+/* StatCard — Film Ledger premium stat card */
 function StatCard({ label, value, accentColor }: { label: string; value: number; accentColor: string }) {
   return (
     <div
-      className="p-3.5 rounded"
+      className="rounded"
       style={{
-        background: "hsl(22 10% 13%)",
-        border: "1px solid hsl(22 10% 22%)",
+        background: "#16191E",
+        border: "1px solid rgba(202,168,90,0.12)",
+        padding: "18px 18px 14px",
+        position: "relative",
+        overflow: "hidden",
       }}
       data-testid={`stat-card-${label.toLowerCase().replace(/\s+/g, "-")}`}
     >
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "rgba(202,168,90,0.45)", pointerEvents: "none" }} />
       <p
-        className="stat-num-display text-xl font-bold"
-        style={{ color: accentColor, fontFamily: "'Playfair Display', Georgia, serif" }}
+        className="stat-num-display"
+        style={{ color: accentColor, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 700, lineHeight: 1, marginBottom: 6 }}
       >
         {value}
       </p>
-      <p className="data-label mt-0.5">{label}</p>
+      <p className="data-label">{label}</p>
     </div>
   );
 }
 
-/* SignalCard — dark card with analytics confidence colors */
+/* SignalCard — Film Ledger premium signal card */
 function SignalCard({ item }: { item: SignalFeedItem }) {
   const conf = parseFloat(item.confidence_score ?? "0");
-  /* Analytics accent: cyan ≥80%, amber ≥60%, muted otherwise */
   const confColor =
-    conf >= 80 ? "hsl(194 56% 58%)" :
-    conf >= 60 ? "hsl(42 61% 57%)" :
-    "hsl(30 10% 58%)";
+    conf >= 88 ? "#3DAE72" :
+    conf >= 75 ? "#CAA85A" :
+    "#B7AFA0";
 
   return (
     <div
-      className="signal-card p-4 rounded"
+      className="signal-card rounded"
       style={{
-        background: "hsl(22 10% 13%)",
-        border: "1px solid hsl(22 10% 22%)",
+        background: "#16191E",
+        border: "1px solid rgba(202,168,90,0.10)",
+        borderLeft: "3px solid rgba(202,168,90,0.35)",
+        padding: "18px 20px",
       }}
       data-testid={`signal-card-${item.id}`}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = "#CAA85A"; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = "rgba(202,168,90,0.35)"; }}
     >
-      <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+      <div className="flex flex-wrap items-center gap-2 mb-3">
         <VerdictBadge verdict={item.verdict} />
         <TopicBadge topic={item.topic} />
         {item.league && (
-          <span className="text-[9px] px-2 py-0.5 rounded border border-border bg-muted/50 text-muted-foreground uppercase tracking-wider font-semibold">
+          <span style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            color: "#7E776A", padding: "2px 7px", borderRadius: 2,
+          }}>
             {item.league}
           </span>
         )}
-        <span className="text-[10px] text-muted-foreground ml-auto tabular-nums">
+        <span style={{ fontSize: 12, color: "#7E776A", marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
           {item.created_at ? new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
         </span>
       </div>
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-4">
         <div className="flex-1 min-w-0">
           {(item.player || item.team) && (
             <p
-              className="text-[10px] font-bold mb-1 uppercase tracking-wider"
-              style={{ color: "hsl(42 61% 57%)" }}
+              style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+                textTransform: "uppercase", color: "#CAA85A",
+                marginBottom: 6,
+              }}
             >
               {[item.player, item.team].filter(Boolean).join(" · ")}
             </p>
           )}
-          <p className="text-sm leading-snug text-foreground" data-testid={`signal-text-${item.id}`}>
+          <p
+            style={{ fontSize: 16, lineHeight: 1.5, color: "#F3EFE6", marginBottom: item.rationale ? 8 : 0 }}
+            data-testid={`signal-text-${item.id}`}
+          >
             {item.normalized_claim}
           </p>
           {item.rationale && (
-            <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">{item.rationale}</p>
+            <p style={{ fontSize: 14, color: "#B7AFA0", lineHeight: 1.6, margin: 0 }}>{item.rationale}</p>
           )}
         </div>
         <div
-          className="flex-shrink-0 text-right pl-3 ml-1"
-          style={{ borderLeft: "1px solid hsl(22 10% 22%)" }}
+          className="flex-shrink-0 text-right"
+          style={{ borderLeft: "1px solid rgba(202,168,90,0.10)", paddingLeft: 16, marginLeft: 4 }}
         >
           <div
-            className="stat-num-display text-lg font-bold"
-            style={{ color: confColor }}
+            className="stat-num-display"
+            style={{ color: confColor, fontSize: 28, fontWeight: 700 }}
           >
-            {conf.toFixed(0)}%
+            {conf.toFixed(0)}<span style={{ fontSize: 14 }}>%</span>
           </div>
-          <p className="data-label">conf.</p>
+          <p className="data-label" style={{ marginTop: 2 }}>Conf.</p>
           {item.source_name && (
-            <p className="text-[10px] text-muted-foreground mt-1 max-w-[80px] truncate">{item.source_name}</p>
+            <p style={{ fontSize: 11, color: "#7E776A", marginTop: 4, maxWidth: 88 }} className="truncate">{item.source_name}</p>
           )}
         </div>
       </div>

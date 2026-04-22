@@ -1,30 +1,36 @@
-interface Props {
-  verdict: string | null;
-  size?: "sm" | "md";
-}
+/* VerdictBadge — Film Ledger palette */
+interface Props { verdict?: string | null; }
 
-const labels: Record<string, string> = {
-  confirmed: "Confirmed",
-  likely: "Likely",
-  rumor: "Rumor",
-  contradicted: "Contradicted",
-  review: "In Review",
-};
+export default function VerdictBadge({ verdict }: Props) {
+  const v = (verdict ?? "").toLowerCase().trim();
 
-export default function VerdictBadge({ verdict, size = "sm" }: Props) {
-  const v = verdict ?? "rumor";
-  const label = labels[v] ?? v;
-  const cls = `verdict-${v}`;
-  const sizeClass = size === "md"
-    ? "text-[10px] px-2.5 py-0.5 font-semibold tracking-wider"
-    : "text-[9px] px-2 py-0.5 font-semibold tracking-wider";
+  const styles: Record<string, { bg: string; color: string; border: string; label: string }> = {
+    confirmed:    { bg: "rgba(56,170,203,0.10)",  color: "#5AC8E0", border: "#5AC8E044", label: "Confirmed" },
+    likely:       { bg: "rgba(202,168,90,0.10)",  color: "#D8B86A", border: "#D8B86A44", label: "Likely" },
+    rumor:        { bg: "rgba(120,80,176,0.10)",  color: "#A07ACC", border: "#A07ACC44", label: "Rumor" },
+    contradicted: { bg: "rgba(207,74,74,0.10)",   color: "#E08080", border: "#E0808044", label: "Contradicted" },
+    review:       { bg: "rgba(78,111,160,0.10)",  color: "#7A9CC8", border: "#7A9CC844", label: "In Review" },
+  };
+
+  const key = Object.keys(styles).find(k => v.includes(k)) ?? "review";
+  const s = styles[key];
 
   return (
-    <span
-      className={`inline-flex items-center rounded ${cls} ${sizeClass} uppercase whitespace-nowrap`}
-      data-testid={`badge-verdict-${v}`}
-    >
-      {label}
+    <span style={{
+      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+      fontSize: 10, fontWeight: 700,
+      letterSpacing: "0.12em", textTransform: "uppercase",
+      background: s.bg, color: s.color,
+      border: `1px solid ${s.border}`,
+      padding: "3px 8px", borderRadius: 2,
+      display: "inline-flex", alignItems: "center", gap: 5,
+      whiteSpace: "nowrap",
+    }}>
+      <span style={{
+        width: 4, height: 4, borderRadius: "50%",
+        background: s.color, display: "inline-block", flexShrink: 0,
+      }} />
+      {s.label}
     </span>
   );
 }

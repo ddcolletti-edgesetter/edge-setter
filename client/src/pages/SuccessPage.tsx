@@ -8,9 +8,9 @@ import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 
 const C = {
-  void: "#080706", shell: "#0C0A08",
-  gold: "#C9A84C", goldBright: "#E2BE6A", goldDim: "#6A5218",
-  ivory: "#F0E8D6", ivoryMid: "#B8AD98", ivoryDim: "#6E6458", ivoryFaint: "#242018",
+  void: "#0A0B0D", shell: "#111317",
+  gold: "#CAA85A", goldBright: "#D8B86A", goldDim: "rgba(202,168,90,0.15)",
+  ivory: "#F3EFE6", ivoryMid: "#B7AFA0", ivoryDim: "#7E776A", ivoryFaint: "rgba(255,255,255,0.06)",
   green: "#3DAE72",
 };
 

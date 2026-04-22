@@ -1,15 +1,9 @@
 /**
- * Edge Setter — LandingPage v5 (Cinematic Unity Pass)
+ * Edge Setter — LandingPage v6 (Luxury Film Ledger)
  *
- * Changes from v4:
- * - Unified background: all sections on C.void — no more void/shell alternation bands
- * - Removed freestanding section label headers ("Intelligence Suite", "Access Tiers")
- * - Hero name enlarged (36→44px) — more dominant centerpiece
- * - Section padding compressed throughout — less equal-weight breathing room
- * - Pipeline section: no label row — just the numbered sequence
- * - Waitlist: no GR top rule — h2 heads straight in
- * - Intel grid: tighter gap + reduced top margin
- * - Overall: one unified black/gold board, not a sequence of bands
+ * Primary reference: luxury_film_ledger_dark.jpg (Kane card style)
+ * Palette: #0A0B0D bg, #CAA85A gold, #F3EFE6 text
+ * Philosophy: premium intelligence terminal — sell product first, dashboard second
  */
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
@@ -17,1169 +11,1111 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { type Theme } from "../App";
-import { Sun, Moon, ChevronRight, CheckCircle2, X } from "lucide-react";
+import { Sun, Moon, ChevronRight, CheckCircle2, X, Menu, Activity } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
-/* ── palette ───────────────────────────────────────────────────── */
-const C = {
-  void:       "#080706",
-  shell:      "#0C0A08",
-  panel:      "#111009",
-  lift:       "#181410",
-
-  gold:       "#C9A84C",
-  goldBright: "#E2BE6A",
-  goldDim:    "#6A5218",
-  goldBar:    "#B8932A",
-
-  ivory:      "#F0E8D6",
-  ivoryMid:   "#B8AD98",
-  ivoryDim:   "#6E6458",
-  ivoryFaint: "#242018",
-
-  green:  "#3DAE72",
-  greenDim: "#162E20",
-  cyan:   "#38A8C8",
-  cyanDim:"#0A2A38",
-  amber:  "#D4932A",
-  amberDim:"#342010",
-  red:    "#C04040",
-  plum:   "#7850B0",
+/* ── Design tokens ── */
+const T = {
+  bg:        "#0A0B0D",
+  surface1:  "#111317",
+  surface2:  "#16191E",
+  surface3:  "#1B1F25",
+  gold:      "#CAA85A",
+  goldBright:"#D8B86A",
+  goldDim:   "rgba(202,168,90,0.16)",
+  text:      "#F3EFE6",
+  textMuted: "#B7AFA0",
+  textFaint: "#7E776A",
+  danger:    "#D94B4B",
+  green:     "#3DAE72",
+  cyan:      "#38AACB",
 };
 
-/* ── minimal primitives ─────────────────────────────────────────── */
+/* ── Primitives ── */
 
-/** 1px gold rule — use sparingly */
-function GR({ my = 0, opacity = 1 }: { my?: number; opacity?: number }) {
+function GoldRule({ opacity = 0.22, my = 0 }: { opacity?: number; my?: number }) {
   return (
     <div style={{
-      height: 1, background: C.gold, opacity,
+      height: 1, background: T.gold, opacity,
       margin: `${my}px 0`, flexShrink: 0,
+      pointerEvents: "none",
     }} />
   );
 }
 
-function Dot({ color }: { color: string }) {
+function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span style={{
-      width: 6, height: 6, borderRadius: "50%",
-      background: color, display: "inline-block", flexShrink: 0,
-    }} />
+    <div style={{
+      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+      fontSize: 11, fontWeight: 700,
+      letterSpacing: "0.22em", textTransform: "uppercase",
+      color: T.gold, marginBottom: 12,
+      display: "flex", alignItems: "center", gap: 10,
+    }}>
+      {children}
+      <div style={{ flex: 1, maxWidth: 32, height: 1, background: T.gold, opacity: 0.35, pointerEvents: "none" }} />
+    </div>
   );
 }
 
-/** Condensed ALL-CAPS label */
-function Cap({ children, color = C.ivoryDim, size = 9 }: {
-  children: React.ReactNode; color?: string; size?: number;
-}) {
+function VerdictPill({ type }: { type: string }) {
+  const map: Record<string, { bg: string; color: string; label: string }> = {
+    confirmed:    { bg: "rgba(56,170,203,0.12)", color: "#5AC8E0", label: "Confirmed" },
+    likely:       { bg: "rgba(202,168,90,0.12)", color: "#D8B86A", label: "Likely" },
+    rumor:        { bg: "rgba(120,80,176,0.12)", color: "#A07ACC", label: "Rumor" },
+    contradicted: { bg: "rgba(207,74,74,0.12)", color: "#E08080", label: "Contradicted" },
+    review:       { bg: "rgba(78,111,160,0.12)", color: "#7A9CC8", label: "In Review" },
+  };
+  const s = map[type.toLowerCase()] ?? map.review;
   return (
     <span style={{
       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-      fontSize: size, fontWeight: 700, letterSpacing: "0.18em",
-      textTransform: "uppercase", color,
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+      textTransform: "uppercase",
+      background: s.bg, color: s.color,
+      border: `1px solid ${s.color}44`,
+      padding: "3px 8px", borderRadius: 2,
+      display: "inline-flex", alignItems: "center",
     }}>
-      {children}
+      {s.label}
     </span>
   );
 }
 
-/** Gold filled bar */
-function BarRow({ label, value, max = 100 }: { label: string; value: number; max?: number }) {
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 0" }}>
-      <Cap size={8}>{label}</Cap>
-      <div style={{ flex: 1, height: 7, background: C.ivoryFaint, position: "relative" }}>
-        <div style={{
-          position: "absolute", inset: 0,
-          width: `${Math.min(100, (value / max) * 100)}%`,
-          background: C.goldBar,
-        }} />
-      </div>
-      <span style={{
-        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-        fontSize: 10, fontWeight: 700, color: C.ivory, width: 22, textAlign: "right",
-      }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-/** Data row */
-function DR({ label, value, accent = C.ivory }: {
-  label: string; value: string | number; accent?: string;
-}) {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center",
-      justifyContent: "space-between", padding: "2px 0",
-    }}>
-      <Cap>{label}</Cap>
-      <span style={{
-        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-        fontSize: 10, fontWeight: 700, color: accent,
-      }}>
-        {value}
-      </span>
-    </div>
-  );
-}
-
-/* ── chalk field ─────────────────────────────────────────────────────
-   American football field — yard lines, hash marks, end zones.
-   viewBox 800×356. Field oriented horizontally (landscape).
-   120 total yards: 10 end zone each side + 100 playing field.
-   Inner area: x=60..740 (680px wide), y=16..340 (324px tall).
-   End zones: left x=60..128, right x=672..740 (68px = 10yds each).
-   10-yard lines: 9 internal lines across playing field.
-   Hash marks: NFL-style two rows at ~18% and ~82% of field height. */
+/* ── Chalk football field SVG (background decoration) ── */
 function ChalkField() {
-  const s  = "rgba(255,255,255,0.22)";   // sidelines / boundary
-  const yl = "rgba(255,255,255,0.20)";   // 10-yard lines
-  const mid = "rgba(255,255,255,0.32)";  // 50-yard midfield line
-  const h  = "rgba(255,255,255,0.16)";   // hash marks
-  const ez = "rgba(255,255,255,0.09)";   // end-zone fill
-  const d  = "rgba(255,255,255,0.13)";   // play diagram
-
-  // Field geometry
+  const s  = "rgba(255,255,255,0.18)";
+  const yl = "rgba(255,255,255,0.14)";
+  const mid = "rgba(255,255,255,0.26)";
+  const h  = "rgba(255,255,255,0.11)";
+  const ez = "rgba(255,255,255,0.06)";
   const FL = 60, FR = 740, FT = 16, FB = 340;
-  const FH = FB - FT;   // 324
-  const EZW = 68;       // end-zone width (10 yards)
-  const EL = FL + EZW;  // 128
-  const ER = FR - EZW;  // 672
-
-  // Hash mark y positions (NFL: ~18.5% and ~81.5% from top)
+  const FH = FB - FT;
+  const EZW = 68;
+  const EL = FL + EZW;
+  const ER = FR - EZW;
   const H1 = FT + FH * 0.185;
   const H2 = FT + FH * 0.815;
-  const HW = 7; // hash tick height
-
-  // 10-yard line x positions (9 lines across 100-yard field)
+  const HW = 7;
   const tenYardLines = [1,2,3,4,5,6,7,8,9].map(i => EL + i * EZW);
-  // 5-yard minor lines (every 34px — half of EZW)
-  const step = EZW / 2;
-  const fiveYardLines: number[] = [];
-  for (let i = 1; i < 20; i++) {
-    const x = EL + i * step;
-    if (!tenYardLines.includes(x)) fiveYardLines.push(x);
-  }
-
   return (
     <svg
       style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }}
       viewBox="0 0 800 356" preserveAspectRatio="xMidYMid slice" fill="none"
     >
-      {/* End zone fills */}
       <rect x={FL} y={FT} width={EZW} height={FH} fill={ez} />
-      <rect x={ER} y={FT} width={EZW} height={FH} fill={ez} />
-
-      {/* Outer boundary */}
-      <rect x={FL} y={FT} width={FR - FL} height={FH} stroke={s} strokeWidth="1.6" />
-
-      {/* End-zone goal lines */}
-      <line x1={EL} y1={FT} x2={EL} y2={FB} stroke={s} strokeWidth="1.5" />
-      <line x1={ER} y1={FT} x2={ER} y2={FB} stroke={s} strokeWidth="1.5" />
-
-      {/* 5-yard minor lines (very faint, sideline-to-sideline) */}
-      {fiveYardLines.map((x, i) => (
-        <line key={`f${i}`} x1={x} y1={FT} x2={x} y2={FB}
-          stroke="rgba(255,255,255,0.06)" strokeWidth="0.5" />
-      ))}
-
-      {/* 10-yard lines */}
+      <rect x={ER}  y={FT} width={EZW} height={FH} fill={ez} />
+      <rect x={FL} y={FT} width={FR - FL} height={FH} stroke={s} strokeWidth="1.5" />
+      <line x1={EL} y1={FT} x2={EL} y2={FB} stroke={s} strokeWidth="1.4" />
+      <line x1={ER} y1={FT} x2={ER} y2={FB} stroke={s} strokeWidth="1.4" />
       {tenYardLines.map((x, i) => (
-        <line key={`t${i}`} x1={x} y1={FT} x2={x} y2={FB}
-          stroke={yl} strokeWidth="1.0" />
+        <line key={i} x1={x} y1={FT} x2={x} y2={FB}
+          stroke={i === 4 ? mid : yl} strokeWidth={i === 4 ? "1.8" : "0.9"} />
       ))}
-
-      {/* 50-yard midfield line (heavier + brighter) */}
-      <line x1={EL + 4.5 * EZW} y1={FT} x2={EL + 4.5 * EZW} y2={FB}
-        stroke={mid} strokeWidth="2.0" />
-
-      {/* Hash marks — top row */}
-      {[...tenYardLines, ...fiveYardLines, EL, ER].map((x, i) => (
-        <line key={`ht${i}`} x1={x} y1={H1 - HW / 2} x2={x} y2={H1 + HW / 2}
-          stroke={h} strokeWidth="1.2" />
+      {tenYardLines.map((x, i) => (
+        <line key={`ht${i}`} x1={x} y1={H1 - HW/2} x2={x} y2={H1 + HW/2} stroke={h} strokeWidth="1.2" />
       ))}
-
-      {/* Hash marks — bottom row */}
-      {[...tenYardLines, ...fiveYardLines, EL, ER].map((x, i) => (
-        <line key={`hb${i}`} x1={x} y1={H2 - HW / 2} x2={x} y2={H2 + HW / 2}
-          stroke={h} strokeWidth="1.2" />
+      {tenYardLines.map((x, i) => (
+        <line key={`hb${i}`} x1={x} y1={H2 - HW/2} x2={x} y2={H2 + HW/2} stroke={h} strokeWidth="1.2" />
       ))}
-
-      {/* Goal post silhouettes — uprights in end zones */}
-      {/* Left upright */}
-      <line x1={FL + 12} y1={FT + FH * 0.36} x2={FL + 12} y2={FT + FH * 0.64}
-        stroke="rgba(255,255,255,0.26)" strokeWidth="1.3" />
-      <line x1={FL + 4}  y1={FT + FH * 0.36} x2={FL + 20} y2={FT + FH * 0.36}
-        stroke="rgba(255,255,255,0.26)" strokeWidth="1.3" />
-      {/* Right upright */}
-      <line x1={FR - 12} y1={FT + FH * 0.36} x2={FR - 12} y2={FT + FH * 0.64}
-        stroke="rgba(255,255,255,0.26)" strokeWidth="1.3" />
-      <line x1={FR - 20} y1={FT + FH * 0.36} x2={FR - 4}  y2={FT + FH * 0.36}
-        stroke="rgba(255,255,255,0.26)" strokeWidth="1.3" />
-
-      {/* Play diagram — route tree overlay */}
-      <path d="M 200 178 Q 280 118 362 148" stroke={d} strokeWidth="1.4" strokeDasharray="7 5" />
-      <path d="M 362 148 L 374 138" stroke={d} strokeWidth="1.4" />
-      <path d="M 600 178 Q 520 238 444 210" stroke={d} strokeWidth="1.4" strokeDasharray="7 5" />
-      <path d="M 444 210 L 436 222" stroke={d} strokeWidth="1.4" />
-      <path d="M 158 292 Q 228 240 308 264" stroke={d} strokeWidth="1" strokeDasharray="5 4" />
-      <path d="M 642 264 Q 572 240 502 258" stroke={d} strokeWidth="1" strokeDasharray="5 4" />
-      <line x1="178" y1="278" x2="192" y2="292" stroke={d} strokeWidth="1" />
-      <line x1="192" y1="278" x2="178" y2="292" stroke={d} strokeWidth="1" />
-      <line x1="616" y1="250" x2="630" y2="264" stroke={d} strokeWidth="1" />
-      <line x1="630" y1="250" x2="616" y2="264" stroke={d} strokeWidth="1" />
+      {/* Play routes */}
+      <path d="M 200 178 Q 280 118 362 148" stroke="rgba(202,168,90,0.18)" strokeWidth="1.4" strokeDasharray="7 5" />
+      <path d="M 362 148 L 374 138" stroke="rgba(202,168,90,0.18)" strokeWidth="1.4" />
+      <path d="M 600 178 Q 520 238 444 210" stroke="rgba(202,168,90,0.18)" strokeWidth="1.4" strokeDasharray="7 5" />
+      <path d="M 444 210 L 436 222" stroke="rgba(202,168,90,0.18)" strokeWidth="1.4" />
     </svg>
   );
 }
 
-/* ── mini chalk diagram ──────────────────────────────────────────────
-   American football field miniature — same structure at 200×120. */
-function MiniField() {
-  const s = "rgba(255,255,255,0.24)";
-  const h = "rgba(255,255,255,0.16)";
-  const d = "rgba(255,255,255,0.15)";
-  // viewBox 200×120
-  // Outer: 5,5 → 195,115 (190×110)
-  // End zones: left 5..23, right 177..195 (18px = 10yds)
-  // 10-yard lines: every 15.4px across 154px playing field
-  const ezW = 18;
-  const EL = 5 + ezW;   // 23
-  const ER = 195 - ezW; // 177
-  const FW = ER - EL;   // 154
-  const tenYds = [1,2,3,4,5,6,7,8,9].map(i => EL + i * (FW / 10));
-  const H1 = 5 + 110 * 0.185;
-  const H2 = 5 + 110 * 0.815;
+function LandingLogo() {
   return (
-    <svg viewBox="0 0 200 120" fill="none" style={{ width: "100%", height: "100%", display: "block" }}>
-      {/* End zone fills */}
-      <rect x="5" y="5" width={ezW} height="110" fill="rgba(255,255,255,0.08)" />
-      <rect x={195 - ezW} y="5" width={ezW} height="110" fill="rgba(255,255,255,0.08)" />
-      {/* Outer boundary */}
-      <rect x="5" y="5" width="190" height="110" stroke={s} strokeWidth="1.2" />
-      {/* Goal lines */}
-      <line x1={EL} y1="5" x2={EL} y2="115" stroke={s} strokeWidth="1.0" />
-      <line x1={ER} y1="5" x2={ER} y2="115" stroke={s} strokeWidth="1.0" />
-      {/* 10-yard lines */}
-      {tenYds.map((x, i) => (
-        <line key={i} x1={x} y1="5" x2={x} y2="115"
-          stroke={i === 4 ? "rgba(255,255,255,0.28)" : s}
-          strokeWidth={i === 4 ? "1.4" : "0.7"} />
-      ))}
-      {/* Hash marks top */}
-      {tenYds.map((x, i) => (
-        <line key={`ht${i}`} x1={x} y1={H1 - 3} x2={x} y2={H1 + 3} stroke={h} strokeWidth="1.0" />
-      ))}
-      {/* Hash marks bottom */}
-      {tenYds.map((x, i) => (
-        <line key={`hb${i}`} x1={x} y1={H2 - 3} x2={x} y2={H2 + 3} stroke={h} strokeWidth="1.0" />
-      ))}
-      {/* Play diagram */}
-      <path d="M 48 58 Q 76 28 116 44" stroke={d} strokeWidth="1.4" strokeDasharray="5 4" />
-      <path d="M 116 44 L 123 37" stroke={d} strokeWidth="1.4" />
+    <svg width="36" height="36" viewBox="0 0 32 32" fill="none" aria-label="Edge Setter">
+      <rect width="32" height="32" rx="3" fill="#111317" />
+      <rect x="6" y="7" width="20" height="2.5" rx="0.5" fill="#CAA85A" />
+      <rect x="6" y="14.75" width="13" height="2.5" rx="0.5" fill="#CAA85A" />
+      <rect x="6" y="22.5" width="20" height="2.5" rx="0.5" fill="#CAA85A" />
+      <rect x="21" y="14.75" width="5" height="2.5" rx="0.5" fill="#D8B86A" opacity="0.6" />
     </svg>
   );
 }
 
-function Logo({ small = false }: { small?: boolean }) {
-  const sz = small ? 22 : 26;
-  return (
-    <svg width={sz} height={sz} viewBox="0 0 30 30" fill="none" aria-label="Edge Setter">
-      <rect width="30" height="30" rx="2" fill={C.panel} stroke={C.gold} strokeWidth="0.8" />
-      <rect x="6" y="7"  width="18" height="1.5" rx="0.4" fill={C.gold} />
-      <rect x="6" y="13" width="12" height="1.5" rx="0.4" fill={C.gold} />
-      <rect x="6" y="19" width="18" height="1.5" rx="0.4" fill={C.gold} />
-      <rect x="20" y="13" width="4"  height="1.5" rx="0.4" fill={C.cyan} />
-    </svg>
-  );
-}
+/* ── Featured Player Card (Kane-style) ── */
+function FeaturedCard({ signal }: { signal: any }) {
+  const name = signal?.player_name ?? "Patrick Mahomes";
+  const team = signal?.team ?? "KC Chiefs";
+  const title = signal?.title ?? "Full go after ankle scare";
+  const conf = signal?.confidence_score ?? 92;
+  const verdict = signal?.verdict ?? "Confirmed";
+  const initial = name.split(" ").pop()?.charAt(0) ?? "M";
 
-/* ══ SIGNAL TILE ROW ════════════════════════════════════════════════
-   Ghost numbers at 0.28 — intentionally visible, LFL-exact         */
-function SignalTileRow() {
-  const tiles = [
-    { num: "15", player: "T. BASS",     team: "BUF · K",  conf: "CONF",   pct: "92%", dot: C.green, sc: C.green },
-    { num: "1",  player: "P. MAHOMES",  team: "KC · QB",  conf: "CONF",   pct: "92%", dot: C.green, sc: C.green },
-    { num: "10", player: "D. ADAMS",    team: "LV · WR",  conf: "LIKELY", pct: "75%", dot: C.amber, sc: C.amber },
-    { num: "4",  player: "D. PRESCOTT", team: "DAL · QB", conf: "RUMOR",  pct: "61%", dot: C.plum,  sc: C.plum  },
-    { num: "11", player: "T. HILL",     team: "MIA · WR", conf: "CONF",   pct: "88%", dot: C.green, sc: C.green },
-    { num: "87", player: "T. KELCE",    team: "KC · TE",  conf: "CONF",   pct: "96%", dot: C.green, sc: C.green },
-  ];
   return (
-    <div className="es-tile-row" style={{
-      display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 1,
-    }}>
-      {tiles.map(({ num, player, team, conf, pct, dot, sc }) => (
-        <div key={player} style={{
-          position: "relative", overflow: "hidden",
-          background: C.panel,
-          border: `1px solid ${C.gold}40`,
-          padding: "9px 8px 7px",
+    <div
+      style={{
+        background: T.surface1,
+        border: `1px solid rgba(202,168,90,0.28)`,
+        borderRadius: 6,
+        overflow: "hidden",
+        position: "relative",
+        minWidth: 280,
+        maxWidth: 360,
+        width: "100%",
+      }}
+    >
+      {/* Gold top bar */}
+      <div style={{
+        height: 2, background: T.gold,
+        pointerEvents: "none",
+      }} />
+
+      {/* Field backdrop */}
+      <div style={{ position: "relative", height: 180, background: "#0D0F12", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          <ChalkField />
+        </div>
+
+        {/* Main card overlay */}
+        <div style={{
+          position: "absolute",
+          left: 16, top: 16, right: 16, bottom: 16,
+          background: "rgba(10,11,13,0.85)",
+          backdropFilter: "blur(4px)",
+          border: `1px solid rgba(202,168,90,0.22)`,
+          borderRadius: 4,
+          display: "flex",
+          alignItems: "center",
+          gap: 16,
+          padding: "16px 18px",
         }}>
-          {/* Ghost jersey number */}
+          {/* Large initial */}
           <div style={{
-            position: "absolute", right: 2, top: -4,
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 48, fontWeight: 900,
-            color: `${C.gold}47`,   // ~28%
-            lineHeight: 1, pointerEvents: "none", userSelect: "none",
+            fontSize: 80, fontWeight: 700,
+            color: T.gold, lineHeight: 1,
+            letterSpacing: "-0.04em",
+            textShadow: `0 0 40px rgba(202,168,90,0.30)`,
+            userSelect: "none",
+            flexShrink: 0,
           }}>
-            {num}
+            {initial}
           </div>
-          <p style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.06em",
-            textTransform: "uppercase", color: C.ivory,
-            margin: "0 0 1px", position: "relative", zIndex: 1,
-          }}>
-            {player}
-          </p>
-          <p style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 8, letterSpacing: "0.10em", textTransform: "uppercase",
-            color: C.ivoryDim, margin: "0 0 5px",
-            position: "relative", zIndex: 1,
-          }}>
-            {team}
-          </p>
-          <div style={{ display: "flex", alignItems: "center", gap: 4, position: "relative", zIndex: 1 }}>
-            <span style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, color: sc,
+
+          {/* Player info */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: 22, fontWeight: 700,
+                color: T.text, lineHeight: 1.1,
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {name.split(",").length > 1 ? name : name.split(" ").slice(-1)[0] + ","}
+            </div>
+            <div style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: 22, fontWeight: 700,
+              color: T.text, lineHeight: 1.1,
+              letterSpacing: "-0.01em",
+              marginBottom: 6,
             }}>
-              {conf}:
-            </span>
-            <span style={{
+              {name.split(" ")[0]}
+            </div>
+            <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, color: C.goldBright,
+              fontSize: 10, fontWeight: 700,
+              letterSpacing: "0.18em", textTransform: "uppercase",
+              color: T.gold,
             }}>
-              {pct}
-            </span>
-            <div style={{ marginLeft: "auto" }}>
-              <Dot color={dot} />
+              {team}
             </div>
           </div>
+
+          {/* Stat boxes */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+            <StatBox value={`${conf}`} label="Score" />
+            <StatBox value={verdict.charAt(0).toUpperCase() + verdict.slice(1,4)} label="Status" highlight />
+          </div>
         </div>
-      ))}
+      </div>
+
+      {/* Signal brief */}
+      <div style={{ padding: "16px 20px 20px" }}>
+        <div style={{
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: 10, fontWeight: 700,
+          letterSpacing: "0.16em", textTransform: "uppercase",
+          color: T.textFaint, marginBottom: 8,
+        }}>
+          Featured Intelligence
+        </div>
+        <div style={{
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: 15, fontWeight: 700,
+          color: T.text, lineHeight: 1.35,
+          marginBottom: 12,
+        }}>
+          {title}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <VerdictPill type={verdict.toLowerCase()} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span
+              className="live-dot"
+              style={{ width: 5, height: 5, borderRadius: "50%", background: T.gold, display: "inline-block" }}
+            />
+            <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 10, fontWeight: 700,
+              letterSpacing: "0.14em", textTransform: "uppercase",
+              color: T.textFaint,
+            }}>
+              Live
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-/* ══ MAIN COMPONENT ════════════════════════════════════════════════ */
-export default function LandingPage({ theme, toggleTheme }: Props) {
-  const [, navigate] = useLocation();
-  const [navOpen, setNavOpen] = useState(false);
-  const navRef = useRef<HTMLDivElement>(null);
+function StatBox({ value, label, highlight = false }: { value: string; label: string; highlight?: boolean }) {
+  return (
+    <div style={{
+      background: highlight ? "rgba(202,168,90,0.10)" : "#16191E",
+      border: `1px solid ${highlight ? "rgba(202,168,90,0.35)" : "rgba(255,255,255,0.08)"}`,
+      borderRadius: 3,
+      padding: "6px 10px",
+      textAlign: "center",
+      minWidth: 58,
+    }}>
+      <div style={{
+        fontFamily: "'Playfair Display', Georgia, serif",
+        fontSize: 20, fontWeight: 700,
+        color: highlight ? T.gold : T.text,
+        lineHeight: 1,
+        letterSpacing: "-0.02em",
+      }}>
+        {value}
+      </div>
+      <div style={{
+        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+        fontSize: 9, fontWeight: 700,
+        letterSpacing: "0.12em", textTransform: "uppercase",
+        color: T.textFaint,
+        marginTop: 3,
+      }}>
+        {label}
+      </div>
+    </div>
+  );
+}
 
-  // Close nav when clicking outside
-  useEffect(() => {
-    if (!navOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (navRef.current && !navRef.current.contains(e.target as Node)) {
-        setNavOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [navOpen]);
-  const [email, setEmail]  = useState("");
-  const [name, setName]    = useState("");
-  const [role, setRole]    = useState("bettor");
-  const { toast }          = useToast();
-  const qc                 = useQueryClient();
+/* ── Signal Feed Tile ── */
+function SignalTile({ signal }: { signal: any }) {
+  return (
+    <div
+      style={{
+        background: T.surface2,
+        border: `1px solid rgba(202,168,90,0.10)`,
+        borderLeft: `3px solid rgba(202,168,90,0.50)`,
+        borderRadius: 4,
+        padding: "18px 20px",
+        transition: "border-left-color 0.15s, background 0.15s",
+        cursor: "default",
+      }}
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLDivElement;
+        el.style.borderLeftColor = T.gold;
+        el.style.background = T.surface3;
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLDivElement;
+        el.style.borderLeftColor = "rgba(202,168,90,0.50)";
+        el.style.background = T.surface2;
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
+        <div>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+            textTransform: "uppercase", color: T.gold, marginBottom: 4,
+          }}>
+            {signal.player_name ?? "Signal"} · {signal.team ?? ""}
+          </div>
+          <div style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: 16, fontWeight: 700,
+            color: T.text, lineHeight: 1.3,
+          }}>
+            {signal.title}
+          </div>
+        </div>
+        <VerdictPill type={(signal.verdict ?? "review").toLowerCase()} />
+      </div>
+      {signal.summary && (
+        <p style={{
+          fontSize: 14, color: T.textMuted, lineHeight: 1.6,
+          margin: "8px 0 10px",
+        }}>
+          {signal.summary}
+        </p>
+      )}
+      {signal.action_takeaway && (
+        <div style={{
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.10em",
+          color: T.gold, textTransform: "uppercase",
+        }}>
+          → {signal.action_takeaway}
+        </div>
+      )}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 10, marginTop: 12,
+        paddingTop: 10, borderTop: "1px solid rgba(202,168,90,0.08)",
+      }}>
+        <div style={{
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+          textTransform: "uppercase", color: T.textFaint,
+        }}>
+          Confidence
+        </div>
+        <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, position: "relative" }}>
+          <div style={{
+            position: "absolute", top: 0, left: 0, bottom: 0,
+            width: `${signal.confidence_score ?? 70}%`,
+            background: T.gold, borderRadius: 2,
+          }} />
+        </div>
+        <div style={{
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: 11, fontWeight: 700, color: T.gold,
+        }}>
+          {signal.confidence_score ?? 70}
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  const { data: countData } = useQuery({
-    queryKey: ["/api/waitlist/count"],
-    queryFn: () => apiRequest("GET", "/api/waitlist/count").then(r => r.json()),
-  });
-
-  const waitlistMutation = useMutation({
-    mutationFn: (data: { email: string; name: string; role: string }) =>
-      apiRequest("POST", "/api/waitlist", data).then(r => {
-        if (!r.ok) return r.json().then(e => { throw new Error(e.error); });
-        return r.json();
-      }),
+/* ── Waitlist form ── */
+function WaitlistForm({ onSuccess }: { onSuccess: () => void }) {
+  const [form, setForm] = useState({ name: "", email: "", league: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const { toast } = useToast();
+  const mutation = useMutation({
+    mutationFn: (data: typeof form) =>
+      apiRequest("POST", "/api/waitlist", data).then(r => r.json()),
     onSuccess: () => {
-      toast({ title: "Access request received.", description: "We'll notify you when Edge Setter launches." });
-      setEmail(""); setName("");
-      qc.invalidateQueries({ queryKey: ["/api/waitlist/count"] });
+      toast({ title: "You're on the list.", description: "We'll reach out when spots open." });
+      onSuccess();
     },
-    onError: (e: Error) => {
-      toast({ title: "Error", description: e.message, variant: "destructive" });
+    onError: () => {
+      toast({ title: "Submission failed.", description: "Please try again.", variant: "destructive" });
     },
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) return;
-    waitlistMutation.mutate({ email, name, role });
-  };
-
-  const scrollTo = (id: string) => (e: React.MouseEvent) => {
-    e.preventDefault();
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+    if (!form.email.trim()) return;
+    mutation.mutate(form);
   };
 
   return (
-    <div
-      data-testid="landing-page"
-      style={{ minHeight: "100vh", background: C.void, color: C.ivory,
-        fontFamily: "'Playfair Display', Georgia, serif" }}
-    >
-      <style>{`
-        @media (max-width: 600px) {
-          .es-hero-outer   { padding: 0 10px !important; }
-          .es-dossier      { grid-template-columns: 1fr !important; }
-          .es-stat-tiles   { display: none !important; }
-          .es-brief-row    { grid-template-columns: 1fr !important; }
-          .es-tile-row     { grid-template-columns: repeat(3, 1fr) !important; }
-          .es-intel-grid   { grid-template-columns: 1fr !important; }
-          .es-pipe-row     { grid-template-columns: repeat(4, 1fr) !important; }
-          .es-tiers-grid   { grid-template-columns: 1fr !important; }
-          .es-waitlist-grid{ grid-template-columns: 1fr !important; }
-          .es-tagline      { display: none !important; }
-        }
-        @media (min-width: 601px) and (max-width: 900px) {
-          .es-tile-row     { grid-template-columns: repeat(3, 1fr) !important; }
-          .es-intel-grid   { grid-template-columns: repeat(2, 1fr) !important; }
-          .es-pipe-row     { grid-template-columns: repeat(4, 1fr) !important; }
-          .es-waitlist-grid{ grid-template-columns: 1fr !important; }
-        }
-      `}</style>
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {[
+        { id: "name",   label: "Full Name",      placeholder: "Your name",       type: "text" },
+        { id: "email",  label: "Email Address",  placeholder: "you@example.com", type: "email", required: true },
+        { id: "league", label: "Leagues / Format", placeholder: "e.g. Redraft, Dynasty, DFS", type: "text" },
+      ].map(f => (
+        <div key={f.id}>
+          <label className="label-premium" htmlFor={f.id}>{f.label}</label>
+          <input
+            id={f.id}
+            type={f.type}
+            required={f.required}
+            placeholder={f.placeholder}
+            className="input-premium"
+            value={(form as any)[f.id]}
+            onChange={e => setForm(prev => ({ ...prev, [f.id]: e.target.value }))}
+          />
+        </div>
+      ))}
+      <button
+        type="submit"
+        disabled={mutation.isPending}
+        className="btn-primary"
+        style={{ marginTop: 8, width: "100%" }}
+      >
+        {mutation.isPending ? "Submitting…" : "Request Pro Access"}
+        {!mutation.isPending && <ChevronRight size={14} />}
+      </button>
+    </form>
+  );
+}
+
+/* ══ MAIN LANDING PAGE ══════════════════════════════════════════════ */
+export default function LandingPage({ theme, toggleTheme }: Props) {
+  const [, navigate] = useLocation();
+  const [navOpen, setNavOpen] = useState(false);
+  const [waitlistDone, setWaitlistDone] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
+
+  const { data: signals } = useQuery<any[]>({
+    queryKey: ["/api/signals"],
+    queryFn: () => apiRequest("GET", "/api/signals").then(r => r.json()),
+  });
+
+  const publicSignals = (signals ?? []).filter((s: any) => s.is_public !== false).slice(0, 4);
+  const featuredSignal = (signals ?? []).find((s: any) => s.is_featured) ?? publicSignals[0];
+
+  // Close nav on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(e.target as Node)) {
+        setNavOpen(false);
+      }
+    };
+    if (navOpen) document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [navOpen]);
+
+  return (
+    <div style={{ background: T.bg, color: T.text, minHeight: "100vh" }}>
 
       {/* ══ HEADER ══════════════════════════════════════════════════ */}
       <header style={{
-        background: C.shell,
-        borderBottom: `1px solid ${C.gold}`,
         position: "sticky", top: 0, zIndex: 50,
+        background: "rgba(10,11,13,0.96)",
+        borderBottom: "1px solid rgba(202,168,90,0.14)",
+        borderTop: "2px solid rgba(202,168,90,0.60)",
+        backdropFilter: "blur(16px)",
       }}>
         <div style={{
-          maxWidth: 1440, margin: "0 auto", padding: "0 20px",
-          height: 46, display: "flex", alignItems: "center", justifyContent: "space-between",
+          maxWidth: 1440, margin: "0 auto",
+          padding: "0 32px",
+          display: "flex", alignItems: "center",
+          minHeight: 60, gap: 24,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }} ref={navRef}>
-            {/* Logo doubles as nav toggle */}
-            <button
-              onClick={() => setNavOpen(o => !o)}
-              data-testid="button-nav-menu"
-              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center" }}
-              aria-label="Navigation menu"
-            >
-              <Logo />
-            </button>
-
-            {/* Nav dropdown */}
-            {navOpen && (
-              <div style={{
-                position: "absolute", top: 54, left: 20,
-                background: C.shell, border: `1px solid ${C.gold}`,
-                zIndex: 200, minWidth: 180, padding: "6px 0",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.6)",
-              }}>
-                <button
-                  onClick={() => setNavOpen(false)}
-                  style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: C.ivoryDim, cursor: "pointer" }}
-                >
-                  <X size={12} />
-                </button>
-                {([
-                  { href: "/signals",     label: "Signal Board" },
-                  { href: "/draft",       label: "Draft Board"  },
-                  { href: "/leaderboard", label: "Sources"      },
-                  { href: "/pro",         label: "Go Pro — $19/mo", highlight: true },
-                ] as { href: string; label: string; highlight?: boolean }[]).map(item => (
-                  <Link key={item.href} href={item.href}>
-                    <div
-                      onClick={() => setNavOpen(false)}
-                      style={{
-                        display: "block", padding: "9px 20px",
-                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 10, fontWeight: 700, letterSpacing: "0.16em",
-                        textTransform: "uppercase",
-                        color: item.highlight ? C.gold : C.ivory,
-                        cursor: "pointer",
-                        borderTop: item.highlight ? `1px solid ${C.gold}40` : "none",
-                        marginTop: item.highlight ? 4 : 0,
-                      }}
-                    >
-                      {item.label}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-
+          {/* Brand */}
+          <div style={{ display: "flex", alignItems: "center", gap: 11, flexShrink: 0 }}>
+            <LandingLogo />
             <div>
-              <p style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 14, fontWeight: 700, letterSpacing: "0.22em",
-                textTransform: "uppercase", color: C.ivory, margin: 0, lineHeight: 1,
+              <div style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontWeight: 700, fontSize: 17,
+                color: T.text, letterSpacing: "-0.01em",
               }}>
-                Edge Setter<span style={{ color: C.gold, marginLeft: 2 }}>.</span>
-              </p>
-              <p style={{
+                Edge Setter
+              </div>
+              <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 7, letterSpacing: "0.20em", textTransform: "uppercase",
-                color: C.ivoryDim, margin: 0, marginTop: 2,
+                fontSize: 9, fontWeight: 700, letterSpacing: "0.20em",
+                textTransform: "uppercase", color: T.textFaint,
               }}>
-                NFL Intelligence System
-              </p>
+                NFL Intelligence
+              </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <Dot color={C.green} />
-            <Cap color={C.ivoryDim} size={8}>Signal Feed Active</Cap>
-          </div>
+          {/* Nav — desktop */}
+          <nav style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 32 }}
+            className="hidden md:flex">
+            {[
+              { label: "Signal Board", href: "/dashboard" },
+              { label: "Draft Board", href: "/draft" },
+              { label: "Sources", href: "/leaderboard" },
+            ].map(item => (
+              <Link key={item.href} href={item.href}>
+                <div style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 12, fontWeight: 700,
+                  letterSpacing: "0.14em", textTransform: "uppercase",
+                  color: T.textMuted, cursor: "pointer",
+                  padding: "6px 14px", borderRadius: 3,
+                  transition: "color 0.15s, background 0.15s",
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLDivElement).style.color = T.gold;
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLDivElement).style.color = T.textMuted;
+                }}>
+                  {item.label}
+                </div>
+              </Link>
+            ))}
+          </nav>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              onClick={toggleTheme}
-              data-testid="button-theme-toggle-landing"
-              style={{ background: "none", border: "none", color: C.ivoryDim, cursor: "pointer", padding: 3 }}
-            >
-              {theme === "dark" ? <Sun size={12} /> : <Moon size={12} />}
+          {/* Right actions */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={toggleTheme} aria-label="Toggle theme" style={{
+              background: "none", border: "none",
+              color: T.textFaint, cursor: "pointer", padding: 4,
+              display: "flex", alignItems: "center",
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = T.text; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = T.textFaint; }}>
+              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
             </button>
-            <Link href="/signals">
-              <span data-testid="button-view-signal-board" style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase",
-                color: C.ivoryDim, cursor: "pointer",
-              }}>
-                Dashboard
-              </span>
-            </Link>
+
+            {/* Hamburger — mobile */}
+            <div ref={navRef} style={{ position: "relative" }} className="md:hidden">
+              <button
+                onClick={() => setNavOpen(o => !o)}
+                style={{
+                  background: "none", border: "none",
+                  color: T.textMuted, cursor: "pointer", padding: 4,
+                  display: "flex", alignItems: "center",
+                }}
+              >
+                {navOpen ? <X size={18} /> : <Menu size={18} />}
+              </button>
+              {navOpen && (
+                <div style={{
+                  position: "absolute", top: "calc(100% + 8px)", right: 0,
+                  background: T.surface1,
+                  border: `1px solid rgba(202,168,90,0.22)`,
+                  borderRadius: 4, minWidth: 180,
+                  zIndex: 100, overflow: "hidden",
+                }}>
+                  {[
+                    { label: "Signal Board", href: "/dashboard" },
+                    { label: "Draft Board", href: "/draft" },
+                    { label: "Sources", href: "/leaderboard" },
+                    { label: "Go Pro — $19/mo", href: "/pro" },
+                  ].map(item => (
+                    <Link key={item.href} href={item.href}>
+                      <div
+                        onClick={() => setNavOpen(false)}
+                        style={{
+                          padding: "13px 18px",
+                          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                          fontSize: 12, fontWeight: 700,
+                          letterSpacing: "0.14em", textTransform: "uppercase",
+                          color: item.href === "/pro" ? T.gold : T.textMuted,
+                          borderBottom: "1px solid rgba(202,168,90,0.08)",
+                          cursor: "pointer",
+                          transition: "background 0.12s, color 0.12s",
+                        }}
+                        onMouseEnter={e => {
+                          (e.currentTarget as HTMLDivElement).style.background = "rgba(202,168,90,0.06)";
+                          (e.currentTarget as HTMLDivElement).style.color = T.gold;
+                        }}
+                        onMouseLeave={e => {
+                          (e.currentTarget as HTMLDivElement).style.background = "transparent";
+                          (e.currentTarget as HTMLDivElement).style.color = item.href === "/pro" ? T.gold : T.textMuted;
+                        }}
+                      >
+                        {item.label}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* CTA */}
             <button
-              onClick={scrollTo("waitlist")}
-              data-testid="button-get-access"
+              onClick={() => navigate("/pro")}
               style={{
-                background: "none", border: `1px solid ${C.gold}`,
-                color: C.gold,
+                background: T.gold, color: T.bg,
+                border: "none", borderRadius: 3,
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase",
-                padding: "5px 12px", cursor: "pointer",
+                fontSize: 12, fontWeight: 700,
+                letterSpacing: "0.14em", textTransform: "uppercase",
+                padding: "0 20px", minHeight: 40,
+                cursor: "pointer", whiteSpace: "nowrap",
+                transition: "background 0.15s",
               }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = T.goldBright; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = T.gold; }}
             >
-              Request Access
+              Go Pro · $19
             </button>
           </div>
         </div>
       </header>
 
-      {/* ══ HERO ════════════════════════════════════════════════════
-          Full-width field card — the dominant centerpiece.
-          No separate stat column. Hero carries all identity.        */}
-      <section style={{ background: C.void, paddingBottom: 0 }}>
-        <div className="es-hero-outer" style={{ maxWidth: 1440, margin: "0 auto", padding: "4px 20px 0" }}>
+      {/* ══ HERO ════════════════════════════════════════════════════ */}
+      <section style={{
+        maxWidth: 1440, margin: "0 auto",
+        padding: "80px 32px 72px",
+        display: "grid",
+        gridTemplateColumns: "1fr auto",
+        gap: "64px 56px",
+        alignItems: "center",
+      }}
+      className="block md:grid"
+      >
+        {/* Left: copy */}
+        <div style={{ maxWidth: 620 }}>
+          <Eyebrow>Premium NFL Intelligence</Eyebrow>
 
-          {/* ── Main field card — full width ───────────────────── */}
-          <div style={{
-            position: "relative", overflow: "hidden",
-            border: `1px solid ${C.gold}`,
-            borderTopWidth: 2,
-            background: C.shell,
+          <h1
+            className="display-serif"
+            style={{
+              fontSize: "clamp(2.5rem, 5vw, 4rem)",
+              color: T.text,
+              marginBottom: 24,
+              lineHeight: 1.04,
+            }}
+          >
+            The intelligence
+            <br />
+            <span style={{
+              background: `linear-gradient(135deg, ${T.gold} 0%, ${T.goldBright} 100%)`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              backgroundClip: "text",
+            }}>
+              edge you need.
+            </span>
+          </h1>
+
+          <p style={{
+            fontSize: "1.125rem",
+            color: T.textMuted,
+            lineHeight: 1.65,
+            maxWidth: 520,
+            marginBottom: 36,
           }}>
-            <ChalkField />
+            Real-time NFL signals with verified sources, confidence scoring,
+            and tactical context — built for serious fantasy players and analysts
+            who need actionable intelligence before the market moves.
+          </p>
 
-            {/* Source tag + live badge — floats at top */}
-            <div style={{
-              position: "relative", zIndex: 2,
-              padding: "12px 16px 0",
-              display: "flex", alignItems: "center", justifyContent: "space-between",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{
-                  background: C.cyanDim, border: `1px solid ${C.cyan}44`,
-                  color: C.cyan,
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 8, fontWeight: 700, letterSpacing: "0.18em",
-                  textTransform: "uppercase", padding: "2px 7px",
-                }}>
-                  T1 · Ian Rapaport
-                </span>
-                <Cap color={C.ivoryDim} size={8}>via NFL Network</Cap>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <Dot color={C.green} />
-                <Cap color={C.green} size={8}>Live</Cap>
-              </div>
-            </div>
-
-            {/* ── Dossier row: name block + 3 stat tiles ───────── */}
-            <div
-              className="es-dossier"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr auto",
-                gap: 12,
-                position: "relative", zIndex: 2,
-                padding: "16px 20px 18px",
-              }}
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+            <button
+              onClick={() => navigate("/pro")}
+              className="btn-primary"
             >
-              {/* Name block — no border, no frame. Text on field. */}
-              <div style={{ position: "relative" }}>
-                {/* Gold initial — 28% opacity */}
+              Get Pro Access · $19
+              <ChevronRight size={14} />
+            </button>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="btn-secondary"
+            >
+              View Signal Board
+            </button>
+          </div>
+
+          {/* Trust indicators */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: 24,
+            marginTop: 40,
+            paddingTop: 32,
+            borderTop: "1px solid rgba(202,168,90,0.12)",
+            flexWrap: "wrap", rowGap: 12,
+          }}>
+            {[
+              { val: "12+",    label: "Sources Tracked" },
+              { val: "Live",   label: "Signal Updates" },
+              { val: "$19",    label: "Per Month Pro" },
+            ].map(stat => (
+              <div key={stat.label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 <div style={{
-                  position: "absolute", right: 0, top: -8,
                   fontFamily: "'Playfair Display', Georgia, serif",
-                  fontSize: 148, fontWeight: 900,
-                  color: `${C.gold}47`,
-                  lineHeight: 1, pointerEvents: "none", userSelect: "none",
-                  letterSpacing: "-0.05em",
+                  fontSize: 28, fontWeight: 700,
+                  color: T.gold, lineHeight: 1,
+                  letterSpacing: "-0.02em",
                 }}>
-                  M
+                  {stat.val}
                 </div>
-                <div style={{ position: "relative", zIndex: 1 }}>
-                  <p style={{
-                    fontFamily: "'Playfair Display', Georgia, serif",
-                    fontSize: 44, fontWeight: 900, color: C.goldBright,
-                    margin: "0 0 0px", lineHeight: 1.0, letterSpacing: "-0.01em",
-                  }}>
-                    MAHOMES,
-                  </p>
-                  <p style={{
-                    fontFamily: "'Playfair Display', Georgia, serif",
-                    fontSize: 44, fontWeight: 900, color: C.ivory,
-                    margin: "0 0 8px", lineHeight: 1.0,
-                  }}>
-                    Patrick
-                  </p>
-                  <Cap color={C.goldBright} size={10}>QB · KC CHIEFS</Cap>
-                </div>
-              </div>
-
-              {/* 3 stat tiles — compact, gold-bordered squares */}
-              <div className="es-stat-tiles" style={{
-                display: "flex", flexDirection: "column", gap: 3, minWidth: 90,
-              }}>
-                {[
-                  { v: "92%",  l: "Confidence", dot: C.red   },
-                  { v: "CONF", l: "Verdict",    dot: C.green },
-                  { v: "T1",   l: "Src Tier",   dot: C.gold  },
-                ].map(({ v, l, dot }) => (
-                  <div key={l} style={{
-                    border: `1px solid ${C.gold}`,
-                    background: `${C.panel}CC`,
-                    padding: "7px 10px", textAlign: "center",
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 2 }}>
-                      <Dot color={dot} />
-                    </div>
-                    <p style={{
-                      fontFamily: "'Playfair Display', Georgia, serif",
-                      fontSize: 22, fontWeight: 900, color: C.ivory,
-                      margin: "0 0 1px", lineHeight: 1,
-                    }}>
-                      {v}
-                    </p>
-                    <Cap size={8}>{l}</Cap>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* ── Two brief columns — no individual borders ────── */}
-            <div
-              className="es-brief-row"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                position: "relative", zIndex: 2,
-                borderTop: `1px solid ${C.gold}55`,
-              }}
-            >
-              {/* LEFT: Signal Brief */}
-              <div style={{ padding: "10px 14px 12px", borderRight: `1px solid ${C.gold}40` }}>
-                <GR opacity={0.7} />
-                <p style={{
+                <div style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 12, fontWeight: 700, letterSpacing: "0.13em",
-                  textTransform: "uppercase", color: C.ivory,
-                  margin: "7px 0 6px", lineHeight: 1.2,
+                  fontSize: 10, fontWeight: 700,
+                  letterSpacing: "0.16em", textTransform: "uppercase",
+                  color: T.textFaint,
                 }}>
-                  Signal Brief: Injury Status
-                </p>
-                <DR label="Practice"  value="Limited" accent={C.amber} />
-                <DR label="High Risk" value="True"    accent={C.red}   />
-                <DR label="Impact"    value="Playoff" accent={C.ivory} />
-                <div style={{ marginTop: 8, height: 56, overflow: "hidden", opacity: 0.7 }}>
-                  <MiniField />
+                  {stat.label}
                 </div>
-              </div>
-
-              {/* RIGHT: Source Check */}
-              <div style={{ padding: "10px 14px 12px" }}>
-                <GR opacity={0.7} />
-                <p style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 12, fontWeight: 700, letterSpacing: "0.13em",
-                  textTransform: "uppercase", color: C.ivory,
-                  margin: "7px 0 6px", lineHeight: 1.2,
-                }}>
-                  Source Check: Verification
-                </p>
-                <DR label="Support"        value="3"   />
-                <DR label="Contradictions" value="0"   accent={C.green} />
-                <DR label="Lead Time"      value="42m" accent={C.cyan}  />
-                <div style={{ marginTop: 8 }}>
-                  <GR opacity={0.3} />
-                  <div style={{ marginTop: 6 }}>
-                    <BarRow label="SRC" value={90} />
-                    <BarRow label="VER" value={92} />
-                    <BarRow label="INJ" value={75} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Signal tile row — directly below, single GR above ── */}
-          <div style={{ marginTop: 2 }}>
-            <SignalTileRow />
-          </div>
-
-        </div>
-      </section>
-
-      {/* ══ INTEL ═══════════════════════════════════════════════════
-          No individual module boxes — plain type grid              */}
-      <section style={{ background: C.void, paddingTop: 0 }}>
-        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "18px 20px 14px" }}>
-
-          <div
-            className="es-intel-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, 1fr)",
-              gap: 16,
-              marginTop: 4,
-            }}
-          >
-            {intelModules.map((m, i) => (
-              <div
-                key={m.title}
-                data-testid={`feature-${m.title.toLowerCase().replace(/\s+/g, "-")}`}
-                style={{ paddingBottom: 4 }}
-              >
-                {/* Accent dot + category */}
-                <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-                  <Dot color={moduleAccents[i % moduleAccents.length]} />
-                  <Cap size={8}>{m.category}</Cap>
-                </div>
-                {/* Title */}
-                <p style={{
-                  fontFamily: "'Playfair Display', Georgia, serif",
-                  fontSize: 14, fontWeight: 700, color: C.ivory,
-                  margin: "0 0 5px", lineHeight: 1.25,
-                }}>
-                  {m.title}
-                </p>
-                {/* Fine rule */}
-                <div style={{ height: 1, background: C.ivoryFaint, marginBottom: 6 }} />
-                {/* Description */}
-                <p style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 10, color: C.ivoryDim,
-                  margin: "0 0 8px", lineHeight: 1.4,
-                }}>
-                  {m.desc}
-                </p>
-                {m.metric && (
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 5 }}>
-                    <span style={{
-                      fontFamily: "'Playfair Display', Georgia, serif",
-                      fontSize: 16, fontWeight: 900,
-                      color: moduleAccents[i % moduleAccents.length],
-                    }}>
-                      {m.metric.value}
-                    </span>
-                    <Cap size={8}>{m.metric.label}</Cap>
-                  </div>
-                )}
               </div>
             ))}
           </div>
         </div>
-      </section>
 
-      {/* ══ PIPELINE ════════════════════════════════════════════════
-          Bare numbered sequence — no individual boxes              */}
-      <section style={{ background: C.void }}>
-        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 20px 12px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-            <div style={{ width: 18, height: 1, background: C.gold, opacity: 0.4 }} />
-            <Cap color={C.ivoryDim} size={8}>7-agent verification chain · every claim processed before the feed</Cap>
-          </div>
-          <div
-            className="es-pipe-row"
-            style={{
-              display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
-              gap: 1,
-            }}
-          >
-            {pipeline.map((s, i) => (
-              <div
-                key={s.name}
-                style={{
-                  padding: "8px 8px 7px",
-                  background: i === pipeline.length - 1 ? C.greenDim : "transparent",
-                  borderTop: `2px solid ${i === pipeline.length - 1 ? C.green : C.goldDim}`,
-                  textAlign: "center",
-                }}
-              >
-                <p style={{
-                  fontFamily: "'Playfair Display', Georgia, serif",
-                  fontSize: 14, fontWeight: 900,
-                  color: i === pipeline.length - 1 ? C.green : C.gold,
-                  margin: "0 0 2px",
-                }}>
-                  {i + 1}
-                </p>
-                <Cap
-                  color={i === pipeline.length - 1 ? C.green : C.ivory}
-                  size={9}
-                >
-                  {s.name}
-                </Cap>
-                <p style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 8, color: C.ivoryDim, margin: "2px 0 0", lineHeight: 1.3,
-                }}>
-                  {s.desc}
-                </p>
-              </div>
-            ))}
-          </div>
+        {/* Right: featured player card */}
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <FeaturedCard signal={featuredSignal} />
         </div>
       </section>
 
-      {/* ══ ACCESS TIERS ════════════════════════════════════════════
-          Two clean panels — minimal internal chrome                */}
-      <section style={{ background: C.void }}>
-        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 20px 14px" }}>
-          <div
-            className="es-tiers-grid"
-            style={{
-              display: "grid", gridTemplateColumns: "1fr 1fr",
-              gap: 2, marginTop: 0, maxWidth: 620,
-            }}
-          >
-            {/* Free tier */}
-            <div
-              data-testid="pricing-free"
-              style={{
-                border: `1px solid ${C.goldDim}`,
-                background: C.shell,
-                padding: "14px 14px 12px",
-              }}
-            >
-              <Cap size={8} color={C.ivoryDim}>Tier 01</Cap>
-              <GR my={6} opacity={0.3} />
-              <p style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 12, fontWeight: 700, color: C.ivoryDim, margin: "0 0 2px",
-              }}>
-                Signal Board
-              </p>
-              <p style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 26, fontWeight: 900, color: C.ivory, margin: "0 0 10px", lineHeight: 1,
-              }}>
-                Free
-              </p>
-              {["Live signal feed", "Injury intel", "Source leaderboard", "Draft board"].map(f => (
-                <div key={f} style={{ display: "flex", gap: 6, alignItems: "center", padding: "2px 0" }}>
-                  <Dot color={C.ivoryDim} />
-                  <Cap size={9} color={C.ivoryMid}>{f}</Cap>
-                </div>
-              ))}
-              <button
-                onClick={scrollTo("waitlist")}
-                data-testid="button-pricing-free-cta"
-                style={{
-                  marginTop: 10, width: "100%",
-                  background: "none", border: `1px solid ${C.ivoryDim}`,
-                  color: C.ivoryDim,
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
-                  textTransform: "uppercase", padding: "7px", cursor: "pointer",
-                }}
-              >
-                Get Free Access
-              </button>
-            </div>
+      {/* ══ GOLD RULE ════════════════════════════════════════════════ */}
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
+        <GoldRule opacity={0.18} />
+      </div>
 
-            {/* Pro tier */}
-            <div
-              data-testid="pricing-pro"
-              style={{
-                border: `1px solid ${C.gold}`,
-                borderTopWidth: 2,
-                background: C.lift,
-                padding: "14px 14px 12px",
-                position: "relative",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <Cap size={8} color={C.ivoryDim}>Tier 02</Cap>
-                <span style={{
-                  background: C.amberDim, border: `1px solid ${C.goldDim}`,
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 7, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
-                  color: C.goldBright, padding: "2px 5px",
-                }}>
-                  PRO
-                </span>
-              </div>
-              <GR my={6} opacity={0.4} />
-              <p style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 12, fontWeight: 700, color: C.gold, margin: "0 0 2px",
-              }}>
-                Pro Intelligence
-              </p>
-              <p style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 26, fontWeight: 900, color: C.ivory, margin: "0 0 10px", lineHeight: 1,
-              }}>
-                $19/mo
-              </p>
-              {["All Signal Board", "Priority alerts", "Bettor verdicts", "Fantasy scoring", "Full archive"].map(f => (
-                <div key={f} style={{ display: "flex", gap: 6, alignItems: "center", padding: "2px 0" }}>
-                  <Dot color={C.cyan} />
-                  <Cap size={9} color={C.ivoryMid}>{f}</Cap>
-                </div>
-              ))}
-              <button
-                onClick={() => navigate("/pro")}
-                data-testid="button-pricing-pro-cta"
-                style={{
-                  marginTop: 10, width: "100%",
-                  background: C.gold, border: "none",
-                  color: C.void,
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
-                  textTransform: "uppercase", padding: "7px", cursor: "pointer",
-                }}
-              >
-                Request Pro Access
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══ WAITLIST ════════════════════════════════════════════════
-          Editorial open composition — the conversion centerpiece   */}
-      <section id="waitlist" style={{ background: C.void }}>
-        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "24px 20px 24px" }}>
-          <div style={{ height: 1, background: C.gold, opacity: 0.25, marginBottom: 22 }} />
-          <div
-            className="es-waitlist-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 300px",
-              gap: 32, marginTop: 0,
-            }}
-          >
-            {/* Left — editorial copy, open, no boxes */}
-            <div>
-              <h2 style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 38, fontWeight: 900, fontStyle: "italic",
-                color: C.ivory, margin: "0 0 6px", letterSpacing: "-0.02em", lineHeight: 1.05,
-              }}>
-                Request entry.
-              </h2>
-              <p style={{
+      {/* ══ INTELLIGENCE FEED ════════════════════════════════════════ */}
+      {publicSignals.length > 0 && (
+        <section style={{ maxWidth: 1440, margin: "0 auto", padding: "72px 32px 64px" }}>
+          <Eyebrow>Live Intelligence Feed</Eyebrow>
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 32, gap: 16 }}>
+            <h2 style={{ fontSize: "clamp(1.375rem, 2vw, 1.875rem)", color: T.text, margin: 0 }}>
+              Latest Signals
+            </h2>
+            <Link href="/dashboard">
+              <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, letterSpacing: "0.06em", color: C.ivoryMid,
-                margin: "0 0 20px", maxWidth: 360, lineHeight: 1.5,
-              }}>
-                Early members access the full verified-signal workflow before public rollout.
-                Founding tier includes Pro features at no cost.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {[
-                  { dot: C.green, label: "VERIFIED SIGNALS",    desc: "Scored · human-reviewed · actionable" },
-                  { dot: C.cyan,  label: "SOURCE TELEMETRY",    desc: "Track accuracy across every reporter" },
-                  { dot: C.gold,  label: "PRO ALERTS INCLUDED", desc: "Founding tier at no extra cost" },
-                ].map(({ dot, label, desc }) => (
-                  <div key={label} style={{
-                    display: "flex", gap: 10,
-                    borderLeft: `2px solid ${dot}`, paddingLeft: 10,
-                  }}>
-                    <div>
-                      <Cap color={dot} size={9}>{label}</Cap>
-                      <br />
-                      <Cap color={C.ivoryDim} size={9}>{desc}</Cap>
-                    </div>
-                  </div>
-                ))}
+                fontSize: 12, fontWeight: 700,
+                letterSpacing: "0.14em", textTransform: "uppercase",
+                color: T.gold, cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 5,
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = T.goldBright; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = T.gold; }}>
+                View All <ChevronRight size={12} />
               </div>
-              {countData?.count > 0 && (
-                <p style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase",
-                  color: C.ivoryDim, margin: "16px 0 0",
-                }} data-testid="waitlist-count">
-                  <span style={{ color: C.goldBright, fontWeight: 700 }}>{countData.count}</span> access requests filed
-                </p>
-              )}
-            </div>
+            </Link>
+          </div>
 
-            {/* Right — clean form, gold top border only */}
-            <div style={{
-              borderTop: `2px solid ${C.gold}`,
-              paddingTop: 14,
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+            gap: 16,
+          }}>
+            {publicSignals.map((signal: any) => (
+              <SignalTile key={signal.id} signal={signal} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
+        <GoldRule opacity={0.12} />
+      </div>
+
+      {/* ══ HOW IT WORKS ═════════════════════════════════════════════ */}
+      <section style={{ maxWidth: 1440, margin: "0 auto", padding: "72px 32px 64px" }}>
+        <Eyebrow>Intelligence Pipeline</Eyebrow>
+        <h2 style={{ fontSize: "clamp(1.375rem, 2vw, 1.875rem)", color: T.text, marginBottom: 48 }}>
+          From signal to edge — in seconds
+        </h2>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+          gap: 2,
+        }}>
+          {[
+            { n: "01", title: "Signal Ingestion", body: "Beat writers, beat podcasters, and team insiders monitored in real time across 12+ verified sources." },
+            { n: "02", title: "Confidence Scoring", body: "Each signal receives a 0–100 confidence score based on source reliability, corroboration, and timing." },
+            { n: "03", title: "Verdict Assignment", body: "Signals are classified: Confirmed, Likely, Rumor, or Contradicted — with reasoning you can trust." },
+            { n: "04", title: "Action Takeaway", body: "Every signal includes a concrete action step — what to do with this intelligence in your leagues." },
+          ].map(step => (
+            <div key={step.n} style={{
+              background: T.surface1,
+              border: "1px solid rgba(202,168,90,0.10)",
+              padding: "28px 24px",
+              position: "relative",
             }}>
-              <form
-                onSubmit={handleSubmit}
-                style={{ display: "flex", flexDirection: "column", gap: 7 }}
-                data-testid="waitlist-form"
-              >
-                {[
-                  { type: "text",  placeholder: "Name (optional)",  val: name,  set: setName,  tid: "input-waitlist-name",  req: false },
-                  { type: "email", placeholder: "Email address *",  val: email, set: setEmail, tid: "input-waitlist-email", req: true  },
-                ].map(f => (
-                  <input
-                    key={f.tid}
-                    type={f.type}
-                    placeholder={f.placeholder}
-                    value={f.val}
-                    onChange={e => f.set(e.target.value)}
-                    required={f.req}
-                    data-testid={f.tid}
-                    style={{
-                      background: C.void,
-                      border: `1px solid ${C.ivoryFaint}`,
-                      color: C.ivory,
-                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 11, letterSpacing: "0.06em",
-                      padding: "8px 10px", outline: "none",
-                    }}
-                  />
-                ))}
-                <select
-                  value={role}
-                  onChange={e => setRole(e.target.value)}
-                  data-testid="select-waitlist-role"
-                  style={{
-                    background: C.void,
-                    border: `1px solid ${C.ivoryFaint}`,
-                    color: C.ivoryMid,
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 11, letterSpacing: "0.06em",
-                    padding: "8px 10px", outline: "none",
-                  }}
-                >
-                  <option value="bettor">Sports Bettor</option>
-                  <option value="fantasy">Fantasy Player</option>
-                  <option value="both">Both</option>
-                  <option value="media">Media / Analyst</option>
-                </select>
-                <button
-                  type="submit"
-                  disabled={waitlistMutation.isPending}
-                  data-testid="button-waitlist-submit"
-                  style={{
-                    background: C.gold, border: "none", color: C.void,
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
-                    textTransform: "uppercase", padding: "10px", cursor: "pointer",
-                    opacity: waitlistMutation.isPending ? 0.6 : 1,
-                  }}
-                >
-                  {waitlistMutation.isPending ? "Submitting..." : "Submit Access Request"}
-                </button>
-              </form>
-              {waitlistMutation.isSuccess && (
-                <div style={{
-                  marginTop: 10, padding: "7px 10px",
-                  background: `${C.green}18`, border: `1px solid ${C.green}44`,
-                  display: "flex", alignItems: "center", gap: 6,
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 9, color: C.green,
-                }} data-testid="text-waitlist-success">
-                  <CheckCircle2 size={10} /> Access request received.
-                </div>
-              )}
+              <div style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: 56, fontWeight: 700,
+                color: "rgba(202,168,90,0.10)",
+                lineHeight: 1,
+                position: "absolute", top: 16, right: 20,
+                letterSpacing: "-0.04em",
+                pointerEvents: "none",
+                userSelect: "none",
+              }}>
+                {step.n}
+              </div>
+              <div style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 10, fontWeight: 700,
+                letterSpacing: "0.18em", textTransform: "uppercase",
+                color: T.gold, marginBottom: 12,
+              }}>
+                Step {step.n}
+              </div>
+              <h3 style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: 18, fontWeight: 700,
+                color: T.text, marginBottom: 12, lineHeight: 1.25,
+              }}>
+                {step.title}
+              </h3>
+              <p style={{ fontSize: 15, color: T.textMuted, lineHeight: 1.65, margin: 0 }}>
+                {step.body}
+              </p>
             </div>
+          ))}
+        </div>
+      </section>
+
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
+        <GoldRule opacity={0.12} />
+      </div>
+
+      {/* ══ PRICING ══════════════════════════════════════════════════ */}
+      <section style={{ maxWidth: 1440, margin: "0 auto", padding: "72px 32px 64px" }}>
+        <Eyebrow>Access Tiers</Eyebrow>
+        <h2 style={{ fontSize: "clamp(1.375rem, 2vw, 1.875rem)", color: T.text, marginBottom: 48 }}>
+          Choose your edge
+        </h2>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+          gap: 16,
+          maxWidth: 900,
+        }}>
+          {/* Free tier */}
+          <div style={{
+            background: T.surface1,
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 4,
+            padding: "32px 28px",
+          }}>
+            <div style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+              textTransform: "uppercase", color: T.textFaint, marginBottom: 12,
+            }}>
+              Free
+            </div>
+            <div style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: 40, fontWeight: 700, color: T.text,
+              letterSpacing: "-0.03em", lineHeight: 1, marginBottom: 6,
+            }}>
+              $0
+            </div>
+            <div style={{
+              fontSize: 14, color: T.textFaint, marginBottom: 28,
+            }}>
+              Public signals only
+            </div>
+            <GoldRule opacity={0.10} my={0} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 20 }}>
+              {["Latest 3 signals", "Public verdict labels", "Basic confidence scores"].map(f => (
+                <div key={f} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <CheckCircle2 size={14} style={{ color: T.textFaint, flexShrink: 0 }} />
+                  <span style={{ fontSize: 15, color: T.textMuted }}>{f}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pro tier */}
+          <div style={{
+            background: T.surface1,
+            border: `1px solid rgba(202,168,90,0.40)`,
+            borderRadius: 4,
+            padding: "32px 28px",
+            position: "relative",
+            overflow: "hidden",
+          }}>
+            {/* Gold top bar */}
+            <div style={{
+              position: "absolute", top: 0, left: 0, right: 0,
+              height: 3, background: T.gold, pointerEvents: "none",
+            }} />
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <div style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+                textTransform: "uppercase", color: T.gold, marginBottom: 12,
+              }}>
+                Pro
+              </div>
+              <span style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                background: "rgba(202,168,90,0.15)",
+                color: T.gold,
+                border: "1px solid rgba(202,168,90,0.30)",
+                padding: "3px 8px", borderRadius: 2,
+              }}>
+                Most Popular
+              </span>
+            </div>
+            <div style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: 40, fontWeight: 700, color: T.gold,
+              letterSpacing: "-0.03em", lineHeight: 1, marginBottom: 6,
+            }}>
+              $19
+            </div>
+            <div style={{ fontSize: 14, color: T.textFaint, marginBottom: 28 }}>
+              per month
+            </div>
+            <GoldRule opacity={0.20} my={0} />
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 20, marginBottom: 28 }}>
+              {[
+                "Full signal archive",
+                "Real-time alerts",
+                "All confidence data",
+                "Action takeaways",
+                "Draft board access",
+                "Source leaderboard",
+              ].map(f => (
+                <div key={f} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <CheckCircle2 size={14} style={{ color: T.gold, flexShrink: 0 }} />
+                  <span style={{ fontSize: 15, color: T.textMuted }}>{f}</span>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => navigate("/pro")}
+              className="btn-primary"
+              style={{ width: "100%" }}
+            >
+              Get Pro Access
+              <ChevronRight size={14} />
+            </button>
           </div>
         </div>
       </section>
 
-      {/* ══ FOOTER ══════════════════════════════════════════════════ */}
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px" }}>
+        <GoldRule opacity={0.12} />
+      </div>
+
+      {/* ══ WAITLIST / REQUEST ACCESS ════════════════════════════════ */}
+      <section id="waitlist" style={{ maxWidth: 1440, margin: "0 auto", padding: "72px 32px 80px" }}>
+        <div style={{ maxWidth: 560 }}>
+          <Eyebrow>Early Access</Eyebrow>
+          {waitlistDone ? (
+            <div style={{
+              background: "rgba(61,174,114,0.08)",
+              border: "1px solid rgba(61,174,114,0.25)",
+              borderRadius: 4,
+              padding: "32px 28px",
+              display: "flex", alignItems: "flex-start", gap: 16,
+            }}>
+              <CheckCircle2 size={22} style={{ color: T.green, flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: 20, fontWeight: 700,
+                  color: T.text, marginBottom: 8,
+                }}>
+                  You're on the list.
+                </div>
+                <p style={{ fontSize: 15, color: T.textMuted, margin: 0, lineHeight: 1.6 }}>
+                  We'll reach out when Pro spots open. Watch your inbox.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <h2 style={{
+                fontSize: "clamp(1.375rem, 2vw, 1.875rem)",
+                color: T.text, marginBottom: 12,
+              }}>
+                Request early access
+              </h2>
+              <p style={{ fontSize: 16, color: T.textMuted, lineHeight: 1.65, marginBottom: 36 }}>
+                Pro spots are limited during the early access period.
+                Get on the list and we'll notify you when your access is ready.
+              </p>
+              <WaitlistForm onSuccess={() => setWaitlistDone(true)} />
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* ══ FOOTER ═══════════════════════════════════════════════════ */}
       <footer style={{
-        background: C.shell,
-        borderTop: `1px solid ${C.gold}40`,
-        padding: "11px 20px",
+        borderTop: "1px solid rgba(202,168,90,0.14)",
+        background: T.surface1,
       }}>
         <div style={{
           maxWidth: 1440, margin: "0 auto",
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          flexWrap: "wrap", gap: 8,
+          padding: "40px 32px",
+          display: "flex", alignItems: "flex-start",
+          justifyContent: "space-between", gap: 40,
+          flexWrap: "wrap", rowGap: 32,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Logo small />
-            <p style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.20em",
-              textTransform: "uppercase", color: C.ivory, margin: 0,
-            }}>
-              Edge Setter<span style={{ color: C.gold }}>.</span>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+              <LandingLogo />
+              <span style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: 16, fontWeight: 700,
+                color: T.text,
+              }}>
+                Edge Setter
+              </span>
+            </div>
+            <p style={{ fontSize: 14, color: T.textFaint, maxWidth: 240, lineHeight: 1.6, margin: 0 }}>
+              Premium NFL intelligence for fantasy players and analysts.
             </p>
           </div>
-          <p style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 8, letterSpacing: "0.14em", textTransform: "uppercase",
-            color: C.ivoryFaint, margin: 0,
-          }}>
-            © 2026 Edge Setter · For informational purposes only
-          </p>
-          <div style={{ display: "flex", gap: 18 }}>
+
+          <div style={{ display: "flex", gap: 48, flexWrap: "wrap", rowGap: 24 }}>
             {[
-              { label: "Signal Board", href: "/signals" },
-              { label: "Sources",   href: "/leaderboard" },
-              { label: "Draft",     href: "/draft" },
-            ].map(({ label, href }) => (
-              <Link key={label} href={href}>
-                <span style={{
+              {
+                heading: "Intelligence",
+                links: [
+                  { label: "Signal Board", href: "/dashboard" },
+                  { label: "Draft Board", href: "/draft" },
+                  { label: "Sources", href: "/leaderboard" },
+                ],
+              },
+              {
+                heading: "Account",
+                links: [
+                  { label: "Go Pro", href: "/pro" },
+                  { label: "Alerts", href: "/alerts" },
+                ],
+              },
+            ].map(col => (
+              <div key={col.heading}>
+                <div style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 9, letterSpacing: "0.16em", textTransform: "uppercase",
-                  color: C.ivoryDim, cursor: "pointer",
+                  fontSize: 10, fontWeight: 700,
+                  letterSpacing: "0.18em", textTransform: "uppercase",
+                  color: T.textFaint, marginBottom: 16,
                 }}>
-                  {label}
-                </span>
-              </Link>
+                  {col.heading}
+                </div>
+                {col.links.map(link => (
+                  <Link key={link.href} href={link.href}>
+                    <div style={{
+                      fontSize: 15, color: T.textMuted,
+                      marginBottom: 10, cursor: "pointer",
+                      transition: "color 0.15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = T.gold; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = T.textMuted; }}>
+                      {link.label}
+                    </div>
+                  </Link>
+                ))}
+              </div>
             ))}
           </div>
+        </div>
+
+        <div style={{
+          borderTop: "1px solid rgba(202,168,90,0.08)",
+          padding: "18px 32px",
+          maxWidth: 1440, margin: "0 auto",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          flexWrap: "wrap", gap: 12,
+        }}>
+          <span style={{ fontSize: 13, color: T.textFaint }}>
+            © 2025 Edge Setter. All rights reserved.
+          </span>
+          <span style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700,
+            letterSpacing: "0.16em", textTransform: "uppercase",
+            color: T.textFaint,
+          }}>
+            For informational purposes only
+          </span>
         </div>
       </footer>
     </div>
   );
 }
-
-/* ══ DATA ══════════════════════════════════════════════════════════ */
-const moduleAccents = [C.cyan, C.amber, C.green, C.plum, C.gold, C.cyan];
-
-const intelModules = [
-  { category: "Verification",  title: "Multi-Source Verification",  desc: "Every claim cross-referenced against official sources, beat reporters, and wire services before a verdict is issued.", metric: { value: "3+",   label: "checks per claim"    } },
-  { category: "Injury Intel",  title: "Real-Time Injury Detection", desc: "QB, RB, WR updates scored for fantasy and betting impact within minutes. High-risk flags trigger human review.",      metric: { value: "<2m",  label: "detection time"      } },
-  { category: "Trust Scoring", title: "Source Trust Scoring",       desc: "Every source earns a dynamic reliability score based on accuracy rate, speed, and false positive frequency.",           metric: { value: "88%",  label: "top-tier accuracy"   } },
-  { category: "Draft Intel",   title: "Draft Intel Board",           desc: "NFL Draft movement, combine performance, and team-interest signals in one ranked, scored view.",                        metric: { value: "12+",  label: "sources"             } },
-  { category: "Pro Delivery",  title: "Pro Email Alerts",            desc: "Priority delivery for confirmed and likely signals matching your interests. Bettor and fantasy modes.",                 metric: { value: "50+",  label: "verdicts/day"        } },
-  { category: "QA Control",    title: "Admin Review Queue",          desc: "High-risk claims — QB injuries, first-round picks, head coaching changes — require editor sign-off before publish.",   metric: { value: "100%", label: "high-risk reviewed"  } },
-];
-
-const pipeline = [
-  { name: "Scout",    desc: "Ingests wire feeds" },
-  { name: "Cluster",  desc: "Groups duplicates" },
-  { name: "Retrieve", desc: "Fetches evidence" },
-  { name: "Verify",   desc: "Issues verdict" },
-  { name: "Score",    desc: "Updates trust" },
-  { name: "Publish",  desc: "Creates alerts" },
-  { name: "QA",       desc: "Validates all" },
-];

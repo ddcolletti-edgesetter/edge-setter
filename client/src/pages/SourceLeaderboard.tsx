@@ -10,16 +10,16 @@ interface Props { theme: Theme; toggleTheme: () => void; }
 const C = {
   /* Shell surfaces — matches global dark shell tokens */
   bgBase:       "hsl(22 10%  9%)",
-  panelBase:    "hsl(22 10% 11%)",
-  panelLift:    "hsl(22 10% 13%)",
-  panelElev:    "hsl(22 10% 15%)",
+  panelBase:    "#111317",
+  panelLift:    "#16191E",
+  panelElev:    "#1B1F25",
   /* Text on dark */
-  ivoryPrimary: "hsl(34 52% 89%)",
-  ivorySecond:  "hsl(34 22% 77%)",
-  ivoryMuted:   "hsl(30 10% 58%)",
+  ivoryPrimary: "#F3EFE6",
+  ivorySecond:  "#B7AFA0",
+  ivoryMuted:   "#7E776A",
   ivorySub:     "hsl(25  9% 37%)",
   /* Borders */
-  borderSub:    "hsl(22 10% 18%)",
+  borderSub:    "rgba(202,168,90,0.12)",
   borderMid:    "hsl(22 10% 22%)",
   /* Analytics accuracy accents */
   anaCyan:      "hsl(194 56% 58%)",   /* ≥85% accuracy — confirmed/trust */
@@ -92,14 +92,13 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
             data-testid="tier-legend"
           >
             {[
-              { tier: "tier1", label: "Official / T1" },
-              { tier: "tier2", label: "High Trust" },
-              { tier: "tier3", label: "Trusted" },
-              { tier: "tier4", label: "Commentary" },
-            ].map(({ tier, label }) => (
+              { tier: "tier1" },
+              { tier: "tier2" },
+              { tier: "tier3" },
+              { tier: "tier4" },
+            ].map(({ tier }) => (
               <div key={tier} className="flex items-center gap-1.5">
                 <TierBadge tier={tier} />
-                <span className="data-label" style={{ color: C.ivoryMuted }}>{label}</span>
               </div>
             ))}
           </div>

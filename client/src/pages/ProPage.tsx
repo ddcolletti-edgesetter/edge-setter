@@ -11,9 +11,9 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Signal, SourceNote } from "@shared/schema";
 
 const C = {
-  void: "#080706", shell: "#0C0A08", panel: "#111009", lift: "#181410",
-  gold: "#C9A84C", goldBright: "#E2BE6A", goldDim: "#6A5218",
-  ivory: "#F0E8D6", ivoryMid: "#B8AD98", ivoryDim: "#6E6458", ivoryFaint: "#242018",
+  void: "#0A0B0D", shell: "#111317", panel: "#16191E", lift: "#1B1F25",
+  gold: "#CAA85A", goldBright: "#D8B86A", goldDim: "rgba(202,168,90,0.15)",
+  ivory: "#F3EFE6", ivoryMid: "#B7AFA0", ivoryDim: "#7E776A", ivoryFaint: "rgba(255,255,255,0.06)",
   green: "#3DAE72", cyan: "#38A8C8", amber: "#D4932A", red: "#C04040",
 };
 
@@ -238,7 +238,7 @@ export default function ProPage() {
           <div>
             {/* Billing warning banner — shows on past_due / payment_failed */}
             {(billingStatus === "past_due" || billingStatus === "payment_failed") && (
-              <div style={{ background: "#2A1800", border: `1px solid ${C.amber}`, borderRadius: 2, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ background: C.lift, border: `1px solid ${C.amber}`, borderRadius: 2, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                 <div>
                   <span style={{ fontFamily: "'Barlow Condensed',Arial,sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: C.amber }}>⚠ Payment Issue</span>
                   <p style={{ margin: "4px 0 0", fontSize: 12, color: C.ivoryMid }}>Your last payment failed. Update your card to keep Pro access.</p>

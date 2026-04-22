@@ -234,10 +234,10 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
   const items = draftItems ?? [];
 
   const confColor = (c: number) =>
-    c >= 90 ? "text-[hsl(146,42%,52%)]" : c >= 80 ? "text-primary" : "text-muted-foreground";
+    c >= 90 ? "text-[#3DAE72]" : c >= 80 ? "text-primary" : "text-muted-foreground";
 
   const confBarColor = (c: number) =>
-    c >= 90 ? "hsl(146,42%,52%)" : c >= 80 ? "hsl(34,62%,55%)" : "hsl(215,20%,45%)";
+    c >= 90 ? "#3DAE72" : c >= 80 ? "#D8B86A" : "#7E776A";
 
   // Match signals to a prospect by player name (case-insensitive partial match)
   const linkedSignals = (name: string): SignalFeedItem[] => {

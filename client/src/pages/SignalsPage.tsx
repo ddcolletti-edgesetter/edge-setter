@@ -1,71 +1,69 @@
 /**
- * /signals — Public signal board
- * Shows seeded signals immediately — never empty.
+ * SignalsPage — Luxury Film Ledger redesign
+ * Full-page signal board with premium card hierarchy
  */
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import type { Signal } from "@shared/schema";
+import { CheckCircle2, ChevronRight } from "lucide-react";
 
-// ─── Palette (matches LandingPage) ──────────────────────────────────────────
-const C = {
-  void: "#080706",
-  shell: "#0C0A08",
-  panel: "#111009",
-  lift: "#181410",
-  gold: "#C9A84C",
-  goldBright: "#E2BE6A",
-  goldDim: "#6A5218",
-  ivory: "#F0E8D6",
-  ivoryMid: "#B8AD98",
-  ivoryDim: "#6E6458",
-  ivoryFaint: "#242018",
-  green: "#3DAE72",
-  cyan: "#38A8C8",
-  amber: "#D4932A",
-  red: "#C04040",
+const T = {
+  bg:        "#0A0B0D",
+  surface1:  "#111317",
+  surface2:  "#16191E",
+  surface3:  "#1B1F25",
+  gold:      "#CAA85A",
+  goldBright:"#D8B86A",
+  text:      "#F3EFE6",
+  textMuted: "#B7AFA0",
+  textFaint: "#7E776A",
+  green:     "#3DAE72",
+  cyan:      "#38AACB",
+  red:       "#D94B4B",
+  amber:     "#D4932A",
 };
 
-function Cap({ children, color, size = 9 }: { children: React.ReactNode; color?: string; size?: number }) {
-  return (
-    <span style={{
-      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-      fontSize: size, fontWeight: 700, letterSpacing: "0.18em",
-      textTransform: "uppercase", color: color ?? C.ivoryDim,
-    }}>
-      {children}
-    </span>
-  );
-}
-
-function StatusBadge({ tag }: { tag: string }) {
-  const colorMap: Record<string, string> = {
-    verified: C.green,
-    "high-risk": C.red,
-    speculative: C.amber,
+function VerdictPill({ type }: { type: string }) {
+  const map: Record<string, { bg: string; color: string; label: string }> = {
+    confirmed:    { bg: "rgba(56,170,203,0.12)", color: "#5AC8E0", label: "Confirmed" },
+    likely:       { bg: "rgba(202,168,90,0.12)", color: "#D8B86A", label: "Likely" },
+    rumor:        { bg: "rgba(120,80,176,0.12)", color: "#A07ACC", label: "Rumor" },
+    contradicted: { bg: "rgba(207,74,74,0.12)",  color: "#E08080", label: "Contradicted" },
+    review:       { bg: "rgba(78,111,160,0.12)", color: "#7A9CC8", label: "In Review" },
   };
-  const color = colorMap[tag] ?? C.ivoryDim;
+  const key = Object.keys(map).find(k => type.toLowerCase().includes(k)) ?? "review";
+  const s = map[key];
   return (
     <span style={{
-      display: "inline-flex", alignItems: "center", gap: 4,
       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-      fontSize: 8, fontWeight: 700, letterSpacing: "0.2em",
-      textTransform: "uppercase", color,
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+      textTransform: "uppercase",
+      background: s.bg, color: s.color,
+      border: `1px solid ${s.color}44`,
+      padding: "3px 8px", borderRadius: 2,
+      display: "inline-flex", alignItems: "center", gap: 5,
     }}>
-      <span style={{ width: 5, height: 5, borderRadius: "50%", background: color, display: "inline-block" }} />
-      {tag}
+      <span style={{ width: 4, height: 4, borderRadius: "50%", background: s.color, display: "inline-block" }} />
+      {s.label}
     </span>
   );
 }
 
 function ConfBar({ score }: { score: number }) {
+  const color = score >= 88 ? T.green : score >= 78 ? T.gold : T.amber;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      <div style={{ flex: 1, height: 2, background: C.ivoryFaint, borderRadius: 1 }}>
-        <div style={{ width: `${score}%`, height: "100%", background: score >= 88 ? C.green : score >= 80 ? C.gold : C.amber, borderRadius: 1 }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, position: "relative" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: `${score}%`, background: color, borderRadius: 2 }} />
       </div>
-      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, color: C.ivory, minWidth: 28, textAlign: "right" }}>{score}</span>
+      <span style={{
+        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+        fontSize: 12, fontWeight: 700, color: T.gold, minWidth: 28, textAlign: "right",
+      }}>
+        {score}
+      </span>
     </div>
   );
 }
@@ -75,61 +73,130 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
     <div
       data-testid={`signal-card-${signal.id}`}
       style={{
-        background: featured ? C.shell : "transparent",
-        border: featured ? `1px solid ${C.gold}40` : `none`,
-        borderTop: `1px solid ${featured ? C.gold : C.ivoryFaint}`,
-        padding: featured ? "20px 22px 18px" : "16px 0 14px",
+        background: featured ? T.surface2 : T.surface1,
+        border: featured ? `1px solid rgba(202,168,90,0.30)` : `1px solid rgba(202,168,90,0.10)`,
+        borderLeft: `3px solid ${featured ? T.gold : "rgba(202,168,90,0.35)"}`,
+        borderRadius: 4,
+        padding: featured ? "24px 24px 20px" : "20px 20px 16px",
         position: "relative",
+        overflow: "hidden",
+        transition: "border-left-color 0.15s",
+        marginBottom: 12,
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLDivElement).style.borderLeftColor = T.gold;
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLDivElement).style.borderLeftColor = featured ? T.gold : "rgba(202,168,90,0.35)";
       }}
     >
       {featured && (
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: C.gold }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold, pointerEvents: "none" }} />
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, marginBottom: 10 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
-            <StatusBadge tag={signal.status_tag} />
-            <Cap color={C.ivoryDim}>{signal.signal_type}</Cap>
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+            <VerdictPill type={signal.verdict?.toLowerCase() ?? "review"} />
+            <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+              textTransform: "uppercase", color: T.textFaint,
+            }}>
+              {signal.signal_type}
+            </span>
           </div>
-          <p style={{
+          <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: featured ? 18 : 15,
-            fontWeight: 700, color: C.ivory,
-            margin: "0 0 4px", lineHeight: 1.25,
+            fontSize: featured ? 20 : 17, fontWeight: 700,
+            color: T.text, lineHeight: 1.3, marginBottom: 6,
           }}>
             {signal.title}
-          </p>
-          <Cap color={C.gold}>{signal.player_name}</Cap>
-          <Cap color={C.ivoryDim}> · {signal.team}</Cap>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+              textTransform: "uppercase", color: T.gold,
+            }}>
+              {signal.player_name}
+            </span>
+            <span style={{ color: T.textFaint, fontSize: 10 }}>·</span>
+            <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.10em",
+              textTransform: "uppercase", color: T.textFaint,
+            }}>
+              {signal.team}
+            </span>
+          </div>
         </div>
         <div style={{ textAlign: "right", flexShrink: 0 }}>
-          <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: featured ? 28 : 22, fontWeight: 900, color: C.goldBright, lineHeight: 1 }}>{signal.confidence_score}</div>
-          <Cap color={C.ivoryDim}>conf</Cap>
+          <div style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: featured ? 36 : 28, fontWeight: 700,
+            color: T.gold, lineHeight: 1,
+            letterSpacing: "-0.03em",
+          }}>
+            {signal.confidence_score}
+          </div>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+            textTransform: "uppercase", color: T.textFaint, marginTop: 2,
+          }}>
+            Confidence
+          </div>
         </div>
       </div>
 
-      <div style={{ marginBottom: 10 }}>
+      <div style={{ marginBottom: 14 }}>
         <ConfBar score={signal.confidence_score} />
       </div>
 
-      <p style={{ fontSize: 12, color: C.ivoryMid, margin: "0 0 10px", lineHeight: 1.5 }}>
-        {signal.summary}
-      </p>
-
-      <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-        <div style={{ width: 2, height: 28, background: C.gold, opacity: 0.6, flexShrink: 0, marginTop: 2 }} />
-        <p style={{ fontSize: 11, color: C.ivory, margin: 0, lineHeight: 1.5, fontStyle: "italic" }}>
-          {signal.action_takeaway}
+      {signal.summary && (
+        <p style={{ fontSize: 15, color: T.textMuted, margin: "0 0 12px", lineHeight: 1.65 }}>
+          {signal.summary}
         </p>
-      </div>
+      )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
-        <Cap color={C.ivoryDim}>{signal.source_count} sources · {signal.verdict}</Cap>
+      {signal.action_takeaway && (
+        <div style={{
+          display: "flex", gap: 10, alignItems: "flex-start",
+          padding: "12px 14px",
+          background: "rgba(202,168,90,0.05)",
+          border: "1px solid rgba(202,168,90,0.12)",
+          borderRadius: 3,
+          marginBottom: 12,
+        }}>
+          <div style={{ width: 2, flexShrink: 0, alignSelf: "stretch", background: T.gold, borderRadius: 1, opacity: 0.7, pointerEvents: "none" }} />
+          <p style={{ fontSize: 14, color: T.text, margin: 0, lineHeight: 1.55, fontStyle: "italic" }}>
+            {signal.action_takeaway}
+          </p>
+        </div>
+      )}
+
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <span style={{
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+          textTransform: "uppercase", color: T.textFaint,
+        }}>
+          {signal.source_count} sources
+        </span>
         {featured && (
           <Link href="/pro">
-            <a style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: C.gold, textDecoration: "none" }}>
-              Full source detail — Pro →
-            </a>
+            <div style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+              textTransform: "uppercase", color: T.gold,
+              cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+              transition: "color 0.15s",
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = T.goldBright; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = T.gold; }}>
+              Full Source Detail — Pro <ChevronRight size={10} />
+            </div>
           </Link>
         )}
       </div>
@@ -162,71 +229,135 @@ export default function SignalsPage() {
       const res = await apiRequest("POST", "/api/checkout", { email });
       const { url } = await res.json();
       if (url) window.location.href = url;
-    } catch (e) {
+    } catch {
       setCheckoutLoading(false);
     }
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: C.void, color: C.ivory }}>
-      {/* Nav */}
-      <div style={{ background: C.shell, borderBottom: `1px solid ${C.gold}30`, padding: "0 20px" }}>
-        <div style={{ maxWidth: 1440, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", height: 48 }}>
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text }}>
+      {/* Top bar */}
+      <div style={{
+        background: T.surface1,
+        borderBottom: "1px solid rgba(202,168,90,0.14)",
+        borderTop: "2px solid rgba(202,168,90,0.60)",
+        padding: "0 32px",
+      }}>
+        <div style={{
+          maxWidth: 1440, margin: "0 auto",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+          minHeight: 52,
+        }}>
           <Link href="/">
-            <a style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", color: C.ivory }}>EDGE SETTER<span style={{ color: C.gold }}>.</span></span>
-            </a>
+            <div style={{
+              fontFamily: "'Playfair Display', Georgia, serif",
+              fontSize: 15, fontWeight: 700,
+              color: T.text, cursor: "pointer",
+              letterSpacing: "-0.01em",
+            }}>
+              Edge Setter
+            </div>
           </Link>
-          <div style={{ display: "flex", gap: 20, alignItems: "center" }}>
-            <span style={{ fontFamily: "'Barlow Condensed'", fontSize: 8, letterSpacing: "0.18em", textTransform: "uppercase", color: C.green }}>
-              <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: C.green, marginRight: 5 }} />
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              display: "flex", alignItems: "center", gap: 6, color: T.green,
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} className="live-dot" />
               Signal Feed Active
             </span>
             <Link href="/pro">
-              <a style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: C.void, background: C.gold, padding: "6px 14px", textDecoration: "none" }}>
+              <button style={{
+                background: T.gold, color: T.bg,
+                border: "none", borderRadius: 3, cursor: "pointer",
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+                textTransform: "uppercase",
+                padding: "7px 16px", minHeight: 36,
+                transition: "background 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = T.goldBright; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = T.gold; }}>
                 Upgrade to Pro
-              </a>
+              </button>
             </Link>
           </div>
         </div>
       </div>
 
-      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "40px 32px 72px" }}>
         {/* Page header */}
-        <div style={{ marginBottom: 24 }}>
-          <Cap color={C.gold} size={10}>Public Signal Board</Cap>
-          <div style={{ height: 1, background: C.gold, opacity: 0.3, marginTop: 8, marginBottom: 12 }} />
-          <p style={{ fontSize: 13, color: C.ivoryDim, margin: 0 }}>
-            Verified NFL signals — scored, sourced, and ready to act on. Pro subscribers get full source detail and confidence breakdowns.
-          </p>
+        <div style={{ marginBottom: 40 }}>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.20em",
+            textTransform: "uppercase", color: T.gold, marginBottom: 10,
+          }}>
+            Public Signal Board
+          </div>
+          <h1 style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: "clamp(1.75rem, 3vw, 2.5rem)",
+            fontWeight: 700, color: T.text, marginBottom: 14,
+            letterSpacing: "-0.02em", lineHeight: 1.1,
+          }}>
+            NFL Intelligence Feed
+          </h1>
+          <div style={{ height: 1, background: "rgba(202,168,90,0.18)" }} />
         </div>
 
         {isLoading ? (
-          <div style={{ padding: "40px 0", textAlign: "center" }}>
-            <Cap color={C.ivoryDim}>Loading signals…</Cap>
+          <div style={{ padding: "60px 0", textAlign: "center", color: T.textFaint,
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 12, letterSpacing: "0.14em", textTransform: "uppercase" }}>
+            Loading signals…
           </div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 32 }}>
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "1fr 320px",
+            gap: 40,
+          }}
+          className="block lg:grid">
             {/* Signal feed */}
             <div>
               {featured && <SignalCard signal={featured} featured />}
-              <div style={{ marginTop: featured ? 20 : 0 }}>
+              <div>
                 {rest.map(s => <SignalCard key={s.id} signal={s} />)}
               </div>
             </div>
 
             {/* Sidebar */}
-            <div>
-              {/* Waitlist / upgrade CTA */}
-              <div style={{ borderTop: `2px solid ${C.gold}`, padding: "18px 0 0" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              {/* Waitlist */}
+              <div style={{
+                background: T.surface1,
+                border: "1px solid rgba(202,168,90,0.22)",
+                borderRadius: 4,
+                padding: "24px 22px",
+                position: "relative", overflow: "hidden",
+              }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold, pointerEvents: "none" }} />
                 {!submitted ? (
                   <>
-                    <Cap color={C.goldBright} size={10}>Early Access</Cap>
-                    <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 700, color: C.ivory, margin: "8px 0 4px" }}>
+                    <div style={{
+                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                      fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+                      textTransform: "uppercase", color: T.gold, marginBottom: 10,
+                    }}>
+                      Early Access
+                    </div>
+                    <div style={{
+                      fontFamily: "'Playfair Display', Georgia, serif",
+                      fontSize: 18, fontWeight: 700, color: T.text,
+                      marginBottom: 8, lineHeight: 1.25,
+                    }}>
                       Request entry.
-                    </p>
-                    <p style={{ fontSize: 12, color: C.ivoryDim, margin: "0 0 14px", lineHeight: 1.5 }}>
-                      Join the list. Free board access — no card required.
+                    </div>
+                    <p style={{ fontSize: 14, color: T.textMuted, margin: "0 0 18px", lineHeight: 1.6 }}>
+                      Join the list for free board access — no card required.
                     </p>
                     <input
                       data-testid="input-waitlist-email"
@@ -235,103 +366,89 @@ export default function SignalsPage() {
                       value={email}
                       onChange={e => setEmail(e.target.value)}
                       onKeyDown={e => e.key === "Enter" && email && waitlistMutation.mutate({ email })}
-                      style={{
-                        width: "100%", boxSizing: "border-box",
-                        background: C.shell, border: `1px solid ${C.ivoryFaint}`,
-                        borderTop: `1px solid ${C.gold}40`,
-                        color: C.ivory, fontSize: 12, padding: "9px 12px",
-                        outline: "none", fontFamily: "inherit", marginBottom: 8,
-                      }}
+                      className="input-premium"
+                      style={{ marginBottom: 10 }}
                     />
                     <button
                       data-testid="button-request-access"
                       onClick={() => email && waitlistMutation.mutate({ email })}
                       disabled={waitlistMutation.isPending || !email}
-                      style={{
-                        width: "100%", padding: "10px 0",
-                        background: waitlistMutation.isPending ? C.goldDim : C.gold,
-                        color: C.void, border: "none", cursor: "pointer",
-                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-                      }}
+                      className="btn-primary"
+                      style={{ width: "100%" }}
                     >
                       {waitlistMutation.isPending ? "Sending…" : "Request Access"}
                     </button>
-                    {waitlistMutation.isError && (
-                      <p style={{ fontSize: 11, color: C.red, marginTop: 6 }}>
-                        {(waitlistMutation.error as any)?.message ?? "Something went wrong"}
-                      </p>
-                    )}
                   </>
                 ) : (
-                  <div data-testid="waitlist-success">
-                    <Cap color={C.green} size={9}>Confirmed</Cap>
-                    <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: C.ivory, margin: "8px 0 6px" }}>
-                      You're on the list.
-                    </p>
-                    <p style={{ fontSize: 12, color: C.ivoryDim, margin: "0 0 14px", lineHeight: 1.5 }}>
-                      We'll send your invite when your spot opens. Check your email for a preview link.
-                    </p>
-                    <p style={{ fontSize: 11, color: C.ivoryDim, margin: "0 0 12px" }}>What best describes you?</p>
-                    {["Sports bettor", "Fantasy player", "Content creator", "Other"].map(role => (
-                      <button
-                        key={role}
-                        data-testid={`button-role-${role.toLowerCase().replace(/\s+/g, "-")}`}
-                        onClick={() => apiRequest("POST", "/api/waitlist", { email, role: role.toLowerCase() }).catch(() => {})}
-                        style={{
-                          display: "block", width: "100%", marginBottom: 4,
-                          padding: "7px 12px", background: "transparent",
-                          border: `1px solid ${C.ivoryFaint}`, color: C.ivoryMid,
-                          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
-                          textTransform: "uppercase", cursor: "pointer", textAlign: "left",
-                        }}
-                      >
-                        {role}
-                      </button>
-                    ))}
+                  <div data-testid="waitlist-success" style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                    <CheckCircle2 size={20} style={{ color: T.green, flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <div style={{
+                        fontFamily: "'Playfair Display', Georgia, serif",
+                        fontSize: 17, fontWeight: 700, color: T.text, marginBottom: 6,
+                      }}>
+                        You're on the list.
+                      </div>
+                      <p style={{ fontSize: 14, color: T.textMuted, margin: 0, lineHeight: 1.6 }}>
+                        We'll send your invite when your spot opens.
+                      </p>
+                    </div>
                   </div>
                 )}
               </div>
 
               {/* Pro upgrade panel */}
-              <div style={{ borderTop: `1px solid ${C.ivoryFaint}`, marginTop: 20, paddingTop: 18 }}>
-                <Cap color={C.gold} size={9}>Pro Intelligence</Cap>
-                <p style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 900, color: C.goldBright, margin: "6px 0 2px" }}>
-                  $19<span style={{ fontSize: 13, color: C.ivoryMid, fontFamily: "'Barlow Condensed'" }}>/mo</span>
+              <div style={{
+                background: T.surface1,
+                border: "1px solid rgba(202,168,90,0.14)",
+                borderRadius: 4,
+                padding: "24px 22px",
+              }}>
+                <div style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+                  textTransform: "uppercase", color: T.textFaint, marginBottom: 8,
+                }}>
+                  Pro Intelligence
+                </div>
+                <div style={{
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: 40, fontWeight: 700, color: T.gold,
+                  letterSpacing: "-0.03em", lineHeight: 1, marginBottom: 4,
+                }}>
+                  $19
+                  <span style={{ fontSize: 16, color: T.textFaint, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif" }}>
+                    /mo
+                  </span>
+                </div>
+                <p style={{ fontSize: 14, color: T.textMuted, margin: "0 0 16px", lineHeight: 1.6 }}>
+                  Full signal feed · All confidence data · Action takeaways
                 </p>
-                <ul style={{ listStyle: "none", padding: 0, margin: "10px 0 14px" }}>
-                  {["Full signal feed", "Confidence scores", "Verdict detail", "Source notes", "Pro email alerts"].map(f => (
-                    <li key={f} style={{ fontSize: 11, color: C.ivoryMid, marginBottom: 5, paddingLeft: 12, position: "relative" }}>
-                      <span style={{ position: "absolute", left: 0, color: C.gold }}>·</span>
-                      {f}
-                    </li>
+                <div style={{ marginBottom: 16 }}>
+                  {["Full signal archive", "Confidence scores", "Verdict detail", "Source notes", "Pro alerts"].map(f => (
+                    <div key={f} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <CheckCircle2 size={13} style={{ color: T.gold, flexShrink: 0 }} />
+                      <span style={{ fontSize: 14, color: T.textMuted }}>{f}</span>
+                    </div>
                   ))}
-                </ul>
-                <input
-                  data-testid="input-pro-email"
-                  type="email"
-                  placeholder="Email for Pro access"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  style={{
-                    width: "100%", boxSizing: "border-box",
-                    background: C.shell, border: `1px solid ${C.ivoryFaint}`,
-                    color: C.ivory, fontSize: 12, padding: "9px 12px",
-                    outline: "none", fontFamily: "inherit", marginBottom: 8,
-                  }}
-                />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <input
+                    data-testid="input-pro-email"
+                    type="email"
+                    placeholder="Email for Pro access"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="input-premium"
+                    style={{ marginBottom: 10 }}
+                  />
+                </div>
                 <button
                   data-testid="button-upgrade-pro"
                   onClick={handleCheckout}
                   disabled={checkoutLoading || !email}
-                  style={{
-                    width: "100%", padding: "11px 0",
-                    background: checkoutLoading ? C.goldDim : C.gold,
-                    color: C.void, border: "none", cursor: "pointer",
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-                  }}
+                  className="btn-primary"
+                  style={{ width: "100%" }}
                 >
                   {checkoutLoading ? "Redirecting…" : "Upgrade to Pro — $19/mo"}
                 </button>
