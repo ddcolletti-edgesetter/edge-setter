@@ -4,8 +4,8 @@ import AppLayout from "../components/AppLayout";
 import VerdictBadge from "../components/VerdictBadge";
 import { type Theme } from "../App";
 import { type SignalFeedItem } from "@shared/schema";
-import { useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
@@ -25,6 +25,46 @@ interface Prospect {
 
 export default function DraftBoard({ theme, toggleTheme }: Props) {
   const [expandedRank, setExpandedRank] = useState<number | null>(null);
+  type SortKey = "rank" | "conf" | "pos" | "projected";
+  type SortDir = "asc" | "desc";
+  const [sortKey, setSortKey] = useState<SortKey>("rank");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [posFilter, setPosFilter] = useState<string>("ALL");
+
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir(key === "conf" ? "desc" : "asc"); // Edge Score defaults desc (best first)
+    }
+    setExpandedRank(null); // collapse on re-sort
+  };
+
+  // Round order for sorting projected round
+  const roundOrder: Record<string, number> = {
+    "1st Round": 1, "1st–2nd Round": 2, "2nd Round": 3, "2nd–3rd Round": 4, "3rd Round": 5,
+  };
+
+  const availablePos = ["ALL", ...Array.from(new Set(prospects.map(p => p.pos)))];
+
+  const sortedProspects = useMemo(() => {
+    let list = [...prospects];
+    if (posFilter !== "ALL") list = list.filter(p => p.pos === posFilter);
+    list.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "rank")      cmp = a.rank - b.rank;
+      else if (sortKey === "conf") cmp = a.conf - b.conf;
+      else if (sortKey === "pos")  cmp = a.pos.localeCompare(b.pos);
+      else if (sortKey === "projected") {
+        const ao = roundOrder[a.projected] ?? 9;
+        const bo = roundOrder[b.projected] ?? 9;
+        cmp = ao - bo;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [sortKey, sortDir, posFilter]);
 
   const { data: draftItems, isLoading } = useQuery<SignalFeedItem[]>({
     queryKey: ["/api/signal", "draft"],
@@ -202,34 +242,91 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
               className="text-sm font-bold"
               style={{ fontFamily: "'Playfair Display', Georgia, serif" }}
             >
-              Top 10 Prospects
+              Top Prospects
             </h2>
-            <span className="data-label">Edge score · Confidence</span>
+            {/* Position filter pills */}
+            <div className="flex items-center gap-1 flex-wrap justify-end">
+              {availablePos.map(pos => (
+                <button
+                  key={pos}
+                  onClick={() => { setPosFilter(pos); setExpandedRank(null); }}
+                  data-testid={`filter-pos-${pos}`}
+                  className={`text-[8px] px-2 py-0.5 rounded border font-bold uppercase tracking-widest transition-colors ${
+                    posFilter === pos
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                  }`}
+                >
+                  {pos}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm" data-testid="table-prospects">
               <thead>
                 <tr className="border-b border-border bg-muted/10">
+                  {/* Rank — sortable */}
                   <th className="text-left px-4 py-2.5 w-9">
-                    <span className="data-label">#</span>
+                    <button
+                      onClick={() => handleSort("rank")}
+                      data-testid="sort-rank"
+                      className="flex items-center gap-1 group"
+                    >
+                      <span className={`data-label transition-colors ${ sortKey === "rank" ? "text-primary" : "group-hover:text-foreground" }`}>#</span>
+                      {sortKey === "rank"
+                        ? (sortDir === "asc" ? <ChevronUp size={10} className="text-primary" /> : <ChevronDown size={10} className="text-primary" />)
+                        : <ChevronsUpDown size={10} className="text-muted-foreground/40 group-hover:text-muted-foreground" />}
+                    </button>
                   </th>
+                  {/* Player — not sortable, but pos is */}
                   <th className="text-left px-4 py-2.5">
-                    <span className="data-label">Player</span>
+                    <button
+                      onClick={() => handleSort("pos")}
+                      data-testid="sort-pos"
+                      className="flex items-center gap-1 group"
+                    >
+                      <span className={`data-label transition-colors ${ sortKey === "pos" ? "text-primary" : "group-hover:text-foreground" }`}>Player / Pos</span>
+                      {sortKey === "pos"
+                        ? (sortDir === "asc" ? <ChevronUp size={10} className="text-primary" /> : <ChevronDown size={10} className="text-primary" />)
+                        : <ChevronsUpDown size={10} className="text-muted-foreground/40 group-hover:text-muted-foreground" />}
+                    </button>
                   </th>
                   <th className="text-left px-4 py-2.5 hidden sm:table-cell">
                     <span className="data-label">School</span>
                   </th>
+                  {/* Projection — sortable */}
                   <th className="text-left px-4 py-2.5">
-                    <span className="data-label">Projection</span>
+                    <button
+                      onClick={() => handleSort("projected")}
+                      data-testid="sort-projected"
+                      className="flex items-center gap-1 group"
+                    >
+                      <span className={`data-label transition-colors ${ sortKey === "projected" ? "text-primary" : "group-hover:text-foreground" }`}>Projection</span>
+                      {sortKey === "projected"
+                        ? (sortDir === "asc" ? <ChevronUp size={10} className="text-primary" /> : <ChevronDown size={10} className="text-primary" />)
+                        : <ChevronsUpDown size={10} className="text-muted-foreground/40 group-hover:text-muted-foreground" />}
+                    </button>
                   </th>
+                  {/* Edge Score — sortable */}
                   <th className="text-right px-4 py-2.5">
-                    <span className="data-label">Edge Score</span>
+                    <button
+                      onClick={() => handleSort("conf")}
+                      data-testid="sort-edge-score"
+                      className="flex items-center gap-1 justify-end ml-auto group"
+                    >
+                      {sortKey === "conf"
+                        ? (sortDir === "asc" ? <ChevronUp size={10} className="text-primary" /> : <ChevronDown size={10} className="text-primary" />)
+                        : <ChevronsUpDown size={10} className="text-muted-foreground/40 group-hover:text-muted-foreground" />}
+                      <span className={`data-label transition-colors ${ sortKey === "conf" ? "text-primary" : "group-hover:text-foreground" }`}>Edge Score</span>
+                    </button>
                   </th>
                 </tr>
               </thead>
               <tbody>
-                {prospects.map(p => {
+                {sortedProspects.map((p, idx) => {
                   const isOpen = expandedRank === p.rank;
+                  const displayRank = sortKey === "rank" ? p.rank : idx + 1;
                   const signals = linkedSignals(p.name);
                   return (
                     <>
@@ -241,7 +338,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                           ${ isOpen ? "bg-muted/30" : "hover:bg-muted/20" }`}
                         data-testid={`prospect-row-${p.rank}`}
                       >
-                        <td className="px-4 py-3 text-xs font-bold tabular-nums text-muted-foreground">{p.rank}</td>
+                        <td className="px-4 py-3 text-xs font-bold tabular-nums text-muted-foreground">{displayRank}</td>
                         <td className="px-4 py-3">
                           <p className="font-semibold text-sm text-foreground">{p.name}</p>
                           <p className="text-[10px] text-muted-foreground">{p.pos} · {p.team}</p>
