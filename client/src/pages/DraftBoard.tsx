@@ -4,33 +4,171 @@ import AppLayout from "../components/AppLayout";
 import VerdictBadge from "../components/VerdictBadge";
 import { type Theme } from "../App";
 import { type SignalFeedItem } from "@shared/schema";
+import { useState } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
+interface Prospect {
+  rank: number;
+  name: string;
+  pos: string;
+  school: string;
+  projected: string;
+  conf: number;
+  team: string;
+  // Confidence breakdown by category
+  breakdown: { label: string; score: number }[];
+  // Brief scouting note
+  note: string;
+}
+
 export default function DraftBoard({ theme, toggleTheme }: Props) {
+  const [expandedRank, setExpandedRank] = useState<number | null>(null);
+
   const { data: draftItems, isLoading } = useQuery<SignalFeedItem[]>({
     queryKey: ["/api/signal", "draft"],
     queryFn: () => apiRequest("GET", "/api/signal?topic=draft").then(r => r.json()),
     refetchInterval: 60000,
   });
 
+  // Also fetch ALL signals so we can match by player name
+  const { data: allSignals } = useQuery<SignalFeedItem[]>({
+    queryKey: ["/api/signal"],
+    queryFn: () => apiRequest("GET", "/api/signal").then(r => r.json()),
+  });
+
   const items = draftItems ?? [];
 
-  const prospects = [
-    { rank: 1, name: "Cam Ward", pos: "QB", school: "Miami (FL)", projected: "1st Round", conf: 96, team: "Tennessee Titans" },
-    { rank: 2, name: "Travis Hunter", pos: "WR/CB", school: "Colorado", projected: "1st Round", conf: 94, team: "Cleveland Browns" },
-    { rank: 3, name: "Abdul Carter", pos: "EDGE", school: "Penn State", projected: "1st Round", conf: 91, team: "NY Giants" },
-    { rank: 4, name: "Will Johnson", pos: "CB", school: "Michigan", projected: "1st Round", conf: 88, team: "New England Patriots" },
-    { rank: 5, name: "Ashton Jeanty", pos: "RB", school: "Boise State", projected: "1st Round", conf: 85, team: "Jacksonville Jaguars" },
-    { rank: 6, name: "Mason Graham", pos: "DT", school: "Michigan", projected: "1st Round", conf: 83, team: "Las Vegas Raiders" },
-    { rank: 7, name: "Tetairoa McMillan", pos: "WR", school: "Arizona", projected: "1st Round", conf: 81, team: "Carolina Panthers" },
-    { rank: 8, name: "Kelvin Banks Jr.", pos: "OT", school: "Texas", projected: "1st Round", conf: 79, team: "New York Giants" },
-    { rank: 9, name: "Jalon Walker", pos: "LB", school: "Georgia", projected: "1st–2nd Round", conf: 74, team: "Atlanta Falcons" },
-    { rank: 10, name: "Jihaad Campbell", pos: "LB", school: "Alabama", projected: "1st–2nd Round", conf: 72, team: "Philadelphia Eagles" },
+  const prospects: Prospect[] = [
+    {
+      rank: 1, name: "Cam Ward", pos: "QB", school: "Miami (FL)",
+      projected: "1st Round", conf: 96, team: "Tennessee Titans",
+      breakdown: [
+        { label: "Arm Talent", score: 97 },
+        { label: "Accuracy", score: 94 },
+        { label: "Mobility", score: 88 },
+        { label: "NFL Readiness", score: 95 },
+      ],
+      note: "Elite arm talent with rare touch and zip. Tennessee's clear franchise QB target. No significant combine red flags.",
+    },
+    {
+      rank: 2, name: "Travis Hunter", pos: "WR/CB", school: "Colorado",
+      projected: "1st Round", conf: 94, team: "Cleveland Browns",
+      breakdown: [
+        { label: "Receiving", score: 96 },
+        { label: "Coverage", score: 91 },
+        { label: "Athleticism", score: 98 },
+        { label: "NFL Readiness", score: 90 },
+      ],
+      note: "Two-way generational talent. Heisman winner. Cleveland values the WR role primarily; CB is a bonus weapon.",
+    },
+    {
+      rank: 3, name: "Abdul Carter", pos: "EDGE", school: "Penn State",
+      projected: "1st Round", conf: 91, team: "NY Giants",
+      breakdown: [
+        { label: "Pass Rush", score: 95 },
+        { label: "Run Defense", score: 86 },
+        { label: "Athleticism", score: 93 },
+        { label: "NFL Readiness", score: 89 },
+      ],
+      note: "Explosive first step and elite bend. Giants desperately need edge presence; Carter fills immediately.",
+    },
+    {
+      rank: 4, name: "Will Johnson", pos: "CB", school: "Michigan",
+      projected: "1st Round", conf: 88, team: "New England Patriots",
+      breakdown: [
+        { label: "Coverage", score: 92 },
+        { label: "Tackling", score: 87 },
+        { label: "Ball Skills", score: 90 },
+        { label: "NFL Readiness", score: 85 },
+      ],
+      note: "Long, physical corner with elite press coverage. New England rebuilding secondary around him.",
+    },
+    {
+      rank: 5, name: "Ashton Jeanty", pos: "RB", school: "Boise State",
+      projected: "1st Round", conf: 85, team: "Jacksonville Jaguars",
+      breakdown: [
+        { label: "Explosiveness", score: 96 },
+        { label: "Vision", score: 89 },
+        { label: "Pass Pro", score: 78 },
+        { label: "NFL Readiness", score: 84 },
+      ],
+      note: "Heisman runner-up. Historic production at Boise State. Jacksonville needs a backfield centerpiece.",
+    },
+    {
+      rank: 6, name: "Mason Graham", pos: "DT", school: "Michigan",
+      projected: "1st Round", conf: 83, team: "Las Vegas Raiders",
+      breakdown: [
+        { label: "Pass Rush", score: 87 },
+        { label: "Run Stop", score: 92 },
+        { label: "Leverage", score: 90 },
+        { label: "NFL Readiness", score: 83 },
+      ],
+      note: "Dominant interior anchor. Run-stopping specialist who flashes pass rush upside on 3-tech snaps.",
+    },
+    {
+      rank: 7, name: "Tetairoa McMillan", pos: "WR", school: "Arizona",
+      projected: "1st Round", conf: 81, team: "Carolina Panthers",
+      breakdown: [
+        { label: "Route Running", score: 85 },
+        { label: "Catch Radius", score: 94 },
+        { label: "YAC", score: 80 },
+        { label: "NFL Readiness", score: 80 },
+      ],
+      note: "6'5\" contested-catch specialist. Carolina needs a true X receiver to build their passing game around.",
+    },
+    {
+      rank: 8, name: "Kelvin Banks Jr.", pos: "OT", school: "Texas",
+      projected: "1st Round", conf: 79, team: "New York Giants",
+      breakdown: [
+        { label: "Pass Block", score: 88 },
+        { label: "Run Block", score: 82 },
+        { label: "Footwork", score: 86 },
+        { label: "NFL Readiness", score: 80 },
+      ],
+      note: "Elite pass protector with three-year starting pedigree. Anchors left side immediately at NFL level.",
+    },
+    {
+      rank: 9, name: "Jalon Walker", pos: "LB", school: "Georgia",
+      projected: "1st–2nd Round", conf: 74, team: "Atlanta Falcons",
+      breakdown: [
+        { label: "Coverage", score: 82 },
+        { label: "Run Stop", score: 79 },
+        { label: "Pass Rush", score: 76 },
+        { label: "NFL Readiness", score: 74 },
+      ],
+      note: "Versatile chess piece linebacker. Atlanta values his coverage ability in modern 2-high shell schemes.",
+    },
+    {
+      rank: 10, name: "Jihaad Campbell", pos: "LB", school: "Alabama",
+      projected: "1st–2nd Round", conf: 72, team: "Philadelphia Eagles",
+      breakdown: [
+        { label: "Coverage", score: 78 },
+        { label: "Run Stop", score: 80 },
+        { label: "Blitz", score: 82 },
+        { label: "NFL Readiness", score: 72 },
+      ],
+      note: "High-motor off-ball linebacker with blitz upside. Eagles' defensive scheme maximizes his versatility.",
+    },
   ];
 
   const confColor = (c: number) =>
     c >= 90 ? "text-[hsl(146,42%,52%)]" : c >= 80 ? "text-primary" : "text-muted-foreground";
+
+  const confBarColor = (c: number) =>
+    c >= 90 ? "hsl(146,42%,52%)" : c >= 80 ? "hsl(34,62%,55%)" : "hsl(215,20%,45%)";
+
+  // Match signals to a prospect by player name (case-insensitive partial match)
+  const linkedSignals = (name: string): SignalFeedItem[] => {
+    if (!allSignals) return [];
+    const lastName = name.split(" ").pop()?.toLowerCase() ?? "";
+    const firstName = name.split(" ")[0]?.toLowerCase() ?? "";
+    return allSignals.filter(s => {
+      const p = (s.player ?? "").toLowerCase();
+      return p.includes(lastName) || p.includes(firstName + " ");
+    }).slice(0, 3);
+  };
 
   return (
     <AppLayout theme={theme} toggleTheme={toggleTheme}>
@@ -90,32 +228,133 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {prospects.map(p => (
-                  <tr
-                    key={p.rank}
-                    className="border-b border-border/50 hover:bg-muted/20 transition-colors"
-                    data-testid={`prospect-row-${p.rank}`}
-                  >
-                    <td className="px-4 py-3 text-xs font-bold tabular-nums text-muted-foreground">{p.rank}</td>
-                    <td className="px-4 py-3">
-                      <p className="font-semibold text-sm text-foreground">{p.name}</p>
-                      <p className="text-[10px] text-muted-foreground">{p.pos} · {p.team}</p>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{p.school}</td>
-                    <td className="px-4 py-3">
-                      <span className="text-[9px] px-2 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider">
-                        {p.projected}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span
-                        className={`stat-num-display text-sm font-bold ${confColor(p.conf)}`}
+                {prospects.map(p => {
+                  const isOpen = expandedRank === p.rank;
+                  const signals = linkedSignals(p.name);
+                  return (
+                    <>
+                      {/* Main row */}
+                      <tr
+                        key={p.rank}
+                        onClick={() => setExpandedRank(isOpen ? null : p.rank)}
+                        className={`border-b border-border/50 transition-colors cursor-pointer select-none
+                          ${ isOpen ? "bg-muted/30" : "hover:bg-muted/20" }`}
+                        data-testid={`prospect-row-${p.rank}`}
                       >
-                        {p.conf}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                        <td className="px-4 py-3 text-xs font-bold tabular-nums text-muted-foreground">{p.rank}</td>
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-sm text-foreground">{p.name}</p>
+                          <p className="text-[10px] text-muted-foreground">{p.pos} · {p.team}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{p.school}</td>
+                        <td className="px-4 py-3">
+                          <span className="text-[9px] px-2 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider">
+                            {p.projected}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <span className={`stat-num-display text-sm font-bold ${confColor(p.conf)}`}>
+                              {p.conf}
+                            </span>
+                            {isOpen
+                              ? <ChevronUp size={13} className="text-muted-foreground" />
+                              : <ChevronDown size={13} className="text-muted-foreground" />}
+                          </div>
+                        </td>
+                      </tr>
+
+                      {/* Expanded detail panel */}
+                      {isOpen && (
+                        <tr key={`${p.rank}-expand`} className="bg-muted/10 border-b border-primary/20">
+                          <td colSpan={5} className="px-5 py-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+                              {/* Col 1 — Profile */}
+                              <div>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Prospect Profile</p>
+                                <div className="space-y-1">
+                                  {[
+                                    { label: "Position",   value: p.pos },
+                                    { label: "School",     value: p.school },
+                                    { label: "Projection", value: p.projected },
+                                    { label: "Proj. Team", value: p.team },
+                                  ].map(({ label, value }) => (
+                                    <div key={label} className="flex justify-between items-baseline gap-4">
+                                      <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">{label}</span>
+                                      <span className="text-[11px] text-foreground font-semibold text-right">{value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                                <div className="mt-3 pt-3 border-t border-border/40">
+                                  <p className="text-[10px] text-muted-foreground leading-relaxed italic">{p.note}</p>
+                                </div>
+                              </div>
+
+                              {/* Col 2 — Confidence Breakdown */}
+                              <div>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Edge Score Breakdown</p>
+                                <div className="space-y-2">
+                                  {p.breakdown.map(({ label, score }) => (
+                                    <div key={label}>
+                                      <div className="flex justify-between mb-0.5">
+                                        <span className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
+                                        <span className="text-[10px] font-bold tabular-nums" style={{ color: confBarColor(score) }}>{score}</span>
+                                      </div>
+                                      <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
+                                        <div
+                                          className="h-full rounded-full transition-all duration-500"
+                                          style={{ width: `${score}%`, background: confBarColor(score) }}
+                                        />
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {/* Overall */}
+                                  <div className="pt-1.5 border-t border-border/40">
+                                    <div className="flex justify-between mb-0.5">
+                                      <span className="text-[9px] uppercase tracking-wider font-bold text-foreground">Overall</span>
+                                      <span className={`text-[11px] font-bold tabular-nums ${confColor(p.conf)}`}>{p.conf}</span>
+                                    </div>
+                                    <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
+                                      <div
+                                        className="h-full rounded-full transition-all duration-500"
+                                        style={{ width: `${p.conf}%`, background: confBarColor(p.conf) }}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Col 3 — Linked Signals */}
+                              <div>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                                  Linked Signals {signals.length > 0 && <span className="text-primary">· {signals.length}</span>}
+                                </p>
+                                {signals.length === 0 ? (
+                                  <p className="text-[10px] text-muted-foreground italic">No signals found for this prospect in current cycle.</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {signals.map(s => (
+                                      <div key={s.id} className="p-2.5 rounded border border-border/60 bg-card">
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                          <VerdictBadge verdict={s.verdict} />
+                                          <span className="text-[9px] text-muted-foreground ml-auto">{s.source_name}</span>
+                                        </div>
+                                        <p className="text-[10px] text-foreground leading-snug">{s.normalized_claim}</p>
+                                        <p className="text-[9px] text-muted-foreground mt-1">{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  );
+                })}
               </tbody>
             </table>
           </div>
