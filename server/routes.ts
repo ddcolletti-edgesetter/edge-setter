@@ -63,7 +63,10 @@ export function registerRoutes(httpServer: Server, app: Express) {
     // Map signal_type to a friendly source label for the feed card
     const signalTypeToSource = (st: string | null): string => {
       if (!st) return "Edge Setter Intel";
-      if (st.toLowerCase().includes("pff")) return "Pro Football Focus";
+      const lower = st.toLowerCase();
+      if (lower.includes("pff")) return "Pro Football Focus";
+      if (lower.includes("scouting evaluation") || lower.includes("landry")) return "Landry Football";
+      if (lower.includes("college production") || lower.includes("college ranking") || lower.includes("steele")) return "Phil Steele";
       return st;
     };
 

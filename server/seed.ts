@@ -26,6 +26,8 @@ export async function seedDemoData() {
     { name: "OverTheCap", source_type: "analyst", platform: "OTC", url: "https://overthecap.com", trust_tier: "tier2", reliability_score: "91", speed_score: "70" },
     { name: "The Athletic NFL", source_type: "reporter", platform: "The Athletic", url: "https://theathletic.com", trust_tier: "tier1", reliability_score: "93", speed_score: "88" },
     { name: "Pro Football Focus", source_type: "analytics", platform: "PFF", url: "https://www.pff.com", trust_tier: "tier2", reliability_score: "91", speed_score: "60" },
+    { name: "Landry Football", source_type: "scouting", platform: "LandryFootball.com", url: "https://landryfootball.com", trust_tier: "tier2", reliability_score: "88", speed_score: "55" },
+    { name: "Phil Steele", source_type: "college_analyst", platform: "PhilSteele.com", url: "https://philsteele.com", trust_tier: "tier2", reliability_score: "85", speed_score: "50" },
   ];
 
   const sourceIds: string[] = [];
@@ -126,6 +128,16 @@ export async function seedDemoData() {
       source_id: sourceIds[12], // PFF
       raw_text: "PFF Grade Report: Fernando Mendoza leads all 2026 draft-eligible QBs with a 96.2 passing grade. His pressure-to-clean pocket differential is the highest PFF has recorded in six years of college grading.",
       player: "Fernando Mendoza", team: "Las Vegas Raiders", league: "NFL", topic: "draft"
+    },
+    {
+      source_id: sourceIds[13], // Landry Football
+      raw_text: "Chris Landry scouting note: Arvell Reese's hand usage and pass-rush plan mirror Myles Garrett's pre-draft profile. Reese is a legitimate chess-piece rusher who can win from either side. Jets scheme under new DC is a wide-9 system — ideal deployment for Reese's bend/burst skill set.",
+      player: "Arvell Reese", team: "New York Jets", league: "NFL", topic: "draft"
+    },
+    {
+      source_id: sourceIds[14], // Phil Steele
+      raw_text: "Phil Steele college preview context: Jeremiyah Love led Notre Dame in yards after contact (847) and broken tackles (41) in 2025 — both program records. In Steele's annual college rankings, Love graded as the top returning RB in the ACC/Big Ten crossover slate. His production in high-leverage games (7 games vs. Top-25 opponents: 6.4 YPC) reinforces NFL-starter projection.",
+      player: "Jeremiyah Love", team: "Tennessee Titans", league: "NFL", topic: "draft"
     },
   ];
 

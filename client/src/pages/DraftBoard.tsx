@@ -64,7 +64,7 @@ const PROSPECTS_2026: Prospect[] = [
     momentum: "rising",
     buzz: "Landing spot locked",
     teamFitWatch: "NYJ Jets — confirmed fit",
-    latestUpdate: "Reese visit to Jets went exceptional. No trade-down calls entertained.",
+    latestUpdate: "Reese visit to Jets went exceptional. No trade-down calls entertained. Landry Football (Chris Landry, former NFL scout): Reese hand usage and rush plan mirror Myles Garrett's 2017 pre-draft profile. Wide-9 scheme fit — home run for Jets DC.",
   },
   {
     rank: 3, name: "Rueben Bain Jr.", pos: "EDGE", school: "Miami (FL)",
@@ -96,7 +96,7 @@ const PROSPECTS_2026: Prospect[] = [
     momentum: "rising",
     buzz: "Stock surging",
     teamFitWatch: "TEN Titans — OC praised pass-catching",
-    latestUpdate: "Private visits with 3 top-5 teams in 48h window. Historic RB pre-draft buzz.",
+    latestUpdate: "Private visits with 3 top-5 teams in 48h window. Historic RB pre-draft buzz. Phil Steele college context: Love ranked #1 RB in 2025 Big Ten/ACC slate, 6.4 YPC vs. Top-25 opponents — production that translates.",
   },
   {
     rank: 5, name: "Caleb Downs", pos: "S", school: "Ohio State",

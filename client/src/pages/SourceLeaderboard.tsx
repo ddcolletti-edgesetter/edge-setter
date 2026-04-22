@@ -88,6 +88,42 @@ function SourceTypeBadge({ sourceType, sourceName }: { sourceType?: string | nul
       </span>
     );
   }
+  if (sourceType === "scouting") {
+    return (
+      <span
+        style={{
+          display: "inline-flex", alignItems: "center",
+          padding: "2px 7px", borderRadius: 3,
+          border: "1px solid rgba(61,174,114,0.28)",
+          background: "rgba(61,174,114,0.08)",
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+          textTransform: "uppercase", color: "#3DAE72",
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          whiteSpace: "nowrap",
+        }}
+      >
+        Scouting
+      </span>
+    );
+  }
+  if (sourceType === "college_analyst") {
+    return (
+      <span
+        style={{
+          display: "inline-flex", alignItems: "center",
+          padding: "2px 7px", borderRadius: 3,
+          border: "1px solid rgba(167,120,220,0.28)",
+          background: "rgba(167,120,220,0.08)",
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+          textTransform: "uppercase", color: "#A778DC",
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          whiteSpace: "nowrap",
+        }}
+      >
+        College
+      </span>
+    );
+  }
   return null;
 }
 
@@ -264,6 +300,12 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
                             </div>
                             {s.source_type === "analytics" && (
                               <p style={{ fontSize: 10, color: C.ivoryMuted, marginTop: 2 }}>Grading · analytics service</p>
+                            )}
+                            {s.source_type === "scouting" && (
+                              <p style={{ fontSize: 10, color: C.ivoryMuted, marginTop: 2 }}>Team fit · player evaluation · personnel</p>
+                            )}
+                            {s.source_type === "college_analyst" && (
+                              <p style={{ fontSize: 10, color: C.ivoryMuted, marginTop: 2 }}>College production · draft prospect context</p>
                             )}
                           </td>
                           <td className="px-4 py-3 hidden sm:table-cell">
