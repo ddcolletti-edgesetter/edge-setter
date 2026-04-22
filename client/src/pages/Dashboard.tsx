@@ -6,7 +6,7 @@ import VerdictBadge from "../components/VerdictBadge";
 import TopicBadge from "../components/TopicBadge";
 import { type Theme } from "../App";
 import { type SignalFeedItem } from "@shared/schema";
-import { RefreshCw, SlidersHorizontal } from "lucide-react";
+import { RefreshCw, SlidersHorizontal, Clock } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
@@ -24,9 +24,14 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
   if (topic) params.set("topic", topic);
   if (verdict) params.set("verdict", verdict);
 
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
   const { data: feed, isLoading, refetch } = useQuery<SignalFeedItem[]>({
     queryKey: ["/api/signal", league, topic, verdict],
-    queryFn: () => apiRequest("GET", `/api/signal?${params.toString()}`).then(r => r.json()),
+    queryFn: () => apiRequest("GET", `/api/signal?${params.toString()}`).then(r => {
+      setLastUpdated(new Date());
+      return r.json();
+    }),
     refetchInterval: 60000,
   });
 
@@ -53,14 +58,22 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
               Signal Board
             </h1>
           </div>
-          <button
-            onClick={() => refetch()}
-            className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded border border-border hover:bg-muted mt-1"
-            data-testid="button-refresh-feed"
-          >
-            <RefreshCw size={11} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-3 mt-1">
+            {lastUpdated && (
+              <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <Clock size={10} />
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            )}
+            <button
+              onClick={() => { refetch(); setLastUpdated(new Date()); }}
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-semibold text-muted-foreground hover:text-foreground transition-colors px-3 py-1.5 rounded border border-border hover:bg-muted"
+              data-testid="button-refresh-feed"
+            >
+              <RefreshCw size={11} />
+              Refresh
+            </button>
+          </div>
         </div>
 
         <hr className="briefing-rule mb-6" />
@@ -248,13 +261,13 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
             </p>
           )}
           <p
-            style={{ fontSize: 16, lineHeight: 1.5, color: "#F3EFE6", marginBottom: item.rationale ? 8 : 0 }}
+            style={{ fontSize: 17, lineHeight: 1.5, color: "#F3EFE6", marginBottom: item.rationale ? 8 : 0 }}
             data-testid={`signal-text-${item.id}`}
           >
             {item.normalized_claim}
           </p>
           {item.rationale && (
-            <p style={{ fontSize: 14, color: "#B7AFA0", lineHeight: 1.6, margin: 0 }}>{item.rationale}</p>
+            <p style={{ fontSize: 15, color: "#B7AFA0", lineHeight: 1.6, margin: 0 }}>{item.rationale}</p>
           )}
         </div>
         <div

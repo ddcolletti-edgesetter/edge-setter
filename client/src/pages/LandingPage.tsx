@@ -311,30 +311,76 @@ function StatBox({ value, label, highlight = false }: { value: string; label: st
   );
 }
 
+/* ── Team color accent map ── */
+const TEAM_COLORS: Record<string, string> = {
+  "KC Chiefs": "#E31837", "Kansas City Chiefs": "#E31837",
+  "Baltimore Ravens": "#241773", "Ravens": "#241773",
+  "Buffalo Bills": "#00338D", "Bills": "#00338D",
+  "Dallas Cowboys": "#003594", "Cowboys": "#003594",
+  "San Francisco 49ers": "#AA0000", "49ers": "#AA0000",
+  "Philadelphia Eagles": "#004C54", "Eagles": "#004C54",
+  "Miami Dolphins": "#008E97", "Dolphins": "#008E97",
+  "Cincinnati Bengals": "#FB4F14", "Bengals": "#FB4F14",
+  "Los Angeles Rams": "#003594", "Rams": "#003594",
+  "Green Bay Packers": "#203731", "Packers": "#203731",
+  "Detroit Lions": "#0076B6", "Lions": "#0076B6",
+  "Chicago Bears": "#0B162A", "Bears": "#0B162A",
+  "Minnesota Vikings": "#4F2683", "Vikings": "#4F2683",
+  "New York Giants": "#0B2265", "Giants": "#0B2265",
+  "New England Patriots": "#002244", "Patriots": "#002244",
+  "Jacksonville Jaguars": "#006778", "Jaguars": "#006778",
+  "Tennessee Titans": "#0C2340", "Titans": "#0C2340",
+  "Carolina Panthers": "#0085CA", "Panthers": "#0085CA",
+  "Las Vegas Raiders": "#A5ACAF", "Raiders": "#A5ACAF",
+  "New York Jets": "#125740", "Jets": "#125740",
+  "Pittsburgh Steelers": "#FFB612", "Steelers": "#FFB612",
+  "Cleveland Browns": "#FF3C00", "Browns": "#FF3C00",
+  "Atlanta Falcons": "#A71930", "Falcons": "#A71930",
+  "New Orleans Saints": "#D3BC8D", "Saints": "#D3BC8D",
+  "Tampa Bay Buccaneers": "#D50A0A", "Buccaneers": "#D50A0A",
+  "Seattle Seahawks": "#002244", "Seahawks": "#002244",
+  "Arizona Cardinals": "#97233F", "Cardinals": "#97233F",
+  "Los Angeles Chargers": "#0080C6", "Chargers": "#0080C6",
+  "Denver Broncos": "#FB4F14", "Broncos": "#FB4F14",
+  "Indianapolis Colts": "#002C5F", "Colts": "#002C5F",
+  "Houston Texans": "#03202F", "Texans": "#03202F",
+  "Washington Commanders": "#5A1414", "Commanders": "#5A1414",
+};
+function teamColor(team: string | undefined): string {
+  if (!team) return T.gold;
+  for (const [k, v] of Object.entries(TEAM_COLORS)) {
+    if (team.includes(k) || k.includes(team)) return v;
+  }
+  return T.gold;
+}
+
 /* ── Signal Feed Tile ── */
 function SignalTile({ signal }: { signal: any }) {
+  const accent = teamColor(signal.team);
   return (
     <div
       style={{
         background: T.surface2,
         border: `1px solid rgba(202,168,90,0.10)`,
-        borderLeft: `3px solid rgba(202,168,90,0.50)`,
         borderRadius: 4,
-        padding: "18px 20px",
-        transition: "border-left-color 0.15s, background 0.15s",
+        overflow: "hidden",
+        transition: "border-color 0.15s, background 0.15s",
         cursor: "default",
       }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLDivElement;
-        el.style.borderLeftColor = T.gold;
+        el.style.borderColor = `${T.gold}55`;
         el.style.background = T.surface3;
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLDivElement;
-        el.style.borderLeftColor = "rgba(202,168,90,0.50)";
+        el.style.borderColor = "rgba(202,168,90,0.10)";
         el.style.background = T.surface2;
       }}
     >
+      {/* Team color accent bar */}
+      <div style={{ height: 3, background: accent, opacity: 0.75, pointerEvents: "none" }} />
+      <div style={{ padding: "16px 20px 18px" }}>
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 8 }}>
         <div>
           <div style={{
@@ -346,7 +392,7 @@ function SignalTile({ signal }: { signal: any }) {
           </div>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 16, fontWeight: 700,
+            fontSize: 17, fontWeight: 700,
             color: T.text, lineHeight: 1.3,
           }}>
             {signal.title}
@@ -356,7 +402,7 @@ function SignalTile({ signal }: { signal: any }) {
       </div>
       {signal.summary && (
         <p style={{
-          fontSize: 14, color: T.textMuted, lineHeight: 1.6,
+          fontSize: 15, color: T.textMuted, lineHeight: 1.6,
           margin: "8px 0 10px",
         }}>
           {signal.summary}
@@ -396,6 +442,7 @@ function SignalTile({ signal }: { signal: any }) {
           {signal.confidence_score ?? 70}
         </div>
       </div>
+      </div>
     </div>
   );
 }
@@ -406,14 +453,28 @@ function WaitlistForm({ onSuccess }: { onSuccess: () => void }) {
   const [submitting, setSubmitting] = useState(false);
   const { toast } = useToast();
   const mutation = useMutation({
-    mutationFn: (data: typeof form) =>
-      apiRequest("POST", "/api/waitlist", data).then(r => r.json()),
+    mutationFn: (data: typeof form) => {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 12000)
+      );
+      return Promise.race([
+        apiRequest("POST", "/api/waitlist", data).then(r => r.json()),
+        timeout,
+      ]);
+    },
     onSuccess: () => {
       toast({ title: "You're on the list.", description: "We'll reach out when spots open." });
       onSuccess();
     },
-    onError: () => {
-      toast({ title: "Submission failed.", description: "Please try again.", variant: "destructive" });
+    onError: (err: any) => {
+      const isTimeout = err?.message === "timeout";
+      toast({
+        title: isTimeout ? "Server is warming up…" : "Submission failed.",
+        description: isTimeout
+          ? "Our server took too long to respond. Please try again in a moment."
+          : "Check your connection and try again.",
+        variant: "destructive",
+      });
     },
   });
 

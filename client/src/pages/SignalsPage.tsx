@@ -209,14 +209,34 @@ export default function SignalsPage() {
   const [submitted, setSubmitted] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-  const { data: signals = [], isLoading } = useQuery<Signal[]>({
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const { data: signals = [], isLoading, refetch } = useQuery<Signal[]>({
     queryKey: ["/api/signals"],
+    queryFn: () => apiRequest("GET", "/api/signals").then(r => {
+      setLastUpdated(new Date());
+      return r.json();
+    }),
+    refetchInterval: 60000,
   });
 
   const waitlistMutation = useMutation({
-    mutationFn: (data: { email: string }) =>
-      apiRequest("POST", "/api/waitlist", { email: data.email }),
+    mutationFn: (data: { email: string }) => {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 12000)
+      );
+      return Promise.race([
+        apiRequest("POST", "/api/waitlist", { email: data.email }),
+        timeout,
+      ]);
+    },
     onSuccess: () => setSubmitted(true),
+    onError: (err: any) => {
+      // Show inline error for timeout
+      if (err?.message === "timeout") {
+        alert("Server is warming up. Please try again in a moment.");
+      }
+    },
   });
 
   const featured = signals.find(s => s.is_featured);
@@ -268,6 +288,22 @@ export default function SignalsPage() {
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} className="live-dot" />
               Signal Feed Active
             </span>
+            {lastUpdated && (
+              <span style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase",
+                color: T.textFaint, display: "flex", alignItems: "center", gap: 4,
+              }}>
+                Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <button
+                  onClick={() => refetch()}
+                  style={{ background: "none", border: "none", color: T.gold, cursor: "pointer", padding: "0 2px", lineHeight: 1, fontSize: 12 }}
+                  title="Refresh signals"
+                >
+                  ↻
+                </button>
+              </span>
+            )}
             <Link href="/pro">
               <button style={{
                 background: T.gold, color: T.bg,
@@ -356,7 +392,7 @@ export default function SignalsPage() {
                     }}>
                       Request entry.
                     </div>
-                    <p style={{ fontSize: 14, color: T.textMuted, margin: "0 0 18px", lineHeight: 1.6 }}>
+                    <p style={{ fontSize: 15, color: T.textMuted, margin: "0 0 18px", lineHeight: 1.6 }}>
                       Join the list for free board access — no card required.
                     </p>
                     <input
@@ -389,7 +425,7 @@ export default function SignalsPage() {
                       }}>
                         You're on the list.
                       </div>
-                      <p style={{ fontSize: 14, color: T.textMuted, margin: 0, lineHeight: 1.6 }}>
+                      <p style={{ fontSize: 15, color: T.textMuted, margin: 0, lineHeight: 1.6 }}>
                         We'll send your invite when your spot opens.
                       </p>
                     </div>
@@ -421,7 +457,7 @@ export default function SignalsPage() {
                     /mo
                   </span>
                 </div>
-                <p style={{ fontSize: 14, color: T.textMuted, margin: "0 0 16px", lineHeight: 1.6 }}>
+                <p style={{ fontSize: 15, color: T.textMuted, margin: "0 0 16px", lineHeight: 1.6 }}>
                   Full signal feed · All confidence data · Action takeaways
                 </p>
                 <div style={{ marginBottom: 16 }}>
