@@ -258,7 +258,7 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
               >
                 Real-time alerts · Full archive
               </div>
-              <Link href="/">
+              <Link href="/pro">
                 <button
                   data-testid="button-upgrade-pro"
                   style={{

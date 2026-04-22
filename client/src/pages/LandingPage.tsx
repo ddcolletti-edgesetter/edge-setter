@@ -697,28 +697,29 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       {/* ══ HERO ════════════════════════════════════════════════════ */}
       <section style={{
         maxWidth: 1440, margin: "0 auto",
-        padding: "80px 32px 72px",
+        padding: "72px 32px 64px",
         display: "grid",
         gridTemplateColumns: "1fr auto",
         gap: "64px 56px",
         alignItems: "center",
+        position: "relative",
       }}
       className="block md:grid"
       >
         {/* Left: copy */}
-        <div style={{ maxWidth: 620 }}>
-          <Eyebrow>Premium NFL Intelligence · 2026 Season</Eyebrow>
+        <div style={{ maxWidth: 620, position: "relative", zIndex: 2 }}>
+          <Eyebrow>NFL Signal Intelligence · 2026 Draft Week</Eyebrow>
 
           <h1
             className="display-serif"
             style={{
-              fontSize: "clamp(2.5rem, 5vw, 4rem)",
+              fontSize: "clamp(2.25rem, 4.5vw, 3.5rem)",
               color: T.text,
-              marginBottom: 24,
-              lineHeight: 1.04,
+              marginBottom: 16,
+              lineHeight: 1.06,
             }}
           >
-            The intelligence
+            Know what moves
             <br />
             <span style={{
               background: `linear-gradient(135deg, ${T.gold} 0%, ${T.goldBright} 100%)`,
@@ -726,55 +727,80 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
             }}>
-              edge you need.
+              before they{" "}move.
             </span>
           </h1>
 
           <p style={{
-            fontSize: "1.125rem",
+            fontSize: "1.0625rem",
             color: T.textMuted,
             lineHeight: 1.65,
-            maxWidth: 520,
-            marginBottom: 36,
+            maxWidth: 500,
+            marginBottom: 12,
           }}>
-            Real-time 2026 NFL offseason signals — free agency moves, draft
-            intelligence, injury updates, and coaching changes — verified,
-            confidence-scored, and ready before the market moves.
+            Edge Setter tracks NFL insider signals — free agency, injuries, depth
+            chart moves, and draft intelligence — verified, confidence-scored,
+            and labeled by source reliability.
           </p>
 
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+          {/* What to do first */}
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 8,
+            marginBottom: 28,
+            padding: "10px 14px",
+            background: "rgba(61,174,114,0.06)",
+            border: "1px solid rgba(61,174,114,0.20)",
+            borderRadius: 4,
+            maxWidth: 480,
+          }}>
+            <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+              textTransform: "uppercase", color: T.green,
+              marginTop: 1, flexShrink: 0,
+            }}>Start here →</span>
+            <span style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.5 }}>
+              Open the <strong style={{ color: T.text }}>Signal Board</strong> to see today's live feed.
+              Filter by team, topic, or verdict confidence. Go Pro to unlock
+              real-time alerts.
+            </span>
+          </div>
+
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", position: "relative", zIndex: 3 }}>
             <button
-              onClick={() => navigate("/pro")}
+              onClick={() => navigate("/dashboard")}
               className="btn-primary"
+              style={{ cursor: "pointer" }}
             >
-              Get Pro Access · $19
+              Open Signal Board
               <ChevronRight size={14} />
             </button>
             <button
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/pro")}
               className="btn-secondary"
+              style={{ cursor: "pointer" }}
             >
-              View Signal Board
+              Go Pro · $19/mo
             </button>
           </div>
 
           {/* Trust indicators */}
           <div style={{
             display: "flex", alignItems: "center", gap: 24,
-            marginTop: 40,
-            paddingTop: 32,
+            marginTop: 36,
+            paddingTop: 28,
             borderTop: "1px solid rgba(202,168,90,0.12)",
             flexWrap: "wrap", rowGap: 12,
           }}>
             {[
-              { val: "12+",    label: "Sources Tracked" },
-              { val: "2026",   label: "Active Season" },
+              { val: "Live",   label: "2026 Signals" },
+              { val: "12+",    label: "Sources" },
               { val: "$19",    label: "Per Month Pro" },
             ].map(stat => (
               <div key={stat.label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 <div style={{
                   fontFamily: "'Playfair Display', Georgia, serif",
-                  fontSize: 28, fontWeight: 700,
+                  fontSize: 26, fontWeight: 700,
                   color: T.gold, lineHeight: 1,
                   letterSpacing: "-0.02em",
                 }}>
@@ -793,8 +819,8 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           </div>
         </div>
 
-        {/* Right: featured player card */}
-        <div style={{ display: "flex", justifyContent: "center" }}>
+        {/* Right: featured signal card */}
+        <div style={{ display: "flex", justifyContent: "center", position: "relative", zIndex: 1 }}>
           <FeaturedCard signal={featuredSignal} />
         </div>
       </section>
