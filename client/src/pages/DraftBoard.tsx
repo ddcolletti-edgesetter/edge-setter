@@ -17,10 +17,46 @@ interface Prospect {
   projected: string;
   conf: number;
   team: string;
-  // Confidence breakdown by category
   breakdown: { label: string; score: number }[];
-  // Brief scouting note
   note: string;
+  // 7-day edge score history (oldest → newest, last value = current conf)
+  trend: number[];
+}
+
+/* ── Sparkline ──────────────────────────────────────────────────────
+   Pure SVG inline sparkline. W×H canvas, no deps.
+   Color: green if last > first, red if down, gold if flat (±1).    */
+function Sparkline({ data, width = 64, height = 24 }: { data: number[]; width?: number; height?: number }) {
+  if (data.length < 2) return null;
+  const min = Math.min(...data) - 2;
+  const max = Math.max(...data) + 2;
+  const range = max - min || 1;
+  const step = width / (data.length - 1);
+
+  const pts = data.map((v, i) => [
+    i * step,
+    height - ((v - min) / range) * height,
+  ]);
+
+  const d = pts.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+
+  // Area fill path (close below)
+  const area = d + ` L${(data.length - 1) * step},${height} L0,${height} Z`;
+
+  const delta = data[data.length - 1] - data[0];
+  const color = delta > 1 ? "#3DAE72" : delta < -1 ? "#C04040" : "#C9A84C";
+  const [lastX, lastY] = pts[pts.length - 1];
+
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ display: "block", overflow: "visible" }}>
+      {/* Area fill */}
+      <path d={area} fill={color} fillOpacity={0.12} />
+      {/* Line */}
+      <path d={d} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      {/* Terminal dot */}
+      <circle cx={lastX} cy={lastY} r={2} fill={color} />
+    </svg>
+  );
 }
 
 export default function DraftBoard({ theme, toggleTheme }: Props) {
@@ -84,6 +120,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 1, name: "Cam Ward", pos: "QB", school: "Miami (FL)",
       projected: "1st Round", conf: 96, team: "Tennessee Titans",
+      trend: [91, 92, 93, 94, 94, 95, 96],
       breakdown: [
         { label: "Arm Talent", score: 97 },
         { label: "Accuracy", score: 94 },
@@ -95,6 +132,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 2, name: "Travis Hunter", pos: "WR/CB", school: "Colorado",
       projected: "1st Round", conf: 94, team: "Cleveland Browns",
+      trend: [96, 95, 95, 94, 93, 94, 94],
       breakdown: [
         { label: "Receiving", score: 96 },
         { label: "Coverage", score: 91 },
@@ -106,6 +144,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 3, name: "Abdul Carter", pos: "EDGE", school: "Penn State",
       projected: "1st Round", conf: 91, team: "NY Giants",
+      trend: [87, 88, 89, 90, 90, 91, 91],
       breakdown: [
         { label: "Pass Rush", score: 95 },
         { label: "Run Defense", score: 86 },
@@ -117,6 +156,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 4, name: "Will Johnson", pos: "CB", school: "Michigan",
       projected: "1st Round", conf: 88, team: "New England Patriots",
+      trend: [90, 90, 89, 88, 89, 88, 88],
       breakdown: [
         { label: "Coverage", score: 92 },
         { label: "Tackling", score: 87 },
@@ -128,6 +168,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 5, name: "Ashton Jeanty", pos: "RB", school: "Boise State",
       projected: "1st Round", conf: 85, team: "Jacksonville Jaguars",
+      trend: [82, 83, 85, 86, 85, 85, 85],
       breakdown: [
         { label: "Explosiveness", score: 96 },
         { label: "Vision", score: 89 },
@@ -139,6 +180,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 6, name: "Mason Graham", pos: "DT", school: "Michigan",
       projected: "1st Round", conf: 83, team: "Las Vegas Raiders",
+      trend: [86, 85, 84, 83, 84, 83, 83],
       breakdown: [
         { label: "Pass Rush", score: 87 },
         { label: "Run Stop", score: 92 },
@@ -150,6 +192,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 7, name: "Tetairoa McMillan", pos: "WR", school: "Arizona",
       projected: "1st Round", conf: 81, team: "Carolina Panthers",
+      trend: [78, 79, 80, 81, 80, 81, 81],
       breakdown: [
         { label: "Route Running", score: 85 },
         { label: "Catch Radius", score: 94 },
@@ -161,6 +204,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 8, name: "Kelvin Banks Jr.", pos: "OT", school: "Texas",
       projected: "1st Round", conf: 79, team: "New York Giants",
+      trend: [83, 82, 81, 80, 80, 79, 79],
       breakdown: [
         { label: "Pass Block", score: 88 },
         { label: "Run Block", score: 82 },
@@ -172,6 +216,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 9, name: "Jalon Walker", pos: "LB", school: "Georgia",
       projected: "1st–2nd Round", conf: 74, team: "Atlanta Falcons",
+      trend: [71, 72, 73, 73, 74, 74, 74],
       breakdown: [
         { label: "Coverage", score: 82 },
         { label: "Run Stop", score: 79 },
@@ -183,6 +228,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     {
       rank: 10, name: "Jihaad Campbell", pos: "LB", school: "Alabama",
       projected: "1st–2nd Round", conf: 72, team: "Philadelphia Eagles",
+      trend: [76, 75, 74, 73, 72, 72, 72],
       breakdown: [
         { label: "Coverage", score: 78 },
         { label: "Run Stop", score: 80 },
@@ -308,6 +354,10 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                         : <ChevronsUpDown size={10} className="text-muted-foreground/40 group-hover:text-muted-foreground" />}
                     </button>
                   </th>
+                  {/* 7d Trend — not sortable, visual only */}
+                  <th className="text-center px-3 py-2.5 hidden md:table-cell">
+                    <span className="data-label">7d Trend</span>
+                  </th>
                   {/* Edge Score — sortable */}
                   <th className="text-right px-4 py-2.5">
                     <button
@@ -349,6 +399,22 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                             {p.projected}
                           </span>
                         </td>
+                        {/* Sparkline cell */}
+                        <td className="px-3 py-3 hidden md:table-cell">
+                          <div className="flex flex-col items-center gap-0.5">
+                            <Sparkline data={p.trend} width={64} height={22} />
+                            {(() => {
+                              const delta = p.trend[p.trend.length - 1] - p.trend[0];
+                              const color = delta > 1 ? "text-[#3DAE72]" : delta < -1 ? "text-[#C04040]" : "text-primary";
+                              const sign = delta > 0 ? "+" : "";
+                              return (
+                                <span className={`text-[8px] font-bold tabular-nums ${color}`}>
+                                  {sign}{delta}
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <span className={`stat-num-display text-sm font-bold ${confColor(p.conf)}`}>
@@ -364,7 +430,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                       {/* Expanded detail panel */}
                       {isOpen && (
                         <tr key={`${p.rank}-expand`} className="bg-muted/10 border-b border-primary/20">
-                          <td colSpan={5} className="px-5 py-4">
+                          <td colSpan={6} className="px-5 py-4">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
                               {/* Col 1 — Profile */}
@@ -390,7 +456,29 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
 
                               {/* Col 2 — Confidence Breakdown */}
                               <div>
-                                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Edge Score Breakdown</p>
+                                <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Edge Score Breakdown</p>
+                                {/* Larger sparkline in expanded view */}
+                                <div className="flex items-center gap-3 mb-3 pb-2 border-b border-border/40">
+                                  <Sparkline data={p.trend} width={100} height={30} />
+                                  <div>
+                                    {(() => {
+                                      const delta = p.trend[p.trend.length - 1] - p.trend[0];
+                                      const color = delta > 1 ? "#3DAE72" : delta < -1 ? "#C04040" : "#C9A84C";
+                                      const sign = delta > 0 ? "+" : "";
+                                      return (
+                                        <>
+                                          <p className="text-[8px] uppercase tracking-wider text-muted-foreground font-semibold">7-Day Move</p>
+                                          <p className="text-base font-bold tabular-nums leading-tight" style={{ color }}>
+                                            {sign}{delta} pts
+                                          </p>
+                                          <p className="text-[8px] text-muted-foreground">
+                                            {p.trend[0]} → {p.trend[p.trend.length - 1]}
+                                          </p>
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
+                                </div>
                                 <div className="space-y-2">
                                   {p.breakdown.map(({ label, score }) => (
                                     <div key={label}>
