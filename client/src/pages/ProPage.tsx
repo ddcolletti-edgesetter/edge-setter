@@ -1,28 +1,21 @@
 /**
- * /pro — Edge Setter Pro onboarding + upgrade
+ * /pro — Edge Setter Pro
  *
- * Single-page flow:
- *   1. Hero headline targeting fantasy/DFS/betting grinders
- *   2. 3 benefit bullets with concrete value props
- *   3. Explicit Pro feature list
- *   4. Email → Stripe checkout — no extra steps
- *   5. If already Pro: show management panel
+ * Sharp product page for fantasy/DFS/betting grinders.
+ * No brochure walls. One clear offer. One CTA.
  */
 import { useState } from "react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
-import { useQuery } from "@tanstack/react-query";
-import type { Signal } from "@shared/schema";
-import { CheckCircle2, ChevronRight, Lock, Zap, BarChart2, Archive } from "lucide-react";
+import { CheckCircle2, Zap, BarChart2, Filter, BookOpen, ChevronRight } from "lucide-react";
 
 const C = {
   bg:         "#0A0B0D",
   surface1:   "#111317",
   surface2:   "#16191E",
-  surface3:   "#1B1F25",
   gold:       "#CAA85A",
   goldBright: "#D8B86A",
-  goldDim:    "rgba(202,168,90,0.15)",
+  goldDim:    "rgba(202,168,90,0.14)",
   text:       "#F3EFE6",
   textMuted:  "#B7AFA0",
   textFaint:  "#7E776A",
@@ -31,33 +24,35 @@ const C = {
   amber:      "#D4932A",
 };
 
-function Cap({ children, color, size = 9 }: { children: React.ReactNode; color?: string; size?: number }) {
-  return (
-    <span style={{
-      fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-      fontSize: size, fontWeight: 700, letterSpacing: "0.18em",
-      textTransform: "uppercase", color: color ?? C.textFaint,
-    }}>
-      {children}
-    </span>
-  );
-}
-
-function GoldRule({ opacity = 0.18, my = 0 }: { opacity?: number; my?: number }) {
-  return <div style={{ height: 1, background: C.gold, opacity, margin: `${my}px 0`, flexShrink: 0 }} />;
-}
-
-/* ── Pro feature list ─────────────────────────────────────────── */
-const PRO_FEATURES = [
-  { icon: Zap,       label: "Full Live Signals Feed",         detail: "Every 2026 offseason signal, unfiltered. No 3-signal cap." },
-  { icon: BarChart2, label: "Topic Filters",                  detail: "Slice by Free Agency, Injuries, Depth Chart, Draft, Trades." },
-  { icon: CheckCircle2, label: "Confidence Scores & Verdicts", detail: "0–100 confidence, confirmed/likely/rumor/contradicted ratings." },
-  { icon: Archive,   label: "2026 Draft Board",               detail: "Full 2026 class with rankings, team fits, and signal history." },
-  { icon: Archive,   label: "Archive Search",                 detail: "Search prior-season signals by player, team, or topic." },
-  { icon: Zap,       label: "Today's Top Signal History",     detail: "See every featured signal we've surfaced, with rationale." },
+const FEATURES = [
+  {
+    icon: Zap,
+    label: "Full live signal feed",
+    detail: "Every signal, no cap. Draft picks, free agency moves, injury flags, depth chart shuffles — all scored 0–100.",
+  },
+  {
+    icon: BarChart2,
+    label: "Full Draft Board",
+    detail: "2026 class with latest intel, movement tags, and team-fit signals updated in real time.",
+  },
+  {
+    icon: Filter,
+    label: "All 6 topic filters",
+    detail: "Slice by Draft Week, Free Agency, Injuries, Depth Chart, Trades, or Coaching — instantly.",
+  },
+  {
+    icon: BookOpen,
+    label: "Today's Top Signal history",
+    detail: "Every featured signal we've surfaced, with full rationale and source notes.",
+  },
+  {
+    icon: CheckCircle2,
+    label: "Confidence scores + action takeaways",
+    detail: "Confirmed / likely / rumor / contradicted verdicts plus a single concrete action per signal.",
+  },
 ];
 
-/* ── Checkout form ────────────────────────────────────────────── */
+/* ── Checkout form ─────────────────────────────────────────────── */
 function CheckoutForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -69,8 +64,8 @@ function CheckoutForm() {
     setError("");
     try {
       const res = await apiRequest("POST", "/api/checkout", { email });
-      const { url, error: apiError } = await res.json();
-      if (apiError) { setError(apiError); setLoading(false); return; }
+      const { url, error: apiErr } = await res.json();
+      if (apiErr) { setError(apiErr); setLoading(false); return; }
       if (url) window.location.href = url;
     } catch {
       setError("Something went wrong. Please try again.");
@@ -79,11 +74,10 @@ function CheckoutForm() {
   }
 
   return (
-    <div style={{ maxWidth: 440 }}>
+    <div style={{ maxWidth: 480 }}>
       <div style={{
         display: "grid",
         gridTemplateColumns: "1fr auto",
-        gap: 0,
         border: `1px solid rgba(202,168,90,0.35)`,
         borderRadius: 4,
         overflow: "hidden",
@@ -129,18 +123,15 @@ function CheckoutForm() {
           {loading ? "Redirecting…" : "Go Pro · $19/mo"}
         </button>
       </div>
-      {error && (
-        <p style={{ fontSize: 12, color: C.red, marginTop: 8 }}>{error}</p>
-      )}
+      {error && <p style={{ fontSize: 12, color: C.red, marginTop: 8 }}>{error}</p>}
       <p style={{ fontSize: 12, color: C.textFaint, marginTop: 10, lineHeight: 1.5 }}>
-        Billed monthly. Cancel any time from your billing portal.
-        Powered by Stripe — your card is never stored on our servers.
+        Billed monthly. Cancel any time. Powered by Stripe — your card is never stored on our servers.
       </p>
     </div>
   );
 }
 
-/* ── Already-pro management panel ────────────────────────────── */
+/* ── Already-Pro panel ─────────────────────────────────────────── */
 function ProManagementPanel({ email }: { email: string }) {
   const [portalLoading, setPortalLoading] = useState(false);
 
@@ -172,7 +163,13 @@ function ProManagementPanel({ email }: { email: string }) {
     }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 14 }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.green, display: "inline-block" }} />
-        <Cap color={C.green} size={10}>Pro Active</Cap>
+        <span style={{
+          fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+          fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+          textTransform: "uppercase", color: C.green,
+        }}>
+          Pro Active
+        </span>
       </div>
       <p style={{
         fontFamily: "'Playfair Display',Georgia,serif",
@@ -216,7 +213,7 @@ function ProManagementPanel({ email }: { email: string }) {
   );
 }
 
-/* ── Main page ────────────────────────────────────────────────── */
+/* ── Main page ─────────────────────────────────────────────────── */
 export default function ProPage() {
   const [email, setEmail] = useState("");
   const [isPro, setIsPro] = useState<boolean | null>(null);
@@ -224,7 +221,6 @@ export default function ProPage() {
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
 
-  // Check existing access (used by the "Already Pro?" path)
   async function checkAccess(e: string) {
     if (!e) return;
     setChecking(true);
@@ -257,7 +253,7 @@ export default function ProPage() {
   return (
     <div style={{ minHeight: "100vh", background: C.bg, color: C.text }}>
 
-      {/* ── Nav ─────────────────────────────────────────────── */}
+      {/* Nav */}
       <div style={{
         background: C.surface1,
         borderBottom: `1px solid rgba(202,168,90,0.14)`,
@@ -284,7 +280,7 @@ export default function ProPage() {
               }}>Edge Setter</span>
             </div>
           </Link>
-          <Link href="/dashboard">
+          <Link href="/signals">
             <div style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
@@ -301,7 +297,6 @@ export default function ProPage() {
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "64px 32px 96px" }}>
 
-        {/* ── Already Pro check ───────────────────────────── */}
         {isPro === true ? (
           <>
             {(billingStatus === "past_due" || billingStatus === "payment_failed") && (
@@ -314,7 +309,11 @@ export default function ProPage() {
                 display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
               }}>
                 <div>
-                  <Cap color={C.amber} size={9}>⚠ Payment Issue</Cap>
+                  <span style={{
+                    fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+                    fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
+                    textTransform: "uppercase", color: C.amber,
+                  }}>⚠ Payment Issue</span>
                   <p style={{ margin: "4px 0 0", fontSize: 13, color: C.textMuted }}>
                     Your last payment failed. Update your card to keep Pro access.
                   </p>
@@ -338,176 +337,132 @@ export default function ProPage() {
           </>
         ) : (
           <>
-            {/* ── Draft Week urgency banner ──────────────────── */}
+            {/* Draft Week urgency banner */}
             <div style={{
               display: "flex", alignItems: "flex-start", gap: 10,
               background: "rgba(202,168,90,0.07)",
               border: "1px solid rgba(202,168,90,0.30)",
               borderLeft: `3px solid ${C.gold}`,
               borderRadius: 4, padding: "12px 16px",
-              marginBottom: 28,
+              marginBottom: 36,
             }}>
               <span style={{
                 fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
                 fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
                 textTransform: "uppercase", color: C.gold,
                 marginTop: 1, flexShrink: 0,
-              }}>⚡ Draft Week</span>
+              }}>⚡ Live Now</span>
               <span style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.5 }}>
                 <strong style={{ color: C.text }}>2026 NFL Draft is Apr 24–26.</strong>{" "}
-                Pro unlocks all 11 live signals: prospect risers, medical flags, landing spots, and team-fit intel — before the picks are in.
+                Act on draft-week movement before your league or the market does.
               </span>
             </div>
 
-            {/* ── Eyebrow ──────────────────────────────────────────── */}
+            {/* Eyebrow */}
             <div style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               fontSize: 11, fontWeight: 700, letterSpacing: "0.22em",
-              textTransform: "uppercase", color: C.gold, marginBottom: 20,
+              textTransform: "uppercase", color: C.gold, marginBottom: 18,
             }}>
               Edge Setter Pro · $19/month
             </div>
 
-            {/* ── Headline ───────────────────────────────────────── */}
+            {/* Headline */}
             <h1 style={{
               fontFamily: "'Playfair Display',Georgia,serif",
-              fontSize: "clamp(2rem, 4vw, 3.25rem)",
+              fontSize: "clamp(1.9rem, 3.8vw, 3rem)",
               fontWeight: 700, color: C.text,
               lineHeight: 1.1, letterSpacing: "-0.02em",
-              margin: "0 0 20px",
-              maxWidth: 680,
+              margin: "0 0 16px",
+              maxWidth: 700,
             }}>
-              The pick is made in the 72 hours before it.<br />
-              <span style={{ color: C.gold }}>Pro sees those 72 hours.</span>
+              Stop chasing tweets.<br />
+              <span style={{ color: C.gold }}>See the signals before your league does.</span>
             </h1>
 
+            {/* Sub-headline */}
             <p style={{
               fontSize: 17, color: C.textMuted, lineHeight: 1.65,
-              maxWidth: 560, margin: "0 0 48px",
+              maxWidth: 560, margin: "0 0 12px",
             }}>
-              Edge Setter tracks every prospect movement, medical flag, team-fit signal,
-              and landing-spot confirmation during draft week — confidence-scored and actionable
-              for your dynasty league, DFS lineup, or futures card.
+              Built for sharp fantasy, DFS, and betting players who already follow the news but want it condensed into edges.
+            </p>
+            <p style={{
+              fontSize: 15, color: C.textFaint, lineHeight: 1.6,
+              maxWidth: 540, margin: "0 0 48px",
+            }}>
+              Every signal is confidence-scored 0–100. Every signal includes one action. No recap threads. No noise.
             </p>
 
-            {/* ── 3 benefit bullets ───────────────────────── */}
+            {/* 4 direct bullet proof points */}
             <div style={{
-              display: "flex", flexDirection: "column", gap: 20,
-              marginBottom: 48,
-              paddingLeft: 0,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+              gap: 16,
+              marginBottom: 52,
             }}>
-              {[
-                {
-                  headline: "Every signal, ranked by confidence.",
-                  body: "Free agency rumors, injury updates, depth chart shuffles — each one scored 0–100 based on source reliability and corroboration. You see the edge, not the noise.",
-                },
-                {
-                  headline: "One action per signal.",
-                  body: "No parsing tweet threads. Every signal includes a concrete action takeaway — exactly what to do with the intel in your fantasy league, DFS lineup, or betting card.",
-                },
-                {
-                  headline: "2026 Draft Board + full archive.",
-                  body: "The complete 2026 class with live rankings plus searchable signal history by player, team, or topic. Know what insiders said last week, last month, last season.",
-                },
-              ].map((b, i) => (
-                <div key={i} style={{
-                  display: "flex", gap: 18, alignItems: "flex-start",
+              {FEATURES.map(({ icon: Icon, label, detail }) => (
+                <div key={label} style={{
+                  background: C.surface1,
+                  border: "1px solid rgba(202,168,90,0.12)",
+                  borderRadius: 4,
+                  padding: "18px 20px",
+                  display: "flex", gap: 14, alignItems: "flex-start",
                 }}>
                   <div style={{
-                    width: 28, height: 28, flexShrink: 0,
-                    background: "rgba(202,168,90,0.10)",
-                    border: "1px solid rgba(202,168,90,0.25)",
-                    borderRadius: "50%",
+                    width: 32, height: 32, flexShrink: 0,
+                    background: C.goldDim,
+                    border: "1px solid rgba(202,168,90,0.22)",
+                    borderRadius: 4,
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    marginTop: 2,
                   }}>
-                    <CheckCircle2 size={14} style={{ color: C.gold }} />
+                    <Icon size={14} style={{ color: C.gold }} />
                   </div>
                   <div>
-                    <p style={{
-                      fontFamily: "'Playfair Display',Georgia,serif",
-                      fontSize: 17, fontWeight: 700,
-                      color: C.text, margin: "0 0 4px", lineHeight: 1.3,
-                    }}>
-                      {b.headline}
+                    <p style={{ fontSize: 14, fontWeight: 600, color: C.text, margin: "0 0 4px", lineHeight: 1.3 }}>
+                      {label}
                     </p>
-                    <p style={{ fontSize: 15, color: C.textMuted, margin: 0, lineHeight: 1.6 }}>
-                      {b.body}
+                    <p style={{ fontSize: 13, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>
+                      {detail}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
 
-            <GoldRule opacity={0.14} my={0} />
+            {/* Separator */}
+            <div style={{ height: 1, background: C.gold, opacity: 0.14, marginBottom: 44 }} />
 
-            {/* ── Pro feature list ────────────────────────── */}
-            <div style={{ padding: "36px 0 40px" }}>
-              <Cap color={C.textFaint} size={10}>What's included</Cap>
-              <div style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
-                gap: 16,
-                marginTop: 20,
+            {/* Checkout block */}
+            <div>
+              <p style={{
+                fontFamily: "'Playfair Display',Georgia,serif",
+                fontSize: 22, fontWeight: 700,
+                color: C.text, margin: "0 0 6px",
               }}>
-                {PRO_FEATURES.map(({ icon: Icon, label, detail }) => (
-                  <div key={label} style={{
-                    background: C.surface1,
-                    border: "1px solid rgba(202,168,90,0.12)",
-                    borderRadius: 4,
-                    padding: "18px 20px",
-                    display: "flex", gap: 14, alignItems: "flex-start",
-                  }}>
-                    <div style={{
-                      width: 32, height: 32, flexShrink: 0,
-                      background: C.goldDim,
-                      border: "1px solid rgba(202,168,90,0.20)",
-                      borderRadius: 4,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <Icon size={14} style={{ color: C.gold }} />
-                    </div>
-                    <div>
-                      <p style={{
-                        fontSize: 14, fontWeight: 600,
-                        color: C.text, margin: "0 0 4px", lineHeight: 1.3,
-                      }}>
-                        {label}
-                      </p>
-                      <p style={{ fontSize: 13, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>
-                        {detail}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <GoldRule opacity={0.14} my={0} />
-
-            {/* ── Checkout ────────────────────────────────── */}
-            <div style={{ paddingTop: 40 }}>
-              <div style={{ marginBottom: 24 }}>
-                <p style={{
-                  fontFamily: "'Playfair Display',Georgia,serif",
-                  fontSize: 22, fontWeight: 700,
-                  color: C.text, margin: "0 0 8px",
-                }}>
-                  Get Pro access — $19/month
-                </p>
-                <p style={{ fontSize: 14, color: C.textMuted, margin: 0, lineHeight: 1.55 }}>
-                  Enter your email and you'll be taken directly to Stripe checkout. No account creation, no waiting.
-                </p>
-              </div>
+                Edge Setter Pro — $19/month
+              </p>
+              <p style={{
+                fontSize: 14, color: C.textMuted, margin: "0 0 24px", lineHeight: 1.55,
+                maxWidth: 480,
+              }}>
+                Enter your email and you'll be taken to Stripe checkout. No account creation required.
+              </p>
               <CheckoutForm />
             </div>
 
-            {/* ── Already Pro? ────────────────────────────── */}
+            {/* Already Pro? */}
             <div style={{
-              marginTop: 40, paddingTop: 32,
+              marginTop: 48, paddingTop: 32,
               borderTop: "1px solid rgba(255,255,255,0.06)",
             }}>
-              <Cap color={C.textFaint} size={9}>Already a subscriber?</Cap>
+              <span style={{
+                fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+                fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
+                textTransform: "uppercase", color: C.textFaint,
+              }}>
+                Already a subscriber?
+              </span>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                 <input
                   data-testid="input-pro-email-check"

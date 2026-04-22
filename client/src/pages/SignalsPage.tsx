@@ -1,13 +1,18 @@
 /**
- * SignalsPage — Luxury Film Ledger redesign
- * Full-page signal board with premium card hierarchy
+ * SignalsPage — Public Signal Board
+ * Free limit: 3 signals. Featured signal counts as 1.
+ * Additional signals show as LockedSignalCard with ProGateModal.
  */
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import type { Signal } from "@shared/schema";
 import { CheckCircle2, ChevronRight } from "lucide-react";
+import { useSignalGate, FREE_LIMIT } from "@/context/SignalGate";
+import LockedSignalCard from "@/components/paywall/LockedSignalCard";
+import ProGateModal from "@/components/paywall/ProGateModal";
+import ProValueModule from "@/components/paywall/ProValueModule";
 
 const T = {
   bg:        "#0A0B0D",
@@ -83,12 +88,8 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
         transition: "border-left-color 0.15s",
         marginBottom: 12,
       }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLDivElement).style.borderLeftColor = T.gold;
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLDivElement).style.borderLeftColor = featured ? T.gold : "rgba(202,168,90,0.35)";
-      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = T.gold; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = featured ? T.gold : "rgba(202,168,90,0.35)"; }}
     >
       {featured && (
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold, pointerEvents: "none" }} />
@@ -169,7 +170,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
           borderRadius: 3,
           marginBottom: 12,
         }}>
-          <div style={{ width: 2, flexShrink: 0, alignSelf: "stretch", background: T.gold, borderRadius: 1, opacity: 0.7, pointerEvents: "none" }} />
+          <div style={{ width: 2, flexShrink: 0, alignSelf: "stretch", background: T.gold, borderRadius: 1, opacity: 0.7 }} />
           <p style={{ fontSize: 14, color: T.text, margin: 0, lineHeight: 1.55, fontStyle: "italic" }}>
             {signal.action_takeaway}
           </p>
@@ -204,11 +205,34 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
   );
 }
 
+/**
+ * GatedSignalCard — decides whether to show the full card or the locked version.
+ * Uses position-based gating: cards at index < FREE_LIMIT are free, rest are locked.
+ * The context tracks viewed IDs for dedup across nav events.
+ */
+function GatedSignalCard({ signal, featured, globalIndex }: { signal: Signal; featured?: boolean; globalIndex: number }) {
+  const { consumeSignal } = useSignalGate();
+  // Position-based: first FREE_LIMIT signals are always free
+  const isFree = globalIndex < FREE_LIMIT;
+
+  // Register the view for free signals (for the meter display)
+  useEffect(() => {
+    if (isFree) {
+      consumeSignal(signal.id);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signal.id, isFree]);
+
+  if (!isFree) {
+    return <LockedSignalCard signal={signal} index={globalIndex} />;
+  }
+  return <SignalCard signal={signal} featured={featured} />;
+}
+
 export default function SignalsPage() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
-
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const { data: signals = [], isLoading, refetch } = useQuery<Signal[]>({
@@ -232,7 +256,6 @@ export default function SignalsPage() {
     },
     onSuccess: () => setSubmitted(true),
     onError: (err: any) => {
-      // Show inline error for timeout
       if (err?.message === "timeout") {
         alert("Server is warming up. Please try again in a moment.");
       }
@@ -241,6 +264,9 @@ export default function SignalsPage() {
 
   const featured = signals.find(s => s.is_featured);
   const rest = signals.filter(s => !s.is_featured);
+
+  // Full ordered list for gating: featured is index 0, rest follow
+  const allOrdered: Signal[] = featured ? [featured, ...rest] : rest;
 
   async function handleCheckout() {
     if (!email) return;
@@ -256,6 +282,10 @@ export default function SignalsPage() {
 
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text }}>
+
+      {/* ProGateModal — portal-level, always present when triggered */}
+      <ProGateModal />
+
       {/* Top bar */}
       <div style={{
         background: T.surface1,
@@ -305,18 +335,21 @@ export default function SignalsPage() {
               </span>
             )}
             <Link href="/pro">
-              <button style={{
-                background: T.gold, color: T.bg,
-                border: "none", borderRadius: 3, cursor: "pointer",
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
-                textTransform: "uppercase",
-                padding: "7px 16px", minHeight: 36,
-                transition: "background 0.15s",
-              }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = T.goldBright; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = T.gold; }}>
-                Upgrade to Pro
+              <button
+                data-testid="button-topbar-go-pro"
+                style={{
+                  background: T.gold, color: T.bg,
+                  border: "none", borderRadius: 3, cursor: "pointer",
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  padding: "7px 16px", minHeight: 36,
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = T.goldBright; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = T.gold; }}
+              >
+                Go Pro · $19/mo
               </button>
             </Link>
           </div>
@@ -341,6 +374,31 @@ export default function SignalsPage() {
           }}>
             NFL Intelligence Feed
           </h1>
+          {/* Free-limit banner */}
+          <div style={{
+            display: "flex", alignItems: "flex-start", gap: 8,
+            padding: "10px 14px",
+            background: "rgba(202,168,90,0.06)",
+            border: "1px solid rgba(202,168,90,0.22)",
+            borderRadius: 3,
+            marginBottom: 18,
+          }}>
+            <span style={{
+              fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+              textTransform: "uppercase", color: T.gold, flexShrink: 0, marginTop: 1,
+            }}>
+              Free access
+            </span>
+            <span style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.5 }}>
+              You can fully read the {FREE_LIMIT} most recent signals.{" "}
+              <Link href="/pro">
+                <span style={{ color: T.gold, cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(202,168,90,0.40)" }}>
+                  Pro unlocks the full live feed for draft week.
+                </span>
+              </Link>
+            </span>
+          </div>
           <div style={{ height: 1, background: "rgba(202,168,90,0.18)" }} />
         </div>
 
@@ -359,14 +417,21 @@ export default function SignalsPage() {
           className="block lg:grid">
             {/* Signal feed */}
             <div>
-              {featured && <SignalCard signal={featured} featured />}
-              <div>
-                {rest.map(s => <SignalCard key={s.id} signal={s} />)}
-              </div>
+              {allOrdered.map((signal, i) => (
+                <GatedSignalCard
+                  key={signal.id}
+                  signal={signal}
+                  featured={signal.is_featured ?? false}
+                  globalIndex={i}
+                />
+              ))}
             </div>
 
             {/* Sidebar */}
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+              {/* Pro value module — top of sidebar */}
+              <ProValueModule />
+
               {/* Waitlist */}
               <div style={{
                 background: T.surface1,
@@ -431,63 +496,6 @@ export default function SignalsPage() {
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Pro upgrade panel */}
-              <div style={{
-                background: T.surface1,
-                border: "1px solid rgba(202,168,90,0.14)",
-                borderRadius: 4,
-                padding: "24px 22px",
-              }}>
-                <div style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
-                  textTransform: "uppercase", color: T.textFaint, marginBottom: 8,
-                }}>
-                  Pro Intelligence
-                </div>
-                <div style={{
-                  fontFamily: "'Playfair Display', Georgia, serif",
-                  fontSize: 40, fontWeight: 700, color: T.gold,
-                  letterSpacing: "-0.03em", lineHeight: 1, marginBottom: 4,
-                }}>
-                  $19
-                  <span style={{ fontSize: 16, color: T.textFaint, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif" }}>
-                    /mo
-                  </span>
-                </div>
-                <p style={{ fontSize: 15, color: T.textMuted, margin: "0 0 16px", lineHeight: 1.6 }}>
-                  Full signal feed · All confidence data · Action takeaways
-                </p>
-                <div style={{ marginBottom: 16 }}>
-                  {["Full signal archive", "Confidence scores", "Verdict detail", "Source notes", "Pro alerts"].map(f => (
-                    <div key={f} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                      <CheckCircle2 size={13} style={{ color: T.gold, flexShrink: 0 }} />
-                      <span style={{ fontSize: 14, color: T.textMuted }}>{f}</span>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <input
-                    data-testid="input-pro-email"
-                    type="email"
-                    placeholder="Email for Pro access"
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    className="input-premium"
-                    style={{ marginBottom: 10 }}
-                  />
-                </div>
-                <button
-                  data-testid="button-upgrade-pro"
-                  onClick={handleCheckout}
-                  disabled={checkoutLoading || !email}
-                  className="btn-primary"
-                  style={{ width: "100%" }}
-                >
-                  {checkoutLoading ? "Redirecting…" : "Upgrade to Pro — $19/mo"}
-                </button>
               </div>
             </div>
           </div>

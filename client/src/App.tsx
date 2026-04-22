@@ -17,6 +17,7 @@ import ProPage from "./pages/ProPage";
 import SuccessPage from "./pages/SuccessPage";
 import SignalAdmin from "./pages/SignalAdmin";
 import NotFound from "./pages/not-found";
+import { SignalGateProvider } from "./context/SignalGate";
 
 export type Theme = "dark" | "light";
 
@@ -31,6 +32,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <SignalGateProvider>
       <Router hook={useHashLocation}>
         <Switch>
           <Route path="/" component={() => <LandingPage theme={theme} toggleTheme={toggleTheme} />} />
@@ -47,6 +49,7 @@ function App() {
           <Route component={NotFound} />
         </Switch>
       </Router>
+      </SignalGateProvider>
       <Toaster />
     </QueryClientProvider>
   );

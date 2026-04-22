@@ -1,0 +1,182 @@
+/**
+ * ProValueModule — inline module on the Signal Board sidebar.
+ * Draft-week focused value prop for non-Pro visitors.
+ * Placed above the waitlist widget in the sidebar.
+ */
+import { Link } from "wouter";
+import { useSignalGate, FREE_LIMIT } from "@/context/SignalGate";
+import { Zap, BarChart2, Filter, BookOpen, CheckCircle2 } from "lucide-react";
+
+const C = {
+  surface1:   "#111317",
+  surface2:   "#16191E",
+  gold:       "#CAA85A",
+  goldBright: "#D8B86A",
+  goldDim:    "rgba(202,168,90,0.12)",
+  text:       "#F3EFE6",
+  textMuted:  "#B7AFA0",
+  textFaint:  "#7E776A",
+  green:      "#3DAE72",
+};
+
+const ITEMS = [
+  { icon: Zap,          label: "Full live signal feed — no limit" },
+  { icon: BarChart2,    label: "Full Draft Board with movement tags" },
+  { icon: Filter,       label: "All 6 topic filters" },
+  { icon: BookOpen,     label: "Today's Top Signal history" },
+  { icon: CheckCircle2, label: "Confidence scores + action takeaways" },
+];
+
+export default function ProValueModule() {
+  const { freeCount, isGated } = useSignalGate();
+  const remaining = Math.max(0, FREE_LIMIT - freeCount);
+
+  return (
+    <div
+      data-testid="pro-value-module"
+      style={{
+        background: C.surface1,
+        border: "1px solid rgba(202,168,90,0.28)",
+        borderTop: `3px solid ${C.gold}`,
+        borderRadius: 4,
+        padding: "22px 22px 20px",
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      {/* Subtle gold shimmer strip */}
+      <div style={{
+        position: "absolute", top: 3, left: 0, right: 0, height: 40,
+        background: "linear-gradient(to bottom, rgba(202,168,90,0.04), transparent)",
+        pointerEvents: "none",
+      }} />
+
+      {/* Eyebrow */}
+      <div style={{
+        fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+        fontSize: 10, fontWeight: 700, letterSpacing: "0.20em",
+        textTransform: "uppercase", color: C.gold,
+        marginBottom: 6,
+        display: "flex", alignItems: "center", gap: 6,
+      }}>
+        <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.gold, display: "inline-block" }} />
+        Draft Week · Pro
+      </div>
+
+      {/* Headline */}
+      <div style={{
+        fontFamily: "'Playfair Display',Georgia,serif",
+        fontSize: 18, fontWeight: 700,
+        color: C.text, marginBottom: 4, lineHeight: 1.25,
+      }}>
+        Unlock full draft-week intel
+      </div>
+      <p style={{ fontSize: 14, color: C.textMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
+        Act on draft-week movement before your league or the market does.
+      </p>
+
+      {/* Free signal meter — only show if they've used some */}
+      {freeCount > 0 && (
+        <div style={{
+          background: C.surface2,
+          border: "1px solid rgba(255,255,255,0.06)",
+          borderRadius: 3,
+          padding: "10px 14px",
+          marginBottom: 16,
+        }}>
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            marginBottom: 6,
+          }}>
+            <span style={{
+              fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+              fontSize: 9, fontWeight: 700, letterSpacing: "0.16em",
+              textTransform: "uppercase",
+              color: isGated ? C.gold : C.textFaint,
+            }}>
+              {isGated ? "Free limit reached" : `${remaining} free ${remaining === 1 ? "signal" : "signals"} remaining`}
+            </span>
+            <span style={{
+              fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+              fontSize: 9, fontWeight: 700, letterSpacing: "0.12em",
+              color: C.textFaint,
+            }}>
+              {freeCount} / {FREE_LIMIT}
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div style={{
+            height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2,
+          }}>
+            <div style={{
+              height: 3,
+              width: `${Math.min(100, (freeCount / FREE_LIMIT) * 100)}%`,
+              background: isGated ? C.gold : "rgba(202,168,90,0.50)",
+              borderRadius: 2,
+              transition: "width 0.3s ease",
+            }} />
+          </div>
+        </div>
+      )}
+
+      {/* Feature list */}
+      <div style={{ marginBottom: 20 }}>
+        {ITEMS.map(({ icon: Icon, label }) => (
+          <div key={label} style={{
+            display: "flex", alignItems: "center", gap: 8, marginBottom: 8,
+          }}>
+            <Icon size={12} style={{ color: C.gold, flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: C.textMuted }}>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Price + CTA */}
+      <div style={{ marginBottom: 14 }}>
+        <span style={{
+          fontFamily: "'Playfair Display',Georgia,serif",
+          fontSize: 28, fontWeight: 700,
+          color: C.gold, lineHeight: 1,
+          letterSpacing: "-0.03em",
+        }}>
+          $19
+        </span>
+        <span style={{
+          fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+          fontSize: 13, color: C.textFaint, marginLeft: 3,
+        }}>
+          /month
+        </span>
+      </div>
+
+      <Link href="/pro">
+        <button
+          data-testid="button-pro-value-cta"
+          style={{
+            width: "100%",
+            padding: "11px 0",
+            background: C.gold, color: "#0A0B0D",
+            border: "none", borderRadius: 3, cursor: "pointer",
+            fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+            fontSize: 11, fontWeight: 700,
+            letterSpacing: "0.18em", textTransform: "uppercase",
+            transition: "background 0.15s",
+          }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = C.goldBright; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = C.gold; }}
+        >
+          Go Pro · $19/mo
+        </button>
+      </Link>
+
+      <p style={{
+        fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+        fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+        textTransform: "uppercase",
+        color: C.textFaint, marginTop: 10, textAlign: "center",
+      }}>
+        Early adopter pricing · Cancel any time
+      </p>
+    </div>
+  );
+}
