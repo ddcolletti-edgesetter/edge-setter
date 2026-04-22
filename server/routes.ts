@@ -56,8 +56,49 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // ─── Signal Feed ──────────────────────────────────────────────────────────────
   app.get("/api/signal", (req, res) => {
     const { league, topic, verdict } = req.query as Record<string, string>;
+    // Primary: verdict-join feed (agent-sourced signals)
     const feed = storage.getSignalFeed({ league, topic, verdict });
-    res.json(feed);
+
+    // Helper: map Signal rows to SignalFeedItem shape
+    const mapSig = (s: any) => ({
+      id: s.id,
+      player: s.player_name ?? null,
+      team: s.team ?? null,
+      league: "NFL",
+      topic: s.topic ?? null,
+      normalized_claim: s.summary ?? s.title,
+      verdict: s.verdict ?? "review",
+      confidence_score: String(s.confidence_score ?? 0),
+      needs_human_review: 0,
+      urgency_score: null,
+      impact_score: null,
+      source_name: s.signal_type ?? "Edge Setter Intel",
+      trust_tier: "A",
+      rationale: s.action_takeaway ?? null,
+      event_id: null,
+      claim_id: null,
+      created_at: s.published_at ?? s.created_at,
+    });
+
+    if (topic) {
+      // Topic-filtered: if join feed has results for this topic, use it;
+      // otherwise fall back to seeded signals table
+      const topicFeed = feed.filter(f => (f as any).topic === topic);
+      if (topicFeed.length > 0) return res.json(topicFeed);
+      let sigs = storage.getSignals(true).filter(s => (s as any).topic === topic);
+      if (verdict) sigs = sigs.filter(s => s.verdict === verdict);
+      return res.json(sigs.map(mapSig));
+    }
+
+    // No topic filter: merge join feed + seeded signals (deduplicated by id)
+    const seededSigs = storage.getSignals(true);
+    let seededMapped = seededSigs.map(mapSig);
+    if (verdict) seededMapped = seededMapped.filter(s => s.verdict === verdict);
+    const feedIds = new Set(feed.map(f => f.id));
+    const merged = [...feed, ...seededMapped.filter(s => !feedIds.has(s.id))];
+    // Sort by created_at desc
+    merged.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
+    return res.json(merged.slice(0, 100));
   });
 
   // ─── Sources ─────────────────────────────────────────────────────────────────

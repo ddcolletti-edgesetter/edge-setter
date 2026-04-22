@@ -150,6 +150,7 @@ sqlite.exec(`
     status_tag TEXT NOT NULL DEFAULT 'verified',
     confidence_score INTEGER NOT NULL DEFAULT 80,
     source_count INTEGER NOT NULL DEFAULT 1,
+    topic TEXT,
     verdict TEXT NOT NULL,
     summary TEXT NOT NULL,
     action_takeaway TEXT NOT NULL,

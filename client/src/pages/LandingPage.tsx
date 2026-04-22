@@ -86,37 +86,39 @@ function VerdictPill({ type }: { type: string }) {
 
 /* ── Chalk field + route diagram (hero background) ── */
 function ChalkField() {
-  // Field geometry — top half visible, fades into dark bg
-  const W = 1200, H = 420;
-  // Yard lines: left EZ edge at x=80, right at x=1120, 10 even sections
-  const EZW = 104;                   // end-zone width
-  const FL = 80,  FR = 1120;         // outer sideline x coords
-  const FT = 20,  FB = 400;          // top / bottom sideline y
-  const FH = FB - FT;
-  const EL = FL + EZW;               // left EZ / 10-yd line
-  const ER = FR - EZW;               // right EZ / 10-yd line
-  const playW = ER - EL;             // 100-yard playing field width
-  const YD = playW / 10;             // pixels per 10 yards
+  // Simple, high-contrast chalkboard approach:
+  // - 3 bold vertical yard lines (10, 50, 40 yd equiv) dominate
+  // - Clear horizontal sidelines
+  // - 2 large hash rows
+  // - 2 strong gold routes with arrowheads
+  // All strokes are intentionally opaque — wrapper div controls overall opacity
 
-  // Hash marks — high & low row
-  const HT = FT + FH * 0.36;        // upper hash y
-  const HB = FT + FH * 0.64;        // lower hash y
-  const HH = 8;                      // hash half-height
+  const W = 1200, H = 480;
+  const FL = 0, FR = W;          // edge to edge
+  const FT = 0, FB = H;
+  const FH = H;
 
-  // 10-yard lines (9 internal)
-  const ydLines = Array.from({ length: 9 }, (_, i) => EL + YD * (i + 1));
+  // Key yard lines — just 7, evenly spaced like real 100-yd field sections
+  // Map the full width to 100 yards. Show 5 major lines (20, 30, 40, 50, 60 yd marks)
+  const YD = W / 10;             // 10 yd increments
+  const majorX = [2, 3, 4, 5, 6, 7, 8].map(i => i * YD);  // 20–80 yd marks
+  const midX = 5 * YD;           // 50-yard line
 
-  // 5-yard hash rows (between each 10-yd line)
-  const fiveYdX = Array.from({ length: 19 }, (_, i) => EL + (YD / 2) * i);
+  // Hash rows
+  const HT = FT + FH * 0.38;
+  const HB = FT + FH * 0.62;
 
-  // Stroke colours — pure white at very low alpha on dark bg
-  const outer  = "rgba(255,255,255,0.15)";   // sideline / boundary
-  const tenYd  = "rgba(255,255,255,0.10)";   // 10-yd interior lines
-  const midLine = "rgba(255,255,255,0.18)";  // 50-yd (centre)
-  const fiveYd = "rgba(255,255,255,0.055)";  // 5-yd lines (very subtle)
-  const hashC  = "rgba(255,255,255,0.09)";   // hash marks
-  const ezFill = "rgba(255,255,255,0.018)";  // end-zone subtle tint
-  const routeC = "rgba(202,168,90,0.22)";    // gold route lines
+  // Stroke colours — these are the RAW line colours; wrapper at ~0.45 opacity brings them to final level
+  const sideline = "rgba(255,255,255,0.70)";  // top/bottom sideline
+  const ydLine   = "rgba(255,255,255,0.45)";  // interior yard lines
+  const midLine  = "rgba(255,255,255,0.85)";  // 50-yd — the hero line
+  const hashC    = "rgba(255,255,255,0.55)";  // hash marks
+  const routeC   = "rgba(202,168,90,0.90)";   // gold routes
+  const arrowC   = "rgba(202,168,90,0.85)";   // gold arrowheads
+
+  // Hash spacing: every YD interval
+  const hashXArr = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => i * YD);
+  const HH = 12;  // hash half-height
 
   return (
     <svg
@@ -125,83 +127,66 @@ function ChalkField() {
         position: "absolute", inset: 0,
         width: "100%", height: "100%",
         pointerEvents: "none",
-        // Fade out bottom third so field blends with section below
-        maskImage: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 60%, transparent 100%)",
-        WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.5) 60%, transparent 100%)",
+        // Fade out bottom 40% so field blends to dark bg
+        maskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 45%, rgba(0,0,0,0.2) 75%, transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.8) 45%, rgba(0,0,0,0.2) 75%, transparent 100%)",
       }}
       viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="xMidYMin slice"
       fill="none"
     >
-      {/* End zones — subtle tint */}
-      <rect x={FL} y={FT} width={EZW} height={FH} fill={ezFill} />
-      <rect x={ER}  y={FT} width={EZW} height={FH} fill={ezFill} />
+      {/* Top sideline */}
+      <line x1={FL} y1={FT + 4} x2={FR} y2={FT + 4} stroke={sideline} strokeWidth="2.5" />
+      {/* Bottom sideline (fades with mask) */}
+      <line x1={FL} y1={FB - 4} x2={FR} y2={FB - 4} stroke={sideline} strokeWidth="2.5" />
 
-      {/* Outer boundary */}
-      <rect x={FL} y={FT} width={FR - FL} height={FH} stroke={outer} strokeWidth="1.5" />
-
-      {/* EZ inner lines */}
-      <line x1={EL} y1={FT} x2={EL} y2={FB} stroke={outer} strokeWidth="1.2" />
-      <line x1={ER} y1={FT} x2={ER} y2={FB} stroke={outer} strokeWidth="1.2" />
-
-      {/* 5-yard lines — very faint */}
-      {fiveYdX.map((x, i) => (
-        <line key={`5yd-${i}`} x1={x} y1={FT} x2={x} y2={FB}
-          stroke={fiveYd} strokeWidth="0.8" />
-      ))}
-
-      {/* 10-yard lines */}
-      {ydLines.map((x, i) => (
-        <line key={`10yd-${i}`} x1={x} y1={FT} x2={x} y2={FB}
-          stroke={i === 4 ? midLine : tenYd}
-          strokeWidth={i === 4 ? "1.6" : "1.0"} />
+      {/* Interior yard lines */}
+      {majorX.map((x, i) => (
+        <line key={i}
+          x1={x} y1={FT} x2={x} y2={FB}
+          stroke={x === midX ? midLine : ydLine}
+          strokeWidth={x === midX ? "3.0" : "1.5"}
+        />
       ))}
 
       {/* Hash marks — upper row */}
-      {fiveYdX.map((x, i) => (
-        <line key={`hu-${i}`} x1={x} y1={HT - HH} x2={x} y2={HT + HH}
-          stroke={hashC} strokeWidth="1.0" />
+      {hashXArr.map((x, i) => (
+        <line key={`hu-${i}`}
+          x1={x} y1={HT - HH} x2={x} y2={HT + HH}
+          stroke={hashC} strokeWidth="2.0" />
       ))}
       {/* Hash marks — lower row */}
-      {fiveYdX.map((x, i) => (
-        <line key={`hd-${i}`} x1={x} y1={HB - HH} x2={x} y2={HB + HH}
-          stroke={hashC} strokeWidth="1.0" />
+      {hashXArr.map((x, i) => (
+        <line key={`hd-${i}`}
+          x1={x} y1={HB - HH} x2={x} y2={HB + HH}
+          stroke={hashC} strokeWidth="2.0" />
       ))}
 
-      {/* ── Play routes — gold dashes with arrowheads ── */}
-
-      {/* Route 1: curl left — WR breaks toward sideline */}
-      <path d={`M ${EL + YD*0.6} ${HT + 20} C ${EL + YD*1.1} ${HT - 40}, ${EL + YD*1.6} ${HT - 50}, ${EL + YD*1.5} ${HT + 15}`}
-        stroke={routeC} strokeWidth="1.6" strokeDasharray="9 6" />
+      {/* ── Route 1: Post — diagonal slash toward end zone ── */}
+      {/* Starts between hash rows, bends hard diagonal upward-right */}
+      <path
+        d={`M ${YD * 2.2} ${HB + 10} L ${YD * 2.2} ${HT + 20} Q ${YD * 2.8} ${HT - 40} ${YD * 3.6} ${FT + 30}`}
+        stroke={routeC} strokeWidth="2.8" strokeDasharray="14 8"
+        strokeLinecap="round"
+      />
+      {/* arrowhead at top */}
       <polygon
-        points={`${EL + YD*1.5} ${HT + 15}, ${EL + YD*1.38} ${HT + 4}, ${EL + YD*1.62} ${HT + 3}`}
-        fill={routeC} />
+        points={`${YD * 3.6} ${FT + 30}, ${YD * 3.42} ${FT + 64}, ${YD * 3.76} ${FT + 64}`}
+        fill={arrowC}
+      />
 
-      {/* Route 2: post route — diagonal to middle */}
-      <path d={`M ${EL + YD*1.8} ${HB - 18} L ${EL + YD*1.8} ${HB - 18} Q ${EL + YD*2.4} ${HB - 60} ${EL + YD*3.0} ${FT + FH*0.3}`}
-        stroke={routeC} strokeWidth="1.6" strokeDasharray="9 6" />
+      {/* ── Route 2: Curl / comeback — sideline break ── */}
+      {/* Starts near midfield, runs up then hooks back */}
+      <path
+        d={`M ${YD * 6.5} ${HB + 5} L ${YD * 6.5} ${HT - 10} Q ${YD * 6.3} ${FT + 25} ${YD * 5.6} ${HT}`}
+        stroke={routeC} strokeWidth="2.8" strokeDasharray="14 8"
+        strokeLinecap="round"
+      />
+      {/* arrowhead pointing left at curl endpoint */}
       <polygon
-        points={`${EL + YD*3.0} ${FT + FH*0.3}, ${EL + YD*2.88} ${FT + FH*0.34}, ${EL + YD*3.04} ${FT + FH*0.44}`}
-        fill={routeC} />
-
-      {/* Route 3: fly / go — vertical streak */}
-      <path d={`M ${EL + YD*3.4} ${HT + 30} L ${EL + YD*3.4} ${FT + 30}`}
-        stroke={routeC} strokeWidth="1.6" strokeDasharray="9 6" />
-      <polygon
-        points={`${EL + YD*3.4} ${FT + 30}, ${EL + YD*3.28} ${FT + 46}, ${EL + YD*3.52} ${FT + 46}`}
-        fill={routeC} />
-
-      {/* Route 4: crossing — horizontal slash right */}
-      <path d={`M ${EL + YD*3.8} ${HB - 12} Q ${EL + YD*4.5} ${FT + FH*0.48} ${EL + YD*5.2} ${FT + FH*0.42}`}
-        stroke={routeC} strokeWidth="1.6" strokeDasharray="9 6" />
-      <polygon
-        points={`${EL + YD*5.2} ${FT + FH*0.42}, ${EL + YD*5.06} ${FT + FH*0.37}, ${EL + YD*5.07} ${FT + FH*0.50}`}
-        fill={routeC} />
-
-      {/* Line of scrimmage — thin solid line at the ~40 yd mark */}
-      <line x1={EL + YD*3.0} y1={FT} x2={EL + YD*3.0} y2={FB}
-        stroke="rgba(202,168,90,0.12)" strokeWidth="1.0" strokeDasharray="4 3" />
-
+        points={`${YD * 5.6} ${HT}, ${YD * 5.85} ${HT - 14}, ${YD * 5.85} ${HT + 14}`}
+        fill={arrowC}
+      />
     </svg>
   );
 }
@@ -925,7 +910,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           aria-hidden="true"
           style={{
             position: "absolute", inset: 0,
-            opacity: 0.32,
+            opacity: 0.22,
             pointerEvents: "none",
             zIndex: 0,
           }}
@@ -936,7 +921,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
 
         {/* Left: copy */}
         <div style={{ maxWidth: 620, position: "relative", zIndex: 2 }}>
-          <Eyebrow>NFL Signal Intelligence · 2026 Draft Week</Eyebrow>
+          <Eyebrow>Draft Week Intelligence · 2026 NFL Draft · Apr 24–26</Eyebrow>
 
           <h1
             className="display-serif"
@@ -947,7 +932,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               lineHeight: 1.06,
             }}
           >
-            Know what moves
+            Know the move
             <br />
             <span style={{
               background: `linear-gradient(135deg, ${T.gold} 0%, ${T.goldBright} 100%)`,
@@ -955,7 +940,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
             }}>
-              before they{" "}move.
+              before your league does.
             </span>
           </h1>
 
@@ -966,31 +951,32 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             maxWidth: 500,
             marginBottom: 12,
           }}>
-            Edge Setter tracks NFL insider signals — free agency, injuries, depth
-            chart moves, and draft intelligence — verified, confidence-scored,
-            and labeled by source reliability.
+            Draft week is the highest-signal 72 hours in football.
+            Edge Setter tracks prospect risers and fallers, team-fit buzz,
+            medical flags, and free-agency fallout — verified, confidence-scored,
+            actionable before the pick is in.
           </p>
 
-          {/* What to do first */}
+          {/* Draft week urgency bar */}
           <div style={{
             display: "flex", alignItems: "flex-start", gap: 8,
             marginBottom: 28,
             padding: "10px 14px",
-            background: "rgba(61,174,114,0.06)",
-            border: "1px solid rgba(61,174,114,0.20)",
+            background: "rgba(202,168,90,0.07)",
+            border: "1px solid rgba(202,168,90,0.28)",
             borderRadius: 4,
             maxWidth: 480,
           }}>
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
-              textTransform: "uppercase", color: T.green,
+              textTransform: "uppercase", color: T.gold,
               marginTop: 1, flexShrink: 0,
-            }}>Start here →</span>
+            }}>Live now →</span>
             <span style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.5 }}>
-              Open the <strong style={{ color: T.text }}>Signal Board</strong> to see today's live feed.
-              Filter by team, topic, or verdict confidence. Go Pro to unlock
-              real-time alerts.
+              <strong style={{ color: T.text }}>Draft Week feed is live.</strong>{" "}
+              Prospect movement, landing-spot signals, and team-fit intel — updated in real time.
+              Free users see the top 3. Pro unlocks everything.
             </span>
           </div>
 
@@ -1021,8 +1007,8 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             flexWrap: "wrap", rowGap: 12,
           }}>
             {[
-              { val: "Live",   label: "2026 Signals" },
-              { val: "12+",    label: "Sources" },
+              { val: "Live",   label: "Draft Week Feed" },
+              { val: "72h",    label: "Critical Window" },
               { val: "$19",    label: "Per Month Pro" },
             ].map(stat => (
               <div key={stat.label} style={{ display: "flex", flexDirection: "column", gap: 3 }}>

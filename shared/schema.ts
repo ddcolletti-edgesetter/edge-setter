@@ -146,6 +146,7 @@ export const signals = sqliteTable("signals", {
   status_tag: text("status_tag").notNull().default("verified"), // verified | high-risk | speculative
   confidence_score: integer("confidence_score").notNull().default(80),
   source_count: integer("source_count").notNull().default(1),
+  topic: text("topic"), // draft_week | free_agency | injury | draft | trade | coaching | depth_chart | general
   verdict: text("verdict").notNull(),
   summary: text("summary").notNull(),
   action_takeaway: text("action_takeaway").notNull(),

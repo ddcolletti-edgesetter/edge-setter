@@ -6,7 +6,7 @@ import DataBadge from "../components/DataBadge";
 import { type Theme } from "../App";
 import { type SignalFeedItem } from "@shared/schema";
 import { useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, ChevronsUpDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronUp, ChevronsUpDown, ChevronRight, TrendingUp, TrendingDown, AlertTriangle, Zap } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
@@ -21,6 +21,10 @@ interface Prospect {
   breakdown: { label: string; score: number }[];
   note: string;
   trend: number[];
+  momentum?: "rising" | "falling" | "stable";
+  buzz?: string;
+  teamFitWatch?: string;
+  latestUpdate?: string;
 }
 
 /* ── Static prospect data — module-level to avoid esbuild TDZ ── */
@@ -41,6 +45,10 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "NFL Readiness", score: 94 },
     ],
     note: "Heisman winner and national champion. Cerebral pocket passer with elite processing speed. Consensus #1 overall to Las Vegas Raiders.",
+    momentum: "stable",
+    buzz: "Medical cleared",
+    teamFitWatch: "LV Raiders — locked",
+    latestUpdate: "All medicals passed. Raiders confirmed as pick.",
   },
   {
     rank: 2, name: "Arvell Reese", pos: "EDGE", school: "Ohio State",
@@ -53,6 +61,10 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "Motor", score: 95 },
     ],
     note: "Elite physicality and explosiveness. Multiple scouts tab as most physically dominant prospect since Myles Garrett. Jets strong fit at #2.",
+    momentum: "rising",
+    buzz: "Landing spot locked",
+    teamFitWatch: "NYJ Jets — confirmed fit",
+    latestUpdate: "Reese visit to Jets went exceptional. No trade-down calls entertained.",
   },
   {
     rank: 3, name: "Rueben Bain Jr.", pos: "EDGE", school: "Miami (FL)",
@@ -65,6 +77,10 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "Bend", score: 90 },
     ],
     note: "Power end with elite initial quickness. When Bain lines up across from you, offensive linemen know they are in for a long day.",
+    momentum: "stable",
+    buzz: "Trade-down buzz",
+    teamFitWatch: "ARI Cardinals — trade-down possible",
+    latestUpdate: "Cards taking calls to move down. Bain stays favored if pick holds.",
   },
   {
     rank: 4, name: "Jeremiyah Love", pos: "RB", school: "Notre Dame",
@@ -77,6 +93,10 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "Contact Balance", score: 90 },
     ],
     note: "90% probability top-5 pick per Draft Day Predictor. Most explosive back in recent memory. Rare juice and elusiveness at 215 lbs.",
+    momentum: "rising",
+    buzz: "Stock surging",
+    teamFitWatch: "TEN Titans — OC praised pass-catching",
+    latestUpdate: "Private visits with 3 top-5 teams in 48h window. Historic RB pre-draft buzz.",
   },
   {
     rank: 5, name: "Caleb Downs", pos: "S", school: "Ohio State",
@@ -89,6 +109,10 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "Coverage", score: 92 },
     ],
     note: "Earl Thomas comp from his DC at Ohio State. Defensive eraser with incredible all-around athleticism. Giants filling major secondary void.",
+    momentum: "stable",
+    buzz: "Starter confirmed",
+    teamFitWatch: "NYG Giants — immediate FS1",
+    latestUpdate: "Giants coaching staff confirmed drafting a starter. Daboll public statement.",
   },
   {
     rank: 6, name: "Kadyn Proctor", pos: "OT", school: "Alabama",
@@ -101,6 +125,10 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "Consistency", score: 88 },
     ],
     note: "Moves people in the run game and builds firm pockets. Patriots need an anchor at LT after Mayo restructure.",
+    momentum: "rising",
+    buzz: "FA fallout",
+    teamFitWatch: "NE Patriots — not trading out",
+    latestUpdate: "Patriots struck out on 3 OT free agents. Proctor now unambiguous top priority.",
   },
   {
     rank: 7, name: "Spencer Fano", pos: "OT", school: "Utah",
@@ -112,7 +140,11 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "Footwork", score: 92 },
       { label: "Strength", score: 87 },
     ],
-    note: "Natural coordination makes everything look effortless. Can\'t go wrong drafting athletes like Fano. Possible IOL slide adds versatility.",
+    note: "Natural coordination makes everything look effortless. Can't go wrong drafting athletes like Fano. Possible IOL slide adds versatility.",
+    momentum: "falling",
+    buzz: "Medical flag",
+    teamFitWatch: "CLE Browns — backup OT in play",
+    latestUpdate: "Browns requested additional imaging on prior ankle procedure.",
   },
   {
     rank: 8, name: "Sonny Styles", pos: "LB", school: "Ohio State",
@@ -125,6 +157,10 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "Coverage", score: 88 },
     ],
     note: "6-foot-4, 250 lbs, runs 4.46s forty. No comp for this size/speed combination at LB. Different breed.",
+    momentum: "rising",
+    buzz: "Scheme fit",
+    teamFitWatch: "WAS Commanders — Quinn walked him through scheme",
+    latestUpdate: "Quinn ran Styles through LB-heavy walk-through. Source: 'perfect fit.'",
   },
   {
     rank: 9, name: "Mansoor Delane", pos: "CB", school: "LSU",
@@ -137,6 +173,10 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "Tackling", score: 84 },
     ],
     note: "True island corner in a league trending away from the type. Can revive lockdown CB role at next level.",
+    momentum: "stable",
+    buzz: "Trade-down at #9",
+    teamFitWatch: "NO Saints — open to moving down",
+    latestUpdate: "Saints fielded QB/EDGE trade-up calls. Delane safe in 9–14 range.",
   },
   {
     rank: 10, name: "Makai Lemon", pos: "WR", school: "USC",
@@ -149,6 +189,10 @@ const PROSPECTS_2026: Prospect[] = [
       { label: "Hands", score: 88 },
     ],
     note: "Some scouts believe most talented WR in class, would be top-10 without injury concerns from 2025 season.",
+    momentum: "falling",
+    buzz: "Medical flag",
+    teamFitWatch: "KC Chiefs — Stewart as safe floor",
+    latestUpdate: "3 teams in 8–15 range requested updated shoulder imaging. Slide risk real.",
   },
 ];
 
@@ -224,6 +268,49 @@ function Sparkline({ data, width = 64, height = 24 }: { data: number[]; width?: 
   );
 }
 
+function MomentumBadge({ type }: { type: "rising" | "falling" | "stable" }) {
+  if (type === "rising") return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 3,
+      fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+      fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+      color: "#3DAE72", background: "rgba(61,174,114,0.10)",
+      border: "1px solid rgba(61,174,114,0.25)", borderRadius: 2, padding: "2px 6px",
+    }}>
+      <TrendingUp size={9} /> Rising
+    </span>
+  );
+  if (type === "falling") return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 3,
+      fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+      fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+      color: "#C04040", background: "rgba(192,64,64,0.10)",
+      border: "1px solid rgba(192,64,64,0.25)", borderRadius: 2, padding: "2px 6px",
+    }}>
+      <TrendingDown size={9} /> Falling
+    </span>
+  );
+  return null;
+}
+
+function BuzzTag({ label }: { label: string }) {
+  const isAlert = label.toLowerCase().includes("medical") || label.toLowerCase().includes("flag");
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 3,
+      fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+      fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+      color: isAlert ? "#D4932A" : "#CAA85A",
+      background: isAlert ? "rgba(212,147,42,0.08)" : "rgba(202,168,90,0.08)",
+      border: `1px solid ${isAlert ? "rgba(212,147,42,0.25)" : "rgba(202,168,90,0.20)"}`,
+      borderRadius: 2, padding: "2px 6px",
+    }}>
+      {isAlert && <AlertTriangle size={8} />} {label}
+    </span>
+  );
+}
+
 export default function DraftBoard({ theme, toggleTheme }: Props) {
   const [expandedRank, setExpandedRank] = useState<number | null>(null);
   const [activeSeason, setActiveSeason] = useState("2026");
@@ -275,8 +362,8 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
   }, [sortKey, sortDir, posFilter, PROSPECTS]);
 
   const { data: draftItems, isLoading } = useQuery<SignalFeedItem[]>({
-    queryKey: ["/api/signal", "draft"],
-    queryFn: () => apiRequest("GET", "/api/signal?topic=draft").then(r => r.json()),
+    queryKey: ["/api/signal", "draft_week"],
+    queryFn: () => apiRequest("GET", "/api/signal?topic=draft_week").then(r => r.json()),
     refetchInterval: 60000,
   });
 
@@ -443,6 +530,9 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                   <th className="text-center px-3 py-2.5 hidden md:table-cell">
                     <span className="data-label">7d Trend</span>
                   </th>
+                  <th className="text-left px-3 py-2.5 hidden lg:table-cell">
+                    <span className="data-label">Momentum</span>
+                  </th>
                   <th className="text-right px-4 py-2.5">
                     <button onClick={() => handleSort("conf")} data-testid="sort-edge-score" className="flex items-center gap-1 justify-end ml-auto group">
                       {sortKey === "conf"
@@ -495,6 +585,13 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                             })()}
                           </div>
                         </td>
+                        {/* Momentum + Buzz cell */}
+                        <td className="px-3 py-4 hidden lg:table-cell">
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-start" }}>
+                            {p.momentum && p.momentum !== "stable" && <MomentumBadge type={p.momentum} />}
+                            {p.buzz && <BuzzTag label={p.buzz} />}
+                          </div>
+                        </td>
                         <td className="px-4 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
                             <span className={`stat-num-display text-lg font-bold ${confColor(p.conf)}`}>
@@ -510,7 +607,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                       {/* Expanded detail panel */}
                       {isOpen && (
                         <tr key={`${p.rank}-expand`} className="bg-muted/10 border-b border-primary/20">
-                          <td colSpan={6} className="px-5 py-4">
+                          <td colSpan={7} className="px-5 py-4">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
                               {/* Col 1 — Profile */}
@@ -529,6 +626,20 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                                     </div>
                                   ))}
                                 </div>
+                                {/* Team Fit Watch */}
+                                {p.teamFitWatch && (
+                                  <div className="mt-2 pt-2 border-t border-border/40">
+                                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Team Fit Watch</p>
+                                    <p className="text-[11px] text-primary font-semibold">{p.teamFitWatch}</p>
+                                  </div>
+                                )}
+                                {/* Latest Update */}
+                                {p.latestUpdate && (
+                                  <div className="mt-2 pt-2 border-t border-border/40">
+                                    <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Latest Intel</p>
+                                    <p className="text-[11px] text-foreground leading-snug">{p.latestUpdate}</p>
+                                  </div>
+                                )}
                                 <div className="mt-3 pt-3 border-t border-border/40">
                                   <p className="text-[11px] text-muted-foreground leading-relaxed italic">{p.note}</p>
                                 </div>
@@ -627,11 +738,45 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
         {/* Draft Intelligence Feed */}
         <div className="flex items-center gap-3 mb-4">
           <h2 className="text-sm font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
-            Draft Intelligence Signals
+            Draft Week Signals
           </h2>
           <hr className="flex-1 border-border" />
-          <DataBadge type="demo" label="Demo Signals" />
+          {activeSeason === "2026" ? (
+            <span style={{
+              display: "inline-flex", alignItems: "center", gap: 5,
+              fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+              fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
+              color: "#3DAE72", background: "rgba(61,174,114,0.10)",
+              border: "1px solid rgba(61,174,114,0.25)", borderRadius: 2, padding: "3px 8px",
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#3DAE72", display: "inline-block" }} />
+              Live · {items.length} signals
+            </span>
+          ) : (
+            <DataBadge type="archive" label="Archive" />
+          )}
         </div>
+
+        {/* Live event urgency bar for 2026 */}
+        {activeSeason === "2026" && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: "rgba(202,168,90,0.06)",
+            border: "1px solid rgba(202,168,90,0.22)",
+            borderRadius: 4, padding: "9px 14px", marginBottom: 16,
+            flexWrap: "wrap", rowGap: 4,
+          }}>
+            <Zap size={12} style={{ color: "#CAA85A", flexShrink: 0 }} />
+            <span style={{
+              fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+              color: "#CAA85A",
+            }}>Draft Week Live · Apr 24–26</span>
+            <span style={{ fontSize: 12, color: "#B7AFA0", marginLeft: 4 }}>
+              Prospect risers/fallers, medical flags, team-fit confirmations — updated in real time.
+            </span>
+          </div>
+        )}
 
         {isLoading && (
           <div className="space-y-2.5" data-testid="skeleton-draft">
@@ -652,11 +797,19 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                   {item.league}
                 </span>
               )}
+              {(item as any).source_name && (item as any).source_name !== "Edge Setter Intel" && (
+                <BuzzTag label={(item as any).source_name} />
+              )}
             </div>
             {item.player && (
               <p className="text-[11px] font-bold text-primary mb-1 uppercase tracking-wider">{item.player}</p>
             )}
             <p className="text-sm text-foreground">{item.normalized_claim}</p>
+            {(item as any).rationale && (
+              <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug" style={{ fontStyle: "italic" }}>
+                Action: {(item as any).rationale}
+              </p>
+            )}
             <div className="flex items-center gap-3 mt-2 pt-2 border-t border-border">
               <span className="text-[11px] text-muted-foreground">{item.source_name}</span>
               <span className="stat-num-display text-[11px] tabular-nums text-muted-foreground ml-auto">{parseFloat(item.confidence_score ?? "0").toFixed(0)}% conf</span>

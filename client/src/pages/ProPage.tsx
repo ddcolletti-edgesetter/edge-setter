@@ -338,7 +338,28 @@ export default function ProPage() {
           </>
         ) : (
           <>
-            {/* ── Eyebrow ─────────────────────────────────── */}
+            {/* ── Draft Week urgency banner ──────────────────── */}
+            <div style={{
+              display: "flex", alignItems: "flex-start", gap: 10,
+              background: "rgba(202,168,90,0.07)",
+              border: "1px solid rgba(202,168,90,0.30)",
+              borderLeft: `3px solid ${C.gold}`,
+              borderRadius: 4, padding: "12px 16px",
+              marginBottom: 28,
+            }}>
+              <span style={{
+                fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+                fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
+                textTransform: "uppercase", color: C.gold,
+                marginTop: 1, flexShrink: 0,
+              }}>⚡ Draft Week</span>
+              <span style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.5 }}>
+                <strong style={{ color: C.text }}>2026 NFL Draft is Apr 24–26.</strong>{" "}
+                Pro unlocks all 11 live signals: prospect risers, medical flags, landing spots, and team-fit intel — before the picks are in.
+              </span>
+            </div>
+
+            {/* ── Eyebrow ──────────────────────────────────────────── */}
             <div style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               fontSize: 11, fontWeight: 700, letterSpacing: "0.22em",
@@ -347,7 +368,7 @@ export default function ProPage() {
               Edge Setter Pro · $19/month
             </div>
 
-            {/* ── Headline ────────────────────────────────── */}
+            {/* ── Headline ───────────────────────────────────────── */}
             <h1 style={{
               fontFamily: "'Playfair Display',Georgia,serif",
               fontSize: "clamp(2rem, 4vw, 3.25rem)",
@@ -356,17 +377,17 @@ export default function ProPage() {
               margin: "0 0 20px",
               maxWidth: 680,
             }}>
-              Stop chasing tweets.<br />
-              <span style={{ color: C.gold }}>See the move before it matters.</span>
+              The pick is made in the 72 hours before it.<br />
+              <span style={{ color: C.gold }}>Pro sees those 72 hours.</span>
             </h1>
 
             <p style={{
               fontSize: 17, color: C.textMuted, lineHeight: 1.65,
               maxWidth: 560, margin: "0 0 48px",
             }}>
-              Edge Setter converts NFL insider signals into ranked edges with confidence scores,
-              verdict classifications, and a concrete action for your roster — so you act on
-              information, not noise.
+              Edge Setter tracks every prospect movement, medical flag, team-fit signal,
+              and landing-spot confirmation during draft week — confidence-scored and actionable
+              for your dynasty league, DFS lineup, or futures card.
             </p>
 
             {/* ── 3 benefit bullets ───────────────────────── */}

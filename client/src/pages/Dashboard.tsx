@@ -27,7 +27,7 @@ function getHashParam(key: string): string {
 interface Props { theme: Theme; toggleTheme: () => void; }
 
 const LEAGUES = ["", "NFL", "College"];
-const TOPICS = ["", "free_agency", "injury", "draft", "trade", "coaching", "transaction", "depth_chart", "general"];
+const TOPICS = ["", "draft_week", "free_agency", "injury", "draft", "trade", "coaching", "depth_chart", "general"];
 const VERDICTS = ["", "confirmed", "likely", "rumor", "contradicted", "review"];
 
 // Signals created on or after this date are considered "live 2026 data"
@@ -218,7 +218,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
             <option value="">All Topics</option>
             {TOPICS.filter(Boolean).map(t => (
               <option key={t} value={t}>
-                {t === "free_agency" ? "Free Agency" : t.replace(/_/g, " ")}
+                {t === "draft_week" ? "🏈 Draft Week" : t === "free_agency" ? "Free Agency" : t.replace(/_/g, " ")}
               </option>
             ))}
           </select>
