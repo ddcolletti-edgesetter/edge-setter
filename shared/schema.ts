@@ -208,6 +208,20 @@ export const insertEventLogSchema = createInsertSchema(event_log).omit({ created
 export type InsertEventLog = z.infer<typeof insertEventLogSchema>;
 export type EventLog = typeof event_log.$inferSelect;
 
+// ─── Digest Subscribers ─────────────────────────────────────────────────────
+export const digest_subscribers = sqliteTable("digest_subscribers", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  unsubscribe_token: text("unsubscribe_token").notNull(),
+  is_active: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  source: text("source").notNull().default("landing"), // landing | waitlist | checkout
+  created_at: text("created_at").default(new Date().toISOString()),
+});
+
+export const insertDigestSubscriberSchema = createInsertSchema(digest_subscribers).omit({ created_at: true });
+export type InsertDigestSubscriber = z.infer<typeof insertDigestSubscriberSchema>;
+export type DigestSubscriber = typeof digest_subscribers.$inferSelect;
+
 // ─── Agent Logs ───────────────────────────────────────────────────────────────
 export const agent_logs = sqliteTable("agent_logs", {
   id: text("id").primaryKey(),

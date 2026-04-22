@@ -6,7 +6,7 @@ import { eq, desc, and, or } from "drizzle-orm";
 import {
   sources, events, claims, evidence, verdicts,
   source_scores, alerts, waitlist, agent_logs,
-  signals, source_notes, users, event_log,
+  signals, source_notes, users, event_log, digest_subscribers,
   type Source, type InsertSource,
   type Event, type InsertEvent,
   type Claim, type InsertClaim,
@@ -21,6 +21,7 @@ import {
   type SourceNote, type InsertSourceNote,
   type User, type InsertUser,
   type EventLog, type InsertEventLog,
+  type DigestSubscriber, type InsertDigestSubscriber,
 } from "@shared/schema";
 
 // Resolve a writable directory for SQLite.
@@ -196,6 +197,14 @@ sqlite.exec(`
     error_state TEXT,
     warning_state TEXT
   );
+  CREATE TABLE IF NOT EXISTS digest_subscribers (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    unsubscribe_token TEXT NOT NULL,
+    is_active INTEGER NOT NULL DEFAULT 1,
+    source TEXT NOT NULL DEFAULT 'landing',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 function uuid() {
@@ -247,6 +256,11 @@ export interface IStorage {
   getAgentLogs(limit?: number): AgentLog[];
   // Signal Feed
   getSignalFeed(filters?: { league?: string; topic?: string; verdict?: string }): SignalFeedItem[];
+  // Digest Subscribers
+  addDigestSubscriber(data: Omit<InsertDigestSubscriber, 'id'>): DigestSubscriber;
+  getDigestSubscribers(): DigestSubscriber[];
+  unsubscribeDigest(token: string): boolean;
+  digestEmailExists(email: string): boolean;
 }
 
 // ─── Implementation ────────────────────────────────────────────────────────────
@@ -459,6 +473,36 @@ export class SqliteStorage implements IStorage {
   }
   getAllUsers(): User[] {
     return db.select().from(users).orderBy(desc(users.created_at)).all();
+  }
+
+  // ─── Digest Subscribers ─────────────────────────────────────────────────────
+  addDigestSubscriber(data: Omit<InsertDigestSubscriber, 'id'>): DigestSubscriber {
+    // Upsert: if email already exists, reactivate
+    const existing = db.select().from(digest_subscribers).where(eq(digest_subscribers.email, data.email)).get();
+    if (existing) {
+      return db.update(digest_subscribers)
+        .set({ is_active: true, source: data.source })
+        .where(eq(digest_subscribers.id, existing.id))
+        .returning().get()!;
+    }
+    const row = { ...data, id: uuid(), created_at: now() };
+    return db.insert(digest_subscribers).values(row).returning().get();
+  }
+  getDigestSubscribers(): DigestSubscriber[] {
+    return db.select().from(digest_subscribers)
+      .where(eq(digest_subscribers.is_active, true))
+      .orderBy(desc(digest_subscribers.created_at))
+      .all();
+  }
+  unsubscribeDigest(token: string): boolean {
+    const row = db.select().from(digest_subscribers).where(eq(digest_subscribers.unsubscribe_token, token)).get();
+    if (!row) return false;
+    db.update(digest_subscribers).set({ is_active: false }).where(eq(digest_subscribers.id, row.id)).run();
+    return true;
+  }
+  digestEmailExists(email: string): boolean {
+    const row = db.select().from(digest_subscribers).where(eq(digest_subscribers.email, email)).get();
+    return !!row && row.is_active;
   }
 
   // ─── Event Log ─────────────────────────────────────────────────────────────

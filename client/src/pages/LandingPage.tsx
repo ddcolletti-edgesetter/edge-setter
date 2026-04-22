@@ -535,11 +535,75 @@ function WaitlistForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+/* ── Digest subscribe form ── */
+function DigestSubscribeForm({ onSuccess }: { onSuccess: () => void }) {
+  const [digestEmail, setDigestEmail] = useState("");
+  const { toast } = useToast();
+
+  const mutation = useMutation({
+    mutationFn: (emailVal: string) => {
+      const timeout = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 12000)
+      );
+      return Promise.race([
+        apiRequest("POST", "/api/digest/subscribe", { email: emailVal, source: "landing_page" }).then(r => r.json()),
+        timeout,
+      ]);
+    },
+    onSuccess: () => {
+      toast({ title: "You're subscribed.", description: "Today's top signal, daily — check your inbox." });
+      onSuccess();
+    },
+    onError: (err: any) => {
+      const isTimeout = err?.message === "timeout";
+      toast({
+        title: isTimeout ? "Server is warming up…" : "Subscription failed.",
+        description: isTimeout
+          ? "Our server took too long to respond. Please try again in a moment."
+          : "Check your email address and try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDigestSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!digestEmail.trim() || !digestEmail.includes("@")) return;
+    mutation.mutate(digestEmail.trim());
+  };
+
+  return (
+    <form onSubmit={handleDigestSubmit} style={{ display: "flex", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+      <input
+        type="email"
+        required
+        placeholder="you@example.com"
+        className="input-premium"
+        value={digestEmail}
+        onChange={e => setDigestEmail(e.target.value)}
+        style={{ flex: "1 1 220px", minWidth: 0 }}
+        data-testid="input-digest-email"
+      />
+      <button
+        type="submit"
+        disabled={mutation.isPending}
+        className="btn-primary"
+        style={{ flexShrink: 0 }}
+        data-testid="btn-digest-subscribe"
+      >
+        {mutation.isPending ? "Subscribing…" : "Get Today's Signal"}
+        {!mutation.isPending && <ChevronRight size={14} />}
+      </button>
+    </form>
+  );
+}
+
 /* ══ MAIN LANDING PAGE ══════════════════════════════════════════════ */
 export default function LandingPage({ theme, toggleTheme }: Props) {
   const [, navigate] = useLocation();
   const [navOpen, setNavOpen] = useState(false);
   const [waitlistDone, setWaitlistDone] = useState(false);
+  const [digestDone, setDigestDone] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
 
   const { data: signals } = useQuery<any[]>({
@@ -1299,6 +1363,64 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               </p>
               <WaitlistForm onSuccess={() => setWaitlistDone(true)} />
             </>
+          )}
+        </div>
+      </section>
+
+      {/* ══ DAILY DIGEST ══════════════════════════════════════════════ */}
+      <section style={{ background: "rgba(202,168,90,0.04)", borderTop: "1px solid rgba(202,168,90,0.14)", borderBottom: "1px solid rgba(202,168,90,0.14)" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "56px 32px" }}>
+          {digestDone ? (
+            <div style={{
+              maxWidth: 520,
+              background: "rgba(61,174,114,0.08)",
+              border: "1px solid rgba(61,174,114,0.25)",
+              borderRadius: 4,
+              padding: "28px 28px",
+              display: "flex", alignItems: "flex-start", gap: 16,
+            }}>
+              <CheckCircle2 size={20} style={{ color: T.green, flexShrink: 0, marginTop: 2 }} />
+              <div>
+                <div style={{
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: 18, fontWeight: 700,
+                  color: T.text, marginBottom: 6,
+                }}>
+                  You're subscribed.
+                </div>
+                <p style={{ fontSize: 14, color: T.textMuted, margin: 0, lineHeight: 1.6 }}>
+                  Today's top signal lands in your inbox each day. Free — no card required.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div style={{ maxWidth: 520 }}>
+              <div style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 11, fontWeight: 700,
+                letterSpacing: "0.22em", textTransform: "uppercase",
+                color: T.gold, marginBottom: 10,
+                display: "flex", alignItems: "center", gap: 8,
+              }}>
+                <Activity size={13} />
+                Free Daily Digest
+              </div>
+              <h2 style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                fontSize: "clamp(1.25rem, 2vw, 1.6rem)",
+                fontWeight: 700, color: T.text,
+                marginBottom: 10, lineHeight: 1.2,
+              }}>
+                Today's top signal. In your inbox. Free.
+              </h2>
+              <p style={{ fontSize: 15, color: T.textMuted, lineHeight: 1.6, marginBottom: 20 }}>
+                The #1 edge from today's feed — with confidence score and the one action to take. Signals 2 and 3 are Pro-only.
+              </p>
+              <DigestSubscribeForm onSuccess={() => setDigestDone(true)} />
+              <p style={{ fontSize: 12, color: T.textFaint, marginTop: 12 }}>
+                No card required. Unsubscribe anytime.
+              </p>
+            </div>
           )}
         </div>
       </section>

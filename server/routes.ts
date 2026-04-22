@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { Server } from "http";
 import { storage } from "./storage";
 import { insertWaitlistSchema } from "@shared/schema";
+import { sendDailyDigest } from "./email";
 import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
 import { seedDemoData } from "./seed";
 import { seedSignals } from "./seed-signals";
@@ -392,6 +393,93 @@ export function registerRoutes(httpServer: Server, app: Express) {
     } catch (e: any) {
       console.error("[verify-subscription]", e.message);
       return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ─── Digest: Subscribe ──────────────────────────────────────────────────────
+  app.post("/api/digest/subscribe", (req, res) => {
+    const { email, source } = req.body;
+    if (!email || typeof email !== "string" || !email.includes("@")) {
+      return res.status(400).json({ error: "Valid email required" });
+    }
+    try {
+      const { randomUUID } = require("crypto");
+      const sub = storage.addDigestSubscriber({
+        email: email.trim().toLowerCase(),
+        unsubscribe_token: randomUUID(),
+        is_active: true,
+        source: source ?? "landing_page",
+      });
+      storage.logEvent({ event_name: "digest_subscribe", email: sub.email, metadata: JSON.stringify({ source: sub.source }) });
+      syncToSupabase("event_log", { event_name: "digest_subscribe", email: sub.email, metadata: { source: sub.source } }, "insert").catch(() => {});
+      return res.json({ success: true, id: sub.id });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message ?? "Subscribe failed" });
+    }
+  });
+
+  // ─── Digest: Unsubscribe (one-click, GET) ──────────────────────────────────
+  app.get("/api/digest/unsubscribe", (req, res) => {
+    const token = req.query.token as string;
+    if (!token) return res.status(400).send("Missing token");
+    const ok = storage.unsubscribeDigest(token);
+    const msg = ok
+      ? "You've been unsubscribed from the Edge Setter daily digest."
+      : "This unsubscribe link has already been used or is invalid.";
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribed — Edge Setter</title></head><body style="margin:0;padding:40px 20px;background:#0A0B0D;font-family:'Arial Narrow',Arial,sans-serif;color:#F3EFE6;text-align:center"><p style="font-size:10px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:#CAA85A;margin-bottom:12px">Edge Setter</p><p style="font-size:18px;margin:0 0 16px">${msg}</p><a href="https://edgesetter.net" style="color:#CAA85A;font-size:12px">Return to Edge Setter →</a></body></html>`);
+  });
+
+  // ─── Digest: Admin Send (password-gated) ──────────────────────────────────
+  app.post("/api/admin/digest/send", async (req, res) => {
+    const { password } = req.body;
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    if (password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    try {
+      // Get the top signal (highest confidence, published today)
+      const allSignals = storage.getSignals(true);
+      if (!allSignals || allSignals.length === 0) {
+        return res.status(404).json({ error: "No signals available to send" });
+      }
+      // Sort by confidence_score desc; top signal is #1
+      const sorted = [...allSignals].sort((a, b) => (b.confidence_score ?? 0) - (a.confidence_score ?? 0));
+      const topSignal = sorted[0];
+      const teaserSignals = sorted.slice(1, 3);
+
+      const subscribers = storage.getDigestSubscribers();
+      if (subscribers.length === 0) {
+        return res.json({ success: true, sent: 0, message: "No active subscribers" });
+      }
+
+      const now = new Date();
+      const dateLabel = now.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+      const results = await Promise.allSettled(
+        subscribers.map(sub =>
+          sendDailyDigest({
+            to: sub.email,
+            topSignal,
+            teaserSignals,
+            unsubToken: sub.unsubscribe_token,
+            dateLabel,
+          })
+        )
+      );
+
+      const sent    = results.filter(r => r.status === "fulfilled" && r.value).length;
+      const failed  = results.length - sent;
+
+      storage.logEvent({
+        event_name: "digest_sent",
+        metadata: JSON.stringify({ total: subscribers.length, sent, failed, date: dateLabel }),
+      });
+
+      return res.json({ success: true, sent, failed, total: subscribers.length, date: dateLabel });
+    } catch (err: any) {
+      console.error("[digest/send]", err.message);
+      return res.status(500).json({ error: err.message });
     }
   });
 
