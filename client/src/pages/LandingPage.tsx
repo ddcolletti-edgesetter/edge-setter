@@ -1167,11 +1167,11 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             <div style={{
               fontSize: 14, color: T.textFaint, marginBottom: 28,
             }}>
-              Public signals only
+              First 3 live signals
             </div>
             <GoldRule opacity={0.10} my={0} />
             <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 20 }}>
-              {["Latest 3 signals", "Public verdict labels", "Basic confidence scores"].map(f => (
+              {["3 most-recent live signals", "Verdict labels (confirmed/rumor)", "Confidence score preview"].map(f => (
                 <div key={f} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <CheckCircle2 size={14} style={{ color: T.textFaint, flexShrink: 0 }} />
                   <span style={{ fontSize: 15, color: T.textMuted }}>{f}</span>
@@ -1227,12 +1227,12 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             <GoldRule opacity={0.20} my={0} />
             <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 20, marginBottom: 28 }}>
               {[
-                "Full signal archive",
-                "Real-time alerts",
-                "All confidence data",
-                "Action takeaways",
-                "Draft board access",
-                "Source leaderboard",
+                "Full live signals feed — no cap",
+                "Free Agency, Injury & topic filters",
+                "Confidence scores + verdict detail",
+                "Action takeaway on every signal",
+                "2026 Draft Board + archive search",
+                "Today's Top Signal history",
               ].map(f => (
                 <div key={f} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <CheckCircle2 size={14} style={{ color: T.gold, flexShrink: 0 }} />
@@ -1259,7 +1259,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       {/* ══ WAITLIST / REQUEST ACCESS ════════════════════════════════ */}
       <section id="waitlist" style={{ maxWidth: 1440, margin: "0 auto", padding: "72px 32px 80px" }}>
         <div style={{ maxWidth: 560 }}>
-          <Eyebrow>Early Access</Eyebrow>
+          <Eyebrow>For the grinders</Eyebrow>
           {waitlistDone ? (
             <div style={{
               background: "rgba(61,174,114,0.08)",
@@ -1288,11 +1288,14 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                 fontSize: "clamp(1.375rem, 2vw, 1.875rem)",
                 color: T.text, marginBottom: 12,
               }}>
-                Request early access
+                Stop chasing tweets.
               </h2>
               <p style={{ fontSize: 16, color: T.textMuted, lineHeight: 1.65, marginBottom: 36 }}>
-                Pro spots are limited during the early access period.
-                Get on the list and we'll notify you when your access is ready.
+                Fantasy players, DFS grinders, and bettors who follow NFL news
+                already know the information is out there — it's just scattered
+                across tweets, podcasts, and beat reporters. Edge Setter converts
+                it into ranked edges with confidence scores and a single action, so
+                you're acting on intelligence, not noise.
               </p>
               <WaitlistForm onSuccess={() => setWaitlistDone(true)} />
             </>

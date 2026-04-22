@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { Link } from "wouter";
 import AppLayout from "../components/AppLayout";
 import VerdictBadge from "../components/VerdictBadge";
 import TopicBadge from "../components/TopicBadge";
 import DataBadge from "../components/DataBadge";
 import { type Theme } from "../App";
 import { type SignalFeedItem } from "@shared/schema";
-import { RefreshCw, SlidersHorizontal, Clock } from "lucide-react";
+import { RefreshCw, SlidersHorizontal, Clock, Lock } from "lucide-react";
+
+/** Number of signals shown free before the paywall gate. */
+const FREE_SIGNAL_LIMIT = 3;
 
 /** Parse a query param from the hash fragment, e.g. #/dashboard?topic=free_agency&highlight=abc */
 function getHashParam(key: string): string {
@@ -256,9 +260,86 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
 
         {!isLoading && feed && feed.length > 0 && (
           <div className="space-y-2" data-testid="signal-feed">
-            {feed.map(item => (
+            {/* Free signals — shown in full */}
+            {feed.slice(0, FREE_SIGNAL_LIMIT).map(item => (
               <SignalCard key={item.id} item={item} />
             ))}
+
+            {/* Locked signals — blurred preview */}
+            {feed.length > FREE_SIGNAL_LIMIT && (
+              <div style={{ position: "relative" }} data-testid="paywall-gate">
+                {/* Ghost previews — 2 blurred cards */}
+                <div style={{ filter: "blur(4px)", pointerEvents: "none", userSelect: "none", opacity: 0.55 }}>
+                  {feed.slice(FREE_SIGNAL_LIMIT, FREE_SIGNAL_LIMIT + 2).map(item => (
+                    <div key={item.id} style={{ marginBottom: 8 }}>
+                      <SignalCard item={item} />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Lock overlay */}
+                <div style={{
+                  position: "absolute", inset: 0,
+                  display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                  background: "linear-gradient(to bottom, rgba(10,11,13,0.10) 0%, rgba(10,11,13,0.82) 38%, rgba(10,11,13,0.96) 100%)",
+                  borderRadius: 4,
+                  padding: "0 24px",
+                  textAlign: "center",
+                  gap: 16,
+                }}>
+                  <div style={{
+                    width: 40, height: 40,
+                    background: "rgba(202,168,90,0.10)",
+                    border: "1px solid rgba(202,168,90,0.30)",
+                    borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <Lock size={16} style={{ color: "#CAA85A" }} />
+                  </div>
+
+                  <div>
+                    <p style={{
+                      fontFamily: "'Playfair Display', Georgia, serif",
+                      fontSize: 20, fontWeight: 700,
+                      color: "#F3EFE6", margin: "0 0 8px", lineHeight: 1.2,
+                    }}>
+                      Stop chasing tweets.
+                    </p>
+                    <p style={{ fontSize: 14, color: "#B7AFA0", margin: "0 0 20px", lineHeight: 1.55, maxWidth: 400 }}>
+                      Pro unlocks the full live feed, 2026 Draft Board, archive search, and topic filters — all in one place.
+                    </p>
+                  </div>
+
+                  <Link href="/pro">
+                    <div
+                      data-testid="paywall-upgrade-cta"
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 8,
+                        background: "#CAA85A",
+                        color: "#0A0B0D",
+                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                        fontSize: 12, fontWeight: 700,
+                        letterSpacing: "0.16em", textTransform: "uppercase",
+                        padding: "12px 28px",
+                        borderRadius: 3,
+                        cursor: "pointer",
+                        transition: "background 0.15s",
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "#D8B86A"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "#CAA85A"; }}
+                    >
+                      Go Pro · $19/mo
+                    </div>
+                  </Link>
+
+                  <p style={{ fontSize: 12, color: "#7E776A", margin: 0 }}>
+                    {feed.length - FREE_SIGNAL_LIMIT} more signal{feed.length - FREE_SIGNAL_LIMIT !== 1 ? "s" : ""} in this feed
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
