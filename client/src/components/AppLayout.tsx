@@ -91,7 +91,7 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
                   style={{
                     fontFamily: "'Playfair Display', Georgia, serif",
                     fontWeight: 700,
-                    fontSize: 15,
+                    fontSize: 20,
                     letterSpacing: "-0.01em",
                     color: T.text,
                     lineHeight: 1.2,
@@ -103,14 +103,14 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
                   <span
                     className="live-dot"
                     style={{
-                      width: 5, height: 5, borderRadius: "50%",
+                      width: 6, height: 6, borderRadius: "50%",
                       background: T.gold, display: "inline-block",
                     }}
                   />
                   <span
                     style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 10, fontWeight: 700, letterSpacing: "0.16em",
+                      fontSize: 11, fontWeight: 700, letterSpacing: "0.16em",
                       textTransform: "uppercase", color: T.textFaint,
                     }}
                   >
@@ -136,7 +136,7 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
                 <div
                   style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 9, fontWeight: 700, letterSpacing: "0.22em",
+                    fontSize: 11, fontWeight: 700, letterSpacing: "0.22em",
                     textTransform: "uppercase", color: T.textFaint,
                     padding: "10px 12px 4px",
                     userSelect: "none",
@@ -158,7 +158,7 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
                           display: "flex",
                           alignItems: "center",
                           gap: 9,
-                          padding: "9px 12px",
+                          padding: "10px 12px",
                           marginBottom: 2,
                           borderRadius: 3,
                           borderLeft: `2px solid ${active ? T.gold : "transparent"}`,
@@ -166,7 +166,7 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
                           color: active ? T.gold : T.textMuted,
                           cursor: "pointer",
                           transition: "background 0.12s, color 0.12s",
-                          fontSize: 13,
+                          fontSize: 14,
                           fontWeight: active ? 600 : 500,
                         }}
                         onMouseEnter={e => {
@@ -188,7 +188,7 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
                         <span
                           style={{
                             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                            fontSize: 11,
+                            fontSize: 13,
                             fontWeight: 700,
                             letterSpacing: "0.14em",
                             textTransform: "uppercase",
@@ -200,8 +200,8 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
                           <span
                             style={{
                               marginLeft: "auto",
-                              fontSize: 9, fontWeight: 700,
-                              padding: "2px 6px", borderRadius: 2,
+                              fontSize: 11, fontWeight: 700,
+                              padding: "2px 7px", borderRadius: 2,
                               background: "rgba(217,75,75,0.15)",
                               color: "#E07070",
                               fontVariantNumeric: "tabular-nums",
@@ -375,8 +375,8 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
             <span
               style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700,
-                letterSpacing: "0.16em", textTransform: "uppercase",
+                fontSize: 13, fontWeight: 700,
+                letterSpacing: "0.14em", textTransform: "uppercase",
                 color: T.textFaint,
               }}
             >
@@ -384,11 +384,11 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
             </span>
             {stats?.review_queue > 0 && (
               <>
-                <span style={{ color: T.textFaint, fontSize: 10 }}>·</span>
+                <span style={{ color: T.textFaint, fontSize: 13 }}>·</span>
                 <span
                   style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 11, fontWeight: 700,
+                    fontSize: 13, fontWeight: 700,
                     letterSpacing: "0.10em", textTransform: "uppercase",
                     color: "#E07070",
                   }}
@@ -401,26 +401,24 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
 
           {/* Right actions */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-            <button
-              data-testid="button-theme-toggle"
-              onClick={toggleTheme}
-              aria-label="Toggle theme"
+            {/* Dark mode badge — always dark, no toggle */}
+            <div
+              data-testid="dark-mode-indicator"
               style={{
-                background: "none",
-                border: "none",
-                color: T.textFaint,
-                cursor: "pointer",
-                padding: "6px",
-                display: "flex",
-                alignItems: "center",
+                display: "flex", alignItems: "center", gap: 4,
+                padding: "4px 8px",
                 borderRadius: 3,
-                transition: "color 0.15s",
+                border: "1px solid rgba(202,168,90,0.16)",
+                color: T.textFaint,
               }}
-              onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = T.text; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = T.textFaint; }}
             >
-              {theme === "dark" ? <Sun size={14} /> : <Moon size={14} />}
-            </button>
+              <Moon size={10} />
+              <span style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                textTransform: "uppercase",
+              }}>Dark</span>
+            </div>
 
             <Link href="/">
               <button
@@ -432,9 +430,9 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
                   color: T.gold,
                   cursor: "pointer",
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 11, fontWeight: 700,
-                  letterSpacing: "0.14em", textTransform: "uppercase",
-                  padding: "7px 16px",
+                  fontSize: 13, fontWeight: 700,
+                  letterSpacing: "0.12em", textTransform: "uppercase",
+                  padding: "8px 18px",
                   transition: "background 0.15s, border-color 0.15s",
                 }}
                 onMouseEnter={e => {

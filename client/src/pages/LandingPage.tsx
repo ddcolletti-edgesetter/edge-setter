@@ -11,7 +11,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { type Theme } from "../App";
-import { Sun, Moon, ChevronRight, CheckCircle2, X, Menu, Activity } from "lucide-react";
+import { Moon, ChevronRight, CheckCircle2, X, Menu, Activity } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
@@ -141,13 +141,16 @@ function LandingLogo() {
 }
 
 /* ── Featured Player Card (Kane-style) ── */
+/* ── Live Signal Preview Panel ── replaces the old ambiguous player card ── */
 function FeaturedCard({ signal }: { signal: any }) {
-  const name = signal?.player_name ?? "Patrick Mahomes";
-  const team = signal?.team ?? "KC Chiefs";
-  const title = signal?.title ?? "Full go after ankle scare";
-  const conf = signal?.confidence_score ?? 92;
-  const verdict = signal?.verdict ?? "Confirmed";
-  const initial = name.split(" ").pop()?.charAt(0) ?? "M";
+  const name   = signal?.player_name ?? "Patrick Mahomes";
+  const team   = signal?.team ?? "KC Chiefs";
+  const title  = signal?.title ?? "Full go after mid-week ankle scare";
+  const conf   = signal?.confidence_score ?? 92;
+  const verdict = signal?.verdict ?? "confirmed";
+  const summary = signal?.summary ?? "Multiple KC beat writers confirm full participation in Friday practice after early-week limited tags.";
+  const action  = signal?.action_takeaway ?? "Treat as full-go; downgrade mobility concern only.";
+  const source  = signal?.primary_source ?? "Ian Rapoport";
 
   return (
     <div
@@ -156,123 +159,107 @@ function FeaturedCard({ signal }: { signal: any }) {
         border: `1px solid rgba(202,168,90,0.28)`,
         borderRadius: 6,
         overflow: "hidden",
-        position: "relative",
-        minWidth: 280,
-        maxWidth: 360,
+        minWidth: 320,
+        maxWidth: 420,
         width: "100%",
       }}
     >
-      {/* Gold top bar */}
+      {/* Header eyebrow */}
       <div style={{
-        height: 2, background: T.gold,
-        pointerEvents: "none",
-      }} />
-
-      {/* Field backdrop */}
-      <div style={{ position: "relative", height: 180, background: "#0D0F12", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-          <ChalkField />
-        </div>
-
-        {/* Main card overlay */}
+        padding: "12px 20px",
+        borderBottom: `1px solid rgba(202,168,90,0.12)`,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: T.surface2,
+      }}>
         <div style={{
-          position: "absolute",
-          left: 16, top: 16, right: 16, bottom: 16,
-          background: "rgba(10,11,13,0.85)",
-          backdropFilter: "blur(4px)",
-          border: `1px solid rgba(202,168,90,0.22)`,
-          borderRadius: 4,
-          display: "flex",
-          alignItems: "center",
-          gap: 16,
-          padding: "16px 18px",
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.18em",
+          textTransform: "uppercase", color: T.textFaint,
         }}>
-          {/* Large initial */}
-          <div style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 80, fontWeight: 700,
-            color: T.gold, lineHeight: 1,
-            letterSpacing: "-0.04em",
-            textShadow: `0 0 40px rgba(202,168,90,0.30)`,
-            userSelect: "none",
-            flexShrink: 0,
-          }}>
-            {initial}
-          </div>
-
-          {/* Player info */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 22, fontWeight: 700,
-                color: T.text, lineHeight: 1.1,
-                letterSpacing: "-0.01em",
-              }}
-            >
-              {name.split(",").length > 1 ? name : name.split(" ").slice(-1)[0] + ","}
-            </div>
-            <div style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: 22, fontWeight: 700,
-              color: T.text, lineHeight: 1.1,
-              letterSpacing: "-0.01em",
-              marginBottom: 6,
-            }}>
-              {name.split(" ")[0]}
-            </div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700,
-              letterSpacing: "0.18em", textTransform: "uppercase",
-              color: T.gold,
-            }}>
-              {team}
-            </div>
-          </div>
-
-          {/* Stat boxes */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
-            <StatBox value={`${conf}`} label="Score" />
-            <StatBox value={verdict.charAt(0).toUpperCase() + verdict.slice(1,4)} label="Status" highlight />
-          </div>
+          Live Signal Preview
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <span className="live-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block" }} />
+          <span style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+            textTransform: "uppercase", color: T.green,
+          }}>Live</span>
         </div>
       </div>
 
-      {/* Signal brief */}
+      {/* Player + confidence strip */}
+      <div style={{
+        padding: "16px 20px 14px",
+        borderBottom: `1px solid rgba(202,168,90,0.10)`,
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+      }}>
+        <div>
+          <div style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: 22, fontWeight: 700,
+            color: T.text, lineHeight: 1.15, letterSpacing: "-0.01em",
+          }}>{name}</div>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.16em",
+            textTransform: "uppercase", color: T.gold, marginTop: 3,
+          }}>{team}</div>
+        </div>
+        <div style={{ textAlign: "center", flexShrink: 0 }}>
+          <div style={{
+            fontFamily: "'Playfair Display', Georgia, serif",
+            fontSize: 40, fontWeight: 700, color: T.gold,
+            lineHeight: 1, letterSpacing: "-0.03em",
+          }}>{conf}</div>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+            textTransform: "uppercase", color: T.textFaint, marginTop: 2,
+          }}>Confidence</div>
+        </div>
+      </div>
+
+      {/* Signal body */}
       <div style={{ padding: "16px 20px 20px" }}>
-        <div style={{
-          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          fontSize: 10, fontWeight: 700,
-          letterSpacing: "0.16em", textTransform: "uppercase",
-          color: T.textFaint, marginBottom: 8,
-        }}>
-          Featured Intelligence
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
+          <VerdictPill type={verdict.toLowerCase()} />
         </div>
         <div style={{
           fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: 15, fontWeight: 700,
-          color: T.text, lineHeight: 1.35,
-          marginBottom: 12,
+          fontSize: 17, fontWeight: 700,
+          color: T.text, lineHeight: 1.35, marginBottom: 10,
+        }}>{title}</div>
+        <p style={{
+          fontSize: 15, color: T.textMuted, lineHeight: 1.6,
+          margin: "0 0 12px",
+        }}>{summary}</p>
+        <div style={{
+          background: T.surface2,
+          border: `1px solid rgba(202,168,90,0.12)`,
+          borderLeft: `3px solid ${T.gold}`,
+          borderRadius: 3,
+          padding: "10px 14px",
+          marginBottom: 14,
         }}>
-          {title}
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+            textTransform: "uppercase", color: T.gold, marginBottom: 3,
+          }}>Action Takeaway</div>
+          <div style={{ fontSize: 14, color: T.text, lineHeight: 1.45 }}>{action}</div>
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <VerdictPill type={verdict.toLowerCase()} />
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span
-              className="live-dot"
-              style={{ width: 5, height: 5, borderRadius: "50%", background: T.gold, display: "inline-block" }}
-            />
-            <span style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700,
-              letterSpacing: "0.14em", textTransform: "uppercase",
-              color: T.textFaint,
-            }}>
-              Live
-            </span>
-          </div>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+            textTransform: "uppercase", color: T.textFaint,
+          }}>Source: {source}</div>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+            textTransform: "uppercase", color: T.textFaint,
+          }}>DEMO DATA</div>
         </div>
       </div>
     </div>
@@ -612,16 +599,21 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
 
           {/* Right actions */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-            <button onClick={toggleTheme} aria-label="Toggle theme" style={{
-              background: "none", border: "none",
-              color: T.textFaint, cursor: "pointer", padding: 4,
-              display: "flex", alignItems: "center",
-              transition: "color 0.15s",
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = T.text; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.color = T.textFaint; }}>
-              {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
-            </button>
+            {/* Dark mode badge — always dark, no toggle */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 4,
+              padding: "3px 8px",
+              borderRadius: 3,
+              border: "1px solid rgba(202,168,90,0.16)",
+              color: T.textFaint,
+            }}>
+              <Moon size={10} />
+              <span style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+                textTransform: "uppercase",
+              }}>Dark</span>
+            </div>
 
             {/* Hamburger — mobile */}
             <div ref={navRef} style={{ position: "relative" }} className="md:hidden">

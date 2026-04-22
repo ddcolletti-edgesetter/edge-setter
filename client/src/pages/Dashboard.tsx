@@ -76,7 +76,37 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
           </div>
         </div>
 
-        <hr className="briefing-rule mb-6" />
+        <hr className="briefing-rule mb-4" />
+
+        {/* Data freshness indicator */}
+        <div
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            marginBottom: 20,
+            padding: "8px 14px",
+            background: "rgba(202,168,90,0.05)",
+            border: "1px solid rgba(202,168,90,0.14)",
+            borderRadius: 3,
+          }}
+          data-testid="demo-data-banner"
+        >
+          <span style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+            textTransform: "uppercase",
+            color: "#CAA85A",
+            padding: "2px 6px",
+            background: "rgba(202,168,90,0.12)",
+            borderRadius: 2,
+            border: "1px solid rgba(202,168,90,0.28)",
+          }}>Demo Data</span>
+          <span style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 11, color: "#7E776A", letterSpacing: "0.06em",
+          }}>
+            Signals shown are sample intelligence. Live data posts when verified signals are published via the admin panel.
+          </span>
+        </div>
 
         {/* KPI strip — parchment inset cards with analytics accent numerals */}
         {stats && (
@@ -206,6 +236,14 @@ function StatCard({ label, value, accentColor }: { label: string; value: number;
   );
 }
 
+/** Strip raw DB metadata debug strings from rationale. */
+function cleanRationale(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  // Suppress old-style debug rationale: "Tier: tierN, Support: N, Contradict: N, High-risk: bool"
+  if (/^Tier:\s*tier\d/i.test(raw)) return null;
+  return raw;
+}
+
 /* SignalCard — Film Ledger premium signal card */
 function SignalCard({ item }: { item: SignalFeedItem }) {
   const conf = parseFloat(item.confidence_score ?? "0");
@@ -266,8 +304,8 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
           >
             {item.normalized_claim}
           </p>
-          {item.rationale && (
-            <p style={{ fontSize: 15, color: "#B7AFA0", lineHeight: 1.6, margin: 0 }}>{item.rationale}</p>
+          {cleanRationale(item.rationale) && (
+            <p style={{ fontSize: 15, color: "#B7AFA0", lineHeight: 1.6, margin: 0 }}>{cleanRationale(item.rationale)}</p>
           )}
         </div>
         <div

@@ -291,7 +291,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                   key={pos}
                   onClick={() => { setPosFilter(pos); setExpandedRank(null); }}
                   data-testid={`filter-pos-${pos}`}
-                  className={`text-[8px] px-2 py-0.5 rounded border font-bold uppercase tracking-widest transition-colors ${
+                  className={`text-[12px] px-3 py-1 rounded border font-bold uppercase tracking-widest transition-colors ${
                     posFilter === pos
                       ? "border-primary bg-primary/15 text-primary"
                       : "border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -382,19 +382,19 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                           ${ isOpen ? "bg-muted/30" : "hover:bg-muted/20" }`}
                         data-testid={`prospect-row-${p.rank}`}
                       >
-                        <td className="px-4 py-3 text-xs font-bold tabular-nums text-muted-foreground">{displayRank}</td>
-                        <td className="px-4 py-3">
-                          <p className="font-semibold text-sm text-foreground">{p.name}</p>
-                          <p className="text-[10px] text-muted-foreground">{p.pos} · {p.team}</p>
+                        <td className="px-4 py-4 text-sm font-bold tabular-nums text-muted-foreground">{displayRank}</td>
+                        <td className="px-4 py-4">
+                          <p className="font-semibold text-[17px] text-foreground leading-tight">{p.name}</p>
+                          <p className="text-[13px] text-muted-foreground mt-0.5">{p.pos} · {p.team}</p>
                         </td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground hidden sm:table-cell">{p.school}</td>
-                        <td className="px-4 py-3">
-                          <span className="text-[9px] px-2 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider">
+                        <td className="px-4 py-4 text-sm text-muted-foreground hidden sm:table-cell">{p.school}</td>
+                        <td className="px-4 py-4">
+                          <span className="text-[11px] px-2.5 py-1 rounded border border-border bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider">
                             {p.projected}
                           </span>
                         </td>
                         {/* Sparkline cell */}
-                        <td className="px-3 py-3 hidden md:table-cell">
+                        <td className="px-3 py-4 hidden md:table-cell">
                           <div className="flex flex-col items-center gap-0.5">
                             <Sparkline data={p.trend} width={64} height={22} />
                             {(() => {
@@ -409,9 +409,9 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                             })()}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <span className={`stat-num-display text-sm font-bold ${confColor(p.conf)}`}>
+                            <span className={`stat-num-display text-lg font-bold ${confColor(p.conf)}`}>
                               {p.conf}
                             </span>
                             {isOpen

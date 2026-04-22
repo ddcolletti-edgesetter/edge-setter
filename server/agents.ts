@@ -15,6 +15,27 @@ type Verdict = typeof ALLOWED_VERDICTS[number];
 function uuid() { return crypto.randomUUID(); }
 function ts() { return new Date().toISOString(); }
 
+/** Build a human-readable rationale string — no raw DB metadata exposed. */
+function buildRationale(
+  tier: string,
+  supportCount: number,
+  contradictCount: number,
+  isHighRisk: boolean
+): string {
+  const tierLabel: Record<string, string> = {
+    tier1: "Tier 1 (Elite source)",
+    tier2: "Tier 2 (Reliable source)",
+    tier3: "Tier 3 (Standard source)",
+    tier4: "Tier 4 (Unverified source)",
+    tier5: "Tier 5 (Low-confidence source)",
+  };
+  const tLabel = tierLabel[tier] ?? tier;
+  const support = supportCount === 1 ? "1 corroborating report" : supportCount > 1 ? `${supportCount} corroborating reports` : "no corroboration";
+  const contradict = contradictCount > 0 ? `${contradictCount} conflicting report${contradictCount > 1 ? "s" : ""}` : "no conflicting reports";
+  const risk = isHighRisk ? " Flagged for human review due to high-impact topic." : "";
+  return `${tLabel} · ${support} · ${contradict}.${risk}`;
+}
+
 async function log(agent: string, input: string, output: string, summary: string, error?: string) {
   storage.logAgentAction({
     id: uuid(),
@@ -179,7 +200,7 @@ export async function verifierAgent(claim_id: string): Promise<{ verdict: Verdic
     claim_id,
     verdict,
     confidence_score: confidence.toString(),
-    rationale: `Tier: ${tier}, Support: ${supportCount}, Contradict: ${contradictCount}, High-risk: ${isHighRisk}`,
+    rationale: buildRationale(tier, supportCount, contradictCount, isHighRisk),
     needs_human_review: needsReview ? 1 : 0,
   });
 
