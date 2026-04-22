@@ -188,7 +188,7 @@ export default function ProPage() {
     <div style={{ minHeight: "100vh", background: C.void, color: C.ivory }}>
       {/* Nav */}
       <div style={{ background: C.shell, borderBottom: `1px solid ${C.gold}30`, padding: "0 20px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", height: 48 }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", height: 48 }}>
           <Link href="/"><a style={{ textDecoration: "none" }}>
             <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", color: C.ivory }}>EDGE SETTER<span style={{ color: C.gold }}>.</span></span>
           </a></Link>
@@ -199,7 +199,7 @@ export default function ProPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "24px 20px 48px" }}>
         {isPro === null && (
           <div style={{ maxWidth: 520, margin: "60px auto" }}>
             <Cap color={C.gold} size={10}>Pro Board</Cap>

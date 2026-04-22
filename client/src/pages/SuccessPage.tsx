@@ -50,7 +50,7 @@ export default function SuccessPage() {
     <div style={{ minHeight: "100vh", background: C.void, display: "flex", flexDirection: "column" }}>
       {/* Nav */}
       <div style={{ background: C.shell, borderBottom: `1px solid ${C.gold}30`, padding: "0 20px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", height: 48, display: "flex", alignItems: "center" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", height: 48, display: "flex", alignItems: "center" }}>
           <Link href="/"><a style={{ textDecoration: "none" }}>
             <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", color: C.ivory }}>EDGE SETTER<span style={{ color: C.gold }}>.</span></span>
           </a></Link>

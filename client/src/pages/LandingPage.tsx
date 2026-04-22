@@ -441,7 +441,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
         position: "sticky", top: 0, zIndex: 50,
       }}>
         <div style={{
-          maxWidth: 1100, margin: "0 auto", padding: "0 20px",
+          maxWidth: 1440, margin: "0 auto", padding: "0 20px",
           height: 46, display: "flex", alignItems: "center", justifyContent: "space-between",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
@@ -507,7 +507,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           Full-width field card — the dominant centerpiece.
           No separate stat column. Hero carries all identity.        */}
       <section style={{ background: C.void, paddingBottom: 0 }}>
-        <div className="es-hero-outer" style={{ maxWidth: 1100, margin: "0 auto", padding: "4px 20px 0" }}>
+        <div className="es-hero-outer" style={{ maxWidth: 1440, margin: "0 auto", padding: "4px 20px 0" }}>
 
           {/* ── Main field card — full width ───────────────────── */}
           <div style={{
@@ -681,7 +681,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       {/* ══ INTEL ═══════════════════════════════════════════════════
           No individual module boxes — plain type grid              */}
       <section style={{ background: C.void, paddingTop: 0 }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "18px 20px 14px" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "18px 20px 14px" }}>
 
           <div
             className="es-intel-grid"
@@ -742,7 +742,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       {/* ══ PIPELINE ════════════════════════════════════════════════
           Bare numbered sequence — no individual boxes              */}
       <section style={{ background: C.void }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 20px 12px" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 20px 12px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
             <div style={{ width: 18, height: 1, background: C.gold, opacity: 0.4 }} />
             <Cap color={C.ivoryDim} size={8}>7-agent verification chain · every claim processed before the feed</Cap>
@@ -793,7 +793,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       {/* ══ ACCESS TIERS ════════════════════════════════════════════
           Two clean panels — minimal internal chrome                */}
       <section style={{ background: C.void }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "14px 20px 14px" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "14px 20px 14px" }}>
           <div
             className="es-tiers-grid"
             style={{
@@ -909,7 +909,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       {/* ══ WAITLIST ════════════════════════════════════════════════
           Editorial open composition — the conversion centerpiece   */}
       <section id="waitlist" style={{ background: C.void }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px 24px" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", padding: "24px 20px 24px" }}>
           <div style={{ height: 1, background: C.gold, opacity: 0.25, marginBottom: 22 }} />
           <div
             className="es-waitlist-grid"
@@ -1053,7 +1053,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
         padding: "11px 20px",
       }}>
         <div style={{
-          maxWidth: 1100, margin: "0 auto",
+          maxWidth: 1440, margin: "0 auto",
           display: "flex", alignItems: "center", justifyContent: "space-between",
           flexWrap: "wrap", gap: 8,
         }}>

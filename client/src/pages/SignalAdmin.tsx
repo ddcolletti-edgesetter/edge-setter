@@ -314,7 +314,7 @@ export default function SignalAdmin() {
   return (
     <div style={{ minHeight: "100vh", background: C.void, color: C.ivory }}>
       <div style={{ background: C.shell, borderBottom: `1px solid ${C.gold}30`, padding: "0 20px" }}>
-        <div style={{ maxWidth: 1100, margin: "0 auto", height: 48, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ maxWidth: 1440, margin: "0 auto", height: 48, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Cap color={C.goldBright} size={11}>Signal Admin</Cap>
           <div style={{ display: "flex", gap: 20 }}>
             {tabs.map(t => (
@@ -337,7 +337,7 @@ export default function SignalAdmin() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px 48px" }}>
+      <div style={{ maxWidth: 1440, margin: "0 auto", padding: "24px 20px 48px" }}>
         {tab === "signals" && (
           <>
             <Section title="Create Signal">
