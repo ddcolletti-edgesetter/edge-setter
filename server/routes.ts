@@ -295,7 +295,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const session = await stripe.checkout.sessions.create({
         customer: customerId, mode: "subscription",
         line_items: lineItems,
-        success_url: `${baseUrl}/#/success?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(email)}`,
+        success_url: `${baseUrl}/?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(email)}#/success`,
         cancel_url: `${baseUrl}/#/signals`,
         metadata: { email },
       });

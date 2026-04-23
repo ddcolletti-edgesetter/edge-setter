@@ -23,8 +23,13 @@ export default function SuccessPage() {
   const [email, setEmail] = useState("");
 
   useEffect(() => {
-    const hash = window.location.hash; // e.g. #/success?session_id=xxx&email=yyy
-    const queryStr = hash.includes("?") ? hash.split("?")[1] : "";
+    // Params may be in real query string (new format: /?session_id=...#/success)
+    // or in the hash (legacy: /#/success?session_id=...) — support both
+    const realSearch = window.location.search; // e.g. ?session_id=xxx&email=yyy
+    const hash = window.location.hash;         // e.g. #/success
+    const queryStr = realSearch
+      ? realSearch.slice(1)                    // strip leading "?"
+      : hash.includes("?") ? hash.split("?")[1] : "";
     const params = new URLSearchParams(queryStr);
     const session_id = params.get("session_id");
     const emailParam = params.get("email") ?? "";
