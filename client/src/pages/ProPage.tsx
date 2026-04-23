@@ -4,9 +4,10 @@
  * Sharp product page for fantasy/DFS/betting grinders.
  * No brochure walls. One clear offer. One CTA.
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import { trackProVisit, trackCheckoutClick } from "@/lib/analytics";
 import { CheckCircle2, Zap, BarChart2, Filter, BookOpen, ChevronRight } from "lucide-react";
 
 const C = {
@@ -62,6 +63,7 @@ function CheckoutForm() {
     if (!email) return;
     setLoading(true);
     setError("");
+    trackCheckoutClick("pro_page");
     try {
       const res = await apiRequest("POST", "/api/checkout", { email });
       const { url, error: apiErr } = await res.json();
@@ -217,6 +219,9 @@ function ProManagementPanel({ email }: { email: string }) {
 export default function ProPage() {
   const [email, setEmail] = useState("");
   const [isPro, setIsPro] = useState<boolean | null>(null);
+
+  // Track pro page visit on mount
+  useEffect(() => { trackProVisit(); }, []);
   const [checking, setChecking] = useState(false);
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);

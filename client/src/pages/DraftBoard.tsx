@@ -3,9 +3,10 @@ import { apiRequest } from "@/lib/queryClient";
 import AppLayout from "../components/AppLayout";
 import VerdictBadge from "../components/VerdictBadge";
 import DataBadge from "../components/DataBadge";
+import { trackDraftBoardVisit } from "@/lib/analytics";
 import { type Theme } from "../App";
 import { type SignalFeedItem } from "@shared/schema";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { ChevronDown, ChevronUp, ChevronsUpDown, ChevronRight, TrendingUp, TrendingDown, AlertTriangle, Zap } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
@@ -631,6 +632,9 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
   const seasonMeta = SEASON_DATA[activeSeason];
   const PROSPECTS = seasonMeta.prospects;
   const AVAILABLE_POS = ["ALL", ...Array.from(new Set(PROSPECTS.map(p => p.pos)))];
+
+  // Track draft board visit on mount
+  useEffect(() => { trackDraftBoardVisit(); }, []);
 
   const handleSort = (key: SortKey) => {
     if (sortKey === key) {

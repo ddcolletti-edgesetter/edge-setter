@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { type Theme } from "../App";
 import { Moon, ChevronRight, CheckCircle2, X, Menu, Activity } from "lucide-react";
 import DataBadge from "../components/DataBadge";
+import { trackLandingVisit } from "@/lib/analytics";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
@@ -717,6 +718,9 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
 
   const publicSignals = (signals ?? []).filter((s: any) => s.is_public !== false).slice(0, 4);
   const featuredSignal = (signals ?? []).find((s: any) => s.is_featured) ?? publicSignals[0];
+
+  // Track landing visit on mount
+  useEffect(() => { trackLandingVisit(); }, []);
 
   // Close nav on outside click
   useEffect(() => {

@@ -6,6 +6,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
+import { trackSuccessPageLoad } from "@/lib/analytics";
 
 const C = {
   void: "#0A0B0D", shell: "#111317",
@@ -35,8 +36,9 @@ export default function SuccessPage() {
     const emailParam = params.get("email") ?? "";
     setEmail(emailParam);
 
-    // Log the page view immediately
+    // Log the page view immediately (server-side + Plausible)
     apiRequest("POST", "/api/events/log", { event_name: "success_page_view", email: emailParam }).catch(() => {});
+    trackSuccessPageLoad();
 
     if (!session_id) {
       setStatus("error");

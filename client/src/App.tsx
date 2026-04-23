@@ -18,6 +18,7 @@ import SuccessPage from "./pages/SuccessPage";
 import SignalAdmin from "./pages/SignalAdmin";
 import NotFound from "./pages/not-found";
 import { SignalGateProvider } from "./context/SignalGate";
+import { AdminGate } from "./components/AdminGate";
 
 export type Theme = "dark" | "light";
 
@@ -36,12 +37,12 @@ function App() {
       <Router hook={useHashLocation}>
         <Switch>
           <Route path="/" component={() => <LandingPage theme={theme} toggleTheme={toggleTheme} />} />
-          <Route path="/dashboard" component={() => <Dashboard theme={theme} toggleTheme={toggleTheme} />} />
-          <Route path="/admin" component={() => <AdminReview theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/dashboard" component={() => <AdminGate><Dashboard theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          <Route path="/admin" component={() => <AdminGate><AdminReview theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/leaderboard" component={() => <SourceLeaderboard theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/draft" component={() => <DraftBoard theme={theme} toggleTheme={toggleTheme} />} />
-          <Route path="/alerts" component={() => <AlertsPage theme={theme} toggleTheme={toggleTheme} />} />
-          <Route path="/logs" component={() => <AgentLogs theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/alerts" component={() => <AdminGate><AlertsPage theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          <Route path="/logs" component={() => <AdminGate><AgentLogs theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/signals" component={SignalsPage} />
           <Route path="/pro" component={ProPage} />
           <Route path="/success" component={SuccessPage} />

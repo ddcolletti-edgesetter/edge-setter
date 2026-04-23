@@ -13,6 +13,7 @@ import { useSignalGate, FREE_LIMIT } from "@/context/SignalGate";
 import LockedSignalCard from "@/components/paywall/LockedSignalCard";
 import ProGateModal from "@/components/paywall/ProGateModal";
 import ProValueModule from "@/components/paywall/ProValueModule";
+import { trackSignalsVisit, trackCheckoutClick } from "@/lib/analytics";
 
 const T = {
   bg:        "#0A0B0D",
@@ -268,9 +269,13 @@ export default function SignalsPage() {
   // Full ordered list for gating: featured is index 0, rest follow
   const allOrdered: Signal[] = featured ? [featured, ...rest] : rest;
 
+  // Track signals visit on mount
+  useEffect(() => { trackSignalsVisit(); }, []);
+
   async function handleCheckout() {
     if (!email) return;
     setCheckoutLoading(true);
+    trackCheckoutClick("signals_sidebar");
     try {
       const res = await apiRequest("POST", "/api/checkout", { email });
       const { url } = await res.json();

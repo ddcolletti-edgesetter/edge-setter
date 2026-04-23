@@ -2,9 +2,11 @@
  * ProGateModal — shown when a visitor clicks a locked signal.
  * Lightweight overlay: benefit bullets + CTA to /#/pro.
  */
+import { useEffect } from "react";
 import { useSignalGate } from "@/context/SignalGate";
 import { Link } from "wouter";
 import { X, Zap, BarChart2, CheckCircle2, BookOpen, Filter } from "lucide-react";
+import { trackPaywallModalOpen } from "@/lib/analytics";
 
 const C = {
   bg:         "#0A0B0D",
@@ -29,6 +31,12 @@ const BULLETS = [
 
 export default function ProGateModal() {
   const { modalOpen, closeModal } = useSignalGate();
+
+  // Fire analytics event each time the modal opens
+  useEffect(() => {
+    if (modalOpen) trackPaywallModalOpen();
+  }, [modalOpen]);
+
   if (!modalOpen) return null;
 
   return (
