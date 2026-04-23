@@ -768,7 +768,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           </div>
 
           {/* Nav — desktop */}
-          <nav style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 32 }}
+          <nav style={{ alignItems: "center", gap: 4, marginLeft: 32 }}
             className="hidden md:flex">
             {[
               { label: "Signal Board", href: "/dashboard" },
@@ -896,7 +896,6 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       <section style={{
         maxWidth: 1440, margin: "0 auto",
         padding: "72px 32px 64px",
-        display: "grid",
         gridTemplateColumns: "1fr auto",
         gap: "64px 56px",
         alignItems: "center",

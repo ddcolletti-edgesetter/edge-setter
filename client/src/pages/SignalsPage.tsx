@@ -291,7 +291,7 @@ export default function SignalsPage() {
         background: T.surface1,
         borderBottom: "1px solid rgba(202,168,90,0.14)",
         borderTop: "2px solid rgba(202,168,90,0.60)",
-        padding: "0 32px",
+        padding: "0 16px",
       }}>
         <div style={{
           maxWidth: 1440, margin: "0 auto",
@@ -308,21 +308,21 @@ export default function SignalsPage() {
               Edge Setter
             </div>
           </Link>
-          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <span style={{
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <span className="hidden md:flex" style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
               textTransform: "uppercase",
-              display: "flex", alignItems: "center", gap: 6, color: T.green,
+              alignItems: "center", gap: 6, color: T.green,
             }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} className="live-dot" />
               Signal Feed Active
             </span>
             {lastUpdated && (
-              <span style={{
+              <span className="hidden md:flex" style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase",
-                color: T.textFaint, display: "flex", alignItems: "center", gap: 4,
+                color: T.textFaint, alignItems: "center", gap: 4,
               }}>
                 Updated {lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 <button
@@ -410,7 +410,6 @@ export default function SignalsPage() {
           </div>
         ) : (
           <div style={{
-            display: "grid",
             gridTemplateColumns: "1fr 320px",
             gap: 40,
           }}
