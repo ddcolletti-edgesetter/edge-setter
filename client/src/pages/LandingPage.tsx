@@ -798,9 +798,9 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
 
           {/* Right actions */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
-            {/* Dark mode badge — always dark, no toggle */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 4,
+            {/* Dark mode badge — always dark, no toggle — desktop only */}
+            <div className="hidden md:flex" style={{
+              alignItems: "center", gap: 4,
               padding: "3px 8px",
               borderRadius: 3,
               border: "1px solid rgba(202,168,90,0.16)",
@@ -870,9 +870,10 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               )}
             </div>
 
-            {/* CTA */}
+            {/* CTA — desktop only; mobile users access Go Pro via hamburger menu */}
             <button
               onClick={() => navigate("/pro")}
+              className="hidden md:block"
               style={{
                 background: T.gold, color: T.bg,
                 border: "none", borderRadius: 3,
