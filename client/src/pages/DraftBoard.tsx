@@ -391,7 +391,7 @@ function MobileProspectCard({
           minWidth: 0,
         }}>
           <p style={{
-            fontSize: 17,
+            fontSize: 18,
             fontWeight: 700,
             color: "#F3EFE6",
             lineHeight: 1.25,
@@ -403,7 +403,7 @@ function MobileProspectCard({
             {p.name}
           </p>
           <p style={{
-            fontSize: 13,
+            fontSize: 14,
             color: "#B7AFA0",
             margin: 0,
             letterSpacing: "0.04em",
@@ -419,7 +419,7 @@ function MobileProspectCard({
           )}
         </div>
 
-        {/* Edge Score + chevron */}
+        {/* Edge Score + expand affordance */}
         <div style={{
           flexShrink: 0,
           display: "flex",
@@ -428,10 +428,12 @@ function MobileProspectCard({
           justifyContent: "center",
           padding: "0 14px",
           gap: 2,
-          minWidth: 64,
+          minWidth: 68,
+          borderLeft: isOpen ? "2px solid rgba(202,168,90,0.40)" : "2px solid transparent",
+          transition: "border-color 0.15s",
         }}>
           <span style={{
-            fontSize: 26,
+            fontSize: 28,
             fontWeight: 800,
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
             color: scoreColor,
@@ -450,10 +452,28 @@ function MobileProspectCard({
           }}>
             Score
           </span>
-          <div style={{ marginTop: 4 }}>
+          {/* Expand affordance: chevron + label */}
+          <div style={{
+            marginTop: 6,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 1,
+          }}>
             {isOpen
-              ? <ChevronUp size={14} style={{ color: "#CAA85A" }} />
-              : <ChevronDown size={14} style={{ color: "#7E776A" }} />}
+              ? <ChevronUp size={16} style={{ color: "#CAA85A" }} />
+              : <ChevronDown size={16} style={{ color: "#B7AFA0" }} />}
+            <span style={{
+              fontSize: 9,
+              fontWeight: 700,
+              letterSpacing: "0.10em",
+              textTransform: "uppercase",
+              color: isOpen ? "#CAA85A" : "#7E776A",
+              fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+              transition: "color 0.15s",
+            }}>
+              {isOpen ? "Close" : "Detail"}
+            </span>
           </div>
         </div>
       </button>
@@ -461,8 +481,8 @@ function MobileProspectCard({
       {/* Expanded panel */}
       {isOpen && (
         <div style={{
-          padding: "0 0 16px 0",
-          borderTop: "1px solid rgba(202,168,90,0.15)",
+          padding: "0 0 24px 0",
+          borderTop: "1px solid rgba(202,168,90,0.22)",
         }}>
 
           {/* Quick stats row: School · Projection · 7D trend */}
@@ -470,31 +490,31 @@ function MobileProspectCard({
             display: "flex",
             gap: 0,
             borderBottom: "1px solid rgba(255,255,255,0.05)",
-            marginBottom: 16,
+            marginBottom: 20,
           }}>
-            <div style={{ flex: 1, padding: "10px 14px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
-              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 3px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>School</p>
-              <p style={{ fontSize: 14, color: "#F3EFE6", margin: 0, fontWeight: 600 }}>{p.school}</p>
+            <div style={{ flex: 1, padding: "12px 14px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>School</p>
+              <p style={{ fontSize: 15, color: "#F3EFE6", margin: 0, fontWeight: 600 }}>{p.school}</p>
             </div>
-            <div style={{ flex: 1, padding: "10px 14px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
-              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 3px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Projection</p>
-              <p style={{ fontSize: 13, color: "#F3EFE6", margin: 0, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{p.projected}</p>
+            <div style={{ flex: 1, padding: "12px 14px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Projection</p>
+              <p style={{ fontSize: 14, color: "#F3EFE6", margin: 0, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{p.projected}</p>
             </div>
-            <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 3px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>7D</p>
+            <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>7D</p>
               <Sparkline data={p.trend} width={40} height={18} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: deltaColor, fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: deltaColor, fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
                 {deltaSign}{delta}
               </span>
             </div>
           </div>
 
           {/* Profile section */}
-          <div style={{ padding: "0 14px", marginBottom: 16 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 10px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+          <div style={{ padding: "0 16px", marginBottom: 20 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 12px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
               Prospect Profile
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {[
                 { label: "Position",   value: p.pos },
                 { label: "School",     value: p.school },
@@ -503,13 +523,13 @@ function MobileProspectCard({
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
                   <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7E776A", whiteSpace: "nowrap", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>{label}</span>
-                  <span style={{ fontSize: 15, color: "#F3EFE6", fontWeight: 600, textAlign: "right" }}>{value}</span>
+                  <span style={{ fontSize: 16, color: "#F3EFE6", fontWeight: 600, textAlign: "right" }}>{value}</span>
                 </div>
               ))}
               {p.teamFitWatch && (
-                <div style={{ marginTop: 6, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Team Fit Watch</p>
-                  <p style={{ fontSize: 15, color: "#CAA85A", fontWeight: 600, margin: 0, lineHeight: 1.4 }}>{p.teamFitWatch}</p>
+                <div style={{ marginTop: 8, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 5px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Team Fit Watch</p>
+                  <p style={{ fontSize: 16, color: "#CAA85A", fontWeight: 600, margin: 0, lineHeight: 1.45 }}>{p.teamFitWatch}</p>
                 </div>
               )}
             </div>
@@ -517,21 +537,21 @@ function MobileProspectCard({
 
           {/* Edge Score Breakdown */}
           <div style={{
-            margin: "0 14px 16px 14px",
+            margin: "0 16px 20px 16px",
             background: "rgba(255,255,255,0.02)",
             border: "1px solid rgba(255,255,255,0.06)",
             borderRadius: 4,
-            padding: "12px 14px",
+            padding: "14px 16px",
           }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 10px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 12px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
               Edge Score Breakdown
             </p>
-            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
               {p.breakdown.map(({ label, score }) => (
                 <div key={label}>
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.09em", color: "#B7AFA0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>{label}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: confBarColor(score) }}>{score}</span>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.09em", color: "#B7AFA0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>{label}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: confBarColor(score) }}>{score}</span>
                   </div>
                   <div style={{ height: 3, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${score}%`, background: confBarColor(score), borderRadius: 99 }} />
@@ -539,10 +559,10 @@ function MobileProspectCard({
                 </div>
               ))}
               {/* Overall */}
-              <div style={{ paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                  <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.09em", color: "#F3EFE6", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Overall</span>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: scoreColor }}>{p.conf}</span>
+              <div style={{ paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.09em", color: "#F3EFE6", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Overall</span>
+                  <span style={{ fontSize: 16, fontWeight: 800, color: scoreColor }}>{p.conf}</span>
                 </div>
                 <div style={{ height: 4, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
                   <div style={{ height: "100%", width: `${p.conf}%`, background: scoreColor, borderRadius: 99 }} />
@@ -553,41 +573,41 @@ function MobileProspectCard({
 
           {/* Latest Intel */}
           {p.latestUpdate && (
-            <div style={{ padding: "0 14px", marginBottom: 16 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 8px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+            <div style={{ padding: "0 16px", marginBottom: 20 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 10px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
                 Latest Intel
               </p>
-              <p style={{ fontSize: 15, color: "#F3EFE6", lineHeight: 1.65, margin: 0 }}>{p.latestUpdate}</p>
+              <p style={{ fontSize: 16, color: "#F3EFE6", lineHeight: 1.68, margin: 0 }}>{p.latestUpdate}</p>
             </div>
           )}
 
           {/* Scout note */}
-          <div style={{ padding: "0 14px", marginBottom: 16 }}>
-            <p style={{ fontSize: 14, color: "#B7AFA0", lineHeight: 1.65, fontStyle: "italic", margin: 0 }}>{p.note}</p>
+          <div style={{ padding: "0 16px", marginBottom: 20 }}>
+            <p style={{ fontSize: 15, color: "#B7AFA0", lineHeight: 1.68, fontStyle: "italic", margin: 0 }}>{p.note}</p>
           </div>
 
           {/* Linked Signals */}
-          <div style={{ padding: "0 14px" }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 10px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+          <div style={{ padding: "0 16px" }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 12px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
               Linked Signals{signals.length > 0 && <span style={{ color: "#CAA85A" }}> · {signals.length}</span>}
             </p>
             {signals.length === 0 ? (
-              <p style={{ fontSize: 14, color: "#7E776A", fontStyle: "italic" }}>No signals found for this prospect in current cycle.</p>
+              <p style={{ fontSize: 15, color: "#7E776A", fontStyle: "italic" }}>No signals found for this prospect in current cycle.</p>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {signals.map(s => (
                   <div key={s.id} style={{
-                    padding: "12px 14px",
+                    padding: "14px 16px",
                     borderRadius: 4,
                     border: "1px solid rgba(255,255,255,0.07)",
                     background: "rgba(255,255,255,0.02)",
                   }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                       <VerdictBadge verdict={s.verdict} />
-                      <span style={{ fontSize: 12, color: "#B7AFA0", marginLeft: "auto" }}>{s.source_name}</span>
+                      <span style={{ fontSize: 13, color: "#B7AFA0", marginLeft: "auto" }}>{s.source_name}</span>
                     </div>
-                    <p style={{ fontSize: 15, color: "#F3EFE6", lineHeight: 1.6, margin: "0 0 8px 0" }}>{s.normalized_claim}</p>
-                    <p style={{ fontSize: 12, color: "#7E776A", fontWeight: 700, margin: 0 }}>{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
+                    <p style={{ fontSize: 16, color: "#F3EFE6", lineHeight: 1.65, margin: "0 0 10px 0" }}>{s.normalized_claim}</p>
+                    <p style={{ fontSize: 13, color: "#7E776A", fontWeight: 700, margin: 0 }}>{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
                   </div>
                 ))}
               </div>
