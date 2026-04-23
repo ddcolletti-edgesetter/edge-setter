@@ -273,22 +273,24 @@ function MomentumBadge({ type }: { type: "rising" | "falling" | "stable" }) {
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 3,
       fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-      fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
       color: "#3DAE72", background: "rgba(61,174,114,0.10)",
-      border: "1px solid rgba(61,174,114,0.25)", borderRadius: 2, padding: "2px 6px",
+      border: "1px solid rgba(61,174,114,0.25)", borderRadius: 3, padding: "3px 8px",
+      minHeight: 28,
     }}>
-      <TrendingUp size={9} /> Rising
+      <TrendingUp size={11} /> Rising
     </span>
   );
   if (type === "falling") return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 3,
       fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-      fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
       color: "#C04040", background: "rgba(192,64,64,0.10)",
-      border: "1px solid rgba(192,64,64,0.25)", borderRadius: 2, padding: "2px 6px",
+      border: "1px solid rgba(192,64,64,0.25)", borderRadius: 3, padding: "3px 8px",
+      minHeight: 28,
     }}>
-      <TrendingDown size={9} /> Falling
+      <TrendingDown size={11} /> Falling
     </span>
   );
   return null;
@@ -300,14 +302,300 @@ function BuzzTag({ label }: { label: string }) {
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 3,
       fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-      fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
       color: isAlert ? "#D4932A" : "#CAA85A",
       background: isAlert ? "rgba(212,147,42,0.08)" : "rgba(202,168,90,0.08)",
       border: `1px solid ${isAlert ? "rgba(212,147,42,0.25)" : "rgba(202,168,90,0.20)"}`,
-      borderRadius: 2, padding: "2px 6px",
+      borderRadius: 3, padding: "3px 8px",
+      minHeight: 28,
     }}>
-      {isAlert && <AlertTriangle size={8} />} {label}
+      {isAlert && <AlertTriangle size={10} />} {label}
     </span>
+  );
+}
+
+/* ── Mobile Prospect Card ── */
+function MobileProspectCard({
+  p,
+  isOpen,
+  onToggle,
+  signals,
+  confColor,
+  confBarColor,
+  displayRank,
+}: {
+  p: Prospect;
+  isOpen: boolean;
+  onToggle: () => void;
+  signals: SignalFeedItem[];
+  confColor: (c: number) => string;
+  confBarColor: (c: number) => string;
+  displayRank: number;
+}) {
+  const delta = p.trend[p.trend.length - 1] - p.trend[0];
+  const deltaColor = delta > 1 ? "#3DAE72" : delta < -1 ? "#C04040" : "#C9A84C";
+  const deltaSign = delta > 0 ? "+" : "";
+
+  const scoreColor = p.conf >= 90 ? "#3DAE72" : p.conf >= 80 ? "#D8B86A" : "#7E776A";
+
+  return (
+    <div
+      style={{
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        background: isOpen ? "rgba(202,168,90,0.04)" : "transparent",
+      }}
+      data-testid={`mobile-card-${p.rank}`}
+    >
+      {/* Collapsed card row — tap to expand */}
+      <button
+        onClick={onToggle}
+        data-testid={`mobile-card-toggle-${p.rank}`}
+        style={{
+          width: "100%",
+          display: "flex",
+          alignItems: "stretch",
+          gap: 0,
+          background: "transparent",
+          border: "none",
+          cursor: "pointer",
+          minHeight: 72,
+          padding: 0,
+          textAlign: "left",
+        }}
+      >
+        {/* Rank column */}
+        <div style={{
+          width: 40,
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#7E776A",
+          fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+          fontSize: 15,
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          borderRight: "1px solid rgba(255,255,255,0.05)",
+        }}>
+          {displayRank}
+        </div>
+
+        {/* Name / pos / team */}
+        <div style={{
+          flex: 1,
+          padding: "12px 12px 12px 14px",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          gap: 3,
+          minWidth: 0,
+        }}>
+          <p style={{
+            fontSize: 17,
+            fontWeight: 700,
+            color: "#F3EFE6",
+            lineHeight: 1.25,
+            margin: 0,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}>
+            {p.name}
+          </p>
+          <p style={{
+            fontSize: 13,
+            color: "#B7AFA0",
+            margin: 0,
+            letterSpacing: "0.04em",
+          }}>
+            {p.pos} · {p.team}
+          </p>
+          {/* Momentum / buzz pill row */}
+          {(p.momentum && p.momentum !== "stable" || p.buzz) && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 4 }}>
+              {p.momentum && p.momentum !== "stable" && <MomentumBadge type={p.momentum} />}
+              {p.buzz && <BuzzTag label={p.buzz} />}
+            </div>
+          )}
+        </div>
+
+        {/* Edge Score + chevron */}
+        <div style={{
+          flexShrink: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "0 14px",
+          gap: 2,
+          minWidth: 64,
+        }}>
+          <span style={{
+            fontSize: 26,
+            fontWeight: 800,
+            fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+            color: scoreColor,
+            lineHeight: 1,
+            letterSpacing: "-0.01em",
+          }}>
+            {p.conf}
+          </span>
+          <span style={{
+            fontSize: 9,
+            fontWeight: 700,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            color: "#7E776A",
+            fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+          }}>
+            Score
+          </span>
+          <div style={{ marginTop: 4 }}>
+            {isOpen
+              ? <ChevronUp size={14} style={{ color: "#CAA85A" }} />
+              : <ChevronDown size={14} style={{ color: "#7E776A" }} />}
+          </div>
+        </div>
+      </button>
+
+      {/* Expanded panel */}
+      {isOpen && (
+        <div style={{
+          padding: "0 0 16px 0",
+          borderTop: "1px solid rgba(202,168,90,0.15)",
+        }}>
+
+          {/* Quick stats row: School · Projection · 7D trend */}
+          <div style={{
+            display: "flex",
+            gap: 0,
+            borderBottom: "1px solid rgba(255,255,255,0.05)",
+            marginBottom: 16,
+          }}>
+            <div style={{ flex: 1, padding: "10px 14px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 3px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>School</p>
+              <p style={{ fontSize: 14, color: "#F3EFE6", margin: 0, fontWeight: 600 }}>{p.school}</p>
+            </div>
+            <div style={{ flex: 1, padding: "10px 14px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 3px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Projection</p>
+              <p style={{ fontSize: 13, color: "#F3EFE6", margin: 0, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{p.projected}</p>
+            </div>
+            <div style={{ padding: "10px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 3px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>7D</p>
+              <Sparkline data={p.trend} width={40} height={18} />
+              <span style={{ fontSize: 11, fontWeight: 700, color: deltaColor, fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+                {deltaSign}{delta}
+              </span>
+            </div>
+          </div>
+
+          {/* Profile section */}
+          <div style={{ padding: "0 14px", marginBottom: 16 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 10px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+              Prospect Profile
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {[
+                { label: "Position",   value: p.pos },
+                { label: "School",     value: p.school },
+                { label: "Projection", value: p.projected },
+                { label: "Proj. Team", value: p.team },
+              ].map(({ label, value }) => (
+                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7E776A", whiteSpace: "nowrap", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>{label}</span>
+                  <span style={{ fontSize: 15, color: "#F3EFE6", fontWeight: 600, textAlign: "right" }}>{value}</span>
+                </div>
+              ))}
+              {p.teamFitWatch && (
+                <div style={{ marginTop: 6, paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Team Fit Watch</p>
+                  <p style={{ fontSize: 15, color: "#CAA85A", fontWeight: 600, margin: 0, lineHeight: 1.4 }}>{p.teamFitWatch}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Edge Score Breakdown */}
+          <div style={{
+            margin: "0 14px 16px 14px",
+            background: "rgba(255,255,255,0.02)",
+            border: "1px solid rgba(255,255,255,0.06)",
+            borderRadius: 4,
+            padding: "12px 14px",
+          }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 10px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+              Edge Score Breakdown
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {p.breakdown.map(({ label, score }) => (
+                <div key={label}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.09em", color: "#B7AFA0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>{label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: confBarColor(score) }}>{score}</span>
+                  </div>
+                  <div style={{ height: 3, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${score}%`, background: confBarColor(score), borderRadius: 99 }} />
+                  </div>
+                </div>
+              ))}
+              {/* Overall */}
+              <div style={{ paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                  <span style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.09em", color: "#F3EFE6", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Overall</span>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: scoreColor }}>{p.conf}</span>
+                </div>
+                <div style={{ height: 4, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${p.conf}%`, background: scoreColor, borderRadius: 99 }} />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Latest Intel */}
+          {p.latestUpdate && (
+            <div style={{ padding: "0 14px", marginBottom: 16 }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 8px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+                Latest Intel
+              </p>
+              <p style={{ fontSize: 15, color: "#F3EFE6", lineHeight: 1.65, margin: 0 }}>{p.latestUpdate}</p>
+            </div>
+          )}
+
+          {/* Scout note */}
+          <div style={{ padding: "0 14px", marginBottom: 16 }}>
+            <p style={{ fontSize: 14, color: "#B7AFA0", lineHeight: 1.65, fontStyle: "italic", margin: 0 }}>{p.note}</p>
+          </div>
+
+          {/* Linked Signals */}
+          <div style={{ padding: "0 14px" }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 10px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+              Linked Signals{signals.length > 0 && <span style={{ color: "#CAA85A" }}> · {signals.length}</span>}
+            </p>
+            {signals.length === 0 ? (
+              <p style={{ fontSize: 14, color: "#7E776A", fontStyle: "italic" }}>No signals found for this prospect in current cycle.</p>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {signals.map(s => (
+                  <div key={s.id} style={{
+                    padding: "12px 14px",
+                    borderRadius: 4,
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    background: "rgba(255,255,255,0.02)",
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                      <VerdictBadge verdict={s.verdict} />
+                      <span style={{ fontSize: 12, color: "#B7AFA0", marginLeft: "auto" }}>{s.source_name}</span>
+                    </div>
+                    <p style={{ fontSize: 15, color: "#F3EFE6", lineHeight: 1.6, margin: "0 0 8px 0" }}>{s.normalized_claim}</p>
+                    <p style={{ fontSize: 12, color: "#7E776A", fontWeight: 700, margin: 0 }}>{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -334,7 +622,6 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     setExpandedRank(null);
   };
 
-  // Reset filters when season changes
   const handleSeasonChange = (season: string) => {
     setActiveSeason(season);
     setPosFilter("ALL");
@@ -394,9 +681,9 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     <AppLayout theme={theme} toggleTheme={toggleTheme}>
       <div className="p-4 sm:p-6 max-w-7xl mx-auto" data-testid="draft-board-page">
 
-        {/* Header */}
+        {/* ── Header ── */}
         <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
+          <div style={{ minWidth: 0 }}>
             <p className="section-kicker">
               <span className="data-label text-primary">Intelligence Module</span>
             </p>
@@ -417,8 +704,8 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
             </p>
           </div>
 
-          {/* Season selector */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          {/* Season selector — mobile-friendly 44px tall buttons */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
             <div
               style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -437,8 +724,11 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                   data-testid={`season-btn-${season}`}
                   style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
-                    textTransform: "uppercase", padding: "5px 12px",
+                    fontSize: 13, fontWeight: 700, letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    /* 44px min tap target */
+                    padding: "0 14px",
+                    minHeight: 44,
                     borderRadius: 3, cursor: "pointer",
                     border: activeSeason === season
                       ? "1px solid rgba(202,168,90,0.55)"
@@ -469,34 +759,90 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
 
         <hr className="briefing-rule mb-5" />
 
-        {/* Top Prospects Table */}
+        {/* ── Top Prospects ── */}
         <div className="rounded border border-border bg-card mb-6 overflow-hidden editorial-table" data-testid="draft-prospects-table">
-          <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/20" style={{ flexWrap: "wrap", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
+          {/* Table/card header with title + filter chips */}
+          <div style={{
+            padding: "12px 14px",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(255,255,255,0.02)",
+          }}>
+            {/* Title row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
               <h2 className="text-base font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif", margin: 0 }}>
                 Top Prospects — {activeSeason} Class
               </h2>
               <DataBadge type={seasonMeta.status} label={activeSeason === "2026" ? "Live · 2026" : `Archive · ${activeSeason}`} />
             </div>
-            {/* Position filter pills */}
-            <div className="flex items-center gap-1 flex-wrap justify-end">
+
+            {/* Position filter chips — horizontal scroll strip on mobile */}
+            <div style={{
+              display: "flex",
+              gap: 6,
+              overflowX: "auto",
+              WebkitOverflowScrolling: "touch",
+              paddingBottom: 2,
+              /* hide scrollbar but keep functionality */
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
+            }}>
               {AVAILABLE_POS.map(pos => (
                 <button
                   key={pos}
                   onClick={() => { setPosFilter(pos); setExpandedRank(null); }}
                   data-testid={`filter-pos-${pos}`}
-                  className={`text-[13px] px-3 py-1 rounded border font-bold uppercase tracking-widest transition-colors ${
-                    posFilter === pos
-                      ? "border-primary bg-primary/15 text-primary"
-                      : "border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:text-foreground"
-                  }`}
+                  style={{
+                    fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    /* 44px tall tap target */
+                    minHeight: 44,
+                    padding: "0 14px",
+                    borderRadius: 3,
+                    border: posFilter === pos
+                      ? "1px solid rgba(202,168,90,0.55)"
+                      : "1px solid rgba(255,255,255,0.1)",
+                    background: posFilter === pos
+                      ? "rgba(202,168,90,0.12)"
+                      : "transparent",
+                    color: posFilter === pos ? "#CAA85A" : "#7E776A",
+                    cursor: "pointer",
+                    transition: "all 0.15s",
+                    flexShrink: 0,
+                    whiteSpace: "nowrap",
+                  }}
                 >
                   {pos}
                 </button>
               ))}
             </div>
           </div>
-          <div className="overflow-x-auto">
+
+          {/* ── MOBILE card list (≤ 768px) ── */}
+          <div className="md:hidden" data-testid="mobile-card-list">
+            {sortedProspects.map((p, idx) => {
+              const displayRank = sortKey === "rank" ? p.rank : idx + 1;
+              const signals = linkedSignals(p.name);
+              return (
+                <MobileProspectCard
+                  key={p.rank}
+                  p={p}
+                  isOpen={expandedRank === p.rank}
+                  onToggle={() => setExpandedRank(expandedRank === p.rank ? null : p.rank)}
+                  signals={signals}
+                  confColor={confColor}
+                  confBarColor={confBarColor}
+                  displayRank={displayRank}
+                />
+              );
+            })}
+          </div>
+
+          {/* ── DESKTOP table (> 768px) — unchanged ── */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-sm" data-testid="table-prospects">
               <thead>
                 <tr className="border-b border-border bg-muted/10">
@@ -626,14 +972,12 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                                     </div>
                                   ))}
                                 </div>
-                                {/* Team Fit Watch */}
                                 {p.teamFitWatch && (
                                   <div className="mt-3 pt-3 border-t border-border/40">
                                     <p className="text-[12px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Team Fit Watch</p>
                                     <p className="text-[15px] text-primary font-semibold leading-snug">{p.teamFitWatch}</p>
                                   </div>
                                 )}
-                                {/* Latest Update */}
                                 {p.latestUpdate && (
                                   <div className="mt-3 pt-3 border-t border-border/40">
                                     <p className="text-[12px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Latest Intel</p>
@@ -735,7 +1079,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
           </div>
         </div>
 
-        {/* Draft Intelligence Feed */}
+        {/* ── Draft Intelligence Feed ── */}
         <div className="flex items-center gap-3 mb-4">
           <h2 className="text-lg font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
             Draft Week Signals
@@ -757,7 +1101,6 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
           )}
         </div>
 
-        {/* Live event urgency bar for 2026 */}
         {activeSeason === "2026" && (
           <div style={{
             display: "flex", alignItems: "center", gap: 8,
