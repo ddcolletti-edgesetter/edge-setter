@@ -375,7 +375,7 @@ function FeaturedCard({ signal }: { signal: any }) {
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
             textTransform: "uppercase", color: T.textFaint,
-          }}>DEMO DATA</div>
+          }}>Live · 2026</div>
         </div>
         {/* View in Signal Board link */}
         <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(202,168,90,0.10)" }}>
@@ -1143,14 +1143,14 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = T.surface2; }}
             onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = T.surface1; }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-                <DataBadge type="demo" label="Demo" />
+                <DataBadge type="live" label="Live · 2026 Season" />
                 <ChevronRight size={14} style={{ color: T.textFaint }} />
               </div>
               <div style={{ fontSize: 17, fontWeight: 600, color: T.text, marginBottom: 8, fontFamily: "'Playfair Display', Georgia, serif" }}>
                 Source Leaderboard
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.55, color: T.textMuted }}>
-                Analyst accuracy scoring by beat reporter, insider, and media outlet. Live source tracking coming with Pro launch.
+                Analyst accuracy scoring by beat reporter, insider, and media outlet. Source accuracy scoring is live. Expanded source tracking and depth continue rolling out.
               </div>
             </div>
           </Link>
