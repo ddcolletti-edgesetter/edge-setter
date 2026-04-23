@@ -177,6 +177,8 @@ sqlite.exec(`
     stripe_customer_id TEXT,
     stripe_subscription_id TEXT,
     access_status TEXT NOT NULL DEFAULT 'pending',
+    billing_status TEXT DEFAULT 'active',
+    billing_email_sent TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
