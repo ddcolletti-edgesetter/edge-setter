@@ -273,7 +273,7 @@
    ═══════════════════════════════════════════════ */
 .section-kicker {
   font-family: var(--font-cond);
-  font-size: 0.75rem; /* 13.5px */
+  font-size: 0.8125rem; /* 14.6px — up from 13.5px */
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.18em;
@@ -348,7 +348,7 @@
    ═══════════════════════════════════════════════ */
 .data-label {
   font-family: var(--font-cond);
-  font-size: 0.75rem; /* 13.5px */
+  font-size: 0.8125rem; /* 14.6px — up from 13.5px */
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -372,7 +372,7 @@
    ═══════════════════════════════════════════════ */
 .editorial-table thead th {
   font-family: var(--font-cond);
-  font-size: 0.75rem;
+  font-size: 0.8125rem; /* 14.6px — up from 13.5px */
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
