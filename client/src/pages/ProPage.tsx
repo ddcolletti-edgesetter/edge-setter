@@ -94,7 +94,7 @@ function CheckoutForm() {
             border: "none",
             borderRight: `1px solid rgba(202,168,90,0.20)`,
             color: C.text,
-            fontSize: 14,
+            fontSize: 16,
             padding: "14px 18px",
             outline: "none",
             fontFamily: "inherit",
@@ -112,7 +112,7 @@ function CheckoutForm() {
             border: "none",
             cursor: loading || !email ? "default" : "pointer",
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-            fontSize: 11, fontWeight: 700,
+            fontSize: 13, fontWeight: 700,
             letterSpacing: "0.18em", textTransform: "uppercase",
             whiteSpace: "nowrap",
             transition: "background 0.15s",
@@ -123,8 +123,8 @@ function CheckoutForm() {
           {loading ? "Redirecting…" : "Go Pro · $19/mo"}
         </button>
       </div>
-      {error && <p style={{ fontSize: 12, color: C.red, marginTop: 8 }}>{error}</p>}
-      <p style={{ fontSize: 12, color: C.textFaint, marginTop: 10, lineHeight: 1.5 }}>
+      {error && <p style={{ fontSize: 13, color: C.red, marginTop: 8 }}>{error}</p>}
+      <p style={{ fontSize: 13, color: C.textFaint, marginTop: 10, lineHeight: 1.5 }}>
         Billed monthly. Cancel any time. Powered by Stripe — your card is never stored on our servers.
       </p>
     </div>
@@ -165,7 +165,7 @@ function ProManagementPanel({ email }: { email: string }) {
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.green, display: "inline-block" }} />
         <span style={{
           fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-          fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+          fontSize: 12, fontWeight: 700, letterSpacing: "0.18em",
           textTransform: "uppercase", color: C.green,
         }}>
           Pro Active
@@ -178,7 +178,7 @@ function ProManagementPanel({ email }: { email: string }) {
       }}>
         You have full access.
       </p>
-      <p style={{ fontSize: 14, color: C.textMuted, margin: "0 0 24px", lineHeight: 1.55 }}>
+      <p style={{ fontSize: 16, color: C.textMuted, margin: "0 0 24px", lineHeight: 1.55 }}>
         Head to the Signal Board to see the full live feed.
       </p>
       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
@@ -187,7 +187,7 @@ function ProManagementPanel({ email }: { email: string }) {
             display: "inline-flex", alignItems: "center", gap: 6,
             background: C.gold, color: C.bg,
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
             padding: "10px 22px", borderRadius: 3, cursor: "pointer",
           }}>
             Open Signal Board <ChevronRight size={12} />
@@ -202,7 +202,7 @@ function ProManagementPanel({ email }: { email: string }) {
             border: `1px solid rgba(255,255,255,0.10)`,
             color: C.textFaint,
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
             padding: "10px 22px", borderRadius: 3, cursor: "pointer",
           }}
         >
@@ -283,7 +283,7 @@ export default function ProPage() {
           <Link href="/signals">
             <div style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.14em",
               textTransform: "uppercase", color: C.textFaint, cursor: "pointer",
               transition: "color 0.15s",
             }}
@@ -311,10 +311,10 @@ export default function ProPage() {
                 <div>
                   <span style={{
                     fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                    fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
+                    fontSize: 12, fontWeight: 700, letterSpacing: "0.18em",
                     textTransform: "uppercase", color: C.amber,
                   }}>⚠ Payment Issue</span>
-                  <p style={{ margin: "4px 0 0", fontSize: 13, color: C.textMuted }}>
+                  <p style={{ margin: "4px 0 0", fontSize: 15, color: C.textMuted }}>
                     Your last payment failed. Update your card to keep Pro access.
                   </p>
                 </div>
@@ -325,7 +325,7 @@ export default function ProPage() {
                     padding: "8px 16px", background: C.amber, color: C.bg,
                     border: "none", cursor: "pointer",
                     fontFamily: "'Barlow Condensed',Arial,sans-serif",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
+                    fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
                     whiteSpace: "nowrap",
                   }}
                 >
@@ -348,11 +348,11 @@ export default function ProPage() {
             }}>
               <span style={{
                 fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.18em",
                 textTransform: "uppercase", color: C.gold,
                 marginTop: 1, flexShrink: 0,
               }}>⚡ Live Now</span>
-              <span style={{ fontSize: 13, color: C.textMuted, lineHeight: 1.5 }}>
+              <span style={{ fontSize: 15, color: C.textMuted, lineHeight: 1.5 }}>
                 <strong style={{ color: C.text }}>2026 NFL Draft is Apr 24–26.</strong>{" "}
                 Act on draft-week movement before your league or the market does.
               </span>
@@ -361,7 +361,7 @@ export default function ProPage() {
             {/* Eyebrow */}
             <div style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.22em",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.22em",
               textTransform: "uppercase", color: C.gold, marginBottom: 18,
             }}>
               Edge Setter Pro · $19/month
@@ -382,13 +382,13 @@ export default function ProPage() {
 
             {/* Sub-headline */}
             <p style={{
-              fontSize: 17, color: C.textMuted, lineHeight: 1.65,
+              fontSize: 18, color: C.textMuted, lineHeight: 1.65,
               maxWidth: 560, margin: "0 0 12px",
             }}>
               Built for sharp fantasy, DFS, and betting players who already follow the news but want it condensed into edges.
             </p>
             <p style={{
-              fontSize: 15, color: C.textFaint, lineHeight: 1.6,
+              fontSize: 16, color: C.textFaint, lineHeight: 1.6,
               maxWidth: 540, margin: "0 0 48px",
             }}>
               Every signal is confidence-scored 0–100. Every signal includes one action. No recap threads. No noise.
@@ -419,10 +419,10 @@ export default function ProPage() {
                     <Icon size={14} style={{ color: C.gold }} />
                   </div>
                   <div>
-                    <p style={{ fontSize: 14, fontWeight: 600, color: C.text, margin: "0 0 4px", lineHeight: 1.3 }}>
+                    <p style={{ fontSize: 16, fontWeight: 600, color: C.text, margin: "0 0 4px", lineHeight: 1.3 }}>
                       {label}
                     </p>
-                    <p style={{ fontSize: 13, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>
+                    <p style={{ fontSize: 15, color: C.textMuted, margin: 0, lineHeight: 1.5 }}>
                       {detail}
                     </p>
                   </div>
@@ -437,13 +437,13 @@ export default function ProPage() {
             <div>
               <p style={{
                 fontFamily: "'Playfair Display',Georgia,serif",
-                fontSize: 22, fontWeight: 700,
+                fontSize: 24, fontWeight: 700,
                 color: C.text, margin: "0 0 6px",
               }}>
                 Edge Setter Pro — $19/month
               </p>
               <p style={{
-                fontSize: 14, color: C.textMuted, margin: "0 0 24px", lineHeight: 1.55,
+                fontSize: 16, color: C.textMuted, margin: "0 0 24px", lineHeight: 1.55,
                 maxWidth: 480,
               }}>
                 Enter your email and you'll be taken to Stripe checkout. No account creation required.
@@ -458,7 +458,7 @@ export default function ProPage() {
             }}>
               <span style={{
                 fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.18em",
                 textTransform: "uppercase", color: C.textFaint,
               }}>
                 Already a subscriber?
@@ -474,7 +474,7 @@ export default function ProPage() {
                   style={{
                     background: C.surface2,
                     border: "1px solid rgba(255,255,255,0.08)",
-                    color: C.text, fontSize: 13,
+                    color: C.text, fontSize: 15,
                     padding: "8px 14px", outline: "none",
                     fontFamily: "inherit", borderRadius: 3, minWidth: 220,
                   }}
@@ -490,7 +490,7 @@ export default function ProPage() {
                     color: C.gold,
                     cursor: checking || !email ? "default" : "pointer",
                     fontFamily: "'Barlow Condensed',Arial,sans-serif",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+                    fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
                     borderRadius: 3,
                   }}
                 >
@@ -498,7 +498,7 @@ export default function ProPage() {
                 </button>
               </div>
               {isPro === false && (
-                <p style={{ fontSize: 13, color: C.red, marginTop: 8 }}>
+                <p style={{ fontSize: 15, color: C.red, marginTop: 8 }}>
                   No active Pro subscription found for that email.
                 </p>
               )}

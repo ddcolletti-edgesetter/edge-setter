@@ -45,7 +45,7 @@ function TierBadge({ tier }: { tier: string | null }) {
     : "Low";
   const cls = `tier-${num}`;
   return (
-    <span className={`inline-flex items-center rounded px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider ${cls}`}>
+    <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${cls}`}>
       {label}
     </span>
   );
@@ -61,7 +61,7 @@ function SourceTypeBadge({ sourceType, sourceName }: { sourceType?: string | nul
           padding: "2px 7px", borderRadius: 3,
           border: "1px solid rgba(202,168,90,0.30)",
           background: "rgba(202,168,90,0.08)",
-          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
           textTransform: "uppercase", color: "#CAA85A",
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
           whiteSpace: "nowrap",
@@ -79,7 +79,7 @@ function SourceTypeBadge({ sourceType, sourceName }: { sourceType?: string | nul
           padding: "2px 7px", borderRadius: 3,
           border: "1px solid rgba(56,170,203,0.25)",
           background: "rgba(56,170,203,0.07)",
-          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
           textTransform: "uppercase", color: "#38AACB",
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
           whiteSpace: "nowrap",
@@ -97,7 +97,7 @@ function SourceTypeBadge({ sourceType, sourceName }: { sourceType?: string | nul
           padding: "2px 7px", borderRadius: 3,
           border: "1px solid rgba(61,174,114,0.28)",
           background: "rgba(61,174,114,0.08)",
-          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
           textTransform: "uppercase", color: "#3DAE72",
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
           whiteSpace: "nowrap",
@@ -115,7 +115,7 @@ function SourceTypeBadge({ sourceType, sourceName }: { sourceType?: string | nul
           padding: "2px 7px", borderRadius: 3,
           border: "1px solid rgba(167,120,220,0.28)",
           background: "rgba(167,120,220,0.08)",
-          fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+          fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
           textTransform: "uppercase", color: "#A778DC",
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
           whiteSpace: "nowrap",
@@ -280,7 +280,7 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
                 className="overflow-x-auto"
                 style={{ background: C.panelBase }}
               >
-                <table className="w-full text-sm">
+                <table className="w-full text-base">
                   <thead>
                     <tr style={{
                       background: C.parchmentSoft,
@@ -288,55 +288,55 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
                     }}>
                       <th className="text-left px-4 py-3 w-8">
                         <span
-                          className="text-[9px] font-bold uppercase tracking-widest"
+                          className="text-[12px] font-bold uppercase tracking-widest"
                           style={{ color: C.parchmentMid }}
                         >#</span>
                       </th>
                       <th className="text-left px-4 py-3">
                         <span
-                          className="text-[9px] font-bold uppercase tracking-widest"
+                          className="text-[12px] font-bold uppercase tracking-widest"
                           style={{ color: C.parchmentMid }}
                         >Source</span>
                       </th>
                       <th className="text-left px-4 py-3 hidden sm:table-cell">
                         <span
-                          className="text-[9px] font-bold uppercase tracking-widest"
+                          className="text-[12px] font-bold uppercase tracking-widest"
                           style={{ color: C.parchmentMid }}
                         >Tier</span>
                       </th>
                       <th className="text-right px-4 py-3">
                         <span
-                          className="flex items-center gap-1 justify-end text-[9px] font-bold uppercase tracking-widest"
+                          className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest"
                           style={{ color: C.parchmentMid }}
                         >
-                          <Trophy size={10} />Accuracy
+                          <Trophy size={11} />Accuracy
                         </span>
                       </th>
                       <th className="text-right px-4 py-3 hidden md:table-cell">
                         <span
-                          className="flex items-center gap-1 justify-end text-[9px] font-bold uppercase tracking-widest"
+                          className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest"
                           style={{ color: C.parchmentMid }}
                         >
-                          <Clock size={10} />Lead Time
+                          <Clock size={11} />Lead Time
                         </span>
                       </th>
                       <th className="text-right px-4 py-3 hidden lg:table-cell">
                         <span
-                          className="flex items-center gap-1 justify-end text-[9px] font-bold uppercase tracking-widest"
+                          className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest"
                           style={{ color: C.parchmentMid }}
                         >
-                          <TrendingDown size={10} />False+
+                          <TrendingDown size={11} />False+
                         </span>
                       </th>
                       <th className="text-right px-4 py-3 hidden md:table-cell">
                         <span
-                          className="text-[9px] font-bold uppercase tracking-widest"
+                          className="text-[12px] font-bold uppercase tracking-widest"
                           style={{ color: C.parchmentMid }}
                         >Injury Acc.</span>
                       </th>
                       <th className="text-right px-4 py-3 hidden lg:table-cell">
                         <span
-                          className="text-[9px] font-bold uppercase tracking-widest"
+                          className="text-[12px] font-bold uppercase tracking-widest"
                           style={{ color: C.parchmentMid }}
                         >Draft Acc.</span>
                       </th>
@@ -359,40 +359,40 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
                           onMouseLeave={e => (e.currentTarget.style.background = "")}
                           data-testid={`leaderboard-row-${s.source_id}`}
                         >
-                          <td className="px-4 py-3 text-xs font-bold tabular-nums" style={{ color: C.ivorySub }}>{i + 1}</td>
+                          <td className="px-4 py-3 text-sm font-bold tabular-nums" style={{ color: C.ivorySub }}>{i + 1}</td>
                           <td className="px-4 py-3">
                             <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                              <p className="font-semibold text-sm" style={{ color: C.ivoryPrimary, margin: 0 }}>{s.source_name}</p>
+                              <p className="font-semibold text-base" style={{ color: C.ivoryPrimary, margin: 0 }}>{s.source_name}</p>
                               <SourceTypeBadge sourceType={s.source_type} sourceName={s.source_name} />
                             </div>
                             {s.source_type === "analytics" && (
-                              <p style={{ fontSize: 10, color: C.ivoryMuted, marginTop: 2 }}>Grading · analytics service</p>
+                              <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>Grading · analytics service</p>
                             )}
                             {s.source_type === "scouting" && (
-                              <p style={{ fontSize: 10, color: C.ivoryMuted, marginTop: 2 }}>Team fit · player evaluation · personnel</p>
+                              <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>Team fit · player evaluation · personnel</p>
                             )}
                             {s.source_type === "college_analyst" && (
-                              <p style={{ fontSize: 10, color: C.ivoryMuted, marginTop: 2 }}>College production · draft prospect context</p>
+                              <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>College production · draft prospect context</p>
                             )}
                           </td>
                           <td className="px-4 py-3 hidden sm:table-cell">
                             <TierBadge tier={s.trust_tier ?? null} />
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <span className="stat-num-display text-sm font-bold" style={{ color: accColor }}>
+                            <span className="stat-num-display text-base font-bold" style={{ color: accColor }}>
                               {acc.toFixed(1)}%
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-right text-xs tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
+                          <td className="px-4 py-3 text-right text-sm tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
                             {parseFloat(s.average_lead_time_minutes ?? "0").toFixed(0)}m
                           </td>
-                          <td className="px-4 py-3 text-right text-xs tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
+                          <td className="px-4 py-3 text-right text-sm tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
                             {parseFloat(s.false_positive_rate ?? "0").toFixed(1)}%
                           </td>
-                          <td className="px-4 py-3 text-right text-xs tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
+                          <td className="px-4 py-3 text-right text-sm tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
                             {parseFloat(s.injury_accuracy ?? "0").toFixed(1)}%
                           </td>
-                          <td className="px-4 py-3 text-right text-xs tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
+                          <td className="px-4 py-3 text-right text-sm tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
                             {parseFloat(s.draft_accuracy ?? "0").toFixed(1)}%
                           </td>
                         </tr>

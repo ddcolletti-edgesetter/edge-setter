@@ -125,7 +125,8 @@
   }
 
   html {
-    font-size: 18px;
+    /* Mobile base — 16px keeps Tailwind rem scale clean */
+    font-size: 16px;
     -webkit-text-size-adjust: 100%;
   }
 
@@ -137,7 +138,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "cv08", "ss01";
-    font-size: 18px;
+    font-size: 1rem; /* 16px — body minimum on all breakpoints */
     line-height: 1.65;
   }
 
@@ -627,8 +628,57 @@
    MOBILE — generous tap targets
    ═══════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  body { font-size: 18px; }
+  body { font-size: 1rem; }
   p { font-size: 1rem; }
   .btn-primary, .btn-secondary { min-height: 54px; width: 100%; justify-content: center; }
   .input-premium { min-height: 54px; }
+}
+
+/* ═══════════════════════════════════════════════
+   DESKTOP TYPOGRAPHY BOOST — min-width: 1024px
+   All shared named classes get +1–2px uplift.
+   Arbitrary px values in components are handled
+   in their respective files (see DraftBoard.tsx,
+   SourceLeaderboard.tsx).
+   ═══════════════════════════════════════════════ */
+@media (min-width: 1024px) {
+  html {
+    /* Desktop base: 16px — text-xs=12px, text-sm=14px, text-base=16px */
+    font-size: 16px;
+  }
+
+  body {
+    font-size: 1rem; /* 16px */
+  }
+
+  p {
+    font-size: 1rem; /* 16px minimum on desktop */
+    line-height: 1.7;
+  }
+
+  /* Section kicker eyebrow — 14px → 15px on desktop */
+  .section-kicker {
+    font-size: 0.9375rem; /* 15px */
+  }
+
+  /* Data labels — 14.6px → 13px (condensed uppercase, readable) */
+  /* Note: these are ALL-CAPS condensed, so 13px reads larger than body 13px */
+  .data-label {
+    font-size: 0.8125rem; /* 13px — already condensed uppercase, stays */
+  }
+
+  /* Editorial table column headers */
+  .editorial-table thead th {
+    font-size: 0.8125rem; /* 13px — all-caps condensed, stays readable */
+  }
+
+  /* Table body cells */
+  .editorial-table tbody td {
+    font-size: 1rem; /* 16px */
+  }
+
+  /* Form label — bump from 11px to 12px */
+  .label-premium {
+    font-size: 0.75rem; /* 12px */
+  }
 }

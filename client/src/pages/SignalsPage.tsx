@@ -43,7 +43,7 @@ function VerdictPill({ type }: { type: string }) {
   return (
     <span style={{
       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-      fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+      fontSize: 12, fontWeight: 700, letterSpacing: "0.12em",
       textTransform: "uppercase",
       background: s.bg, color: s.color,
       border: `1px solid ${s.color}44`,
@@ -101,7 +101,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
             <VerdictPill type={signal.verdict?.toLowerCase() ?? "review"} />
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
               textTransform: "uppercase", color: T.textFaint,
             }}>
               {signal.signal_type}
@@ -109,7 +109,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
           </div>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: featured ? 20 : 17, fontWeight: 700,
+            fontSize: featured ? 22 : 19, fontWeight: 700,
             color: T.text, lineHeight: 1.3, marginBottom: 6,
           }}>
             {signal.title}
@@ -117,15 +117,15 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.14em",
               textTransform: "uppercase", color: T.gold,
             }}>
               {signal.player_name}
             </span>
-            <span style={{ color: T.textFaint, fontSize: 10 }}>·</span>
+            <span style={{ color: T.textFaint, fontSize: 12 }}>·</span>
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.10em",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.10em",
               textTransform: "uppercase", color: T.textFaint,
             }}>
               {signal.team}
@@ -143,7 +143,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
             textTransform: "uppercase", color: T.textFaint, marginTop: 2,
           }}>
             Confidence
@@ -156,7 +156,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
       </div>
 
       {signal.summary && (
-        <p style={{ fontSize: 15, color: T.textMuted, margin: "0 0 12px", lineHeight: 1.65 }}>
+        <p style={{ fontSize: 16, color: T.textMuted, margin: "0 0 12px", lineHeight: 1.65 }}>
           {signal.summary}
         </p>
       )}
@@ -171,7 +171,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
           marginBottom: 12,
         }}>
           <div style={{ width: 2, flexShrink: 0, alignSelf: "stretch", background: T.gold, borderRadius: 1, opacity: 0.7 }} />
-          <p style={{ fontSize: 14, color: T.text, margin: 0, lineHeight: 1.55, fontStyle: "italic" }}>
+          <p style={{ fontSize: 16, color: T.text, margin: 0, lineHeight: 1.55, fontStyle: "italic" }}>
             {signal.action_takeaway}
           </p>
         </div>
@@ -180,7 +180,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
         <span style={{
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
+          fontSize: 12, fontWeight: 700, letterSpacing: "0.12em",
           textTransform: "uppercase", color: T.textFaint,
         }}>
           {signal.source_count} sources
@@ -189,7 +189,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
           <Link href="/pro">
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
               textTransform: "uppercase", color: T.gold,
               cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
               transition: "color 0.15s",
@@ -361,7 +361,7 @@ export default function SignalsPage() {
         <div style={{ marginBottom: 40 }}>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.20em",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.20em",
             textTransform: "uppercase", color: T.gold, marginBottom: 10,
           }}>
             Public Signal Board
@@ -385,12 +385,12 @@ export default function SignalsPage() {
           }}>
             <span style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
               textTransform: "uppercase", color: T.gold, flexShrink: 0, marginTop: 1,
             }}>
               Free access
             </span>
-            <span style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.5 }}>
+            <span style={{ fontSize: 15, color: T.textMuted, lineHeight: 1.5 }}>
               You can fully read the {FREE_LIMIT} most recent signals.{" "}
               <Link href="/pro">
                 <span style={{ color: T.gold, cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(202,168,90,0.40)" }}>

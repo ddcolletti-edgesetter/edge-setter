@@ -402,7 +402,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
             </p>
             <div className="flex items-center gap-3 mt-2 flex-wrap">
               <h1
-                className="text-xl font-bold tracking-tight text-foreground"
+                className="text-2xl font-bold tracking-tight text-foreground"
                 style={{ fontFamily: "'Playfair Display', Georgia, serif", letterSpacing: "-0.02em", margin: 0 }}
               >
                 Draft Board
@@ -412,7 +412,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                 label={activeSeason === "2026" ? "Live · 2026 Class" : `Archive · ${activeSeason}`}
               />
             </div>
-            <p className="text-[12px] text-muted-foreground mt-1.5">
+            <p className="text-[14px] text-muted-foreground mt-1.5">
               {activeSeason} NFL Draft prospects · Edge Setter Intel · Last updated {seasonMeta.lastUpdated}
             </p>
           </div>
@@ -422,7 +422,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
             <div
               style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 9, fontWeight: 700, letterSpacing: "0.18em",
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.18em",
                 textTransform: "uppercase", color: "#7E776A",
                 marginBottom: 2,
               }}
@@ -457,7 +457,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
             {activeSeason !== "2026" && (
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+                fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
                 color: "#7E776A",
                 display: "flex", alignItems: "center", gap: 4,
               }}>
@@ -473,7 +473,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
         <div className="rounded border border-border bg-card mb-6 overflow-hidden editorial-table" data-testid="draft-prospects-table">
           <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/20" style={{ flexWrap: "wrap", gap: 8 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <h2 className="text-sm font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif", margin: 0 }}>
+              <h2 className="text-base font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif", margin: 0 }}>
                 Top Prospects — {activeSeason} Class
               </h2>
               <DataBadge type={seasonMeta.status} label={activeSeason === "2026" ? "Live · 2026" : `Archive · ${activeSeason}`} />
@@ -485,7 +485,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                   key={pos}
                   onClick={() => { setPosFilter(pos); setExpandedRank(null); }}
                   data-testid={`filter-pos-${pos}`}
-                  className={`text-[12px] px-3 py-1 rounded border font-bold uppercase tracking-widest transition-colors ${
+                  className={`text-[13px] px-3 py-1 rounded border font-bold uppercase tracking-widest transition-colors ${
                     posFilter === pos
                       ? "border-primary bg-primary/15 text-primary"
                       : "border-border bg-transparent text-muted-foreground hover:border-primary/50 hover:text-foreground"
@@ -558,14 +558,14 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                           ${ isOpen ? "bg-muted/30" : "hover:bg-muted/20" }`}
                         data-testid={`prospect-row-${p.rank}`}
                       >
-                        <td className="px-4 py-4 text-sm font-bold tabular-nums text-muted-foreground">{displayRank}</td>
+                        <td className="px-4 py-4 text-base font-bold tabular-nums text-muted-foreground">{displayRank}</td>
                         <td className="px-4 py-4">
-                          <p className="font-semibold text-[19px] text-foreground leading-tight">{p.name}</p>
-                          <p className="text-[14px] text-muted-foreground mt-0.5 tracking-wide">{p.pos} · {p.team}</p>
+                          <p className="font-semibold text-[21px] text-foreground leading-tight">{p.name}</p>
+                          <p className="text-[15px] text-muted-foreground mt-0.5 tracking-wide">{p.pos} · {p.team}</p>
                         </td>
-                        <td className="px-4 py-4 text-[15px] text-muted-foreground hidden sm:table-cell">{p.school}</td>
+                        <td className="px-4 py-4 text-[16px] text-muted-foreground hidden sm:table-cell">{p.school}</td>
                         <td className="px-4 py-4">
-                          <span className="text-[12px] px-2.5 py-1 rounded border border-border bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider">
+                          <span className="text-[13px] px-2.5 py-1 rounded border border-border bg-muted/40 text-muted-foreground font-semibold uppercase tracking-wider">
                             {p.projected}
                           </span>
                         </td>
@@ -578,7 +578,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                               const color = delta > 1 ? "text-[#3DAE72]" : delta < -1 ? "text-[#C04040]" : "text-primary";
                               const sign = delta > 0 ? "+" : "";
                               return (
-                                <span className={`text-[10px] font-bold tabular-nums ${color}`}>
+                                <span className={`text-[12px] font-bold tabular-nums ${color}`}>
                                   {sign}{delta}
                                 </span>
                               );
@@ -612,7 +612,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
 
                               {/* Col 1 — Profile */}
                               <div>
-                                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Prospect Profile</p>
+                                <p className="text-[12px] font-bold uppercase tracking-widest text-muted-foreground mb-3">Prospect Profile</p>
                                 <div className="space-y-2">
                                   {[
                                     { label: "Position",   value: p.pos },
@@ -621,33 +621,33 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                                     { label: "Proj. Team", value: p.team },
                                   ].map(({ label, value }) => (
                                     <div key={label} className="flex justify-between items-baseline gap-4">
-                                      <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">{label}</span>
-                                      <span className="text-[14px] text-foreground font-semibold text-right">{value}</span>
+                                      <span className="text-[12px] uppercase tracking-wider text-muted-foreground font-semibold whitespace-nowrap">{label}</span>
+                                      <span className="text-[15px] text-foreground font-semibold text-right">{value}</span>
                                     </div>
                                   ))}
                                 </div>
                                 {/* Team Fit Watch */}
                                 {p.teamFitWatch && (
                                   <div className="mt-3 pt-3 border-t border-border/40">
-                                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Team Fit Watch</p>
-                                    <p className="text-[13px] text-primary font-semibold leading-snug">{p.teamFitWatch}</p>
+                                    <p className="text-[12px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Team Fit Watch</p>
+                                    <p className="text-[15px] text-primary font-semibold leading-snug">{p.teamFitWatch}</p>
                                   </div>
                                 )}
                                 {/* Latest Update */}
                                 {p.latestUpdate && (
                                   <div className="mt-3 pt-3 border-t border-border/40">
-                                    <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Latest Intel</p>
-                                    <p className="text-[14px] text-foreground leading-relaxed">{p.latestUpdate}</p>
+                                    <p className="text-[12px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">Latest Intel</p>
+                                    <p className="text-[16px] text-foreground leading-relaxed">{p.latestUpdate}</p>
                                   </div>
                                 )}
                                 <div className="mt-3 pt-3 border-t border-border/40">
-                                  <p className="text-[13px] text-muted-foreground leading-relaxed italic">{p.note}</p>
+                                  <p className="text-[15px] text-muted-foreground leading-relaxed italic">{p.note}</p>
                                 </div>
                               </div>
 
                               {/* Col 2 — Edge Score Breakdown */}
                               <div>
-                                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Edge Score Breakdown</p>
+                                <p className="text-[12px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Edge Score Breakdown</p>
                                 <div className="flex items-center gap-3 mb-3 pb-2 border-b border-border/40">
                                   <Sparkline data={p.trend} width={100} height={30} />
                                   <div>
@@ -657,11 +657,11 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                                       const sign = delta > 0 ? "+" : "";
                                       return (
                                         <>
-                                          <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">7-Day Move</p>
+                                          <p className="text-[12px] uppercase tracking-wider text-muted-foreground font-semibold">7-Day Move</p>
                                           <p className="text-base font-bold tabular-nums leading-tight" style={{ color }}>
                                             {sign}{delta} pts
                                           </p>
-                                          <p className="text-[11px] text-muted-foreground">
+                                          <p className="text-[12px] text-muted-foreground">
                                             {p.trend[0]} → {p.trend[p.trend.length - 1]}
                                           </p>
                                         </>
@@ -673,8 +673,8 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                                   {p.breakdown.map(({ label, score }) => (
                                     <div key={label}>
                                       <div className="flex justify-between mb-0.5">
-                                        <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
-                                        <span className="text-[13px] font-bold tabular-nums" style={{ color: confBarColor(score) }}>{score}</span>
+                                        <span className="text-[12px] uppercase tracking-wider text-muted-foreground font-semibold">{label}</span>
+                                        <span className="text-[14px] font-bold tabular-nums" style={{ color: confBarColor(score) }}>{score}</span>
                                       </div>
                                       <div className="h-1 rounded-full bg-muted/40 overflow-hidden">
                                         <div
@@ -687,8 +687,8 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                                   {/* Overall */}
                                   <div className="pt-1.5 border-t border-border/40">
                                     <div className="flex justify-between mb-0.5">
-                                      <span className="text-[11px] uppercase tracking-wider font-bold text-foreground">Overall</span>
-                                      <span className={`text-[14px] font-bold tabular-nums ${confColor(p.conf)}`}>{p.conf}</span>
+                                      <span className="text-[12px] uppercase tracking-wider font-bold text-foreground">Overall</span>
+                                      <span className={`text-[15px] font-bold tabular-nums ${confColor(p.conf)}`}>{p.conf}</span>
                                     </div>
                                     <div className="h-1.5 rounded-full bg-muted/40 overflow-hidden">
                                       <div
@@ -702,21 +702,21 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
 
                               {/* Col 3 — Linked Signals */}
                               <div>
-                                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
+                                <p className="text-[12px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
                                   Linked Signals {signals.length > 0 && <span className="text-primary">· {signals.length}</span>}
                                 </p>
                                 {signals.length === 0 ? (
-                                  <p className="text-[13px] text-muted-foreground italic leading-relaxed">No signals found for this prospect in current cycle.</p>
+                                  <p className="text-[14px] text-muted-foreground italic leading-relaxed">No signals found for this prospect in current cycle.</p>
                                 ) : (
                                   <div className="space-y-2.5">
                                     {signals.map(s => (
                                       <div key={s.id} className="p-3 rounded border border-border/60 bg-card">
                                         <div className="flex items-center gap-1.5 mb-1.5">
                                           <VerdictBadge verdict={s.verdict} />
-                                          <span className="text-[11px] text-muted-foreground ml-auto">{s.source_name}</span>
+                                          <span className="text-[12px] text-muted-foreground ml-auto">{s.source_name}</span>
                                         </div>
-                                        <p className="text-[13px] text-foreground leading-relaxed">{s.normalized_claim}</p>
-                                        <p className="text-[12px] text-muted-foreground mt-1.5 font-semibold">{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
+                                        <p className="text-[15px] text-foreground leading-relaxed">{s.normalized_claim}</p>
+                                        <p className="text-[13px] text-muted-foreground mt-1.5 font-semibold">{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
                                       </div>
                                     ))}
                                   </div>
@@ -737,7 +737,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
 
         {/* Draft Intelligence Feed */}
         <div className="flex items-center gap-3 mb-4">
-          <h2 className="text-sm font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
+          <h2 className="text-lg font-bold" style={{ fontFamily: "'Playfair Display', Georgia, serif" }}>
             Draft Week Signals
           </h2>
           <hr className="flex-1 border-border" />
@@ -745,7 +745,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
             <span style={{
               display: "inline-flex", alignItems: "center", gap: 5,
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-              fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
               color: "#3DAE72", background: "rgba(61,174,114,0.10)",
               border: "1px solid rgba(61,174,114,0.25)", borderRadius: 2, padding: "3px 8px",
             }}>
@@ -769,10 +769,10 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
             <Zap size={12} style={{ color: "#CAA85A", flexShrink: 0 }} />
             <span style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
               color: "#CAA85A",
             }}>Draft Week Live · Apr 24–26</span>
-            <span style={{ fontSize: 12, color: "#B7AFA0", marginLeft: 4 }}>
+            <span style={{ fontSize: 15, color: "#B7AFA0", marginLeft: 4 }}>
               Prospect risers/fallers, medical flags, team-fit confirmations — updated in real time.
             </span>
           </div>
@@ -793,7 +793,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
             <div className="flex flex-wrap gap-1.5 mb-2.5">
               <VerdictBadge verdict={item.verdict} />
               {item.league && (
-                <span className="text-[11px] px-2 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground uppercase tracking-wider font-semibold">
+                <span className="text-[12px] px-2 py-0.5 rounded border border-border bg-muted/40 text-muted-foreground uppercase tracking-wider font-semibold">
                   {item.league}
                 </span>
               )}
@@ -802,17 +802,17 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
               )}
             </div>
             {item.player && (
-              <p className="text-[12px] font-bold text-primary mb-1.5 uppercase tracking-wider">{item.player}</p>
+              <p className="text-[13px] font-bold text-primary mb-1.5 uppercase tracking-wider">{item.player}</p>
             )}
-            <p className="text-[15px] text-foreground leading-relaxed">{item.normalized_claim}</p>
+            <p className="text-[16px] text-foreground leading-relaxed">{item.normalized_claim}</p>
             {(item as any).rationale && (
-              <p className="text-[13px] text-muted-foreground mt-2 leading-relaxed" style={{ fontStyle: "italic" }}>
+              <p className="text-[14px] text-muted-foreground mt-2 leading-relaxed" style={{ fontStyle: "italic" }}>
                 Action: {(item as any).rationale}
               </p>
             )}
             <div className="flex items-center gap-3 mt-2.5 pt-2.5 border-t border-border">
-              <span className="text-[12px] text-muted-foreground">{item.source_name}</span>
-              <span className="stat-num-display text-[12px] tabular-nums text-muted-foreground ml-auto font-semibold">{parseFloat(item.confidence_score ?? "0").toFixed(0)}% conf</span>
+              <span className="text-[13px] text-muted-foreground">{item.source_name}</span>
+              <span className="stat-num-display text-[13px] tabular-nums text-muted-foreground ml-auto font-semibold">{parseFloat(item.confidence_score ?? "0").toFixed(0)}% conf</span>
             </div>
           </div>
         ))}
