@@ -34,7 +34,7 @@ export default function AdminReview({ theme, toggleTheme }: Props) {
   });
 
   return (
-    <AppLayout theme={theme} toggleTheme={toggleTheme}>
+    <AppLayout theme={theme} toggleTheme={toggleTheme} opsMode={true}>
       <div className="p-4 sm:p-6 max-w-5xl mx-auto" data-testid="admin-review-page">
 
         {/* Header */}

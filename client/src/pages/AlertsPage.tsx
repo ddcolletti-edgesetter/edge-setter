@@ -30,7 +30,7 @@ export default function AlertsPage({ theme, toggleTheme }: Props) {
   const sentAlerts = alerts?.filter((a: any) => a.sent_at) ?? [];
 
   return (
-    <AppLayout theme={theme} toggleTheme={toggleTheme}>
+    <AppLayout theme={theme} toggleTheme={toggleTheme} opsMode={true}>
       <div className="p-4 sm:p-6 max-w-5xl mx-auto" data-testid="alerts-page">
 
         {/* Header */}

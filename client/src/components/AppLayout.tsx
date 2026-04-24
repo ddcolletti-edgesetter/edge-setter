@@ -8,21 +8,29 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 
-const navItems = [
-  { href: "/dashboard",   label: "Signal Board",  icon: LayoutDashboard },
-  { href: "/draft",       label: "Draft Board",   icon: Star            },
-  { href: "/leaderboard", label: "Sources",       icon: ListChecks      },
-  { href: "/alerts",      label: "Alerts",        icon: Zap             },
+/* ── Public nav (shown to all users) ── */
+const publicNavItems = [
+  { href: "/dashboard",   label: "Signal Board", icon: LayoutDashboard },
+  { href: "/draft",       label: "Draft Board",  icon: Star            },
+  { href: "/leaderboard", label: "Sources",      icon: ListChecks      },
+];
+
+const publicNavGroups = [
+  { label: "Intelligence", items: ["/dashboard", "/draft"] },
+  { label: "Analytics",    items: ["/leaderboard"] },
+];
+
+/* ── Ops nav (shown only inside authenticated admin experience) ── */
+const opsNavItems = [
   { href: "/admin",            label: "Review Queue",    icon: Shield   },
   { href: "/logs",             label: "Agent Logs",      icon: FileText },
+  { href: "/alerts",           label: "Alerts",          icon: Zap      },
   { href: "/signal-ops-queue", label: "Signal Ops Queue", icon: Activity },
   { href: "/site-watch-logs",  label: "Site Watch",      icon: Radio    },
 ];
 
-const navGroups = [
-  { label: "Intelligence", items: ["/dashboard", "/draft"] },
-  { label: "Analytics",    items: ["/leaderboard", "/alerts"] },
-  { label: "Operations",   items: ["/admin", "/logs", "/signal-ops-queue", "/site-watch-logs"] },
+const opsNavGroups = [
+  { label: "Operations", items: ["/admin", "/logs", "/alerts", "/signal-ops-queue", "/site-watch-logs"] },
 ];
 
 /* ── Design tokens ── */
@@ -44,9 +52,11 @@ interface Props {
   children: React.ReactNode;
   theme: Theme;
   toggleTheme: () => void;
+  /** When true, renders the Operations nav instead of the public nav */
+  opsMode?: boolean;
 }
 
-export default function AppLayout({ children, theme, toggleTheme }: Props) {
+export default function AppLayout({ children, theme, toggleTheme, opsMode = false }: Props) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -131,8 +141,9 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
           role="navigation"
           aria-label="Main navigation"
         >
-          {navGroups.map(group => {
-            const groupItems = navItems.filter(i => group.items.includes(i.href));
+          {(opsMode ? opsNavGroups : publicNavGroups).map(group => {
+            const allItems = opsMode ? opsNavItems : publicNavItems;
+            const groupItems = allItems.filter(i => group.items.includes(i.href));
             return (
               <div key={group.label} style={{ marginBottom: 6 }}>
                 <div
@@ -198,7 +209,7 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
                         >
                           {label}
                         </span>
-                        {href === "/admin" && stats?.review_queue > 0 && (
+                        {opsMode && href === "/admin" && stats?.review_queue > 0 && (
                           <span
                             style={{
                               marginLeft: "auto",
@@ -384,7 +395,7 @@ export default function AppLayout({ children, theme, toggleTheme }: Props) {
             >
               NFL Intelligence
             </span>
-            {stats?.review_queue > 0 && (
+            {opsMode && stats?.review_queue > 0 && (
               <>
                 <span style={{ color: T.textFaint, fontSize: 13 }}>·</span>
                 <span

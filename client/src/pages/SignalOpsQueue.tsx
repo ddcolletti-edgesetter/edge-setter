@@ -142,7 +142,7 @@ export default function SignalOpsQueue({ theme, toggleTheme }: Props) {
   ];
 
   return (
-    <AppLayout theme={theme} toggleTheme={toggleTheme}>
+    <AppLayout theme={theme} toggleTheme={toggleTheme} opsMode={true}>
       <div style={{ padding: "24px 24px 48px", maxWidth: 960, margin: "0 auto" }}>
 
         {/* Header */}

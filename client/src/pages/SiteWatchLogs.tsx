@@ -47,7 +47,7 @@ export default function SiteWatchLogs({ theme, toggleTheme }: Props) {
   const runs = data ?? [];
 
   return (
-    <AppLayout theme={theme} toggleTheme={toggleTheme}>
+    <AppLayout theme={theme} toggleTheme={toggleTheme} opsMode={true}>
       <div style={{ padding: "24px 24px 56px", maxWidth: 960, margin: "0 auto" }}>
 
         {/* Header */}
