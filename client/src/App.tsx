@@ -17,6 +17,7 @@ import ProPage from "./pages/ProPage";
 import SuccessPage from "./pages/SuccessPage";
 import SignalAdmin from "./pages/SignalAdmin";
 import SignalOpsQueue from "./pages/SignalOpsQueue";
+import SiteWatchLogs from "./pages/SiteWatchLogs";
 import NotFound from "./pages/not-found";
 import { SignalGateProvider } from "./context/SignalGate";
 import { AdminGate } from "./components/AdminGate";
@@ -49,6 +50,7 @@ function App() {
           <Route path="/success" component={SuccessPage} />
           <Route path="/signal-admin" component={SignalAdmin} />
           <Route path="/signal-ops-queue" component={() => <AdminGate><SignalOpsQueue theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          <Route path="/site-watch-logs" component={() => <AdminGate><SiteWatchLogs theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route component={NotFound} />
         </Switch>
       </Router>

@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { type Theme } from "../App";
 import {
   LayoutDashboard, Star, Shield, Zap, ListChecks, FileText,
-  Sun, Moon, Menu, X, Activity
+  Sun, Moon, Menu, X, Activity, Radio
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -13,14 +13,16 @@ const navItems = [
   { href: "/draft",       label: "Draft Board",   icon: Star            },
   { href: "/leaderboard", label: "Sources",       icon: ListChecks      },
   { href: "/alerts",      label: "Alerts",        icon: Zap             },
-  { href: "/admin",       label: "Review Queue",  icon: Shield          },
-  { href: "/logs",        label: "Agent Logs",    icon: FileText        },
+  { href: "/admin",            label: "Review Queue",    icon: Shield   },
+  { href: "/logs",             label: "Agent Logs",      icon: FileText },
+  { href: "/signal-ops-queue", label: "Signal Ops Queue", icon: Activity },
+  { href: "/site-watch-logs",  label: "Site Watch",      icon: Radio    },
 ];
 
 const navGroups = [
   { label: "Intelligence", items: ["/dashboard", "/draft"] },
   { label: "Analytics",    items: ["/leaderboard", "/alerts"] },
-  { label: "Operations",   items: ["/admin", "/logs"] },
+  { label: "Operations",   items: ["/admin", "/logs", "/signal-ops-queue", "/site-watch-logs"] },
 ];
 
 /* ── Design tokens ── */
