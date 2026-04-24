@@ -242,6 +242,29 @@ sqlite.exec(`
     source TEXT NOT NULL DEFAULT 'landing',
     created_at TEXT DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS distribution_drafts (
+    id TEXT PRIMARY KEY,
+    signal_id TEXT NOT NULL REFERENCES signals(id),
+    channel TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'draft',
+    copy TEXT NOT NULL,
+    headline TEXT NOT NULL,
+    notes TEXT DEFAULT '',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS daily_ops_summary (
+    id TEXT PRIMARY KEY,
+    date TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    site_health TEXT NOT NULL DEFAULT '{}',
+    signal_pipeline TEXT NOT NULL DEFAULT '{}',
+    content_queue TEXT NOT NULL DEFAULT '{}',
+    funnel TEXT NOT NULL DEFAULT '{}',
+    top_actions TEXT NOT NULL DEFAULT '[]',
+    email_sent INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 function uuid() {
@@ -600,6 +623,124 @@ export class SqliteStorage implements IStorage {
   }
   getEventLog(limit = 200): EventLog[] {
     return db.select().from(event_log).orderBy(desc(event_log.created_at)).limit(limit).all();
+  }
+
+  // ─── Distribution Drafts ──────────────────────────────────────────────────
+  createDistributionDraft(data: {
+    signal_id: string; channel: string; status: string;
+    copy: string; headline: string; notes: string;
+  }): Record<string, any> {
+    const id = uuid();
+    const ts = now();
+    sqlite.prepare(
+      `INSERT INTO distribution_drafts (id,signal_id,channel,status,copy,headline,notes,created_at,updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?)`
+    ).run(id, data.signal_id, data.channel, data.status, data.copy, data.headline, data.notes ?? '', ts, ts);
+    return sqlite.prepare(`SELECT * FROM distribution_drafts WHERE id=?`).get(id) as Record<string,any>;
+  }
+
+  getDistributionDrafts(filters?: { status?: string; channel?: string; signal_id?: string }): Record<string, any>[] {
+    let q = `SELECT d.*, s.title as signal_title, s.player_name, s.team, s.confidence_score, s.verdict
+             FROM distribution_drafts d
+             LEFT JOIN signals s ON s.id = d.signal_id`;
+    const params: any[] = [];
+    const clauses: string[] = [];
+    if (filters?.status)    { clauses.push(`d.status=?`);    params.push(filters.status); }
+    if (filters?.channel)   { clauses.push(`d.channel=?`);   params.push(filters.channel); }
+    if (filters?.signal_id) { clauses.push(`d.signal_id=?`); params.push(filters.signal_id); }
+    if (clauses.length > 0) q += ` WHERE ` + clauses.join(` AND `);
+    q += ` ORDER BY d.created_at DESC LIMIT 200`;
+    return sqlite.prepare(q).all(...params) as Record<string,any>[];
+  }
+
+  getDistributionDraft(id: string): Record<string, any> | undefined {
+    return sqlite.prepare(
+      `SELECT d.*, s.title as signal_title, s.player_name, s.team, s.confidence_score, s.verdict
+       FROM distribution_drafts d
+       LEFT JOIN signals s ON s.id = d.signal_id
+       WHERE d.id=?`
+    ).get(id) as Record<string,any>|undefined;
+  }
+
+  distributionDraftExists(signal_id: string, channel: string): boolean {
+    const row = sqlite.prepare(
+      `SELECT id FROM distribution_drafts WHERE signal_id=? AND channel=? AND status NOT IN ('rejected') LIMIT 1`
+    ).get(signal_id, channel);
+    return !!row;
+  }
+
+  updateDistributionDraft(id: string, data: { status?: string; copy?: string; notes?: string }): Record<string, any> | undefined {
+    const ts = now();
+    const sets: string[] = [];
+    const vals: any[] = [];
+    if (data.status !== undefined) { sets.push(`status=?`); vals.push(data.status); }
+    if (data.copy   !== undefined) { sets.push(`copy=?`);   vals.push(data.copy); }
+    if (data.notes  !== undefined) { sets.push(`notes=?`);  vals.push(data.notes); }
+    if (sets.length === 0) return this.getDistributionDraft(id);
+    sets.push(`updated_at=?`); vals.push(ts);
+    sqlite.prepare(`UPDATE distribution_drafts SET ${sets.join(',')} WHERE id=?`).run(...vals, id);
+    return this.getDistributionDraft(id);
+  }
+
+  // ─── Daily Ops Summary ────────────────────────────────────────────────────
+  createDailyOpsSummary(data: Record<string, any>): Record<string, any> {
+    const ts = now();
+    sqlite.prepare(
+      `INSERT OR REPLACE INTO daily_ops_summary
+       (id,date,generated_at,site_health,signal_pipeline,content_queue,funnel,top_actions,email_sent,created_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?)`
+    ).run(
+      data.id, data.date, data.generated_at,
+      JSON.stringify(data.site_health),
+      JSON.stringify(data.signal_pipeline),
+      JSON.stringify(data.content_queue),
+      JSON.stringify(data.funnel),
+      JSON.stringify(data.top_actions),
+      data.email_sent ? 1 : 0,
+      ts,
+    );
+    return this.getDailyOpsSummary(data.id) as Record<string,any>;
+  }
+
+  getDailyOpsSummaries(limit = 30): Record<string, any>[] {
+    return (sqlite.prepare(`SELECT * FROM daily_ops_summary ORDER BY date DESC LIMIT ?`).all(limit) as Record<string,any>[]).map(r => ({
+      ...r,
+      site_health:     JSON.parse(r.site_health     ?? '{}'),
+      signal_pipeline: JSON.parse(r.signal_pipeline ?? '{}'),
+      content_queue:   JSON.parse(r.content_queue   ?? '{}'),
+      funnel:          JSON.parse(r.funnel           ?? '{}'),
+      top_actions:     JSON.parse(r.top_actions      ?? '[]'),
+    }));
+  }
+
+  getDailyOpsSummary(id: string): Record<string, any> | undefined {
+    const r = sqlite.prepare(`SELECT * FROM daily_ops_summary WHERE id=?`).get(id) as Record<string,any>|undefined;
+    if (!r) return undefined;
+    return {
+      ...r,
+      site_health:     JSON.parse(r.site_health     ?? '{}'),
+      signal_pipeline: JSON.parse(r.signal_pipeline ?? '{}'),
+      content_queue:   JSON.parse(r.content_queue   ?? '{}'),
+      funnel:          JSON.parse(r.funnel           ?? '{}'),
+      top_actions:     JSON.parse(r.top_actions      ?? '[]'),
+    };
+  }
+
+  getLatestDailyOpsSummary(): Record<string, any> | undefined {
+    const r = sqlite.prepare(`SELECT * FROM daily_ops_summary ORDER BY date DESC LIMIT 1`).get() as Record<string,any>|undefined;
+    if (!r) return undefined;
+    return {
+      ...r,
+      site_health:     JSON.parse(r.site_health     ?? '{}'),
+      signal_pipeline: JSON.parse(r.signal_pipeline ?? '{}'),
+      content_queue:   JSON.parse(r.content_queue   ?? '{}'),
+      funnel:          JSON.parse(r.funnel           ?? '{}'),
+      top_actions:     JSON.parse(r.top_actions      ?? '[]'),
+    };
+  }
+
+  markDailyOpsSummaryEmailSent(id: string): void {
+    sqlite.prepare(`UPDATE daily_ops_summary SET email_sent=1 WHERE id=?`).run(id);
   }
 }
 

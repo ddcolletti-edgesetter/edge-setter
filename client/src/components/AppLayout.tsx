@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { type Theme } from "../App";
 import {
   LayoutDashboard, Star, Shield, Zap, ListChecks, FileText,
-  Sun, Moon, Menu, X, Activity, Radio
+  Sun, Moon, Menu, X, Activity, Radio, Send, BarChart2
 } from "lucide-react";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -22,15 +22,18 @@ const publicNavGroups = [
 
 /* ── Ops nav (shown only inside authenticated admin experience) ── */
 const opsNavItems = [
-  { href: "/admin",            label: "Review Queue",    icon: Shield   },
-  { href: "/logs",             label: "Agent Logs",      icon: FileText },
-  { href: "/alerts",           label: "Alerts",          icon: Zap      },
-  { href: "/signal-ops-queue", label: "Signal Ops Queue", icon: Activity },
-  { href: "/site-watch-logs",  label: "Site Watch",      icon: Radio    },
+  { href: "/admin",                label: "Review Queue",      icon: Shield   },
+  { href: "/logs",                 label: "Agent Logs",        icon: FileText },
+  { href: "/alerts",               label: "Alerts",            icon: Zap      },
+  { href: "/signal-ops-queue",     label: "Signal Ops Queue",  icon: Activity },
+  { href: "/site-watch-logs",      label: "Site Watch",        icon: Radio    },
+  { href: "/distribution-drafts",  label: "Distribution",      icon: Send     },
+  { href: "/daily-ops",            label: "Daily Ops",         icon: BarChart2 },
 ];
 
 const opsNavGroups = [
   { label: "Operations", items: ["/admin", "/logs", "/alerts", "/signal-ops-queue", "/site-watch-logs"] },
+  { label: "Phase 2",    items: ["/distribution-drafts", "/daily-ops"] },
 ];
 
 /* ── Design tokens ── */

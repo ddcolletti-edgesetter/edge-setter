@@ -6,6 +6,8 @@ import { sendDailyDigest } from "./email";
 import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
 import { runSignalOps, batchSignalOps } from "./signal-ops";
 import { runSiteWatch } from "./site-watch";
+import { runDistributionDraft } from "./distribution-draft";
+import { runDailyOps } from "./daily-ops";
 import { seedDemoData } from "./seed";
 import { seedSignals } from "./seed-signals";
 import { getStripe, STRIPE_PRO_PRICE_ID, STRIPE_WEBHOOK_SECRET } from "./stripe";
@@ -676,6 +678,130 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
   app.get("/api/admin/users", (_req, res) => { res.json(storage.getAllUsers()); });
   app.get("/api/admin/event-log", (_req, res) => { res.json(storage.getEventLog()); });
+
+  // ─── Distribution Draft Agent routes ──────────────────────────────────────
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+
+  function requireAdmin(req: any, res: any): boolean {
+    const authHeader = req.headers.authorization ?? "";
+    const pw = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : (req.body?.password ?? req.query?.password);
+    if (pw !== ADMIN_PASSWORD) { res.status(401).json({ error: "Unauthorized" }); return false; }
+    return true;
+  }
+
+  // GET /api/agent/distribution-drafts — list drafts (filterable by status/channel)
+  app.get("/api/agent/distribution-drafts", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const { status, channel, signal_id } = req.query as Record<string, string>;
+    const drafts = (storage as any).getDistributionDrafts({ status, channel, signal_id });
+    return res.json(drafts);
+  });
+
+  // POST /api/agent/distribution-drafts/run — trigger draft generation
+  app.post("/api/agent/distribution-drafts/run", async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const result = await runDistributionDraft({
+        signalId: req.body?.signal_id,
+        force:    req.body?.force === true,
+      });
+      return res.json(result);
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // PATCH /api/agent/distribution-drafts/:id — update status / copy / notes
+  app.patch("/api/agent/distribution-drafts/:id", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const { status, copy, notes } = req.body ?? {};
+    const updated = (storage as any).updateDistributionDraft(req.params.id, { status, copy, notes });
+    if (!updated) return res.status(404).json({ error: "Draft not found" });
+    storage.logAgentAction({
+      id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+      agent_name: "DistributionDraft/HumanAction",
+      input_ref: req.params.id, output_ref: req.params.id,
+      decision_summary: `Human updated draft ${req.params.id}: status=${status ?? "unchanged"}`,
+      error_state: null, warning_state: null,
+    });
+    return res.json(updated);
+  });
+
+  // POST /api/agent/distribution-drafts/:id/approve
+  app.post("/api/agent/distribution-drafts/:id/approve", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const updated = (storage as any).updateDistributionDraft(req.params.id, { status: "approved" });
+    if (!updated) return res.status(404).json({ error: "Draft not found" });
+    storage.logAgentAction({
+      id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+      agent_name: "DistributionDraft/Approve",
+      input_ref: req.params.id, output_ref: req.params.id,
+      decision_summary: `Draft ${req.params.id} approved`,
+      error_state: null, warning_state: null,
+    });
+    return res.json({ success: true, draft: updated });
+  });
+
+  // POST /api/agent/distribution-drafts/:id/reject
+  app.post("/api/agent/distribution-drafts/:id/reject", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const updated = (storage as any).updateDistributionDraft(req.params.id, {
+      status: "rejected",
+      notes: req.body?.notes ?? "Rejected by operator",
+    });
+    if (!updated) return res.status(404).json({ error: "Draft not found" });
+    storage.logAgentAction({
+      id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+      agent_name: "DistributionDraft/Reject",
+      input_ref: req.params.id, output_ref: req.params.id,
+      decision_summary: `Draft ${req.params.id} rejected`,
+      error_state: null, warning_state: null,
+    });
+    return res.json({ success: true, draft: updated });
+  });
+
+  // POST /api/agent/distribution-drafts/:id/regenerate — force regen for this signal+channel
+  app.post("/api/agent/distribution-drafts/:id/regenerate", async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const draft = (storage as any).getDistributionDraft(req.params.id);
+    if (!draft) return res.status(404).json({ error: "Draft not found" });
+    // Mark old draft rejected, then regenerate with force=true
+    (storage as any).updateDistributionDraft(req.params.id, { status: "rejected", notes: "Superseded by regeneration" });
+    try {
+      const result = await runDistributionDraft({ signalId: draft.signal_id, force: true });
+      return res.json(result);
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // ─── Daily Product Ops Agent routes ────────────────────────────────────────
+
+  // GET /api/agent/daily-ops — list past summaries
+  app.get("/api/agent/daily-ops", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const limit = Math.min(Number(req.query.limit ?? 30), 90);
+    return res.json((storage as any).getDailyOpsSummaries(limit));
+  });
+
+  // GET /api/agent/daily-ops/latest — most recent summary
+  app.get("/api/agent/daily-ops/latest", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const latest = (storage as any).getLatestDailyOpsSummary();
+    if (!latest) return res.status(404).json({ error: "No summaries yet" });
+    return res.json(latest);
+  });
+
+  // POST /api/agent/daily-ops/run — trigger manual run
+  app.post("/api/agent/daily-ops/run", async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const result = await runDailyOps({ sendEmailReport: req.body?.send_email !== false });
+      return res.json(result);
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
 
   return httpServer;
 }

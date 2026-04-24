@@ -4,6 +4,8 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { runSiteWatch } from "./site-watch";
+import { runDailyOps } from "./daily-ops";
+import { runDistributionDraft } from "./distribution-draft";
 
 const app = express();
 const httpServer = createServer(app);
@@ -111,6 +113,47 @@ app.use((req, res, next) => {
       }
     }, SITE_WATCH_INTERVAL_MS);
   }, 30_000);
+
+  // ─── Distribution Draft scheduler — runs every 30 minutes ────────────────
+  const DIST_DRAFT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+  setTimeout(async () => {
+    try {
+      const result = await runDistributionDraft();
+      console.log(`[distribution-draft] Initial run: checked=${result.signals_checked} created=${result.drafts_created} skipped=${result.drafts_skipped}`);
+    } catch (e: any) {
+      console.error("[distribution-draft] Initial run failed:", e.message);
+    }
+    setInterval(async () => {
+      try {
+        const result = await runDistributionDraft();
+        if (result.drafts_created > 0) {
+          console.log(`[distribution-draft] ${result.drafts_created} new draft(s) created`);
+        }
+      } catch (e: any) {
+        console.error("[distribution-draft] Scheduled run failed:", e.message);
+      }
+    }, DIST_DRAFT_INTERVAL_MS);
+  }, 60_000); // 60s after startup
+
+  // ─── Daily Ops scheduler — runs once per day at 06:00 UTC ───────────────
+  function scheduleDailyOps() {
+    const now   = new Date();
+    const next  = new Date();
+    next.setUTCHours(6, 0, 0, 0); // 06:00 UTC daily
+    if (next <= now) next.setUTCDate(next.getUTCDate() + 1);
+    const msUntilNext = next.getTime() - now.getTime();
+    console.log(`[daily-ops] Next scheduled run: ${next.toISOString()} (in ${Math.round(msUntilNext / 60000)}m)`);
+    setTimeout(async () => {
+      try {
+        const result = await runDailyOps({ sendEmailReport: true });
+        console.log(`[daily-ops] Completed for ${result.date}: site=${result.site_health.last_status} email=${result.email_sent}`);
+      } catch (e: any) {
+        console.error("[daily-ops] Scheduled run failed:", e.message);
+      }
+      scheduleDailyOps(); // reschedule for next day
+    }, msUntilNext);
+  }
+  scheduleDailyOps();
 
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
