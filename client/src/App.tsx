@@ -39,7 +39,7 @@ function App() {
       <Router hook={useHashLocation}>
         <Switch>
           <Route path="/" component={() => <LandingPage theme={theme} toggleTheme={toggleTheme} />} />
-          <Route path="/dashboard" component={() => <AdminGate><Dashboard theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          <Route path="/dashboard" component={() => <Dashboard theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/admin" component={() => <AdminGate><AdminReview theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/leaderboard" component={() => <SourceLeaderboard theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/draft" component={() => <DraftBoard theme={theme} toggleTheme={toggleTheme} />} />
