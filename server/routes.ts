@@ -4,6 +4,8 @@ import { storage } from "./storage";
 import { insertWaitlistSchema } from "@shared/schema";
 import { sendDailyDigest } from "./email";
 import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
+import { runSignalOps, batchSignalOps } from "./signal-ops";
+import { runSiteWatch } from "./site-watch";
 import { seedDemoData } from "./seed";
 import { seedSignals } from "./seed-signals";
 import { getStripe, STRIPE_PRO_PRICE_ID, STRIPE_WEBHOOK_SECRET } from "./stripe";
