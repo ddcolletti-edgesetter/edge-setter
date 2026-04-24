@@ -20,6 +20,12 @@ import SignalOpsQueue from "./pages/SignalOpsQueue";
 import SiteWatchLogs from "./pages/SiteWatchLogs";
 import DistributionDrafts from "./pages/DistributionDrafts";
 import DailyOps from "./pages/DailyOps";
+import V2Home from "./pages/V2Home";
+import NBABoard from "./pages/NBABoard";
+import MLBBoard from "./pages/MLBBoard";
+import ToolsHub from "./pages/ToolsHub";
+import MyEdge from "./pages/MyEdge";
+import V2Sources from "./pages/V2Sources";
 import NotFound from "./pages/not-found";
 import { SignalGateProvider } from "./context/SignalGate";
 import { AdminGate } from "./components/AdminGate";
@@ -55,6 +61,31 @@ function App() {
           <Route path="/site-watch-logs" component={() => <AdminGate><SiteWatchLogs theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/distribution-drafts" component={() => <AdminGate><DistributionDrafts theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/daily-ops" component={() => <AdminGate><DailyOps theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          {/* ── v2 multi-sport shell ── */}
+          <Route path="/v2" component={V2Home} />
+          <Route path="/v2/nba" component={NBABoard} />
+          <Route path="/v2/mlb" component={MLBBoard} />
+          <Route path="/v2/nfl" component={() => (
+            <div style={{ background: "#0A0B0D", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ textAlign: "center", fontFamily: "'Barlow Condensed', Arial, sans-serif", color: "#7E776A" }}>
+                <div style={{ fontSize: 48, fontWeight: 800, color: "#CAA85A", marginBottom: 8 }}>NFL</div>
+                <div style={{ fontSize: 14, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>Offseason Mode</div>
+                <div style={{ fontSize: 12, color: "#7E776A" }}>Full board launches August 2026</div>
+              </div>
+            </div>
+          )} />
+          <Route path="/v2/cfb" component={() => (
+            <div style={{ background: "#0A0B0D", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ textAlign: "center", fontFamily: "'Barlow Condensed', Arial, sans-serif", color: "#7E776A" }}>
+                <div style={{ fontSize: 48, fontWeight: 800, color: "#CAA85A", marginBottom: 8 }}>CFB</div>
+                <div style={{ fontSize: 14, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>Coming Soon</div>
+                <div style={{ fontSize: 12, color: "#7E776A" }}>Board launches before fall camp 2026</div>
+              </div>
+            </div>
+          )} />
+          <Route path="/v2/tools" component={ToolsHub} />
+          <Route path="/v2/my-edge" component={MyEdge} />
+          <Route path="/v2/sources" component={V2Sources} />
           <Route component={NotFound} />
         </Switch>
       </Router>
