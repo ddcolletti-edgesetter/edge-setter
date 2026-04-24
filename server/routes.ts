@@ -535,6 +535,135 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── MVP: Admin ────────────────────────────────────────────────────────────────
+  // ─── Signal Ops Agent routes ───────────────────────────────────────────────
+
+  // POST /api/agent/signal-ops — ingest a single signal
+  app.post("/api/agent/signal-ops", async (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const authHeader = req.headers.authorization ?? "";
+    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : req.body?.password;
+    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    try {
+      const result = await runSignalOps(req.body);
+      return res.json(result);
+    } catch (e: any) {
+      return res.status(400).json({ error: e.message });
+    }
+  });
+
+  // POST /api/agent/signal-ops/batch — ingest multiple signals
+  app.post("/api/agent/signal-ops/batch", async (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const authHeader = req.headers.authorization ?? "";
+    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : req.body?.password;
+    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!Array.isArray(req.body?.inputs)) return res.status(400).json({ error: "inputs[] required" });
+    try {
+      const results = await batchSignalOps(req.body.inputs);
+      return res.json({ count: results.length, results });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // GET /api/agent/signal-ops/queue — view queue (admin only)
+  app.get("/api/agent/signal-ops/queue", (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const authHeader = req.headers.authorization ?? "";
+    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : (req.query.password as string);
+    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    const decision = req.query.decision as string | undefined;
+    const items = (storage as any).getSignalOpsQueue(decision);
+    return res.json({ count: items.length, items });
+  });
+
+  // POST /api/agent/signal-ops/queue/:id/approve — human approves review_required item
+  app.post("/api/agent/signal-ops/queue/:id/approve", async (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const password = req.body?.password;
+    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    const item = (storage as any).getSignalOpsItem(req.params.id);
+    if (!item) return res.status(404).json({ error: "Item not found" });
+    try {
+      const verdictMap: Record<string,string> = {
+        draft_intelligence:"likely",injury:"likely",trade:"rumor",
+        free_agency:"likely",team_visit:"rumor",contract:"likely",
+        coaching:"rumor",depth_chart:"likely",general:"rumor",
+      };
+      const signal = storage.createSignal({
+        title: item.normalized_headline ?? item.raw_headline,
+        slug: (item.normalized_headline ?? item.raw_headline).toLowerCase().replace(/[^a-z0-9]+/g,"-").slice(0,80),
+        player_name: item.player ?? "Unknown",
+        team: item.team ?? "Unknown",
+        signal_type: item.signal_type ?? "general",
+        status_tag: "verified",
+        confidence_score: item.confidence_score ?? 70,
+        source_count: item.source_count ?? 1,
+        topic: item.signal_type ?? "general",
+        verdict: verdictMap[item.signal_type ?? "general"] ?? "rumor",
+        summary: item.normalized_summary ?? item.raw_headline,
+        action_takeaway: `Human-approved signal — monitor ${item.player ?? "this player"} situation.`,
+        is_featured: 0,
+        is_public: 1,
+      });
+      (storage as any).resolveSignalOpsItem(item.id, signal.id);
+      storage.logAgentAction({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        agent_name: "SignalOps/HumanApprove",
+        input_ref: item.id, output_ref: signal.id,
+        decision_summary: `Human approved queue item ${item.id} → published signal ${signal.id}`,
+        error_state: null, warning_state: null,
+      });
+      return res.json({ success: true, signal_id: signal.id });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/agent/signal-ops/queue/:id/reject — human rejects review_required item
+  app.post("/api/agent/signal-ops/queue/:id/reject", (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const password = req.body?.password;
+    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    const item = (storage as any).getSignalOpsItem(req.params.id);
+    if (!item) return res.status(404).json({ error: "Item not found" });
+    (storage as any).rejectSignalOpsItem(item.id, req.body?.reason ?? "Human rejected");
+    storage.logAgentAction({
+      id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+      agent_name: "SignalOps/HumanReject",
+      input_ref: item.id, output_ref: item.id,
+      decision_summary: `Human rejected queue item ${item.id}: ${req.body?.reason ?? "no reason given"}`,
+      error_state: null, warning_state: null,
+    });
+    return res.json({ success: true });
+  });
+
+  // ─── Site Watch Agent routes ────────────────────────────────────────────────
+
+  // GET /api/agent/site-watch — latest Site Watch log entries
+  app.get("/api/agent/site-watch", (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const authHeader = req.headers.authorization ?? "";
+    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : (req.query.password as string);
+    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    const limit = Math.min(Number(req.query.limit ?? 20), 100);
+    return res.json((storage as any).getSiteWatchLog(limit));
+  });
+
+  // POST /api/agent/site-watch/run — trigger a manual run
+  app.post("/api/agent/site-watch/run", async (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const authHeader = req.headers.authorization ?? "";
+    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : req.body?.password;
+    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    try {
+      const result = await runSiteWatch();
+      return res.json(result);
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   app.get("/api/admin/waitlist", (_req, res) => { res.json(storage.getWaitlist()); });
   app.get("/api/admin/waitlist/csv", (_req, res) => {
     const list = storage.getWaitlist();

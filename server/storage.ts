@@ -200,6 +200,40 @@ sqlite.exec(`
     error_state TEXT,
     warning_state TEXT
   );
+  CREATE TABLE IF NOT EXISTS signal_ops_queue (
+    id TEXT PRIMARY KEY,
+    source_name TEXT NOT NULL,
+    source_url TEXT,
+    raw_headline TEXT NOT NULL,
+    raw_body TEXT,
+    player_tags TEXT DEFAULT '[]',
+    team_tags TEXT DEFAULT '[]',
+    ingest_timestamp TEXT NOT NULL,
+    cluster_id TEXT,
+    normalized_headline TEXT,
+    normalized_summary TEXT,
+    player TEXT,
+    team TEXT,
+    signal_type TEXT,
+    confidence_score INTEGER DEFAULT 0,
+    decision TEXT NOT NULL DEFAULT 'pending',
+    reason TEXT,
+    source_count INTEGER DEFAULT 1,
+    conflict_flags TEXT DEFAULT '[]',
+    signal_id TEXT REFERENCES signals(id),
+    processed_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS site_watch_log (
+    id TEXT PRIMARY KEY,
+    run_timestamp TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'ok',
+    checks TEXT NOT NULL DEFAULT '[]',
+    anomalies TEXT NOT NULL DEFAULT '[]',
+    recommended_action TEXT,
+    alert_sent INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
   CREATE TABLE IF NOT EXISTS digest_subscribers (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
@@ -512,6 +546,51 @@ export class SqliteStorage implements IStorage {
   digestEmailExists(email: string): boolean {
     const row = db.select().from(digest_subscribers).where(eq(digest_subscribers.email, email)).get();
     return !!row && row.is_active;
+  }
+
+  // ─── Signal Ops Queue ──────────────────────────────────────────────────────
+  createSignalOpsItem(data: Record<string, any>): Record<string, any> {
+    const row = { ...data, id: uuid(), created_at: now() };
+    return sqlite.prepare(`INSERT INTO signal_ops_queue (id,source_name,source_url,raw_headline,raw_body,player_tags,team_tags,ingest_timestamp,cluster_id,normalized_headline,normalized_summary,player,team,signal_type,confidence_score,decision,reason,source_count,conflict_flags,signal_id,processed_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *`).get(row.id,row.source_name,row.source_url??null,row.raw_headline,row.raw_body??null,row.player_tags??'[]',row.team_tags??'[]',row.ingest_timestamp,row.cluster_id??null,row.normalized_headline??null,row.normalized_summary??null,row.player??null,row.team??null,row.signal_type??null,row.confidence_score??0,row.decision,row.reason??null,row.source_count??1,row.conflict_flags??'[]',row.signal_id??null,row.processed_at??null,row.created_at) as Record<string,any>;
+  }
+  updateSignalOpsItem(id: string, data: Record<string, any>): void {
+    const sets = Object.entries(data).map(([k]) => `${k}=?`).join(',');
+    const vals = Object.values(data);
+    sqlite.prepare(`UPDATE signal_ops_queue SET ${sets} WHERE id=?`).run(...vals, id);
+  }
+  getSignalOpsQueue(decision?: string): Record<string, any>[] {
+    if (decision) return sqlite.prepare(`SELECT * FROM signal_ops_queue WHERE decision=? ORDER BY created_at DESC LIMIT 200`).all(decision) as Record<string,any>[];
+    return sqlite.prepare(`SELECT * FROM signal_ops_queue ORDER BY created_at DESC LIMIT 200`).all() as Record<string,any>[];
+  }
+  getSignalOpsItem(id: string): Record<string, any> | undefined {
+    return sqlite.prepare(`SELECT * FROM signal_ops_queue WHERE id=?`).get(id) as Record<string,any>|undefined;
+  }
+  signalOpsHeadlineExists(headline: string, withinHours = 24): boolean {
+    const cutoff = new Date(Date.now() - withinHours * 3600 * 1000).toISOString();
+    const row = sqlite.prepare(`SELECT id FROM signal_ops_queue WHERE raw_headline=? AND created_at > ? AND decision != 'reject' LIMIT 1`).get(headline, cutoff);
+    return !!row;
+  }
+  resolveSignalOpsItem(id: string, signalId?: string): void {
+    sqlite.prepare(`UPDATE signal_ops_queue SET decision='published', signal_id=?, processed_at=? WHERE id=?`).run(signalId??null, now(), id);
+  }
+  rejectSignalOpsItem(id: string, reason: string): void {
+    sqlite.prepare(`UPDATE signal_ops_queue SET decision='reject', reason=?, processed_at=? WHERE id=?`).run(reason, now(), id);
+  }
+
+  // ─── Site Watch Log ───────────────────────────────────────────────────────
+  createSiteWatchRun(data: { status: string; checks: any[]; anomalies: any[]; recommended_action?: string }): Record<string,any> {
+    const id = uuid();
+    const ts2 = now();
+    sqlite.prepare(`INSERT INTO site_watch_log (id,run_timestamp,status,checks,anomalies,recommended_action,alert_sent,created_at) VALUES (?,?,?,?,?,?,0,?)`).run(id,ts2,data.status,JSON.stringify(data.checks),JSON.stringify(data.anomalies),data.recommended_action??null,ts2);
+    return { id, run_timestamp: ts2, ...data };
+  }
+  getSiteWatchLog(limit = 50): Record<string,any>[] {
+    return (sqlite.prepare(`SELECT * FROM site_watch_log ORDER BY run_timestamp DESC LIMIT ?`).all(limit) as Record<string,any>[]).map(r => ({
+      ...r, checks: JSON.parse(r.checks??'[]'), anomalies: JSON.parse(r.anomalies??'[]')
+    }));
+  }
+  markSiteWatchAlertSent(id: string): void {
+    sqlite.prepare(`UPDATE site_watch_log SET alert_sent=1 WHERE id=?`).run(id);
   }
 
   // ─── Event Log ─────────────────────────────────────────────────────────────
