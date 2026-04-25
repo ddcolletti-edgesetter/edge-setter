@@ -2,7 +2,7 @@ import { useState } from "react";
 import V2Shell, { SportBadge } from "../components/V2Shell";
 import { NBA_SIGNALS, NBA_TONIGHT, type V2Signal } from "../data/v2MockData";
 import {
-  PlayerAvatar, TeamLogo, GameCard, FeaturedEdgeCard,
+  PlayerAvatar, PlayerHeadshot, TeamLogo, TeamLogoImg, GameCard, FeaturedEdgeCard,
   VerdictBadge, TypeChip, ConfidenceBar, T, VERDICT_COLORS, getTeamColors,
 } from "../components/v2/SportVisuals";
 import { ChevronRight, X, Filter, Zap } from "lucide-react";
@@ -61,11 +61,11 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
         {/* Player / team visual */}
         {sig.player ? (
           <div style={{ display: "flex", alignItems: "flex-end", gap: 12, position: "relative", zIndex: 2 }}>
-            <PlayerAvatar name={sig.player} team={sig.team} size={60} />
+            <PlayerHeadshot name={sig.player} team={sig.team} size={60} shape="circle" />
             <div>
               <div style={{ fontSize: 16, fontWeight: 700, color: T.text, lineHeight: 1.2, marginBottom: 3 }}>{sig.player}</div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <TeamLogo abbr={sig.team} size={16} />
+                <TeamLogoImg abbr={sig.team} size={16} />
                 <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>{sig.team}{sig.opponent ? ` · ${sig.opponent}` : ""}</span>
               </div>
             </div>
@@ -73,8 +73,8 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
         ) : (
           <div style={{ display: "flex", alignItems: "flex-end", gap: 10, position: "relative", zIndex: 2 }}>
             <div style={{ display: "flex", gap: 6 }}>
-              <TeamLogo abbr={sig.team} size={44} />
-              {sig.opponent && <TeamLogo abbr={sig.opponent} size={44} />}
+              <TeamLogoImg abbr={sig.team} size={44} />
+              {sig.opponent && <TeamLogoImg abbr={sig.opponent} size={44} />}
             </div>
             <div>
               <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, color: T.text, letterSpacing: "0.06em", textTransform: "uppercase" }}>
@@ -226,7 +226,7 @@ export default function NBABoard() {
               onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(202,168,90,0.04)"; }}
               onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; }}
             >
-              <TeamLogo abbr={tm} size={20} />
+              <TeamLogoImg abbr={tm} size={20} />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted,
@@ -405,7 +405,7 @@ export default function NBABoard() {
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {sig.player ? (
                       <>
-                        <PlayerAvatar name={sig.player} team={sig.team} size={28} />
+                        <PlayerHeadshot name={sig.player} team={sig.team} size={28} shape="circle" />
                         <div>
                           <div style={{ fontSize: 11, color: T.text, fontWeight: 600, lineHeight: 1.2 }}>
                             {sig.player.split(" ").slice(-1)[0]}
@@ -418,8 +418,8 @@ export default function NBABoard() {
                       </>
                     ) : (
                       <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                        <TeamLogo abbr={sig.team} size={22} />
-                        {sig.opponent && <TeamLogo abbr={sig.opponent} size={22} />}
+                        <TeamLogoImg abbr={sig.team} size={22} />
+                        {sig.opponent && <TeamLogoImg abbr={sig.opponent} size={22} />}
                       </div>
                     )}
                   </div>

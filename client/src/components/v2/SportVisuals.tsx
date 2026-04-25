@@ -1,7 +1,11 @@
 /**
  * Edge Setter v2 — Sport Visual Component System
- * Self-contained SVG-based components. No external image deps.
- * Swap src props for live assets when available.
+ *
+ * Image strategy:
+ *   - PlayerHeadshot: real ESPN CDN <img> with onError → PlayerAvatar SVG fallback
+ *   - TeamLogoImg:    real ESPN CDN <img> with onError → TeamLogo SVG badge fallback
+ *   - All image URLs are centralized in PLAYER_HEADSHOTS / TEAM_LOGO_URLS maps
+ *   - Swap in live URLs simply by updating those maps — no component changes required
  */
 
 /* ─────────────────────────────────────────────
@@ -32,7 +36,7 @@ export const TEAM_COLORS: Record<string, { primary: string; secondary: string }>
   // NBA
   LAL: { primary: "#552583", secondary: "#FDB927" },
   GSW: { primary: "#1D428A", secondary: "#FFC72C" },
-  BOS: { primary: "#007A33", secondary: "#BA9653" },
+  BOS: { primary: "#007A33", secondary: "#FFFFFF" },
   MIA: { primary: "#98002E", secondary: "#F9A01B" },
   DEN: { primary: "#0E2240", secondary: "#FEC524" },
   MIN: { primary: "#0C2340", secondary: "#236192" },
@@ -61,7 +65,79 @@ export function getTeamColors(abbr: string) {
 }
 
 /* ─────────────────────────────────────────────
-   TeamLogo — compact badge with team initial
+   Image URL maps — swap in live URLs here
+   ESPN CDN pattern (works cross-origin):
+     Headshots: https://a.espncdn.com/i/headshots/{sport}/players/full/{espnId}.png
+     Logos:     https://a.espncdn.com/i/teamlogos/{sport}/500/{abbr}.png
+───────────────────────────────────────────── */
+
+/** Player headshot URLs keyed by player name (exact match from v2MockData) */
+export const PLAYER_HEADSHOTS: Record<string, string> = {
+  // NBA
+  "Anthony Davis":         "https://a.espncdn.com/i/headshots/nba/players/full/6583.png",
+  "Jaylen Brown":          "https://a.espncdn.com/i/headshots/nba/players/full/6474.png",
+  "Nikola Jokic":          "https://a.espncdn.com/i/headshots/nba/players/full/3112335.png",
+  "Stephen Curry":         "https://a.espncdn.com/i/headshots/nba/players/full/3975.png",
+  "Giannis Antetokounmpo": "https://a.espncdn.com/i/headshots/nba/players/full/3032977.png",
+  "Ja Morant":             "https://a.espncdn.com/i/headshots/nba/players/full/4395628.png",
+  "Draymond Green":        "https://a.espncdn.com/i/headshots/nba/players/full/2528210.png",
+  "Luka Dončić":           "https://a.espncdn.com/i/headshots/nba/players/full/4066648.png",
+  "Victor Wembanyama":     "https://a.espncdn.com/i/headshots/nba/players/full/4432816.png",
+  // MLB
+  "Gerrit Cole":           "https://a.espncdn.com/i/headshots/mlb/players/full/32859.png",
+  "Shohei Ohtani":         "https://a.espncdn.com/i/headshots/mlb/players/full/39832.png",
+  "Spencer Strider":       "", // On IL — no active ESPN photo; use SVG fallback
+  "Cody Bellinger":        "https://a.espncdn.com/i/headshots/mlb/players/full/31867.png",
+  "Marcus Stroman":        "https://a.espncdn.com/i/headshots/mlb/players/full/32105.png",
+  // Abbreviated aliases used in MLBBoard PITCHER_STATUS
+  "G. Cole":               "https://a.espncdn.com/i/headshots/mlb/players/full/32859.png",
+  "S. Strider":            "", // On IL — no active ESPN photo
+  "Y. Yamamoto":           "https://a.espncdn.com/i/headshots/mlb/players/full/4433254.png",
+  "M. Fried":              "https://a.espncdn.com/i/headshots/mlb/players/full/32694.png",
+  "M. Stroman":            "https://a.espncdn.com/i/headshots/mlb/players/full/32105.png",
+};
+
+export function getPlayerHeadshotUrl(name: string): string {
+  return PLAYER_HEADSHOTS[name] ?? "";
+}
+
+/**
+ * Team logo URLs by abbreviation.
+ * ESPN CDN serves logos at /i/teamlogos/{sport}/500/{abbr}.png (lowercase abbr).
+ * Passes CORS. Falls back to TeamLogo SVG if image fails.
+ */
+export const TEAM_LOGO_URLS: Record<string, string> = {
+  // NBA
+  LAL: "https://a.espncdn.com/i/teamlogos/nba/500/lal.png",
+  GSW: "https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
+  BOS: "https://a.espncdn.com/i/teamlogos/nba/500/bos.png",
+  MIA: "https://a.espncdn.com/i/teamlogos/nba/500/mia.png",
+  DEN: "https://a.espncdn.com/i/teamlogos/nba/500/den.png",
+  MIN: "https://a.espncdn.com/i/teamlogos/nba/500/min.png",
+  OKC: "https://a.espncdn.com/i/teamlogos/nba/500/okc.png",
+  DAL: "https://a.espncdn.com/i/teamlogos/nba/500/dal.png",
+  NYK: "https://a.espncdn.com/i/teamlogos/nba/500/ny.png",
+  PHI: "https://a.espncdn.com/i/teamlogos/nba/500/phi.png",
+  MIL: "https://a.espncdn.com/i/teamlogos/nba/500/mil.png",
+  IND: "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+  MEM: "https://a.espncdn.com/i/teamlogos/nba/500/mem.png",
+  SAS: "https://a.espncdn.com/i/teamlogos/nba/500/sa.png",
+  // MLB
+  NYY: "https://a.espncdn.com/i/teamlogos/mlb/500/nyy.png",
+  LAD: "https://a.espncdn.com/i/teamlogos/mlb/500/lad.png",
+  ATL: "https://a.espncdn.com/i/teamlogos/mlb/500/atl.png",
+  BAL: "https://a.espncdn.com/i/teamlogos/mlb/500/bal.png",
+  CHC: "https://a.espncdn.com/i/teamlogos/mlb/500/chc.png",
+  HOU: "https://a.espncdn.com/i/teamlogos/mlb/500/hou.png",
+  NYM: "https://a.espncdn.com/i/teamlogos/mlb/500/nym.png",
+};
+
+export function getTeamLogoUrl(abbr: string): string {
+  return TEAM_LOGO_URLS[abbr?.toUpperCase()] ?? "";
+}
+
+/* ─────────────────────────────────────────────
+   TeamLogo — SVG badge fallback (used internally)
 ───────────────────────────────────────────── */
 interface TeamLogoProps {
   abbr: string;
@@ -98,19 +174,84 @@ export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
 }
 
 /* ─────────────────────────────────────────────
-   TeamLogoPair — two overlapping logos (matchup)
+   TeamLogoImg — real logo with SVG fallback
+   Renders the ESPN CDN image if available;
+   falls back to TeamLogo SVG badge on error.
 ───────────────────────────────────────────── */
-export function TeamLogoPair({ away, home, size = 28 }: { away: string; home: string; size?: number }) {
+interface TeamLogoImgProps {
+  abbr: string;
+  size?: number;
+  shape?: "circle" | "shield" | "square";
+  /** Override the image URL (for when you have a live URL not in the static map) */
+  src?: string;
+}
+
+export function TeamLogoImg({ abbr, size = 32, shape = "circle", src }: TeamLogoImgProps) {
+  const logoUrl = src ?? getTeamLogoUrl(abbr);
+  const colors = getTeamColors(abbr);
+
+  if (!logoUrl) {
+    return <TeamLogo abbr={abbr} size={size} shape={shape} />;
+  }
+
+  const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "4px";
+
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: -size * 0.25, position: "relative" }}>
-      <div style={{ zIndex: 2 }}><TeamLogo abbr={away} size={size} /></div>
-      <div style={{ zIndex: 1, marginLeft: -size * 0.2 }}><TeamLogo abbr={home} size={size} /></div>
+    <div style={{
+      width: size, height: size, borderRadius,
+      overflow: "hidden", flexShrink: 0, position: "relative",
+      background: `${colors.primary}22`,
+      border: `1px solid ${colors.secondary}22`,
+      boxShadow: `0 2px 8px ${colors.primary}44`,
+    }}>
+      <img
+        src={logoUrl}
+        alt={abbr}
+        width={size}
+        height={size}
+        style={{
+          width: "100%", height: "100%", objectFit: "contain",
+          display: "block",
+        }}
+        onError={(e) => {
+          // On load failure: hide img, show SVG fallback via parent swap
+          const target = e.currentTarget as HTMLImageElement;
+          const parent = target.parentElement;
+          if (parent) {
+            parent.innerHTML = "";
+            const span = document.createElement("span");
+            span.style.cssText = `
+              display:flex;align-items:center;justify-content:center;
+              width:100%;height:100%;
+              font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;
+              font-size:${size * 0.38}px;font-weight:800;
+              color:${colors.secondary};letter-spacing:-0.01em;
+              text-shadow:0 1px 2px rgba(0,0,0,0.6);
+            `;
+            span.textContent = abbr?.slice(0, 3).toUpperCase();
+            parent.appendChild(span);
+          }
+        }}
+      />
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────
-   PlayerAvatar — position-silhouette SVG with team ring
+   TeamLogoPair — two overlapping logos (matchup)
+───────────────────────────────────────────── */
+export function TeamLogoPair({ away, home, size = 28, useImg = true }: { away: string; home: string; size?: number; useImg?: boolean }) {
+  const Logo = useImg ? TeamLogoImg : TeamLogo;
+  return (
+    <div style={{ display: "flex", alignItems: "center", position: "relative" }}>
+      <div style={{ zIndex: 2 }}><Logo abbr={away} size={size} /></div>
+      <div style={{ zIndex: 1, marginLeft: -size * 0.2 }}><Logo abbr={home} size={size} /></div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   PlayerAvatar — SVG silhouette fallback
 ───────────────────────────────────────────── */
 type SportPosition = "guard" | "forward" | "center" | "pitcher" | "hitter" | "generic";
 
@@ -122,7 +263,6 @@ function getPositionFromType(type: string): SportPosition {
   return "guard";
 }
 
-// SVG silhouette paths for each position type
 const SILHOUETTES: Record<SportPosition, string> = {
   guard:   "M12,8 C13.7,8 15,6.7 15,5 C15,3.3 13.7,2 12,2 C10.3,2 9,3.3 9,5 C9,6.7 10.3,8 12,8 Z M8,10 C7.4,10 7,10.6 7,11.5 L7,18 L9,18 L9,22 L15,22 L15,18 L17,18 L17,11.5 C17,10.6 16.6,10 16,10 Z",
   forward: "M12,8 C13.7,8 15,6.7 15,5 C15,3.3 13.7,2 12,2 C10.3,2 9,3.3 9,5 C9,6.7 10.3,8 12,8 Z M7,11 L7,19 L9.5,19 L9.5,22 L14.5,22 L14.5,19 L17,19 L17,11 L14,10 L12,11 L10,10 Z",
@@ -158,20 +298,14 @@ export function PlayerAvatar({ name, team, position = "generic", size = 40, show
         display: "flex", alignItems: "center", justifyContent: "center",
         position: "relative", overflow: "hidden", flexShrink: 0,
       }}>
-        {/* Gradient overlay at bottom */}
         <div style={{
           position: "absolute", bottom: 0, left: 0, right: 0, height: "40%",
           background: `linear-gradient(to top, ${colors.primary}99, transparent)`,
         }} />
-        {/* SVG silhouette */}
-        <svg
-          width={innerSize} height={innerSize}
-          viewBox="0 0 24 24"
-          style={{ position: "absolute", bottom: -innerSize * 0.1 }}
-        >
+        <svg width={innerSize} height={innerSize} viewBox="0 0 24 24"
+          style={{ position: "absolute", bottom: -innerSize * 0.1 }}>
           <path d={silPath} fill={colors.secondary} opacity={0.75} />
         </svg>
-        {/* Initials fallback text */}
         <span style={{
           position: "absolute", bottom: 2,
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -202,9 +336,104 @@ export function PlayerAvatar({ name, team, position = "generic", size = 40, show
 }
 
 /* ─────────────────────────────────────────────
+   PlayerHeadshot — real ESPN headshot with fallback
+   Uses <img> from ESPN CDN; falls back to PlayerAvatar SVG on error.
+   Set `size` for the container. Image is cropped to circle/square.
+───────────────────────────────────────────── */
+interface PlayerHeadshotProps {
+  name: string;
+  team: string;
+  position?: SportPosition | string;
+  size?: number;
+  shape?: "circle" | "square";
+  showName?: boolean;
+  showTeam?: boolean;
+  /** Override the headshot URL (for live wiring) */
+  src?: string;
+}
+
+export function PlayerHeadshot({
+  name, team, position = "generic", size = 48,
+  shape = "circle", showName = false, showTeam = false, src,
+}: PlayerHeadshotProps) {
+  const headshotUrl = src ?? getPlayerHeadshotUrl(name);
+  const colors = getTeamColors(team);
+  const borderRadius = shape === "circle" ? "50%" : "6px";
+
+  if (!headshotUrl) {
+    return <PlayerAvatar name={name} team={team} position={position} size={size} showName={showName} showTeam={showTeam} />;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+      <div
+        data-testid={`headshot-${name.replace(/\s+/g, "-").toLowerCase()}`}
+        style={{
+          width: size, height: size,
+          borderRadius,
+          overflow: "hidden",
+          border: `2px solid ${colors.secondary}44`,
+          boxShadow: `0 0 0 1px ${colors.primary}55, 0 3px 12px rgba(0,0,0,0.55)`,
+          background: `${colors.primary}33`,
+          flexShrink: 0, position: "relative",
+        }}
+      >
+        <img
+          src={headshotUrl}
+          alt={name}
+          style={{
+            width: "100%", height: "100%",
+            objectFit: "cover",
+            objectPosition: "top center",
+            display: "block",
+          }}
+          onError={(e) => {
+            // Swap to SVG fallback on load failure
+            const img = e.currentTarget as HTMLImageElement;
+            img.style.display = "none";
+            const parent = img.parentElement;
+            if (parent && !parent.querySelector(".headshot-fallback")) {
+              const fallback = document.createElement("div");
+              fallback.className = "headshot-fallback";
+              fallback.style.cssText = `
+                position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+                background:radial-gradient(circle at 40% 35%,${colors.primary}EE,${colors.primary}88);
+                font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;
+                font-size:${size * 0.32}px;font-weight:800;color:${colors.secondary}CC;
+              `;
+              const initials = name?.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+              fallback.textContent = initials;
+              parent.appendChild(fallback);
+            }
+          }}
+        />
+      </div>
+      {showName && (
+        <div style={{
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: size * 0.22, fontWeight: 700, color: T.text, letterSpacing: "0.02em",
+          textAlign: "center", lineHeight: 1.2, maxWidth: size + 20, wordBreak: "break-word",
+        }}>
+          {name?.split(" ").slice(-1)[0]}
+        </div>
+      )}
+      {showTeam && (
+        <div style={{
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: size * 0.18, fontWeight: 700, color: T.textFaint,
+          letterSpacing: "0.1em", textTransform: "uppercase",
+        }}>
+          {team}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
    ConfidenceBar — horizontal fill bar
 ───────────────────────────────────────────── */
-export function ConfidenceBar({ value, width = 60, height = 4 }: { value: number; width?: number; height?: number }) {
+export function ConfidenceBar({ value, width = 60, height = 4 }: { value: number; width?: number | string; height?: number }) {
   const color = value >= 85 ? T.gold : value >= 70 ? T.goldBright : value >= 55 ? T.orange : T.textFaint;
   return (
     <div style={{ width, height, background: "rgba(255,255,255,0.08)", borderRadius: height }}>
@@ -218,14 +447,14 @@ export function ConfidenceBar({ value, width = 60, height = 4 }: { value: number
 }
 
 /* ─────────────────────────────────────────────
-   VerdictPip — colored verdict badge
+   VerdictBadge — colored verdict chip
 ───────────────────────────────────────────── */
 export const VERDICT_COLORS: Record<string, string> = {
-  confirmed: T.green,
-  likely:    T.gold,
-  rumor:     T.orange,
+  confirmed:    T.green,
+  likely:       T.gold,
+  rumor:        T.orange,
   contradicted: T.danger,
-  review:    T.textFaint,
+  review:       T.textFaint,
 };
 
 export function VerdictBadge({ verdict }: { verdict: string }) {
@@ -234,11 +463,9 @@ export function VerdictBadge({ verdict }: { verdict: string }) {
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
       padding: "2px 7px", borderRadius: 2,
-      background: `${color}18`,
-      border: `1px solid ${color}44`,
+      background: `${color}18`, border: `1px solid ${color}44`,
       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-      fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-      color,
+      fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color,
     }}>
       <span style={{ width: 4, height: 4, borderRadius: "50%", background: color, display: "inline-block" }} />
       {verdict}
@@ -247,7 +474,7 @@ export function VerdictBadge({ verdict }: { verdict: string }) {
 }
 
 /* ─────────────────────────────────────────────
-   GameCard — rich matchup card
+   GameCard — rich matchup card with real logos
 ───────────────────────────────────────────── */
 interface GameCardProps {
   away: string;
@@ -273,28 +500,26 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
       style={{
         background: T.surface2,
         border: `1px solid ${isLive ? "rgba(202,168,90,0.35)" : T.border}`,
-        borderRadius: 5,
-        overflow: "hidden",
+        borderRadius: 5, overflow: "hidden",
         cursor: onClick ? "pointer" : "default",
         transition: "border-color 0.15s, transform 0.12s",
-        position: "relative",
-        flexShrink: 0,
+        position: "relative", flexShrink: 0,
       }}
       onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = "rgba(202,168,90,0.4)"; el.style.transform = "translateY(-1px)"; }}
       onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = isLive ? "rgba(202,168,90,0.35)" : T.border; el.style.transform = "translateY(0)"; }}
     >
-      {/* Top accent bar — team gradient */}
+      {/* Top gradient bar — real team colors */}
       <div style={{
         height: 3,
-        background: `linear-gradient(90deg, ${awayColors.secondary}99, ${awayColors.primary}66 40%, ${homeColors.primary}66 60%, ${homeColors.secondary}99)`,
+        background: `linear-gradient(90deg, ${awayColors.secondary}BB, ${awayColors.primary}66 40%, ${homeColors.primary}66 60%, ${homeColors.secondary}BB)`,
       }} />
 
       <div style={{ padding: compact ? "10px 12px" : "14px 16px" }}>
-        {/* Matchup row */}
+        {/* Matchup row with real logos */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
           {/* Away */}
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-            <TeamLogo abbr={away} size={compact ? 26 : 32} />
+            <TeamLogoImg abbr={away} size={compact ? 28 : 34} shape="circle" />
             <div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -315,7 +540,7 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
             }}>@</div>
             {isLive && (
               <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center", marginTop: 3 }}>
-                <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "pulse 1.5s infinite" }} />
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} />
                 <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.green, fontWeight: 700, letterSpacing: "0.1em" }}>LIVE</span>
               </div>
             )}
@@ -333,7 +558,7 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
                 fontSize: 9, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase",
               }}>Home</div>
             </div>
-            <TeamLogo abbr={home} size={compact ? 26 : 32} />
+            <TeamLogoImg abbr={home} size={compact ? 28 : 34} shape="circle" />
           </div>
         </div>
 
@@ -351,47 +576,20 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
 
         {/* Odds row */}
         <div style={{ display: "flex", gap: 6 }}>
-          <div style={{
-            flex: 1, textAlign: "center", padding: "5px 8px",
-            background: "rgba(202,168,90,0.06)", borderRadius: 3,
-            border: "1px solid rgba(202,168,90,0.14)",
-          }}>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: compact ? 12 : 13, fontWeight: 700, color: T.gold, letterSpacing: "0.04em",
-            }}>{spread}</div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 9, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1,
-            }}>Spread</div>
-          </div>
-          <div style={{
-            flex: 1, textAlign: "center", padding: "5px 8px",
-            background: "rgba(255,255,255,0.04)", borderRadius: 3,
-            border: T.border,
-          }}>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: compact ? 12 : 13, fontWeight: 700, color: T.text, letterSpacing: "0.04em",
-            }}>O/U {total}</div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 9, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1,
-            }}>Total</div>
-          </div>
-          <div style={{
-            flex: 1, textAlign: "center", padding: "5px 8px",
-            background: "rgba(255,255,255,0.03)", borderRadius: 3,
-          }}>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: compact ? 11 : 12, fontWeight: 600, color: T.textMuted,
-            }}>{time}</div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 9, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1,
-            }}>Time</div>
-          </div>
+          {[
+            { label: "Spread", val: spread, color: T.gold, bg: "rgba(202,168,90,0.06)", border: "rgba(202,168,90,0.14)" },
+            { label: "Total",  val: `O/U ${total}`, color: T.text, bg: "rgba(255,255,255,0.04)", border: T.border },
+            { label: "Time",   val: time, color: T.textMuted, bg: "rgba(255,255,255,0.03)", border: "transparent" },
+          ].map(s => (
+            <div key={s.label} style={{
+              flex: 1, textAlign: "center", padding: "5px 8px",
+              background: s.bg, borderRadius: 3,
+              border: `1px solid ${s.border}`,
+            }}>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: compact ? 11 : 13, fontWeight: 700, color: s.color, letterSpacing: "0.04em" }}>{s.val}</div>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1 }}>{s.label}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
@@ -399,7 +597,7 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
 }
 
 /* ─────────────────────────────────────────────
-   FeaturedEdgeCard — marquee signal module
+   FeaturedEdgeCard — marquee signal module with real headshot
 ───────────────────────────────────────────── */
 interface FeaturedEdgeProps {
   signal: {
@@ -434,98 +632,89 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
         boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
       }}
     >
-      {/* Background gradient layer */}
+      {/* Background gradient */}
       <div style={{
         position: "absolute", inset: 0,
         background: `linear-gradient(135deg, ${teamColors.primary}22 0%, transparent 60%, ${teamColors.secondary}11 100%)`,
         pointerEvents: "none",
       }} />
 
-      {/* Top gold accent bar */}
+      {/* Top accent bar */}
       <div style={{ height: 3, background: `linear-gradient(90deg, ${accentColor}, ${accentColor}44)` }} />
 
       <div style={{ display: "flex", gap: 0 }}>
-        {/* Left — visual panel */}
+        {/* Left — visual panel with real headshot */}
         <div style={{
-          width: 120, flexShrink: 0, padding: "20px 0 20px 20px",
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10,
-          background: `linear-gradient(180deg, ${teamColors.primary}33, transparent)`,
-          borderRight: `1px solid rgba(255,255,255,0.05)`,
+          width: 130, flexShrink: 0, padding: "20px 0 20px 20px",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
+          background: `linear-gradient(180deg, ${teamColors.primary}44, ${teamColors.primary}22)`,
+          borderRight: `1px solid rgba(255,255,255,0.06)`,
         }}>
           {signal.player ? (
-            <PlayerAvatar name={signal.player} team={signal.team} size={64} />
+            <PlayerHeadshot
+              name={signal.player}
+              team={signal.team}
+              size={72}
+              shape="circle"
+            />
           ) : (
-            <TeamLogo abbr={signal.team} size={64} shape="shield" />
+            <TeamLogoImg abbr={signal.team} size={72} shape="shield" />
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-            <TeamLogo abbr={signal.team} size={16} />
-            {signal.opponent && <><span style={{ color: T.textFaint, fontSize: 11 }}>@</span><TeamLogo abbr={signal.opponent} size={16} /></>}
+          {/* Matchup logos */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <TeamLogoImg abbr={signal.team} size={18} />
+            {signal.opponent && (
+              <><span style={{ color: T.textFaint, fontSize: 11 }}>@</span>
+              <TeamLogoImg abbr={signal.opponent} size={18} /></>
+            )}
           </div>
         </div>
 
         {/* Right — content */}
         <div style={{ flex: 1, padding: "18px 20px" }}>
-          {/* Header chips */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             <div style={{
               padding: "2px 8px", background: `${accentColor}18`, border: `1px solid ${accentColor}44`,
               borderRadius: 2, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: accentColor,
-            }}>
-              ⚡ Featured Edge
-            </div>
+            }}>⚡ Featured Edge</div>
             <VerdictBadge verdict={signal.verdict} />
             <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{signal.timestamp}</span>
           </div>
 
-          {/* Headline */}
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
             fontSize: 16, fontWeight: 700, color: T.text, lineHeight: 1.35,
             marginBottom: 8, letterSpacing: "-0.01em",
-          }}>
-            {signal.headline}
-          </div>
+          }}>{signal.headline}</div>
 
-          {/* Detail snippet */}
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.03em",
-            marginBottom: 12,
-          }}>
-            {signal.detail.slice(0, 140)}…
-          </div>
+            fontSize: 12, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.03em", marginBottom: 12,
+          }}>{signal.detail.slice(0, 140)}…</div>
 
-          {/* Action takeaway */}
           <div style={{
             background: "rgba(202,168,90,0.07)", border: `1px solid rgba(202,168,90,0.2)`,
             borderRadius: 3, padding: "9px 12px", marginBottom: 12,
           }}>
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.gold,
-              marginRight: 8,
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.gold, marginRight: 8,
             }}>Action →</span>
             <span style={{ fontSize: 12, color: T.text, fontWeight: 500 }}>{signal.action_takeaway.slice(0, 100)}</span>
           </div>
 
-          {/* Stats row */}
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ display: "flex", align: "center", gap: 6, flexDirection: "column" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 20, fontWeight: 800, color: vColor, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
-                  {signal.confidence}%
-                </span>
-                <div>
-                  <ConfidenceBar value={signal.confidence} width={80} height={5} />
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>Confidence</div>
-                </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 20, fontWeight: 800, color: vColor, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>
+                {signal.confidence}%
+              </span>
+              <div>
+                <ConfidenceBar value={signal.confidence} width={80} height={5} />
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>Confidence</div>
               </div>
             </div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, color: T.textFaint, letterSpacing: "0.06em",
-            }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.06em" }}>
               {signal.sources} sources · {signal.tags.slice(0, 2).join(" · ")}
             </div>
           </div>
@@ -558,8 +747,6 @@ export function TypeChip({ type }: { type: string }) {
       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
       fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
       whiteSpace: "nowrap",
-    }}>
-      {s.label}
-    </span>
+    }}>{s.label}</span>
   );
 }

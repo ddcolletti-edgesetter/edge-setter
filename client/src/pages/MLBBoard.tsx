@@ -2,7 +2,7 @@ import { useState } from "react";
 import V2Shell, { SportBadge } from "../components/V2Shell";
 import { MLB_SIGNALS, type V2Signal } from "../data/v2MockData";
 import {
-  PlayerAvatar, TeamLogo, GameCard,
+  PlayerAvatar, PlayerHeadshot, TeamLogo, TeamLogoImg, GameCard,
   VerdictBadge, TypeChip, ConfidenceBar,
   T, VERDICT_COLORS, getTeamColors,
 } from "../components/v2/SportVisuals";
@@ -104,7 +104,7 @@ export default function MLBBoard() {
               onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(74,168,200,0.03)"; }}
               onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; }}
             >
-              <TeamLogo abbr={tm} size={20} />
+              <TeamLogoImg abbr={tm} size={20} />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted,
@@ -228,7 +228,7 @@ export default function MLBBoard() {
                     onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
                   >
                     {/* Team logo */}
-                    <TeamLogo abbr={sig.team} size={26} />
+                    <TeamLogoImg abbr={sig.team} size={26} />
 
                     {/* Type */}
                     <div><TypeChip type={sig.type} /></div>
@@ -278,7 +278,7 @@ export default function MLBBoard() {
                 <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
                   {PITCHER_STATUS.map(p => (
                     <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 3, background: `${p.color}08` }}>
-                      <PlayerAvatar name={p.name} team={p.team} size={28} />
+                      <PlayerHeadshot name={p.name} team={p.team} size={28} shape="circle" />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 1 }}>{p.name}</div>
                         <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{p.note}</div>
@@ -304,7 +304,7 @@ export default function MLBBoard() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                   {LINEUP_NOTES.map(note => (
                     <div key={note.team} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-                      <TeamLogo abbr={note.team} size={24} />
+                      <TeamLogoImg abbr={note.team} size={24} />
                       <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textMuted, lineHeight: 1.5 }}>{note.note}</div>
                     </div>
                   ))}
@@ -325,7 +325,7 @@ export default function MLBBoard() {
                 <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                   {TEAM_TRENDS.map(trend => (
                     <div key={trend.team} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-                      <TeamLogo abbr={trend.team} size={24} />
+                      <TeamLogoImg abbr={trend.team} size={24} />
                       <div style={{ flex: 1, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textMuted }}>{trend.trend}</div>
                       <span style={{ fontSize: 14 }}>{trend.positive ? "▲" : "▼"}</span>
                     </div>
@@ -344,7 +344,7 @@ export default function MLBBoard() {
               borderBottom: `1px solid rgba(255,255,255,0.07)`,
               display: "flex", alignItems: "center", padding: "0 14px", gap: 10, position: "relative",
             }}>
-              <TeamLogo abbr={selected.team} size={40} />
+              <TeamLogoImg abbr={selected.team} size={40} />
               <div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{selected.team}{selected.opponent ? ` vs ${selected.opponent}` : ""}</div>
                 {selected.player && <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>{selected.player}</div>}
