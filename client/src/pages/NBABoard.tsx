@@ -172,28 +172,28 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
           )}
         </div>
 
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 12 }}>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 12 }}>
           {sig.headline}
         </div>
 
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Signal Detail</div>
-          <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Signal Detail</div>
+          <div style={{ fontSize: 14, color: T.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
         </div>
 
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Why It Matters</div>
-          <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.65 }}>{sig.why_it_matters}</div>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Why It Matters</div>
+          <div style={{ fontSize: 14, color: T.textMuted, lineHeight: 1.65 }}>{sig.why_it_matters}</div>
         </div>
 
         <div style={{
           background: "rgba(202,168,90,0.07)", border: `1px solid rgba(202,168,90,0.22)`,
           borderRadius: 4, padding: "12px 14px",
         }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold, marginBottom: 6 }}>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold, marginBottom: 6 }}>
             ⚡ Action Takeaway
           </div>
-          <div style={{ fontSize: 13, color: T.text, lineHeight: 1.65, fontWeight: 500 }}>{sig.action_takeaway}</div>
+          <div style={{ fontSize: 14, color: T.text, lineHeight: 1.65, fontWeight: 500 }}>{sig.action_takeaway}</div>
         </div>
 
         {/* Tags with team logos inline */}
@@ -310,7 +310,7 @@ export default function NBABoard() {
               <span style={{ opacity: active ? 1 : 0.4, display: "flex" }}>{icon ?? <ChevronRight size={10} />}</span>
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
               }}>{label}</span>
             </div>
           ))}
@@ -344,7 +344,7 @@ export default function NBABoard() {
                 <TeamLogoImg abbr={tm} size={22} />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                  fontSize: 14, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
                   color: isTeamActive ? T.gold : T.textMuted,
                 }}>{tm}</span>
               </button>
@@ -370,7 +370,7 @@ export default function NBABoard() {
               </div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, color: T.textFaint, letterSpacing: "0.06em",
+                fontSize: 13, color: T.textFaint, letterSpacing: "0.04em",
               }}>
                 Playoffs active · {NBA_SIGNALS.length} signals · Updated continuously
               </div>
@@ -405,13 +405,13 @@ export default function NBABoard() {
           }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
               color: T.textFaint, marginBottom: 10,
               display: "flex", alignItems: "center", gap: 6,
             }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.gold, display: "inline-block" }} />
               Tonight's NBA Slate
-              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.gold, marginLeft: 4 }}>· Playoffs</span>
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.gold, marginLeft: 4 }}>· Playoffs</span>
             </div>
             <div className="board-slate-strip" style={{ display: "flex", gap: 12 }}>
               {NBA_TONIGHT.map(game => (
@@ -456,12 +456,12 @@ export default function NBABoard() {
                   data-testid={`filter-${f.toLowerCase()}`}
                   onClick={() => setActiveFilter(f)}
                   style={{
-                    padding: "5px 12px", borderRadius: 2,
+                    padding: "6px 13px", borderRadius: 2,
                     border: `1px solid ${isActive ? T.gold : "rgba(255,255,255,0.1)"}`,
                     background: isActive ? "rgba(202,168,90,0.1)" : "transparent",
                     color: isActive ? T.gold : T.textMuted,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                    fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
                     cursor: "pointer", transition: "all 0.12s",
                   }}
                 >{f}</button>
@@ -524,12 +524,12 @@ export default function NBABoard() {
 
                   {/* Headline + sub */}
                   <div style={{ paddingRight: 14 }}>
-                    <div className="sig-headline" style={{ fontSize: 14, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 3 }}>
+                    <div className="sig-headline" style={{ fontSize: 15, color: T.text, fontWeight: 500, lineHeight: 1.4, marginBottom: 4 }}>
                       {sig.headline}
                     </div>
                     <div style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 11, color: T.textFaint, lineHeight: 1.4,
+                      fontSize: 12, color: T.textFaint, lineHeight: 1.45,
                     }}>
                       {sig.action_takeaway.slice(0, 72)}…
                     </div>
@@ -549,7 +549,7 @@ export default function NBABoard() {
                   {/* Confidence */}
                   <div>
                     <div style={{
-                      fontSize: 14, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : T.textMuted,
+                      fontSize: 15, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : T.textMuted,
                       fontVariantNumeric: "tabular-nums", marginBottom: 3,
                     }}>{sig.confidence}%</div>
                     <ConfidenceBar value={sig.confidence} width={50} height={3} />

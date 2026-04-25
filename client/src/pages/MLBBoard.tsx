@@ -143,18 +143,18 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
         <div style={{ display: "flex", gap: 5, marginBottom: 10, flexWrap: "wrap" }}>
           <TypeChip type={sig.type} />
         </div>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>
           {sig.headline}
         </div>
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 4 }}>Signal Detail</div>
-          <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 4 }}>Signal Detail</div>
+          <div style={{ fontSize: 14, color: T.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
         </div>
         <div style={{ background: "rgba(74,168,200,0.07)", border: `1px solid rgba(74,168,200,0.22)`, borderRadius: 4, padding: "10px 12px" }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
             ⚡ Takeaway
           </div>
-          <div style={{ fontSize: 13, color: T.text, lineHeight: 1.55, fontWeight: 500 }}>{sig.action_takeaway}</div>
+          <div style={{ fontSize: 14, color: T.text, lineHeight: 1.55, fontWeight: 500 }}>{sig.action_takeaway}</div>
         </div>
       </div>
     </div>
@@ -205,7 +205,7 @@ export default function MLBBoard() {
               <ChevronRight size={10} style={{ opacity: i === 0 ? 1 : 0.4 }} />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
               }}>{label}</span>
             </div>
           ))}
@@ -238,7 +238,7 @@ export default function MLBBoard() {
                 <TeamLogoImg abbr={tm} size={22} />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                  fontSize: 14, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
                   color: isActive ? T.cyan : T.textMuted,
                 }}>{tm}</span>
               </button>
@@ -263,7 +263,7 @@ export default function MLBBoard() {
               </div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, color: T.textFaint, letterSpacing: "0.06em",
+                fontSize: 13, color: T.textFaint, letterSpacing: "0.04em",
               }}>Regular season · {MLB_SIGNALS.length} signals · Updated continuously</div>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
@@ -286,7 +286,7 @@ export default function MLBBoard() {
           <div style={{ padding: "12px 20px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, flexShrink: 0, overflowX: "auto" }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
               color: T.textFaint, marginBottom: 10,
               display: "flex", alignItems: "center", gap: 6,
             }}>
@@ -332,12 +332,12 @@ export default function MLBBoard() {
               const isActive = f === activeFilter;
               return (
                 <button key={f} className="filter-chip" onClick={() => setActiveFilter(f)} style={{
-                  padding: "5px 12px", borderRadius: 2,
+                  padding: "6px 13px", borderRadius: 2,
                   border: `1px solid ${isActive ? T.cyan : "rgba(255,255,255,0.1)"}`,
                   background: isActive ? "rgba(74,168,200,0.08)" : "transparent",
                   color: isActive ? T.cyan : T.textMuted,
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                  fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
                   cursor: "pointer", transition: "all 0.12s",
                 }}>{f}</button>
               );
@@ -398,10 +398,10 @@ export default function MLBBoard() {
 
                     {/* Signal */}
                     <div style={{ paddingRight: 12 }}>
-                      <div style={{ fontSize: 14, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 2 }}>
+                      <div style={{ fontSize: 15, color: T.text, fontWeight: 500, lineHeight: 1.4, marginBottom: 3 }}>
                         {sig.headline}
                       </div>
-                      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.4 }}>
+                      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, lineHeight: 1.45 }}>
                         {sig.action_takeaway.slice(0, 75)}…
                       </div>
                     </div>
@@ -411,7 +411,7 @@ export default function MLBBoard() {
 
                     {/* Conf */}
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : T.textMuted, marginBottom: 3, fontVariantNumeric: "tabular-nums" }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : T.textMuted, marginBottom: 3, fontVariantNumeric: "tabular-nums" }}>
                         {sig.confidence}%
                       </div>
                       <ConfidenceBar value={sig.confidence} width={50} height={3} />
@@ -471,9 +471,9 @@ export default function MLBBoard() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
                           <TeamLogoImg abbr={p.team} size={14} />
-                          <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</span>
+                          <span style={{ fontSize: 14, fontWeight: 600, color: T.text }}>{p.name}</span>
                         </div>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.02em" }}>{p.note}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, letterSpacing: "0.02em" }}>{p.note}</div>
                       </div>
 
                       {/* Status badge */}
@@ -501,12 +501,12 @@ export default function MLBBoard() {
                     <div key={note.team} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
                       <TeamLogoImg abbr={note.team} size={28} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, color: T.textMuted, letterSpacing: "0.02em" }}>{note.note}</div>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, marginTop: 1 }}>{note.player}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, color: T.textMuted, letterSpacing: "0.02em" }}>{note.note}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, marginTop: 1 }}>{note.player}</div>
                       </div>
                     </div>
                   ))}
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, padding: "8px 12px", letterSpacing: "0.03em" }}>
+                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, padding: "8px 12px", letterSpacing: "0.02em" }}>
                     Lineups confirm ~3h before first pitch
                   </div>
                 </div>
@@ -528,7 +528,7 @@ export default function MLBBoard() {
                       background: `${trend.color}05`,
                     }}>
                       <TeamLogoImg abbr={trend.team} size={28} />
-                      <div style={{ flex: 1, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textMuted, letterSpacing: "0.02em" }}>{trend.trend}</div>
+                      <div style={{ flex: 1, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: T.textMuted, letterSpacing: "0.02em" }}>{trend.trend}</div>
                       <span style={{
                         fontSize: 14, fontWeight: 700, color: trend.color,
                         background: `${trend.color}15`, padding: "2px 6px", borderRadius: 2,

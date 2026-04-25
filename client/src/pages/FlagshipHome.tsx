@@ -401,13 +401,13 @@ export default function FlagshipHome() {
                     >
                       {sig.player && <PlayerHeadshot name={sig.player} team={sig.team} size={22} shape="circle" />}
                       {!sig.player && <TeamLogoImg abbr={sig.team} size={22} />}
-                      <div style={{ flex: 1, fontSize: 14, color: T.textMuted, lineHeight: 1.35 }}>
+                      <div style={{ flex: 1, fontSize: 15, color: T.textMuted, lineHeight: 1.4 }}>
                         {sig.headline.slice(0, 72)}{sig.headline.length > 72 ? "…" : ""}
                       </div>
                       <TypeChip type={sig.type} />
                       <span style={{
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 13, fontWeight: 700, color: vc,
+                        fontSize: 14, fontWeight: 700, color: vc,
                         letterSpacing: "0.1em", textTransform: "uppercase", flexShrink: 0,
                       }}>{sig.confidence}%</span>
                     </div>
@@ -804,13 +804,13 @@ export default function FlagshipHome() {
                       marginBottom: 8, lineHeight: 1.3,
                     }}>{panel.title}</div>
                     <div style={{
-                      fontSize: 14, color: T.textMuted, lineHeight: 1.6,
+                      fontSize: 15, color: T.textMuted, lineHeight: 1.6,
                       marginBottom: 16,
                     }}>{panel.body}</div>
                     <div style={{
                       display: "flex", alignItems: "center", gap: 5,
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 13, fontWeight: 700, letterSpacing: "0.12em",
+                      fontSize: 14, fontWeight: 700, letterSpacing: "0.12em",
                       textTransform: "uppercase", color: panel.accent,
                     }}>
                       {panel.cta} <ArrowRight size={12} />
