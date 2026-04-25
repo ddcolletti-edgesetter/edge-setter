@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { useState } from "react";
+import { useState, createContext, useContext } from "react";
 import {
   Home, LayoutGrid, Wrench, Star, List,
   ChevronDown, ChevronRight, Menu, X, Moon, Sun,
@@ -21,6 +21,10 @@ const T = {
   cyan:       "#4AA8C8",
   danger:     "#D94B4B",
 };
+
+/* ── Theme context — boards consume this to know dark/light ── */
+export const ThemeCtx = createContext<boolean>(true);
+export function useShellTheme() { return useContext(ThemeCtx); }
 
 export type SportStatus = "LIVE" | "ACTIVE" | "BUILDING" | "OFFSEASON" | "COMING SOON";
 
@@ -192,9 +196,12 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
   const [boardsOpen, setBoardsOpen] = useState(true);
   const [darkMode, setDarkMode] = useState(true);
 
-  const bg    = darkMode ? T.bg       : "#F0ECE4";
-  const surf1 = darkMode ? T.surface1 : "#FFFFFF";
-  const goldD = darkMode ? T.goldDim  : "rgba(202,168,90,0.25)";
+  const bg      = darkMode ? T.bg        : "#F0ECE4";
+  const surf1   = darkMode ? T.surface1  : "#FFFFFF";
+  const goldD   = darkMode ? T.goldDim   : "rgba(202,168,90,0.25)";
+  const txtMain = darkMode ? T.text      : "#1A1712";
+  const txtMut  = darkMode ? T.textMuted : "#5A534A";
+  const txtFnt  = darkMode ? T.textFaint : "#8C8277";
 
   const activeTop = TOP_NAV.find(n =>
     n.href === "/v2"
@@ -230,12 +237,12 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
             <a style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", textDecoration: "none" }}>
               <V2Logo />
               <div>
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 18, color: T.text, lineHeight: 1.2 }}>
+                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 18, color: txtMain, lineHeight: 1.2 }}>
                   Edge Setter
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: txtFnt }}>
                     Multi-Sport Intel
                   </span>
                 </div>
@@ -268,13 +275,13 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
                       borderRadius: 3,
                       borderLeft: `2px solid ${isActive ? T.gold : "transparent"}`,
                       background: isActive ? "rgba(202,168,90,0.08)" : "transparent",
-                      color: isActive ? T.gold : T.textMuted,
+                      color: isActive ? T.gold : txtMut,
                       cursor: "pointer", transition: "background 0.1s, color 0.1s",
                       textDecoration: "none",
                       minHeight: 44,
                     }}
-                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(202,168,90,0.05)"; (e.currentTarget as HTMLAnchorElement).style.color = T.text; } }}
-                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = T.textMuted; } }}
+                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(202,168,90,0.05)"; (e.currentTarget as HTMLAnchorElement).style.color = txtMain; } }}
+                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = txtMut; } }}
                   >
                     <Icon size={16} strokeWidth={isActive ? 2.5 : 1.75} style={{ flexShrink: 0 }} />
                     <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", flex: 1 }}>
@@ -326,12 +333,12 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
                               padding: "8px 10px", marginBottom: 1, borderRadius: 3,
                               borderLeft: `2px solid ${bActive ? T.gold : "transparent"}`,
                               background: bActive ? "rgba(202,168,90,0.07)" : "transparent",
-                              color: bActive ? T.gold : T.textMuted,
+                              color: bActive ? T.gold : txtMut,
                               cursor: "pointer", transition: "background 0.1s, color 0.1s",
                               textDecoration: "none", minHeight: 40,
                             }}
-                            onMouseEnter={e => { if (!bActive) { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(202,168,90,0.04)"; (e.currentTarget as HTMLAnchorElement).style.color = T.text; } }}
-                            onMouseLeave={e => { if (!bActive) { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = T.textMuted; } }}
+                            onMouseEnter={e => { if (!bActive) { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(202,168,90,0.04)"; (e.currentTarget as HTMLAnchorElement).style.color = txtMain; } }}
+                            onMouseLeave={e => { if (!bActive) { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = txtMut; } }}
                           >
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot, display: "inline-block", flexShrink: 0 }} />
                             <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", flex: 1 }}>{b.label}</span>
@@ -481,7 +488,9 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto overscroll-contain" style={{ background: bg }}>
-          {children}
+          <ThemeCtx.Provider value={darkMode}>
+            {children}
+          </ThemeCtx.Provider>
         </main>
       </div>
     </div>

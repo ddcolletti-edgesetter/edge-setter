@@ -1,5 +1,5 @@
-import { useState } from "react";
-import V2Shell, { SportBadge } from "../components/V2Shell";
+import React, { useState } from "react";
+import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { NBA_SIGNALS, NBA_TONIGHT, type V2Signal } from "../data/v2MockData";
 import {
   PlayerHeadshot, TeamLogoImg,
@@ -35,14 +35,24 @@ function signalsForGame(away: string, home: string): number {
 
 /* ── Enhanced Detail panel ── */
 function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
+  const darkMode = useShellTheme();
+  const TH = {
+    surface1:  darkMode ? T.surface1  : "#FFFFFF",
+    surface2:  darkMode ? T.surface2  : "#F5F1EB",
+    goldDim:   darkMode ? T.goldDim   : "rgba(202,168,90,0.25)",
+    border:    darkMode ? T.border    : "rgba(0,0,0,0.08)",
+    text:      darkMode ? T.text      : "#1A1712",
+    textMuted: darkMode ? T.textMuted : "#4A443C",
+    textFaint: darkMode ? T.textFaint : "#8C8277",
+  };
   const teamColors = getTeamColors(sig.team);
-  const vColor = VERDICT_COLORS[sig.verdict] ?? T.textFaint;
+  const vColor = VERDICT_COLORS[sig.verdict] ?? TH.textFaint;
 
   return (
     <div
       data-testid="detail-panel"
       style={{
-        width: "100%", maxWidth: 360, background: T.surface1, borderLeft: `1px solid ${T.goldDim}`,
+        width: "100%", maxWidth: 360, background: TH.surface1, borderLeft: `1px solid ${TH.goldDim}`,
         flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "auto",
       }}
     >
@@ -50,7 +60,7 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
       <button onClick={onClose} style={{
         position: "absolute", top: 14, right: 14, zIndex: 10,
         background: "rgba(0,0,0,0.5)", border: "none", borderRadius: "50%",
-        color: T.textMuted, cursor: "pointer", width: 28, height: 28,
+        color: TH.textMuted, cursor: "pointer", width: 28, height: 28,
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <X size={13} />
@@ -61,7 +71,7 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
         position: "relative", overflow: "hidden",
         background: `linear-gradient(150deg, ${teamColors.primary}EE 0%, ${teamColors.primary}77 55%, transparent 100%)`,
         padding: sig.player ? "0 0 0 0" : "20px 20px 16px",
-        borderBottom: "1px solid rgba(255,255,255,0.08)",
+        borderBottom: `1px solid ${TH.border}`,
         minHeight: sig.player ? 160 : 100,
       }}>
         {/* Background glow */}
@@ -104,12 +114,12 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
 
             {/* Identity */}
             <div style={{ flex: 1, padding: "20px 16px 16px 12px", position: "relative", zIndex: 2 }}>
-              <div style={{ fontSize: 18, fontWeight: 700, color: T.text, lineHeight: 1.2, marginBottom: 6 }}>{sig.player}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: TH.text, lineHeight: 1.2, marginBottom: 6 }}>{sig.player}</div>
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 8 }}>
                 <TeamLogoImg abbr={sig.team} size={18} />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 12, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase",
+                  fontSize: 12, color: TH.textFaint, letterSpacing: "0.1em", textTransform: "uppercase",
                 }}>{sig.team}{sig.opponent ? ` vs ${sig.opponent}` : ""}</span>
               </div>
               <VerdictBadge verdict={sig.verdict} />
@@ -122,13 +132,13 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
               <TeamLogoImg abbr={sig.team} size={54} />
               {sig.opponent && (
                 <>
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 18, color: T.textFaint }}>@</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 18, color: TH.textFaint }}>@</span>
                   <TeamLogoImg abbr={sig.opponent} size={54} />
                 </>
               )}
             </div>
             <div>
-              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 16, fontWeight: 800, color: T.text, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 4 }}>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 16, fontWeight: 800, color: TH.text, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 4 }}>
                 {sig.team}{sig.opponent ? ` @ ${sig.opponent}` : ""}
               </div>
               <VerdictBadge verdict={sig.verdict} />
@@ -138,18 +148,18 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
       </div>
 
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", background: T.surface2, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", background: TH.surface2, borderBottom: `1px solid ${TH.border}` }}>
         {[
           { label: "Verdict", value: sig.verdict.toUpperCase(), color: vColor },
-          { label: "Confidence", value: `${sig.confidence}%`, color: sig.confidence >= 80 ? T.gold : T.text },
-          { label: "Sources", value: String(sig.sources), color: T.text },
+          { label: "Confidence", value: `${sig.confidence}%`, color: sig.confidence >= 80 ? T.gold : TH.text },
+          { label: "Sources", value: String(sig.sources), color: TH.text },
         ].map((s, i) => (
           <div key={s.label} style={{
             padding: "10px 0", textAlign: "center",
-            borderRight: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none",
+            borderRight: i < 2 ? `1px solid ${TH.border}` : "none",
           }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: s.color, letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -166,24 +176,24 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
           {sig.opponent && (
             <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <TeamLogoImg abbr={sig.team} size={16} />
-              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.06em", textTransform: "uppercase" }}>vs</span>
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint, letterSpacing: "0.06em", textTransform: "uppercase" }}>vs</span>
               <TeamLogoImg abbr={sig.opponent} size={16} />
             </div>
           )}
         </div>
 
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 12 }}>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: TH.text, lineHeight: 1.4, marginBottom: 12 }}>
           {sig.headline}
         </div>
 
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Signal Detail</div>
-          <div style={{ fontSize: 14, color: T.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 5 }}>Signal Detail</div>
+          <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
         </div>
 
         <div style={{ marginBottom: 12 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Why It Matters</div>
-          <div style={{ fontSize: 14, color: T.textMuted, lineHeight: 1.65 }}>{sig.why_it_matters}</div>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 5 }}>Why It Matters</div>
+          <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.65 }}>{sig.why_it_matters}</div>
         </div>
 
         <div style={{
@@ -193,7 +203,7 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
           <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold, marginBottom: 6 }}>
             ⚡ Action Takeaway
           </div>
-          <div style={{ fontSize: 14, color: T.text, lineHeight: 1.65, fontWeight: 500 }}>{sig.action_takeaway}</div>
+          <div style={{ fontSize: 14, color: TH.text, lineHeight: 1.65, fontWeight: 500 }}>{sig.action_takeaway}</div>
         </div>
 
         {/* Tags with team logos inline */}
@@ -203,14 +213,14 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
             return isTeam ? (
               <div key={tag} style={{ display: "flex", alignItems: "center", gap: 3 }}>
                 <TeamLogoImg abbr={tag} size={14} />
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: T.textFaint }}>{tag}</span>
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", color: TH.textFaint }}>{tag}</span>
               </div>
             ) : (
               <span key={tag} style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-                color: T.textFaint, padding: "2px 6px",
-                background: "rgba(255,255,255,0.05)", borderRadius: 2,
+                color: TH.textFaint, padding: "2px 6px",
+                background: `${TH.border}`, borderRadius: 2,
               }}>{tag}</span>
             );
           })}
@@ -222,6 +232,16 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
 
 /* ── Playoff context band — shows active series for each game ── */
 function PlayoffContextBand() {
+  const darkMode = useShellTheme();
+  const TH = {
+    surface1:  darkMode ? T.surface1  : "#FFFFFF",
+    surface2:  darkMode ? T.surface2  : "#F5F1EB",
+    goldDim:   darkMode ? T.goldDim   : "rgba(202,168,90,0.25)",
+    border:    darkMode ? T.border    : "rgba(0,0,0,0.08)",
+    text:      darkMode ? T.text      : "#1A1712",
+    textMuted: darkMode ? T.textMuted : "#4A443C",
+    textFaint: darkMode ? T.textFaint : "#8C8277",
+  };
   const series = [
     { away: "LAL", home: "GSW", record: "LAL leads 3-2", game: "G6 Tonight" },
     { away: "MIA", home: "BOS", record: "BOS leads 3-1", game: "G5 Tonight" },
@@ -230,7 +250,7 @@ function PlayoffContextBand() {
   return (
     <div style={{
       display: "flex", gap: 8, padding: "10px 20px",
-      borderBottom: "1px solid rgba(255,255,255,0.05)",
+      borderBottom: `1px solid ${TH.border}`,
       background: "rgba(202,168,90,0.03)",
       overflowX: "auto",
       flexShrink: 0,
@@ -242,14 +262,14 @@ function PlayoffContextBand() {
         <div key={s.away + s.home} style={{
           display: "flex", alignItems: "center", gap: 6,
           padding: "5px 10px", borderRadius: 3,
-          background: T.surface2, border: "1px solid rgba(202,168,90,0.12)",
+          background: TH.surface2, border: "1px solid rgba(202,168,90,0.12)",
           flexShrink: 0,
         }}>
           <TeamLogoImg abbr={s.away} size={18} />
-          <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>@</span>
+          <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint }}>@</span>
           <TeamLogoImg abbr={s.home} size={18} />
           <div style={{ marginLeft: 2 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, color: T.text, letterSpacing: "0.04em" }}>{s.record}</div>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, color: TH.text, letterSpacing: "0.04em" }}>{s.record}</div>
             <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.gold, letterSpacing: "0.06em" }}>{s.game}</div>
           </div>
         </div>
@@ -260,6 +280,24 @@ function PlayoffContextBand() {
 
 /* ── Main page ── */
 export default function NBABoard() {
+  return <V2Shell boardsMode><NBABoardInner /></V2Shell>;
+}
+
+function NBABoardInner() {
+  const darkMode = useShellTheme();
+  // Theme-aware token overrides (dark is T defaults; light gets warmer palette)
+  const TH = {
+    bg:        darkMode ? T.bg        : "#F0ECE4",
+    surface1:  darkMode ? T.surface1  : "#FFFFFF",
+    surface2:  darkMode ? T.surface2  : "#F5F1EB",
+    surface3:  darkMode ? T.surface3  : "#EDE9E2",
+    goldDim:   darkMode ? T.goldDim   : "rgba(202,168,90,0.25)",
+    border:    darkMode ? T.border    : "rgba(0,0,0,0.08)",
+    text:      darkMode ? T.text      : "#1A1712",
+    textMuted: darkMode ? T.textMuted : "#4A443C",
+    textFaint: darkMode ? T.textFaint : "#8C8277",
+  };
+
   const [activeFilter, setActiveFilter] = useState<FilterKey>("Today");
   const [selected, setSelected] = useState<V2Signal | null>(null);
   const [gameFilter, setGameFilter] = useState<string | null>(null); // e.g. "LAL" to filter by team
@@ -271,7 +309,7 @@ export default function NBABoard() {
   const featured = NBA_SIGNALS.find(s => s.confidence >= 84) ?? NBA_SIGNALS[0];
 
   return (
-    <V2Shell boardsMode>
+    <>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         .sig-row:hover { background: rgba(202,168,90,0.04) !important; }
@@ -282,45 +320,76 @@ export default function NBABoard() {
 
         {/* ─── Board subnav ─── */}
         <aside className="board-subnav" style={{
-          width: 196, background: T.surface1, borderRight: `1px solid ${T.goldDim}`,
+          width: 196, background: TH.surface1, borderRight: `1px solid ${TH.goldDim}`,
           flexShrink: 0, padding: "16px 10px", overflowY: "auto",
         }}>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-            color: T.textFaint, padding: "0 8px", marginBottom: 10,
+            color: TH.textFaint, padding: "0 8px", marginBottom: 10,
           }}>NBA Board</div>
 
-          {[
-            { label: "Signal Stream", active: true, icon: <Zap size={11} /> },
-            { label: "Tonight's Slate", active: false, icon: <TrendingUp size={11} /> },
-            { label: "Injury Volatility", active: false, icon: <AlertCircle size={11} /> },
-            { label: "Line Movement", active: false, icon: null },
-            { label: "Matchup Edges", active: false, icon: null },
-            { label: "Rotation Notes", active: false, icon: null },
-            { label: "Playoff Tracker", active: false, icon: null },
-          ].map(({ label, active, icon }) => (
+          {/* Signal Stream — sets filter to Today (shows all) */}
+          {([
+            { label: "Signal Stream",    filter: "Today" as FilterKey,    icon: <Zap size={11} /> },
+            { label: "Injury Reports",   filter: "Injuries" as FilterKey, icon: <AlertCircle size={11} /> },
+            { label: "Matchup Edges",    filter: "Matchups" as FilterKey, icon: <TrendingUp size={11} /> },
+            { label: "Playoff Tracker",  filter: "Playoffs" as FilterKey, icon: <ChevronRight size={11} /> },
+          ] as { label: string; filter: FilterKey; icon: React.ReactNode }[]).map(({ label, filter, icon }) => {
+            const isActive = activeFilter === filter;
+            return (
+              <button
+                key={label}
+                onClick={() => { setActiveFilter(filter); setSelected(null); }}
+                aria-pressed={isActive}
+                style={{
+                  display: "flex", alignItems: "center", gap: 7, padding: "8px 10px", marginBottom: 1,
+                  borderRadius: 3,
+                  background: isActive ? "rgba(202,168,90,0.07)" : "transparent",
+                  color: isActive ? T.gold : TH.textMuted, cursor: "pointer",
+                  transition: "background 0.12s, color 0.12s",
+                  width: "100%", textAlign: "left", border: "none",
+                  borderLeft: `2px solid ${isActive ? T.gold : "transparent"}`,
+                }}
+                onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.background = "rgba(202,168,90,0.04)"; (e.currentTarget as HTMLButtonElement).style.color = TH.text; } }}
+                onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; (e.currentTarget as HTMLButtonElement).style.color = TH.textMuted; } }}
+              >
+                <span style={{ opacity: isActive ? 1 : 0.5, display: "flex", flexShrink: 0 }}>{icon}</span>
+                <span style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                }}>{label}</span>
+              </button>
+            );
+          })}
+
+          {/* Static section labels — no action yet */}
+          <div style={{ margin: "10px 0 4px", padding: "0 10px" }}>
+            <div style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
+              color: TH.textFaint, opacity: 0.5, userSelect: "none",
+            }}>Coming Soon</div>
+          </div>
+          {["Line Movement", "Rotation Notes"].map(label => (
             <div key={label} style={{
-              display: "flex", alignItems: "center", gap: 7, padding: "8px 10px", marginBottom: 1,
-              borderRadius: 3, borderLeft: `2px solid ${active ? T.gold : "transparent"}`,
-              background: active ? "rgba(202,168,90,0.07)" : "transparent",
-              color: active ? T.gold : T.textMuted, cursor: "pointer",
-              transition: "background 0.12s, color 0.12s",
+              display: "flex", alignItems: "center", gap: 7, padding: "7px 10px", marginBottom: 1,
+              color: TH.textFaint, opacity: 0.45, cursor: "default", userSelect: "none",
             }}>
-              <span style={{ opacity: active ? 1 : 0.4, display: "flex" }}>{icon ?? <ChevronRight size={10} />}</span>
+              <ChevronRight size={10} style={{ flexShrink: 0 }} />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                fontSize: 13, fontWeight: 600, letterSpacing: "0.07em", textTransform: "uppercase",
               }}>{label}</span>
             </div>
           ))}
 
-          <div style={{ margin: "16px 0 10px", borderTop: `1px solid ${T.goldDim}` }} />
+          <div style={{ margin: "16px 0 10px", borderTop: `1px solid ${TH.goldDim}` }} />
 
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-            color: T.textFaint, padding: "0 8px", marginBottom: 8,
+            color: TH.textFaint, padding: "0 8px", marginBottom: 8,
           }}>Quick Teams</div>
 
           {["LAL", "BOS", "DEN", "GSW", "MIA", "OKC", "NYK", "MIN"].map(tm => {
@@ -345,7 +414,7 @@ export default function NBABoard() {
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 14, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                  color: isTeamActive ? T.gold : T.textMuted,
+                  color: isTeamActive ? T.gold : TH.textMuted,
                 }}>{tm}</span>
               </button>
             );
@@ -357,38 +426,38 @@ export default function NBABoard() {
 
           {/* Board header */}
           <div style={{
-            padding: "12px 20px", borderBottom: `1px solid rgba(255,255,255,0.06)`,
+            padding: "12px 20px", borderBottom: `1px solid ${TH.border}`,
             display: "flex", alignItems: "center", gap: 12, flexShrink: 0,
-            background: T.surface1,
+            background: TH.surface1,
           }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 700, color: T.text }}>
+                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 700, color: TH.text }}>
                   NBA Intelligence Board
                 </span>
                 <SportBadge status="LIVE" />
               </div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, color: T.textFaint, letterSpacing: "0.04em",
+                fontSize: 13, color: TH.textFaint, letterSpacing: "0.04em",
               }}>
                 Playoffs active · {NBA_SIGNALS.length} signals · Updated continuously
               </div>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               {[
-                { label: "Total", value: NBA_SIGNALS.length, color: T.text },
+                { label: "Total", value: NBA_SIGNALS.length, color: TH.text },
                 { label: "Confirmed", value: NBA_SIGNALS.filter(s => s.verdict === "confirmed").length, color: T.green },
                 { label: "High Conf", value: NBA_SIGNALS.filter(s => s.confidence >= 80).length, color: T.gold },
               ].map(stat => (
                 <div key={stat.label} style={{
                   textAlign: "center", padding: "6px 14px",
-                  background: T.surface2, border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 3,
+                  background: TH.surface2, border: `1px solid ${TH.border}`, borderRadius: 3,
                 }}>
                   <div style={{ fontSize: 17, fontWeight: 700, color: stat.color, fontVariantNumeric: "tabular-nums" }}>{stat.value}</div>
                   <div style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 10, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase",
+                    fontSize: 10, color: TH.textFaint, letterSpacing: "0.12em", textTransform: "uppercase",
                   }}>{stat.label}</div>
                 </div>
               ))}
@@ -400,13 +469,13 @@ export default function NBABoard() {
 
           {/* ── Tonight's Slate — MatchupCards ── */}
           <div style={{
-            padding: "12px 20px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`,
+            padding: "12px 20px 14px", borderBottom: `1px solid ${TH.border}`,
             flexShrink: 0, overflowX: "auto",
           }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
-              color: T.textFaint, marginBottom: 10,
+              color: TH.textFaint, marginBottom: 10,
               display: "flex", alignItems: "center", gap: 6,
             }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.gold, display: "inline-block" }} />
@@ -427,7 +496,7 @@ export default function NBABoard() {
                   {(gameFilter === game.away || gameFilter === game.home) && (
                     <div style={{ marginTop: 5, padding: "3px 8px", background: "rgba(202,168,90,0.08)", borderRadius: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.gold, fontWeight: 700 }}>Filtering: {game.away} @ {game.home}</span>
-                      <button onClick={() => setGameFilter(null)} style={{ background: "none", border: "none", color: T.textFaint, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button>
+                      <button onClick={() => setGameFilter(null)} style={{ background: "none", border: "none", color: TH.textFaint, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button>
                     </div>
                   )}
                 </div>
@@ -442,11 +511,11 @@ export default function NBABoard() {
 
           {/* ── Filter chips ── */}
           <div style={{
-            padding: "12px 20px", borderBottom: `1px solid rgba(255,255,255,0.06)`,
+            padding: "12px 20px", borderBottom: `1px solid ${TH.border}`,
             display: "flex", alignItems: "center", gap: 6, flexShrink: 0, flexWrap: "wrap",
             marginTop: 14,
           }}>
-            <Filter size={11} style={{ color: T.textFaint, marginRight: 4 }} />
+            <Filter size={11} style={{ color: TH.textFaint, marginRight: 4 }} />
             {FILTERS.map(f => {
               const isActive = f === activeFilter;
               return (
@@ -459,7 +528,7 @@ export default function NBABoard() {
                     padding: "6px 13px", borderRadius: 2,
                     border: `1px solid ${isActive ? T.gold : "rgba(255,255,255,0.1)"}`,
                     background: isActive ? "rgba(202,168,90,0.1)" : "transparent",
-                    color: isActive ? T.gold : T.textMuted,
+                    color: isActive ? T.gold : TH.textMuted,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
                     cursor: "pointer", transition: "all 0.12s",
@@ -476,15 +545,14 @@ export default function NBABoard() {
               display: "grid",
               gridTemplateColumns: "36px 110px 1fr 130px 80px 80px 68px",
               padding: "6px 20px",
-              background: T.surface2,
-              borderBottom: `1px solid rgba(255,255,255,0.06)`,
-              position: "sticky", top: 0, zIndex: 5,
+              background: TH.surface2,
+              borderBottom: `1px solid ${TH.border}`,
             }}>
               {["", "Type", "Signal", "Player", "Verdict", "Conf", "Time"].map(h => (
                 <div key={h} style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
-                  color: T.textFaint,
+                  color: TH.textFaint,
                 }}>{h}</div>
               ))}
             </div>
@@ -493,8 +561,8 @@ export default function NBABoard() {
               const isSelected = selected?.id === sig.id;
               const typeColor = {
                 injury: T.danger, line_move: T.green, matchup_edge: T.gold,
-                prop: T.orange, rotation: T.cyan, news: T.textMuted, trend: T.cyan,
-              }[sig.type] ?? T.textFaint;
+                prop: T.orange, rotation: T.cyan, news: TH.textMuted, trend: T.cyan,
+              }[sig.type] ?? TH.textFaint;
 
               return (
                 <div
@@ -506,7 +574,7 @@ export default function NBABoard() {
                     display: "grid",
                     gridTemplateColumns: "36px 110px 1fr 130px 80px 80px 68px",
                     padding: "10px 20px",
-                    borderBottom: `1px solid rgba(255,255,255,0.04)`,
+                    borderBottom: `1px solid ${TH.border}`,
                     background: isSelected ? "rgba(202,168,90,0.055)" : "transparent",
                     cursor: "pointer", alignItems: "center",
                     borderLeft: `3px solid ${isSelected ? T.gold : typeColor + "55"}`,
@@ -516,7 +584,7 @@ export default function NBABoard() {
                   {/* Index */}
                   <div style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 11, color: T.textFaint, fontVariantNumeric: "tabular-nums",
+                    fontSize: 11, color: TH.textFaint, fontVariantNumeric: "tabular-nums",
                   }}>{idx + 1}</div>
 
                   {/* Type chip */}
@@ -524,12 +592,12 @@ export default function NBABoard() {
 
                   {/* Headline + sub */}
                   <div style={{ paddingRight: 14 }}>
-                    <div className="sig-headline" style={{ fontSize: 15, color: T.text, fontWeight: 500, lineHeight: 1.4, marginBottom: 4 }}>
+                    <div className="sig-headline" style={{ fontSize: 15, color: TH.text, fontWeight: 500, lineHeight: 1.4, marginBottom: 4 }}>
                       {sig.headline}
                     </div>
                     <div style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 12, color: T.textFaint, lineHeight: 1.45,
+                      fontSize: 12, color: TH.textFaint, lineHeight: 1.45,
                     }}>
                       {sig.action_takeaway.slice(0, 72)}…
                     </div>
@@ -549,7 +617,7 @@ export default function NBABoard() {
                   {/* Confidence */}
                   <div>
                     <div style={{
-                      fontSize: 15, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : T.textMuted,
+                      fontSize: 15, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : TH.textMuted,
                       fontVariantNumeric: "tabular-nums", marginBottom: 3,
                     }}>{sig.confidence}%</div>
                     <ConfidenceBar value={sig.confidence} width={50} height={3} />
@@ -558,7 +626,7 @@ export default function NBABoard() {
                   {/* Time */}
                   <div style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 11, color: T.textFaint,
+                    fontSize: 11, color: TH.textFaint,
                   }}>{sig.timestamp}</div>
                 </div>
               );
@@ -571,7 +639,7 @@ export default function NBABoard() {
             }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, color: T.textFaint, lineHeight: 1.5,
+                fontSize: 11, color: TH.textFaint, lineHeight: 1.5,
               }}>
                 <strong style={{ color: T.gold }}>STUB DATA</strong> · {NBA_SIGNALS.length} realistic placeholder signals. Wire live NBA signal ingestion to replace. Click any row to open the intelligence detail panel →
               </div>
@@ -586,6 +654,6 @@ export default function NBABoard() {
           </div>
         )}
       </div>
-    </V2Shell>
+    </>
   );
 }
