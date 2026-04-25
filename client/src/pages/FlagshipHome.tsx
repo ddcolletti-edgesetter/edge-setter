@@ -96,7 +96,7 @@ export default function FlagshipHome() {
       {/* ══════════════════════════════════
           TOP NAV BAR
       ══════════════════════════════════ */}
-      <nav style={{
+      <nav className="flag-nav" style={{
         position: "sticky", top: 0, zIndex: 100,
         background: "rgba(10,11,13,0.96)",
         backdropFilter: "blur(12px)",
@@ -133,7 +133,7 @@ export default function FlagshipHome() {
         </div>
 
         {/* Nav links */}
-        <div style={{ display: "flex", gap: 4, marginLeft: 8 }}>
+        <div className="flag-nav-links" style={{ display: "flex", gap: 4, marginLeft: 8 }}>
           {[
             { label: "NBA Board", href: "/v2/nba", hot: true },
             { label: "MLB Board", href: "/v2/mlb" },
@@ -167,13 +167,14 @@ export default function FlagshipHome() {
         </div>
 
         {/* Sport status pills — real clickable buttons */}
-        <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+        <div className="flag-sport-pills" style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
           {SPORT_STATUS.map(s => {
             const disabled = s.status === "OFFSEASON" || s.status === "COMING SOON";
             const href = s.label === "NBA" ? "/v2/nba" : s.label === "MLB" ? "/v2/mlb" : null;
             return (
               <button
                 key={s.label}
+                className="flag-sport-pill"
                 onClick={() => href && navigate(href)}
                 disabled={disabled}
                 aria-label={`${s.label} — ${s.status}`}
@@ -207,6 +208,7 @@ export default function FlagshipHome() {
 
         {/* Pro CTA */}
         <button
+          className="flag-pro-btn"
           onClick={() => navigate("/pro")}
           style={{
             padding: "7px 16px", borderRadius: 3,
@@ -226,6 +228,25 @@ export default function FlagshipHome() {
         .flag-btn:hover { opacity: 0.88; transform: translateY(-1px); }
         .panel-card:hover { border-color: rgba(202,168,90,0.3) !important; transform: translateY(-2px); }
         .sig-ticker:hover { background: rgba(202,168,90,0.04) !important; }
+        /* Mobile responsive */
+        @media (max-width: 768px) {
+          .flag-nav { padding: 0 16px !important; gap: 12px !important; height: 52px !important; }
+          .flag-nav-links { display: none !important; }
+          .flag-sport-pills { gap: 4px !important; }
+          .flag-sport-pill { padding: 4px 6px !important; font-size: 11px !important; }
+          .flag-pro-btn { padding: 6px 10px !important; font-size: 11px !important; }
+          .flag-hero-grid { grid-template-columns: 1fr !important; gap: 24px !important; padding: 32px 20px 28px !important; }
+          .flag-hero-right { display: none !important; }
+          .flag-hero-h1 { font-size: clamp(26px, 7vw, 40px) !important; }
+          .flag-hero-body { font-size: 16px !important; }
+          .flag-hero-ctarow { flex-wrap: wrap !important; gap: 10px !important; }
+          .flag-cta-btn { padding: 11px 18px !important; font-size: 14px !important; min-height: 44px !important; }
+          .flag-slate-strip { gap: 10px !important; }
+          .flag-game-card { width: 200px !important; }
+          .flag-panel-grid { grid-template-columns: 1fr !important; }
+          .flag-section-pad { padding: 20px 20px !important; }
+          .flag-ticker-row { padding: 8px 12px !important; min-height: 52px !important; }
+        }
       `}</style>
 
       {/* ══════════════════════════════════
@@ -249,14 +270,14 @@ export default function FlagshipHome() {
           background: `radial-gradient(ellipse 60% 80% at 75% 50%, ${heroColors.primary}22, transparent 65%)`,
         }} />
 
-        <div style={{
+        <div className="flag-hero-grid" style={{
           maxWidth: 1280, margin: "0 auto", padding: "60px 40px 48px",
           display: "grid", gridTemplateColumns: "1fr 380px",
           gap: 48, alignItems: "center", position: "relative", zIndex: 2,
         }}>
 
           {/* ── Left: headline + signal module ── */}
-          <div style={{ animation: "heroFadeUp 0.6s ease both" }}>
+          <div className="flag-hero-left" style={{ animation: "heroFadeUp 0.6s ease both" }}>
 
             {/* Eyebrow */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
@@ -285,7 +306,7 @@ export default function FlagshipHome() {
             </div>
 
             {/* Main headline */}
-            <h1 style={{
+            <h1 className="flag-hero-h1" style={{
               fontFamily: "'Playfair Display', Georgia, serif",
               fontSize: "clamp(32px, 4vw, 52px)",
               fontWeight: 800, lineHeight: 1.1,
@@ -296,7 +317,7 @@ export default function FlagshipHome() {
               <span style={{ color: T.gold }}>Before the Market Moves</span>
             </h1>
 
-            <p style={{
+            <p className="flag-hero-body" style={{
               fontSize: 18, color: T.textMuted, lineHeight: 1.65,
               margin: "0 0 28px", maxWidth: 520,
             }}>
@@ -304,9 +325,9 @@ export default function FlagshipHome() {
             </p>
 
             {/* CTAs */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="flag-hero-ctarow" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <button
-                className="flag-btn"
+                className="flag-btn flag-cta-btn"
                 onClick={() => navigate("/v2/nba")}
                 style={{
                   display: "flex", alignItems: "center", gap: 8,
@@ -322,7 +343,7 @@ export default function FlagshipHome() {
                 <Zap size={14} /> NBA Board <ArrowRight size={13} />
               </button>
               <button
-                className="flag-btn"
+                className="flag-btn flag-cta-btn"
                 onClick={() => navigate("/v2/mlb")}
                 style={{
                   display: "flex", alignItems: "center", gap: 8,
@@ -338,7 +359,7 @@ export default function FlagshipHome() {
                 MLB Board <ArrowRight size={13} />
               </button>
               <button
-                className="flag-btn"
+                className="flag-btn flag-cta-btn"
                 onClick={() => navigate("/v2/tools")}
                 style={{
                   display: "flex", alignItems: "center", gap: 8,
@@ -368,7 +389,7 @@ export default function FlagshipHome() {
                   return (
                     <div
                       key={sig.id}
-                      className="sig-ticker"
+                      className="sig-ticker flag-ticker-row"
                       onClick={() => navigate("/v2/nba")}
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
@@ -397,7 +418,7 @@ export default function FlagshipHome() {
           </div>
 
           {/* ── Right: Featured Edge card ── */}
-          <div style={{ animation: "heroFadeUp 0.7s ease 0.12s both" }}>
+          <div className="flag-hero-right" style={{ animation: "heroFadeUp 0.7s ease 0.12s both" }}>
             {/* Hero player visual — marquee matchup */}
             <div style={{
               background: T.surface1,
@@ -573,9 +594,9 @@ export default function FlagshipHome() {
               }}
             >All Signals <ChevronRight size={12} /></button>
           </div>
-          <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 4 }}>
+          <div className="flag-slate-strip" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 4 }}>
             {NBA_TONIGHT.map(game => (
-              <div key={game.id} style={{ width: 240, flexShrink: 0 }}>
+              <div key={game.id} className="flag-game-card" style={{ width: 240, flexShrink: 0 }}>
                 <GameCard
                   away={game.away} home={game.home}
                   time={game.time} series={game.series}
@@ -679,9 +700,9 @@ export default function FlagshipHome() {
               }}
             >MLB Board <ChevronRight size={12} /></button>
           </div>
-          <div style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 4 }}>
+          <div className="flag-slate-strip" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 4 }}>
             {MLB_GAMES.map(game => (
-              <div key={game.id} style={{ width: 220, flexShrink: 0 }}>
+              <div key={game.id} className="flag-game-card" style={{ width: 220, flexShrink: 0 }}>
                 <GameCard
                   away={game.away} home={game.home}
                   time={game.time} spread={game.spread} total={game.total}

@@ -65,7 +65,7 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
 
   return (
     <div style={{
-      width: 340, background: T.surface1, borderLeft: `1px solid rgba(74,168,200,0.22)`,
+      width: "100%", maxWidth: 340, background: T.surface1, borderLeft: `1px solid rgba(74,168,200,0.22)`,
       flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "auto",
       position: "relative",
     }}>
@@ -177,10 +177,10 @@ export default function MLBBoard() {
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
         .mlb-sig-row:hover { background: rgba(74,168,200,0.04) !important; }
       `}</style>
-      <div style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
+      <div className="board-main-wrap" style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
 
         {/* ─── Board subnav ─── */}
-        <aside style={{
+        <aside className="board-subnav" style={{
           width: 190, background: T.surface1, borderRight: `1px solid rgba(74,168,200,0.15)`,
           flexShrink: 0, padding: "16px 10px", overflowY: "auto",
         }}>
@@ -221,6 +221,7 @@ export default function MLBBoard() {
             return (
               <button
                 key={tm}
+                className="team-btn-mob"
                 onClick={() => setGameFilter(gf => gf === tm ? null : tm)}
                 aria-label={`Filter signals for ${tm}`}
                 aria-pressed={isActive}
@@ -246,7 +247,7 @@ export default function MLBBoard() {
         </aside>
 
         {/* ─── Main canvas ─── */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div className="board-main-col" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
           {/* Header */}
           <div style={{
@@ -292,9 +293,9 @@ export default function MLBBoard() {
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
               Today's Games
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
+            <div className="board-slate-strip" style={{ display: "flex", gap: 12 }}>
               {TONIGHT_GAMES.map(game => (
-                <div key={game.id} style={{ width: 232, flexShrink: 0 }}>
+                <div key={game.id} className="board-slate-card" style={{ width: 232, flexShrink: 0 }}>
                   <MatchupCard
                     away={game.away} home={game.home}
                     time={game.time} spread={game.spread} total={game.total}
@@ -330,7 +331,7 @@ export default function MLBBoard() {
             {MLB_FILTERS.map(f => {
               const isActive = f === activeFilter;
               return (
-                <button key={f} onClick={() => setActiveFilter(f)} style={{
+                <button key={f} className="filter-chip" onClick={() => setActiveFilter(f)} style={{
                   padding: "5px 12px", borderRadius: 2,
                   border: `1px solid ${isActive ? T.cyan : "rgba(255,255,255,0.1)"}`,
                   background: isActive ? "rgba(74,168,200,0.08)" : "transparent",
@@ -344,7 +345,7 @@ export default function MLBBoard() {
           </div>
 
           {/* 2-col layout */}
-          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 280px" }} className="mlb-grid">
+          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 280px" }} className="mlb-grid mlb-grid-wrap">
 
             {/* Signal list */}
             <div style={{ borderRight: `1px solid rgba(255,255,255,0.06)`, overflowY: "auto" }}>
@@ -372,7 +373,7 @@ export default function MLBBoard() {
                 return (
                   <div
                     key={sig.id}
-                    className="mlb-sig-row"
+                    className="mlb-sig-row sig-row-tap"
                     data-testid={`mlb-signal-${sig.id}`}
                     onClick={() => setSelected(isSelected ? null : sig)}
                     style={{
@@ -542,10 +543,15 @@ export default function MLBBoard() {
 
         {/* Detail panel */}
         {selected && (
-          <MLBDetailPanel sig={selected} onClose={() => setSelected(null)} />
+          <div className="board-detail-rail" style={{ position: "relative" }}>
+            <MLBDetailPanel sig={selected} onClose={() => setSelected(null)} />
+          </div>
         )}
       </div>
-      <style>{`.mlb-grid { } @media (max-width: 900px) { .mlb-grid { grid-template-columns: 1fr !important; } }`}</style>
+      <style>{`
+        .mlb-grid { }
+        @media (max-width: 900px) { .mlb-grid { grid-template-columns: 1fr !important; } }
+      `}</style>
     </V2Shell>
   );
 }

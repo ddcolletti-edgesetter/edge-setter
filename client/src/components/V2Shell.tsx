@@ -3,7 +3,6 @@ import { useState } from "react";
 import {
   Home, LayoutGrid, Wrench, Star, List,
   ChevronDown, ChevronRight, Menu, X, Moon, Sun,
-  Circle
 } from "lucide-react";
 
 /* ── Design tokens ── */
@@ -11,7 +10,6 @@ const T = {
   bg:         "#0A0B0D",
   surface1:   "#111317",
   surface2:   "#16191E",
-  surface3:   "#1B1F25",
   gold:       "#CAA85A",
   goldBright: "#D8B86A",
   goldDim:    "rgba(202,168,90,0.16)",
@@ -21,106 +19,167 @@ const T = {
   green:      "#4CAF82",
   orange:     "#D98A42",
   cyan:       "#4AA8C8",
-  dim:        "rgba(255,255,255,0.06)",
+  danger:     "#D94B4B",
 };
 
-/* ── Sport status badges ── */
 export type SportStatus = "LIVE" | "ACTIVE" | "BUILDING" | "OFFSEASON" | "COMING SOON";
 
 const STATUS_STYLE: Record<SportStatus, { bg: string; color: string; dot: string }> = {
-  "LIVE":         { bg: "rgba(76,175,130,0.15)", color: "#4CAF82", dot: "#4CAF82" },
-  "ACTIVE":       { bg: "rgba(74,168,200,0.12)", color: "#4AA8C8", dot: "#4AA8C8" },
-  "BUILDING":     { bg: "rgba(217,138,66,0.15)", color: "#D98A42", dot: "#D98A42" },
-  "OFFSEASON":    { bg: "rgba(126,119,106,0.18)", color: "#7E776A", dot: "#7E776A" },
-  "COMING SOON":  { bg: "rgba(126,119,106,0.12)", color: "#7E776A", dot: "#7E776A" },
+  "LIVE":        { bg: "rgba(76,175,130,0.15)",  color: "#4CAF82", dot: "#4CAF82" },
+  "ACTIVE":      { bg: "rgba(74,168,200,0.12)",  color: "#4AA8C8", dot: "#4AA8C8" },
+  "BUILDING":    { bg: "rgba(217,138,66,0.15)",  color: "#D98A42", dot: "#D98A42" },
+  "OFFSEASON":   { bg: "rgba(126,119,106,0.18)", color: "#7E776A", dot: "#7E776A" },
+  "COMING SOON": { bg: "rgba(126,119,106,0.12)", color: "#7E776A", dot: "#7E776A" },
 };
 
 export function SportBadge({ status }: { status: SportStatus }) {
   const s = STATUS_STYLE[status];
   return (
-    <span
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 5,
-        padding: "2px 7px", borderRadius: 2,
-        background: s.bg, color: s.color,
-        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-        fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-      }}
-    >
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 5,
+      padding: "3px 8px", borderRadius: 2,
+      background: s.bg, color: s.color,
+      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+      fontSize: 14, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+    }}>
       <span style={{ width: 5, height: 5, borderRadius: "50%", background: s.dot, display: "inline-block" }} />
       {status}
     </span>
   );
 }
 
-/* ── Top-right nav pill — now a real button/link ── */
+/* ── Sport Pill — top-right header, real button/link ── */
 interface SportPillProps {
   sport: "NBA" | "MLB" | "NFL" | "CFB";
   status: SportStatus;
   href: string;
   disabled?: boolean;
+  isCurrent?: boolean;
 }
-function SportPill({ sport, status, href, disabled = false }: SportPillProps) {
+function SportPill({ sport, status, href, disabled = false, isCurrent = false }: SportPillProps) {
   const s = STATUS_STYLE[status];
   const isLive = status === "LIVE";
-  const isActive = status === "ACTIVE";
   const clickable = !disabled;
 
-  const pill = (
-    <span
-      tabIndex={clickable ? 0 : -1}
-      role={clickable ? "button" : undefined}
-      aria-label={`${sport} — ${status}`}
-      onKeyDown={e => { if (clickable && (e.key === "Enter" || e.key === " ") && typeof window !== "undefined") { window.location.hash = `#${href}`; } }}
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 5,
-        padding: "4px 11px", borderRadius: 3,
-        background: s.bg,
-        border: `1px solid ${s.dot}${isLive ? "55" : "30"}`,
-        color: s.color,
-        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-        fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-        cursor: clickable ? "pointer" : "default",
-        transition: "filter 0.12s, transform 0.1s",
-        outline: "none",
-        userSelect: "none",
-      }}
-      onMouseEnter={e => { if (clickable) { (e.currentTarget as HTMLSpanElement).style.filter = "brightness(1.2)"; (e.currentTarget as HTMLSpanElement).style.transform = "translateY(-1px)"; } }}
-      onMouseLeave={e => { if (clickable) { (e.currentTarget as HTMLSpanElement).style.filter = ""; (e.currentTarget as HTMLSpanElement).style.transform = ""; } }}
-      onFocus={e => { if (clickable) { (e.currentTarget as HTMLSpanElement).style.filter = "brightness(1.15)"; } }}
-      onBlur={e => { (e.currentTarget as HTMLSpanElement).style.filter = ""; }}
-    >
+  const inner = (
+    <>
       <span style={{
-        width: 6, height: 6, borderRadius: "50%",
-        background: s.dot, display: "inline-block",
-        boxShadow: isLive ? `0 0 6px ${s.dot}` : "none",
+        width: 7, height: 7, borderRadius: "50%",
+        background: s.dot, display: "inline-block", flexShrink: 0,
+        boxShadow: isLive ? `0 0 7px ${s.dot}` : "none",
         animation: isLive ? "shellPulse 2s ease-in-out infinite" : "none",
       }} />
-      <span style={{ opacity: 0.65, fontSize: 11, fontWeight: 600, letterSpacing: "0.08em" }}>{status === "LIVE" ? "LIVE" : status === "ACTIVE" ? "ACT" : status === "OFFSEASON" ? "OFF" : "–"}</span>
-      <span style={{ borderLeft: `1px solid ${s.dot}30`, paddingLeft: 6, fontSize: 14, fontWeight: 800, letterSpacing: "0.06em" }}>{sport}</span>
-    </span>
+      <span style={{
+        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+        fontSize: 14, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase",
+        color: s.color,
+      }}>{sport}</span>
+    </>
   );
 
-  if (!clickable) return pill;
-  return <Link href={href}>{pill}</Link>;
+  const sharedStyle: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: 6,
+    minHeight: 44, padding: "0 14px", borderRadius: 4,
+    background: isCurrent ? `${s.dot}22` : s.bg,
+    border: `1px solid ${s.dot}${isCurrent ? "66" : clickable ? "40" : "20"}`,
+    cursor: clickable ? "pointer" : "default",
+    opacity: disabled ? 0.55 : 1,
+    transition: "filter 0.12s, transform 0.1s, border-color 0.12s",
+    outline: "none",
+    userSelect: "none" as const,
+    textDecoration: "none",
+  };
+
+  if (!clickable) {
+    return (
+      <span style={sharedStyle} aria-label={`${sport} — ${status}`}>
+        {inner}
+      </span>
+    );
+  }
+
+  return (
+    <Link href={href}>
+      <a
+        style={sharedStyle}
+        aria-label={`Go to ${sport} board (${status})`}
+        aria-current={isCurrent ? "page" : undefined}
+        onMouseEnter={e => {
+          (e.currentTarget as HTMLAnchorElement).style.filter = "brightness(1.2)";
+          (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-1px)";
+        }}
+        onMouseLeave={e => {
+          (e.currentTarget as HTMLAnchorElement).style.filter = "";
+          (e.currentTarget as HTMLAnchorElement).style.transform = "";
+        }}
+      >
+        {inner}
+      </a>
+    </Link>
+  );
 }
 
-/* ── Top nav items ── */
+/* ── Top nav ── */
 const TOP_NAV = [
-  { href: "/v2",          label: "Home",    icon: Home        },
-  { href: "/v2/nba",      label: "Boards",  icon: LayoutGrid  },
-  { href: "/v2/tools",    label: "Tools",   icon: Wrench      },
-  { href: "/v2/my-edge",  label: "My Edge", icon: Star        },
-  { href: "/v2/sources",  label: "Sources", icon: List        },
+  { href: "/v2",         label: "Home",    icon: Home       },
+  { href: "/v2/nba",     label: "Boards",  icon: LayoutGrid },
+  { href: "/v2/tools",   label: "Tools",   icon: Wrench     },
+  { href: "/v2/my-edge", label: "My Edge", icon: Star       },
+  { href: "/v2/sources", label: "Sources", icon: List       },
 ];
 
-/* ── Board subnav ── */
 export const BOARDS_NAV = [
-  { href: "/v2/nba", label: "NBA Board", status: "LIVE"        as SportStatus, abbr: "NBA" },
-  { href: "/v2/mlb", label: "MLB Board", status: "ACTIVE"      as SportStatus, abbr: "MLB" },
-  { href: "/v2/nfl", label: "NFL Board", status: "OFFSEASON"   as SportStatus, abbr: "NFL" },
-  { href: "/v2/cfb", label: "CFB Board", status: "COMING SOON" as SportStatus, abbr: "CFB" },
+  { href: "/v2/nba", label: "NBA Board", status: "LIVE"        as SportStatus },
+  { href: "/v2/mlb", label: "MLB Board", status: "ACTIVE"      as SportStatus },
+  { href: "/v2/nfl", label: "NFL Board", status: "OFFSEASON"   as SportStatus },
+  { href: "/v2/cfb", label: "CFB Board", status: "COMING SOON" as SportStatus },
 ];
+
+/* ─────────────────────────────────────────────
+   Global CSS injected once via <style>
+   Covers mobile breakpoints, tap targets, and
+   focus-visible outlines.
+─────────────────────────────────────────────── */
+const GLOBAL_CSS = `
+  @keyframes shellPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+  /* Focus rings */
+  .es-pill:focus-visible,
+  .es-btn:focus-visible,
+  .es-nav:focus-visible { outline: 2px solid #CAA85A; outline-offset: 2px; border-radius: 3px; }
+
+  /* Mobile: stacked board layout */
+  @media (max-width: 768px) {
+    .board-main-wrap { flex-direction: column !important; }
+    .board-subnav { display: none !important; }
+    .board-main-col { min-width: 0 !important; }
+    .board-detail-rail { width: 100% !important; border-left: none !important; border-top: 1px solid rgba(202,168,90,0.18) !important; }
+    .board-slate-strip { flex-direction: column !important; gap: 10px !important; }
+    .board-slate-card { width: 100% !important; }
+    .mlb-grid-wrap { grid-template-columns: 1fr !important; }
+    .playoff-band { flex-direction: column !important; gap: 8px !important; }
+
+    /* Larger tap targets on mobile */
+    .sig-row-tap { min-height: 56px !important; padding: 12px 14px !important; }
+    .filter-chip { min-height: 44px !important; padding: 0 14px !important; font-size: 14px !important; }
+    .team-btn-mob { min-height: 44px !important; }
+    .matchup-card-wrap { min-height: 44px; }
+  }
+
+  /* Signal rows — min height for tap */
+  .sig-row-tap { min-height: 52px; }
+
+  /* Remove hover from disabled/status-only items */
+  .es-status-only { cursor: default !important; pointer-events: none; }
+
+  /* Shell subnav items */
+  .shell-board-link { min-height: 40px; display: flex; align-items: center; }
+
+  @media (max-width: 768px) {
+    .shell-board-link { min-height: 48px; }
+    .shell-sidebar-nav-item { min-height: 48px; }
+  }
+`;
 
 interface V2ShellProps {
   children: React.ReactNode;
@@ -131,17 +190,22 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [boardsOpen, setBoardsOpen] = useState(true);
-  // Dark mode toggle state (persists within session only — no localStorage per product rules)
   const [darkMode, setDarkMode] = useState(true);
 
-  const bg    = darkMode ? T.bg      : "#F0ECE4";
-  const surf1 = darkMode ? T.surface1: "#FFFFFF";
-  const goldD = darkMode ? T.goldDim : "rgba(202,168,90,0.25)";
+  const bg    = darkMode ? T.bg       : "#F0ECE4";
+  const surf1 = darkMode ? T.surface1 : "#FFFFFF";
+  const goldD = darkMode ? T.goldDim  : "rgba(202,168,90,0.25)";
 
-  const activeTop = TOP_NAV.find(n => {
-    if (n.href === "/v2") return location === "/v2" || location === "/v2/";
-    return location.startsWith(n.href);
-  });
+  const activeTop = TOP_NAV.find(n =>
+    n.href === "/v2"
+      ? location === "/v2" || location === "/v2/"
+      : location.startsWith(n.href)
+  );
+
+  const currentSport = location.startsWith("/v2/nba") ? "NBA"
+    : location.startsWith("/v2/mlb") ? "MLB"
+    : location.startsWith("/v2/nfl") ? "NFL"
+    : location.startsWith("/v2/cfb") ? "CFB" : null;
 
   return (
     <div
@@ -149,24 +213,24 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
       className="flex h-screen overflow-hidden"
       style={{ background: bg }}
     >
-      <style>{`
-        @keyframes shellPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
-        .shell-nav-item:focus-visible { outline: 2px solid #CAA85A; outline-offset: 2px; border-radius: 3px; }
-        .shell-sport-pill:focus-visible { outline: 2px solid #CAA85A; outline-offset: 2px; border-radius: 3px; }
-      `}</style>
+      <style>{GLOBAL_CSS}</style>
 
       {/* ───── Sidebar ───── */}
       <aside
         className={`fixed inset-y-0 left-0 z-50 flex flex-col transform transition-transform duration-200 md:static md:translate-x-0 ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
-        style={{ width: 220, background: surf1, borderRight: `1px solid ${goldD}`, flexShrink: 0 }}
+        style={{
+          width: 220, background: surf1,
+          borderRight: `1px solid ${goldD}`,
+          flexShrink: 0, overflowY: "auto",
+        }}
       >
         {/* Brand */}
-        <div style={{ padding: "18px 16px 14px", borderBottom: `1px solid ${goldD}` }}>
+        <div style={{ padding: "16px 14px 12px", borderBottom: `1px solid ${goldD}`, flexShrink: 0 }}>
           <Link href="/v2" onClick={() => setMobileOpen(false)}>
-            <div style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
+            <a style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", textDecoration: "none" }}>
               <V2Logo />
               <div>
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 18, color: T.text, letterSpacing: "-0.01em", lineHeight: 1.2 }}>
+                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontWeight: 700, fontSize: 18, color: T.text, lineHeight: 1.2 }}>
                   Edge Setter
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
@@ -176,89 +240,102 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
                   </span>
                 </div>
               </div>
-            </div>
+            </a>
           </Link>
         </div>
 
         {/* Main nav */}
-        <nav className="flex-1 overflow-y-auto" style={{ padding: "8px 8px" }}>
+        <nav style={{ flex: 1, padding: "8px 8px", overflowY: "auto" }}>
           {TOP_NAV.map(({ href, label, icon: Icon }) => {
             const isActive = href === "/v2"
               ? location === "/v2" || location === "/v2/"
               : location.startsWith(href);
             const isBoards = href === "/v2/nba";
-            const showBoardsSub = isBoards && boardsMode;
+            const showSub = isBoards && boardsMode;
 
             return (
               <div key={href}>
-                <Link href={href} onClick={() => { setMobileOpen(false); if (isBoards) setBoardsOpen(o => !o); }}>
-                  <div
-                    className="shell-nav-item"
-                    tabIndex={0}
-                    role="link"
-                    aria-label={`Navigate to ${label}`}
+                <Link href={href} onClick={() => {
+                  setMobileOpen(false);
+                  if (isBoards) setBoardsOpen(o => !o);
+                }}>
+                  <a
+                    className="es-nav shell-sidebar-nav-item"
+                    aria-current={isActive ? "page" : undefined}
                     style={{
-                      display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", marginBottom: 1,
-                      borderRadius: 3, borderLeft: `2px solid ${isActive ? T.gold : "transparent"}`,
+                      display: "flex", alignItems: "center", gap: 9,
+                      padding: "10px 10px", marginBottom: 1,
+                      borderRadius: 3,
+                      borderLeft: `2px solid ${isActive ? T.gold : "transparent"}`,
                       background: isActive ? "rgba(202,168,90,0.08)" : "transparent",
                       color: isActive ? T.gold : T.textMuted,
-                      cursor: "pointer", transition: "background 0.12s, color 0.12s",
+                      cursor: "pointer", transition: "background 0.1s, color 0.1s",
+                      textDecoration: "none",
+                      minHeight: 44,
                     }}
-                    onMouseEnter={e => { if (!isActive) { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(202,168,90,0.04)"; el.style.color = T.text; } }}
-                    onMouseLeave={e => { if (!isActive) { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; el.style.color = T.textMuted; } }}
+                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(202,168,90,0.05)"; (e.currentTarget as HTMLAnchorElement).style.color = T.text; } }}
+                    onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = T.textMuted; } }}
                   >
-                    <Icon size={15} strokeWidth={isActive ? 2.5 : 1.75} style={{ flexShrink: 0 }} />
-                    <span style={{
-                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 14, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", flex: 1,
-                    }}>{label}</span>
+                    <Icon size={16} strokeWidth={isActive ? 2.5 : 1.75} style={{ flexShrink: 0 }} />
+                    <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 15, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", flex: 1 }}>
+                      {label}
+                    </span>
                     {isBoards && boardsMode && (
-                      boardsOpen
-                        ? <ChevronDown size={12} style={{ opacity: 0.5 }} />
-                        : <ChevronRight size={12} style={{ opacity: 0.5 }} />
+                      boardsOpen ? <ChevronDown size={12} style={{ opacity: 0.5 }} /> : <ChevronRight size={12} style={{ opacity: 0.5 }} />
                     )}
-                  </div>
+                  </a>
                 </Link>
 
-                {/* Boards subnav */}
-                {showBoardsSub && boardsOpen && (
-                  <div style={{ marginLeft: 12, marginBottom: 4 }}>
+                {/* Board subnav */}
+                {showSub && boardsOpen && (
+                  <div style={{ marginLeft: 14, marginBottom: 4 }}>
                     {BOARDS_NAV.map(b => {
                       const bActive = location === b.href || location.startsWith(b.href + "/");
                       const disabled = b.status === "COMING SOON" || b.status === "OFFSEASON";
                       const s = STATUS_STYLE[b.status];
-                      return (
-                        <Link key={b.href} href={disabled ? location : b.href} onClick={() => { if (!disabled) setMobileOpen(false); }}>
+
+                      if (disabled) {
+                        // Disabled boards: no hover, no pointer cursor
+                        return (
                           <div
-                            tabIndex={disabled ? -1 : 0}
-                            role="link"
-                            aria-label={`Go to ${b.label}${disabled ? " (not available)" : ""}`}
-                            aria-disabled={disabled}
-                            className="shell-nav-item"
+                            key={b.href}
+                            className="shell-board-link"
+                            aria-disabled="true"
                             style={{
-                              display: "flex", alignItems: "center", gap: 7, padding: "8px 10px", marginBottom: 1,
-                              borderRadius: 3, borderLeft: `2px solid ${bActive ? T.gold : "transparent"}`,
-                              background: bActive ? "rgba(202,168,90,0.06)" : "transparent",
-                              color: bActive ? T.gold : disabled ? T.textFaint : T.textMuted,
-                              cursor: disabled ? "not-allowed" : "pointer",
-                              opacity: disabled ? 0.5 : 1,
-                              transition: "background 0.1s, color 0.1s",
+                              display: "flex", alignItems: "center", gap: 7,
+                              padding: "8px 10px", marginBottom: 1, borderRadius: 3,
+                              borderLeft: "2px solid transparent",
+                              color: T.textFaint, opacity: 0.45,
+                              cursor: "not-allowed",
                             }}
-                            onMouseEnter={e => { if (!disabled && !bActive) { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(202,168,90,0.04)"; el.style.color = T.text; } }}
-                            onMouseLeave={e => { if (!disabled && !bActive) { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; el.style.color = T.textMuted; } }}
                           >
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot, display: "inline-block", flexShrink: 0 }} />
-                            <span style={{
-                              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                              fontSize: 14, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", flex: 1,
-                            }}>{b.label}</span>
-                            {disabled && (
-                              <span style={{
-                                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                                fontSize: 11, color: T.textFaint, letterSpacing: "0.08em",
-                              }}>{b.status === "OFFSEASON" ? "OFF" : "SOON"}</span>
-                            )}
+                            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", flex: 1 }}>{b.label}</span>
+                            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>{b.status === "OFFSEASON" ? "OFF" : "SOON"}</span>
                           </div>
+                        );
+                      }
+
+                      return (
+                        <Link key={b.href} href={b.href} onClick={() => setMobileOpen(false)}>
+                          <a
+                            className="es-nav shell-board-link"
+                            aria-current={bActive ? "page" : undefined}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 7,
+                              padding: "8px 10px", marginBottom: 1, borderRadius: 3,
+                              borderLeft: `2px solid ${bActive ? T.gold : "transparent"}`,
+                              background: bActive ? "rgba(202,168,90,0.07)" : "transparent",
+                              color: bActive ? T.gold : T.textMuted,
+                              cursor: "pointer", transition: "background 0.1s, color 0.1s",
+                              textDecoration: "none", minHeight: 40,
+                            }}
+                            onMouseEnter={e => { if (!bActive) { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(202,168,90,0.04)"; (e.currentTarget as HTMLAnchorElement).style.color = T.text; } }}
+                            onMouseLeave={e => { if (!bActive) { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = T.textMuted; } }}
+                          >
+                            <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.dot, display: "inline-block", flexShrink: 0 }} />
+                            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", flex: 1 }}>{b.label}</span>
+                          </a>
                         </Link>
                       );
                     })}
@@ -268,7 +345,6 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
             );
           })}
 
-          {/* Divider */}
           <div style={{ margin: "12px 0", borderTop: `1px solid ${goldD}` }} />
 
           {/* Pro CTA */}
@@ -276,18 +352,18 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
             <div style={{ border: `1px solid rgba(202,168,90,0.22)`, borderRadius: 4, background: "rgba(202,168,90,0.04)", position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold }} />
               <div style={{ padding: "14px 12px 12px" }}>
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.gold, marginBottom: 3 }}>Pro Intelligence</div>
-                <div style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 12, color: T.textFaint, letterSpacing: "0.08em", marginBottom: 10, textTransform: "uppercase",
-                }}>Alerts · Full Archive · Multi-sport</div>
+                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.gold, marginBottom: 4 }}>Pro Intelligence</div>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, letterSpacing: "0.08em", marginBottom: 10, textTransform: "uppercase" }}>
+                  Alerts · Full Archive · Multi-sport
+                </div>
                 <Link href="/pro">
                   <button
+                    className="es-btn"
                     style={{
-                      width: "100%", minHeight: 36,
+                      width: "100%", minHeight: 44,
                       background: T.gold, color: T.bg, border: "none", borderRadius: 3,
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 14, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+                      fontSize: 15, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
                       cursor: "pointer",
                     }}
                     onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = T.goldBright; }}
@@ -304,69 +380,84 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
 
       {/* Mobile overlay */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-40 md:hidden" style={{ background: "rgba(0,0,0,0.65)" }} onClick={() => setMobileOpen(false)} />
+        <div
+          className="fixed inset-0 z-40 md:hidden"
+          style={{ background: "rgba(0,0,0,0.65)" }}
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
       )}
 
       {/* ───── Content area ───── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Top utility bar */}
-        <header
-          style={{
-            display: "flex", alignItems: "center", gap: 10,
-            padding: "0 20px", minHeight: 48,
-            background: surf1, borderBottom: `1px solid ${goldD}`,
-            position: "sticky", top: 0, zIndex: 30, flexShrink: 0,
-          }}
-        >
-          {/* Mobile menu trigger */}
+
+        {/* ── Top header bar ── */}
+        <header style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "0 16px", minHeight: 52,
+          background: surf1, borderBottom: `1px solid ${goldD}`,
+          position: "sticky", top: 0, zIndex: 30, flexShrink: 0,
+        }}>
+
+          {/* Mobile menu button */}
           <button
-            className="md:hidden"
-            aria-label="Toggle navigation menu"
+            className="md:hidden es-btn"
+            aria-label={mobileOpen ? "Close navigation" : "Open navigation"}
+            aria-expanded={mobileOpen}
             onClick={() => setMobileOpen(o => !o)}
-            style={{ color: T.textMuted, background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex", alignItems: "center" }}
+            style={{
+              color: T.textMuted, background: "none", border: "none",
+              cursor: "pointer", padding: 8, display: "flex", alignItems: "center",
+              borderRadius: 4, minWidth: 44, minHeight: 44, justifyContent: "center",
+            }}
           >
-            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
           {/* Breadcrumb */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.textFaint,
+              fontSize: 14, fontWeight: 700, letterSpacing: "0.12em",
+              textTransform: "uppercase", color: T.textFaint,
             }}>Edge Setter</span>
             {activeTop && activeTop.href !== "/v2" && (
               <>
-                <span style={{ color: T.textFaint, fontSize: 12 }}>›</span>
+                <span style={{ color: T.textFaint, fontSize: 13 }}>›</span>
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: T.textMuted,
+                  fontSize: 14, fontWeight: 700, letterSpacing: "0.1em",
+                  textTransform: "uppercase", color: T.textMuted,
                 }}>{activeTop.label}</span>
               </>
             )}
           </div>
 
-          {/* ── Sport pills — REAL clickable routing ── */}
+          {/* Right controls — sport pills + dark toggle */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
-            <SportPill sport="NBA" status="LIVE"     href="/v2/nba" />
-            <SportPill sport="MLB" status="ACTIVE"   href="/v2/mlb" />
-            <SportPill sport="NFL" status="OFFSEASON" href="/v2/nfl" disabled />
-            <SportPill sport="CFB" status="COMING SOON" href="/v2/cfb" disabled />
+            {/* Pills — hidden on very small screens, shown md+ */}
+            <div className="hidden sm:flex" style={{ gap: 6, alignItems: "center" }}>
+              <SportPill sport="NBA" status="LIVE"         href="/v2/nba" isCurrent={currentSport === "NBA"} />
+              <SportPill sport="MLB" status="ACTIVE"       href="/v2/mlb" isCurrent={currentSport === "MLB"} />
+              <SportPill sport="NFL" status="OFFSEASON"    href="/v2/nfl" disabled />
+              <SportPill sport="CFB" status="COMING SOON"  href="/v2/cfb" disabled />
+            </div>
 
-            {/* Dark mode toggle — real click action */}
+            {/* Dark mode toggle */}
             <button
+              className="es-btn"
               onClick={() => setDarkMode(d => !d)}
               aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
               aria-pressed={darkMode}
               style={{
-                marginLeft: 6,
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "5px 10px", borderRadius: 3,
-                border: `1px solid rgba(202,168,90,0.22)`,
+                display: "flex", alignItems: "center", gap: 6,
+                minHeight: 44, padding: "0 12px", borderRadius: 4,
+                border: `1px solid rgba(202,168,90,0.25)`,
                 background: "transparent",
                 color: T.textMuted,
                 cursor: "pointer",
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                fontSize: 14, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
                 transition: "background 0.12s, color 0.12s, border-color 0.12s",
               }}
               onMouseEnter={e => {
@@ -379,11 +470,11 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
                 const el = e.currentTarget as HTMLButtonElement;
                 el.style.background = "transparent";
                 el.style.color = T.textMuted;
-                el.style.borderColor = "rgba(202,168,90,0.22)";
+                el.style.borderColor = "rgba(202,168,90,0.25)";
               }}
             >
-              {darkMode ? <Moon size={11} /> : <Sun size={11} />}
-              {darkMode ? "Dark" : "Light"}
+              {darkMode ? <Moon size={13} /> : <Sun size={13} />}
+              <span className="hidden sm:inline">{darkMode ? "Dark" : "Light"}</span>
             </button>
           </div>
         </header>
@@ -397,10 +488,9 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
   );
 }
 
-/* ── V2 Logo ── */
 function V2Logo() {
   return (
-    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-label="Edge Setter v2 logo" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+    <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
       <rect width="30" height="30" rx="3" fill="#111317" />
       <polygon points="15,4 24,9.5 24,20.5 15,26 6,20.5 6,9.5" stroke="#CAA85A" strokeWidth="1.5" fill="none" />
       <line x1="15" y1="9" x2="15" y2="21" stroke="#CAA85A" strokeWidth="1.5" />

@@ -42,7 +42,7 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
     <div
       data-testid="detail-panel"
       style={{
-        width: 360, background: T.surface1, borderLeft: `1px solid ${T.goldDim}`,
+        width: "100%", maxWidth: 360, background: T.surface1, borderLeft: `1px solid ${T.goldDim}`,
         flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "auto",
       }}
     >
@@ -278,10 +278,10 @@ export default function NBABoard() {
         .sig-row:hover .sig-headline { color: #F3EFE6 !important; }
       `}</style>
 
-      <div style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
+      <div className="board-main-wrap" style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
 
         {/* ─── Board subnav ─── */}
-        <aside style={{
+        <aside className="board-subnav" style={{
           width: 196, background: T.surface1, borderRight: `1px solid ${T.goldDim}`,
           flexShrink: 0, padding: "16px 10px", overflowY: "auto",
         }}>
@@ -328,6 +328,7 @@ export default function NBABoard() {
             return (
               <button
                 key={tm}
+                className="team-btn-mob"
                 onClick={() => setGameFilter(gf => gf === tm ? null : tm)}
                 aria-label={`Filter signals for ${tm}`}
                 aria-pressed={isTeamActive}
@@ -352,7 +353,7 @@ export default function NBABoard() {
         </aside>
 
         {/* ─── Main canvas ─── */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div className="board-main-col" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
           {/* Board header */}
           <div style={{
@@ -412,9 +413,9 @@ export default function NBABoard() {
               Tonight's NBA Slate
               <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.gold, marginLeft: 4 }}>· Playoffs</span>
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
+            <div className="board-slate-strip" style={{ display: "flex", gap: 12 }}>
               {NBA_TONIGHT.map(game => (
-                <div key={game.id} style={{ width: 248, flexShrink: 0 }}>
+                <div key={game.id} className="board-slate-card" style={{ width: 248, flexShrink: 0 }}>
                   <MatchupCard
                     away={game.away} home={game.home}
                     time={game.time} series={game.series}
@@ -451,6 +452,7 @@ export default function NBABoard() {
               return (
                 <button
                   key={f}
+                  className="filter-chip"
                   data-testid={`filter-${f.toLowerCase()}`}
                   onClick={() => setActiveFilter(f)}
                   style={{
@@ -497,7 +499,7 @@ export default function NBABoard() {
               return (
                 <div
                   key={sig.id}
-                  className="sig-row"
+                  className="sig-row sig-row-tap"
                   data-testid={`nba-signal-${sig.id}`}
                   onClick={() => setSelected(isSelected ? null : sig)}
                   style={{
@@ -579,7 +581,7 @@ export default function NBABoard() {
 
         {/* ─── Detail rail ─── */}
         {selected && (
-          <div style={{ position: "relative" }}>
+          <div className="board-detail-rail" style={{ position: "relative" }}>
             <DetailPanel sig={selected} onClose={() => setSelected(null)} />
           </div>
         )}
