@@ -750,3 +750,342 @@ export function TypeChip({ type }: { type: string }) {
     }}>{s.label}</span>
   );
 }
+
+/* ─────────────────────────────────────────────
+   MatchupCard — premium game card with big team logos,
+   team-color gradient header, series state, and signal count
+   Used on board slate strips as a step up from GameCard.
+───────────────────────────────────────────── */
+interface MatchupCardProps {
+  away: string;
+  home: string;
+  time: string;
+  spread: string;
+  total: string;
+  series?: string;        // "LAL leads 3-2"
+  signalCount?: number;
+  status?: "upcoming" | "live" | "final";
+  accentColor?: string;   // sport accent — gold=NBA, cyan=MLB
+  onClick?: () => void;
+}
+
+export function MatchupCard({
+  away, home, time, spread, total,
+  series, signalCount, status = "upcoming",
+  accentColor = T.gold, onClick,
+}: MatchupCardProps) {
+  const awayC = getTeamColors(away);
+  const homeC = getTeamColors(home);
+  const isLive = status === "live";
+
+  return (
+    <div
+      onClick={onClick}
+      data-testid={`matchup-card-${away}-${home}`}
+      style={{
+        background: T.surface2, borderRadius: 6, overflow: "hidden",
+        border: `1px solid ${isLive ? "rgba(202,168,90,0.45)" : T.border}`,
+        boxShadow: isLive ? `0 0 0 1px rgba(202,168,90,0.15), 0 4px 20px rgba(0,0,0,0.45)` : "0 2px 12px rgba(0,0,0,0.35)",
+        cursor: onClick ? "pointer" : "default",
+        transition: "transform 0.12s, box-shadow 0.12s, border-color 0.15s",
+        flexShrink: 0, position: "relative",
+      }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(-2px)"; el.style.boxShadow = "0 8px 28px rgba(0,0,0,0.5)"; }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(0)"; el.style.boxShadow = isLive ? `0 0 0 1px rgba(202,168,90,0.15), 0 4px 20px rgba(0,0,0,0.45)` : "0 2px 12px rgba(0,0,0,0.35)"; }}
+    >
+      {/* Dual-team gradient header */}
+      <div style={{
+        height: 52, position: "relative", overflow: "hidden",
+        background: `linear-gradient(90deg, ${awayC.primary}DD 0%, ${awayC.primary}55 45%, ${homeC.primary}55 55%, ${homeC.primary}DD 100%)`,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 14px",
+      }}>
+        {/* Away logo + abbr */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <TeamLogoImg abbr={away} size={32} shape="circle" />
+          <span style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 18, fontWeight: 900, color: T.text, letterSpacing: "-0.02em",
+            textShadow: "0 1px 4px rgba(0,0,0,0.7)",
+          }}>{away}</span>
+        </div>
+
+        {/* Center */}
+        <div style={{ textAlign: "center" }}>
+          {isLive ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+              <span style={{ width: 7, height: 7, borderRadius: "50%", background: T.green, display: "inline-block", boxShadow: `0 0 6px ${T.green}` }} />
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.green, fontWeight: 800, letterSpacing: "0.14em" }}>LIVE</span>
+            </div>
+          ) : (
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, fontWeight: 700, color: T.textFaint, letterSpacing: "0.06em" }}>@</span>
+          )}
+        </div>
+
+        {/* Home logo + abbr */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
+          <TeamLogoImg abbr={home} size={32} shape="circle" />
+          <span style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 18, fontWeight: 900, color: T.text, letterSpacing: "-0.02em",
+            textShadow: "0 1px 4px rgba(0,0,0,0.7)",
+          }}>{home}</span>
+        </div>
+      </div>
+
+      {/* Bottom color bar */}
+      <div style={{ height: 2, background: `linear-gradient(90deg, ${awayC.secondary}99, ${homeC.secondary}99)` }} />
+
+      {/* Body */}
+      <div style={{ padding: "10px 12px" }}>
+        {/* Series banner */}
+        {series && (
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.08em",
+            color: accentColor, textAlign: "center", marginBottom: 8,
+            background: `${accentColor}0F`, borderRadius: 2, padding: "2px 8px",
+          }}>{series}</div>
+        )}
+
+        {/* Odds row */}
+        <div style={{ display: "flex", gap: 5 }}>
+          {[
+            { label: "SPREAD", val: spread, color: T.gold, bg: "rgba(202,168,90,0.07)" },
+            { label: "TOTAL",  val: `O/U ${total}`, color: T.text, bg: "rgba(255,255,255,0.04)" },
+            { label: "TIME",   val: time, color: T.textMuted, bg: "rgba(255,255,255,0.03)" },
+          ].map(s => (
+            <div key={s.label} style={{
+              flex: 1, textAlign: "center", padding: "5px 6px",
+              background: s.bg, borderRadius: 3,
+              border: `1px solid rgba(255,255,255,0.06)`,
+            }}>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, color: s.color, letterSpacing: "0.02em", lineHeight: 1.1 }}>{s.val}</div>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Signal count pill */}
+        {signalCount !== undefined && signalCount > 0 && (
+          <div style={{ marginTop: 7, textAlign: "center" }}>
+            <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 11, fontWeight: 700, color: accentColor, letterSpacing: "0.1em",
+              background: `${accentColor}10`, padding: "2px 8px", borderRadius: 2,
+            }}>⚡ {signalCount} signal{signalCount !== 1 ? "s" : ""}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   IntelCard — polished intelligence card panel
+   Used in right rails, detail modal, sidebar modules.
+   Supports player headshot OR team logo hero.
+───────────────────────────────────────────── */
+interface IntelCardProps {
+  headline: string;
+  detail: string;
+  action?: string;
+  verdict?: string;
+  confidence?: number;
+  sources?: number;
+  player?: string;
+  team: string;
+  opponent?: string;
+  timestamp?: string;
+  tags?: string[];
+  sport?: "NBA" | "MLB";
+  accentColor?: string;
+}
+
+export function IntelCard({
+  headline, detail, action, verdict, confidence, sources,
+  player, team, opponent, timestamp, tags = [],
+  sport = "NBA", accentColor,
+}: IntelCardProps) {
+  const teamColors = getTeamColors(team);
+  const oppColors  = opponent ? getTeamColors(opponent) : null;
+  const accent = accentColor ?? (sport === "NBA" ? T.gold : T.cyan);
+  const vColor = verdict ? (VERDICT_COLORS[verdict] ?? T.textFaint) : null;
+
+  return (
+    <div style={{
+      background: T.surface1, borderRadius: 6, overflow: "hidden",
+      border: `1px solid rgba(255,255,255,0.07)`,
+      boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+    }}>
+      {/* Hero band */}
+      <div style={{
+        position: "relative", overflow: "hidden",
+        background: `linear-gradient(135deg, ${teamColors.primary}CC 0%, ${teamColors.primary}44 50%, ${oppColors ? oppColors.primary + "33" : "transparent"} 100%)`,
+        padding: "16px 16px 12px",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+      }}>
+        {/* Ambient glow */}
+        <div style={{
+          position: "absolute", inset: 0,
+          background: `radial-gradient(ellipse at 85% 50%, ${teamColors.secondary}18, transparent 65%)`,
+          pointerEvents: "none",
+        }} />
+        {/* Accent stripe */}
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 1 }}>
+          {/* Hero visual */}
+          {player ? (
+            <PlayerHeadshot name={player} team={team} size={52} shape="circle" />
+          ) : (
+            <div style={{ display: "flex", gap: -4 }}>
+              <TeamLogoImg abbr={team} size={48} />
+              {opponent && <div style={{ marginLeft: -10 }}><TeamLogoImg abbr={opponent} size={36} /></div>}
+            </div>
+          )}
+
+          {/* Identity */}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {player ? (
+              <>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.2, marginBottom: 3 }}>{player}</div>
+                <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                  <TeamLogoImg abbr={team} size={14} />
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    {team}{opponent ? ` vs ${opponent}` : ""}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                {team}{opponent ? ` @ ${opponent}` : ""}
+              </div>
+            )}
+          </div>
+
+          {/* Verdict badge */}
+          {verdict && <VerdictBadge verdict={verdict} />}
+        </div>
+      </div>
+
+      {/* Stats row */}
+      {(confidence !== undefined || sources !== undefined) && (
+        <div style={{ display: "grid", gridTemplateColumns: `repeat(${(confidence !== undefined ? 1 : 0) + (sources !== undefined ? 1 : 0) + (verdict ? 1 : 0)}, 1fr)`, background: T.surface2, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          {verdict && vColor && (
+            <div style={{ padding: "8px 0", textAlign: "center", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: vColor, letterSpacing: "0.02em" }}>{verdict.toUpperCase()}</div>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 1 }}>Verdict</div>
+            </div>
+          )}
+          {confidence !== undefined && (
+            <div style={{ padding: "8px 0", textAlign: "center", borderRight: sources !== undefined ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: confidence >= 80 ? T.gold : T.text, fontVariantNumeric: "tabular-nums" }}>{confidence}%</div>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 1 }}>Confidence</div>
+            </div>
+          )}
+          {sources !== undefined && (
+            <div style={{ padding: "8px 0", textAlign: "center" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: T.text }}>{sources}</div>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 1 }}>Sources</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Confidence bar */}
+      {confidence !== undefined && (
+        <div style={{ padding: "8px 14px 0" }}>
+          <ConfidenceBar value={confidence} width="100%" height={5} />
+        </div>
+      )}
+
+      {/* Content */}
+      <div style={{ padding: "12px 14px 14px" }}>
+        <div style={{
+          fontFamily: "'Playfair Display', Georgia, serif",
+          fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10,
+        }}>{headline}</div>
+
+        <div style={{
+          fontSize: 13, color: T.textMuted, lineHeight: 1.65, marginBottom: 10,
+        }}>{detail}</div>
+
+        {action && (
+          <div style={{
+            background: `${accent}09`, border: `1px solid ${accent}25`,
+            borderRadius: 4, padding: "9px 12px",
+          }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: accent, marginBottom: 4 }}>
+              ⚡ Action Takeaway
+            </div>
+            <div style={{ fontSize: 13, color: T.text, lineHeight: 1.55, fontWeight: 500 }}>{action}</div>
+          </div>
+        )}
+
+        {tags.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
+            {tags.map(tag => (
+              <span key={tag} style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                color: T.textFaint, padding: "2px 6px",
+                background: "rgba(255,255,255,0.05)", borderRadius: 2,
+              }}>{tag}</span>
+            ))}
+          </div>
+        )}
+
+        {timestamp && (
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, marginTop: 10, letterSpacing: "0.06em" }}>{timestamp}</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   SignalRowVisual — compact visual identity block for signal table rows
+   Renders player headshot + last name, or dual team logos
+   for team-centric signals. Designed for 110px column.
+───────────────────────────────────────────── */
+interface SignalRowVisualProps {
+  player?: string;
+  team: string;
+  opponent?: string;
+  size?: number;
+}
+
+export function SignalRowVisual({ player, team, opponent, size = 28 }: SignalRowVisualProps) {
+  if (player) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <PlayerHeadshot name={player} team={team} size={size} shape="circle" />
+        <div>
+          <div style={{ fontSize: 12, color: T.text, fontWeight: 600, lineHeight: 1.2 }}>
+            {player.split(" ").slice(-1)[0]}
+          </div>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase",
+          }}>{team}</div>
+        </div>
+      </div>
+    );
+  }
+  // Team matchup
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+      <TeamLogoImg abbr={team} size={size} />
+      {opponent && (
+        <>
+          <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>@</span>
+          <TeamLogoImg abbr={opponent} size={size - 4} />
+        </>
+      )}
+      {!opponent && (
+        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textMuted, fontWeight: 700, letterSpacing: "0.06em" }}>{team}</div>
+      )}
+    </div>
+  );
+}

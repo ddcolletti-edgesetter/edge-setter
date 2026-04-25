@@ -2,7 +2,8 @@ import { useState } from "react";
 import V2Shell, { SportBadge } from "../components/V2Shell";
 import { MLB_SIGNALS, type V2Signal } from "../data/v2MockData";
 import {
-  PlayerAvatar, PlayerHeadshot, TeamLogo, TeamLogoImg, GameCard,
+  PlayerHeadshot, TeamLogoImg,
+  MatchupCard, IntelCard,
   VerdictBadge, TypeChip, ConfidenceBar,
   T, VERDICT_COLORS, getTeamColors,
 } from "../components/v2/SportVisuals";
@@ -13,7 +14,7 @@ type MLBFilter = typeof MLB_FILTERS[number];
 
 function matchFilter(sig: V2Signal, filter: MLBFilter): boolean {
   if (filter === "Today") return true;
-  if (filter === "Pitchers") return sig.tags.includes("pitcher") || sig.headline.toLowerCase().includes("cole") || sig.headline.toLowerCase().includes("strider") || sig.headline.toLowerCase().includes("yamamoto") || sig.headline.toLowerCase().includes("fried");
+  if (filter === "Pitchers") return sig.tags.includes("pitcher") || ["cole","strider","yamamoto","fried"].some(n => sig.headline.toLowerCase().includes(n));
   if (filter === "Props") return sig.type === "prop";
   if (filter === "Trends") return sig.type === "trend";
   if (filter === "Line Moves") return sig.type === "line_move";
@@ -21,32 +22,144 @@ function matchFilter(sig: V2Signal, filter: MLBFilter): boolean {
   return true;
 }
 
+// ESPN IDs for MLB pitchers (for large headshots in hero)
+const PITCHER_ESPN_IDS: Record<string, number> = {
+  "G. Cole":    32859,
+  "S. Strider": 0,  // On IL — no photo
+  "Y. Yamamoto": 4433254,
+  "M. Fried":   32694,
+  "M. Stroman": 32105,
+};
+
 const TONIGHT_GAMES = [
-  { id: "m1", away: "HOU", home: "NYY", time: "1:05 PM ET", spread: "NYY -115", total: "8", series: undefined },
-  { id: "m2", away: "LAD", home: "ATL", time: "4:10 PM ET", spread: "ATL -108", total: "8.5", series: undefined },
-  { id: "m3", away: "CHC", home: "NYM", time: "7:10 PM ET", spread: "NYM -112", total: "8", series: undefined },
+  { id: "m1", away: "HOU", home: "NYY", time: "1:05 PM ET", spread: "NYY -115", total: "8",   series: undefined, note: "Cole scratched" },
+  { id: "m2", away: "LAD", home: "ATL", time: "4:10 PM ET", spread: "ATL -108", total: "8.5", series: undefined, note: "Yamamoto vs Fried" },
+  { id: "m3", away: "CHC", home: "NYM", time: "7:10 PM ET", spread: "NYM -112", total: "8",   series: undefined, note: null },
 ];
 
 const PITCHER_STATUS = [
-  { name: "G. Cole", team: "NYY", status: "OUT", color: T.danger, note: "Scratched — elbow" },
-  { name: "S. Strider", team: "ATL", status: "IL", color: T.orange, note: "IL, monitoring" },
-  { name: "Y. Yamamoto", team: "LAD", status: "OK", color: T.green, note: "On schedule" },
-  { name: "M. Fried", team: "ATL", status: "OK", color: T.green, note: "Confirmed starter" },
-  { name: "M. Stroman", team: "NYY", status: "START", color: T.gold, note: "Replacing Cole" },
+  { name: "G. Cole",    team: "NYY", status: "OUT",   color: T.danger, note: "Scratched — elbow", espnId: 32859 },
+  { name: "S. Strider", team: "ATL", status: "IL",    color: T.orange, note: "60-day IL, monitoring", espnId: 0 },
+  { name: "Y. Yamamoto",team: "LAD", status: "OK",    color: T.green,  note: "On schedule", espnId: 4433254 },
+  { name: "M. Fried",   team: "ATL", status: "OK",    color: T.green,  note: "Confirmed starter", espnId: 32694 },
+  { name: "M. Stroman", team: "NYY", status: "START", color: T.gold,   note: "Replacing Cole", espnId: 32105 },
 ];
 
 const LINEUP_NOTES = [
-  { team: "NYY", note: "Soto dropped to 5th vs LHP" },
-  { team: "LAD", note: "Freeman returning to cleanup" },
-  { team: "ATL", note: "Ozuna benched vs elite RHP" },
+  { team: "NYY", player: "Juan Soto", note: "Dropped to 5th vs LHP" },
+  { team: "LAD", player: "Freddie Freeman", note: "Returning to cleanup" },
+  { team: "ATL", player: "Marcell Ozuna", note: "Benched vs elite RHP" },
 ];
 
 const TEAM_TRENDS = [
-  { team: "BAL", trend: "11-3 day games", positive: true },
-  { team: "LAD", trend: "8-2 home vs RHP", positive: true },
-  { team: "NYY", trend: "4-9 vs elite pitching", positive: false },
-  { team: "ATL", trend: "7-1 with Fried healthy", positive: true },
+  { team: "BAL", trend: "11-3 day games",        dir: "▲", positive: true,  color: T.green },
+  { team: "LAD", trend: "8-2 home vs RHP",        dir: "▲", positive: true,  color: T.green },
+  { team: "NYY", trend: "4-9 vs elite pitching",  dir: "▼", positive: false, color: T.danger },
+  { team: "ATL", trend: "7-1 with Fried healthy", dir: "▲", positive: true,  color: T.green },
 ];
+
+/* ── MLB detail panel ── */
+function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
+  const teamColors = getTeamColors(sig.team);
+  const vColor = VERDICT_COLORS[sig.verdict] ?? T.textFaint;
+
+  return (
+    <div style={{
+      width: 340, background: T.surface1, borderLeft: `1px solid rgba(74,168,200,0.22)`,
+      flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "auto",
+      position: "relative",
+    }}>
+      {/* Close */}
+      <button onClick={onClose} style={{
+        position: "absolute", top: 12, right: 12, zIndex: 10,
+        background: "rgba(0,0,0,0.5)", border: "none", borderRadius: "50%",
+        color: T.textMuted, cursor: "pointer", width: 26, height: 26,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}><X size={12} /></button>
+
+      {/* Hero band */}
+      <div style={{
+        position: "relative", overflow: "hidden",
+        background: `linear-gradient(150deg, ${teamColors.primary}EE 0%, ${teamColors.primary}55 60%, transparent 100%)`,
+        padding: "18px 16px 14px",
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        minHeight: 90,
+      }}>
+        <div style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 2,
+          background: `linear-gradient(90deg, ${T.cyan}, ${T.cyan}33)`,
+        }} />
+        <div style={{
+          position: "absolute", inset: 0,
+          background: `radial-gradient(ellipse at 85% 50%, ${teamColors.secondary}18, transparent 65%)`,
+          pointerEvents: "none",
+        }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 2 }}>
+          {sig.player ? (
+            <PlayerHeadshot name={sig.player} team={sig.team} size={48} shape="circle" />
+          ) : (
+            <div style={{ display: "flex", gap: 6 }}>
+              <TeamLogoImg abbr={sig.team} size={46} />
+              {sig.opponent && <TeamLogoImg abbr={sig.opponent} size={36} />}
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.2, marginBottom: 4 }}>
+              {sig.player ?? `${sig.team}${sig.opponent ? ` @ ${sig.opponent}` : ""}`}
+            </div>
+            {sig.player && (
+              <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 4 }}>
+                <TeamLogoImg abbr={sig.team} size={14} />
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                  {sig.team}{sig.opponent ? ` vs ${sig.opponent}` : ""}
+                </span>
+              </div>
+            )}
+            <VerdictBadge verdict={sig.verdict} />
+          </div>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", background: T.surface2, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+        {[
+          { label: "Verdict", value: sig.verdict.toUpperCase(), color: vColor },
+          { label: "Confidence", value: `${sig.confidence}%`, color: sig.confidence >= 80 ? T.gold : T.text },
+        ].map((s, i) => (
+          <div key={s.label} style={{ padding: "9px 0", textAlign: "center", borderRight: i === 0 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: s.color, fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Conf bar */}
+      <div style={{ padding: "8px 14px 0" }}>
+        <ConfidenceBar value={sig.confidence} width="100%" height={4} />
+      </div>
+
+      {/* Body */}
+      <div style={{ padding: "12px 14px", flex: 1 }}>
+        <div style={{ display: "flex", gap: 5, marginBottom: 10, flexWrap: "wrap" }}>
+          <TypeChip type={sig.type} />
+        </div>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>
+          {sig.headline}
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 4 }}>Signal Detail</div>
+          <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
+        </div>
+        <div style={{ background: "rgba(74,168,200,0.07)", border: `1px solid rgba(74,168,200,0.22)`, borderRadius: 4, padding: "10px 12px" }}>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
+            ⚡ Takeaway
+          </div>
+          <div style={{ fontSize: 13, color: T.text, lineHeight: 1.55, fontWeight: 500 }}>{sig.action_takeaway}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function MLBBoard() {
   const [activeFilter, setActiveFilter] = useState<MLBFilter>("Today");
@@ -56,17 +169,20 @@ export default function MLBBoard() {
 
   return (
     <V2Shell boardsMode>
-      <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .mlb-sig-row:hover { background: rgba(74,168,200,0.04) !important; }
+      `}</style>
       <div style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
 
         {/* ─── Board subnav ─── */}
         <aside style={{
-          width: 190, background: T.surface1, borderRight: `1px solid ${T.goldDim}`,
+          width: 190, background: T.surface1, borderRight: `1px solid rgba(74,168,200,0.15)`,
           flexShrink: 0, padding: "16px 10px", overflowY: "auto",
         }}>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
             color: T.textFaint, padding: "0 8px", marginBottom: 10,
           }}>MLB Board</div>
 
@@ -85,29 +201,28 @@ export default function MLBBoard() {
               <ChevronRight size={10} style={{ opacity: i === 0 ? 1 : 0.4 }} />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
               }}>{label}</span>
             </div>
           ))}
 
-          <div style={{ margin: "16px 0 10px", borderTop: `1px solid ${T.goldDim}` }} />
+          <div style={{ margin: "16px 0 10px", borderTop: `1px solid rgba(74,168,200,0.15)` }} />
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
+            fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
             color: T.textFaint, padding: "0 8px", marginBottom: 8,
           }}>Teams</div>
           {["NYY", "LAD", "ATL", "BAL", "CHC", "HOU"].map(tm => (
             <div key={tm} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 3,
-              cursor: "pointer",
+              display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 3, cursor: "pointer",
             }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(74,168,200,0.03)"; }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(74,168,200,0.04)"; }}
               onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; }}
             >
-              <TeamLogoImg abbr={tm} size={20} />
+              <TeamLogoImg abbr={tm} size={22} />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textMuted,
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: T.textMuted,
               }}>{tm}</span>
             </div>
           ))}
@@ -115,6 +230,7 @@ export default function MLBBoard() {
 
         {/* ─── Main canvas ─── */}
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+
           {/* Header */}
           <div style={{
             padding: "12px 20px", borderBottom: `1px solid rgba(255,255,255,0.06)`,
@@ -122,14 +238,14 @@ export default function MLBBoard() {
           }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 700, color: T.text }}>
+                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 700, color: T.text }}>
                   MLB Intelligence Board
                 </span>
                 <SportBadge status="ACTIVE" />
               </div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, color: T.textFaint, letterSpacing: "0.06em",
+                fontSize: 12, color: T.textFaint, letterSpacing: "0.06em",
               }}>Regular season · {MLB_SIGNALS.length} signals · Updated continuously</div>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
@@ -138,28 +254,44 @@ export default function MLBBoard() {
                 { label: "Confirmed", value: MLB_SIGNALS.filter(s => s.verdict === "confirmed").length, color: T.green },
               ].map(stat => (
                 <div key={stat.label} style={{
-                  textAlign: "center", padding: "6px 12px",
+                  textAlign: "center", padding: "6px 14px",
                   background: T.surface2, border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 3,
                 }}>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: stat.color }}>{stat.value}</div>
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>{stat.label}</div>
+                  <div style={{ fontSize: 17, fontWeight: 700, color: stat.color }}>{stat.value}</div>
+                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>{stat.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Today's games strip */}
-          <div style={{ padding: "12px 20px", borderBottom: `1px solid rgba(255,255,255,0.06)`, flexShrink: 0, overflowX: "auto" }}>
+          {/* Games strip — MatchupCards */}
+          <div style={{ padding: "12px 20px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, flexShrink: 0, overflowX: "auto" }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
               color: T.textFaint, marginBottom: 10,
-            }}>Today's Games</div>
+              display: "flex", alignItems: "center", gap: 6,
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
+              Today's Games
+            </div>
             <div style={{ display: "flex", gap: 12 }}>
               {TONIGHT_GAMES.map(game => (
-                <div key={game.id} style={{ width: 200, flexShrink: 0 }}>
-                  <GameCard away={game.away} home={game.home} time={game.time}
-                    spread={game.spread} total={game.total} compact />
+                <div key={game.id} style={{ width: 232, flexShrink: 0 }}>
+                  <MatchupCard
+                    away={game.away} home={game.home}
+                    time={game.time} spread={game.spread} total={game.total}
+                    accentColor={T.cyan}
+                    signalCount={MLB_SIGNALS.filter(s =>
+                      s.team === game.away || s.team === game.home ||
+                      s.opponent === game.away || s.opponent === game.home
+                    ).length}
+                  />
+                  {game.note && (
+                    <div style={{ marginTop: 5, padding: "3px 8px", background: "rgba(74,168,200,0.07)", borderRadius: 2, border: "1px solid rgba(74,168,200,0.12)" }}>
+                      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.cyan, fontWeight: 700, letterSpacing: "0.04em" }}>⚡ {game.note}</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -180,7 +312,7 @@ export default function MLBBoard() {
                   background: isActive ? "rgba(74,168,200,0.08)" : "transparent",
                   color: isActive ? T.cyan : T.textMuted,
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
                   cursor: "pointer", transition: "all 0.12s",
                 }}>{f}</button>
               );
@@ -188,35 +320,39 @@ export default function MLBBoard() {
           </div>
 
           {/* 2-col layout */}
-          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 268px" }} className="mlb-grid">
+          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 280px" }} className="mlb-grid">
 
             {/* Signal list */}
             <div style={{ borderRight: `1px solid rgba(255,255,255,0.06)`, overflowY: "auto" }}>
               {/* Table header */}
               <div style={{
-                display: "grid", gridTemplateColumns: "44px 100px 1fr 70px 70px",
+                display: "grid", gridTemplateColumns: "48px 100px 1fr 68px 68px",
                 padding: "6px 20px", background: T.surface2,
-                borderBottom: `1px solid rgba(255,255,255,0.06)`, position: "sticky", top: 0,
+                borderBottom: `1px solid rgba(255,255,255,0.06)`, position: "sticky", top: 0, zIndex: 5,
               }}>
                 {["", "Type", "Signal", "Verdict", "Conf"].map(h => (
                   <div key={h} style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint,
+                    fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint,
                   }}>{h}</div>
                 ))}
               </div>
 
               {filtered.map(sig => {
                 const isSelected = selected?.id === sig.id;
-                const typeColor = { injury: T.danger, line_move: T.green, matchup_edge: T.gold, prop: T.orange, trend: T.cyan, lineup: T.cyan }[sig.type] ?? T.textFaint;
+                const typeColor = {
+                  injury: T.danger, line_move: T.green, matchup_edge: T.gold,
+                  prop: T.orange, trend: T.cyan, lineup: T.cyan,
+                }[sig.type] ?? T.textFaint;
 
                 return (
                   <div
                     key={sig.id}
+                    className="mlb-sig-row"
                     data-testid={`mlb-signal-${sig.id}`}
                     onClick={() => setSelected(isSelected ? null : sig)}
                     style={{
-                      display: "grid", gridTemplateColumns: "44px 100px 1fr 70px 70px",
+                      display: "grid", gridTemplateColumns: "48px 100px 1fr 68px 68px",
                       padding: "10px 20px",
                       borderBottom: `1px solid rgba(255,255,255,0.04)`,
                       borderLeft: `3px solid ${isSelected ? T.cyan : typeColor + "44"}`,
@@ -224,11 +360,13 @@ export default function MLBBoard() {
                       cursor: "pointer", alignItems: "center",
                       transition: "background 0.1s",
                     }}
-                    onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "rgba(74,168,200,0.025)"; }}
-                    onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
                   >
-                    {/* Team logo */}
-                    <TeamLogoImg abbr={sig.team} size={26} />
+                    {/* Logo / headshot */}
+                    {sig.player ? (
+                      <PlayerHeadshot name={sig.player} team={sig.team} size={28} shape="circle" />
+                    ) : (
+                      <TeamLogoImg abbr={sig.team} size={28} />
+                    )}
 
                     {/* Type */}
                     <div><TypeChip type={sig.type} /></div>
@@ -238,7 +376,7 @@ export default function MLBBoard() {
                       <div style={{ fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 2 }}>
                         {sig.headline}
                       </div>
-                      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>
+                      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.4 }}>
                         {sig.action_takeaway.slice(0, 75)}…
                       </div>
                     </div>
@@ -248,7 +386,7 @@ export default function MLBBoard() {
 
                     {/* Conf */}
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : T.textMuted, marginBottom: 3 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : T.textMuted, marginBottom: 3, fontVariantNumeric: "tabular-nums" }}>
                         {sig.confidence}%
                       </div>
                       <ConfidenceBar value={sig.confidence} width={50} height={3} />
@@ -258,76 +396,118 @@ export default function MLBBoard() {
               })}
 
               <div style={{ margin: "16px 20px", padding: "10px 14px", background: "rgba(74,168,200,0.04)", border: `1px solid rgba(74,168,200,0.1)`, borderRadius: 4 }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>
                   <strong style={{ color: T.cyan }}>STUB DATA</strong> · {MLB_SIGNALS.length} realistic placeholder signals.
                 </div>
               </div>
             </div>
 
-            {/* Right modules */}
-            <div style={{ padding: "14px", display: "flex", flexDirection: "column", gap: 12, overflowY: "auto" }}>
+            {/* Right modules — upgraded */}
+            <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
 
-              {/* Pitcher Alerts */}
-              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.orange, display: "inline-block" }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
+              {/* ─ Pitcher Alerts — upgraded with larger headshots + status color bands ─ */}
+              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px", background: "rgba(217,138,66,0.06)", borderBottom: `1px solid rgba(217,138,66,0.15)`, display: "flex", gap: 7, alignItems: "center" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.orange, display: "inline-block", boxShadow: `0 0 6px ${T.orange}` }} />
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.orange }}>
                     Pitcher Alerts
                   </span>
                 </div>
-                <div style={{ padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ padding: "8px" }}>
                   {PITCHER_STATUS.map(p => (
-                    <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 3, background: `${p.color}08` }}>
-                      <PlayerHeadshot name={p.name} team={p.team} size={28} shape="circle" />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 1 }}>{p.name}</div>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{p.note}</div>
+                    <div key={p.name} style={{
+                      display: "flex", alignItems: "center", gap: 9,
+                      padding: "7px 8px", borderRadius: 4, marginBottom: 4,
+                      background: `${p.color}07`,
+                      border: `1px solid ${p.color}18`,
+                    }}>
+                      {/* Headshot — larger */}
+                      <div style={{ flexShrink: 0 }}>
+                        {p.espnId > 0 ? (
+                          <div style={{
+                            width: 38, height: 38, borderRadius: "50%", overflow: "hidden",
+                            border: `2px solid ${p.color}44`,
+                            background: `${getTeamColors(p.team).primary}44`,
+                            position: "relative", flexShrink: 0,
+                          }}>
+                            <img
+                              src={`https://a.espncdn.com/i/headshots/mlb/players/full/${p.espnId}.png`}
+                              alt={p.name}
+                              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }}
+                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                            />
+                          </div>
+                        ) : (
+                          <PlayerHeadshot name={p.name} team={p.team} size={38} shape="circle" />
+                        )}
                       </div>
+
+                      {/* Team logo + name */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
+                          <TeamLogoImg abbr={p.team} size={14} />
+                          <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</span>
+                        </div>
+                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.02em" }}>{p.note}</div>
+                      </div>
+
+                      {/* Status badge */}
                       <span style={{
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-                        color: p.color, padding: "2px 6px", background: `${p.color}18`, borderRadius: 2,
+                        fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                        color: p.color, padding: "3px 7px", background: `${p.color}18`, borderRadius: 2,
+                        flexShrink: 0,
                       }}>{p.status}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Lineup Movement */}
-              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.textFaint, display: "inline-block" }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
+              {/* ─ Lineup Movement — upgraded with player context ─ */}
+              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, display: "flex", gap: 7, alignItems: "center" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
                     Lineup Movement
                   </span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                <div>
                   {LINEUP_NOTES.map(note => (
-                    <div key={note.team} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-                      <TeamLogoImg abbr={note.team} size={24} />
-                      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textMuted, lineHeight: 1.5 }}>{note.note}</div>
+                    <div key={note.team} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
+                      <TeamLogoImg abbr={note.team} size={28} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, color: T.textMuted, letterSpacing: "0.02em" }}>{note.note}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, marginTop: 1 }}>{note.player}</div>
+                      </div>
                     </div>
                   ))}
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, padding: "8px 12px" }}>
+                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, padding: "8px 12px", letterSpacing: "0.03em" }}>
                     Lineups confirm ~3h before first pitch
                   </div>
                 </div>
               </div>
 
-              {/* Team Trends */}
-              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 4, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.textFaint, display: "inline-block" }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
+              {/* ─ Team Trends — upgraded with larger logos + directional styling ─ */}
+              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, display: "flex", gap: 7, alignItems: "center" }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.gold, display: "inline-block" }} />
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
                     Team Trends
                   </span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                <div>
                   {TEAM_TRENDS.map(trend => (
-                    <div key={trend.team} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-                      <TeamLogoImg abbr={trend.team} size={24} />
-                      <div style={{ flex: 1, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textMuted }}>{trend.trend}</div>
-                      <span style={{ fontSize: 14 }}>{trend.positive ? "▲" : "▼"}</span>
+                    <div key={trend.team} style={{
+                      display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
+                      borderBottom: `1px solid rgba(255,255,255,0.04)`,
+                      background: `${trend.color}05`,
+                    }}>
+                      <TeamLogoImg abbr={trend.team} size={28} />
+                      <div style={{ flex: 1, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textMuted, letterSpacing: "0.02em" }}>{trend.trend}</div>
+                      <span style={{
+                        fontSize: 14, fontWeight: 700, color: trend.color,
+                        background: `${trend.color}15`, padding: "2px 6px", borderRadius: 2,
+                      }}>{trend.dir}</span>
                     </div>
                   ))}
                 </div>
@@ -338,41 +518,7 @@ export default function MLBBoard() {
 
         {/* Detail panel */}
         {selected && (
-          <div style={{ width: 300, background: T.surface1, borderLeft: `1px solid ${T.goldDim}`, flexShrink: 0, overflowY: "auto" }}>
-            <div style={{
-              height: 72, background: `linear-gradient(135deg, ${getTeamColors(selected.team).primary}BB, transparent)`,
-              borderBottom: `1px solid rgba(255,255,255,0.07)`,
-              display: "flex", alignItems: "center", padding: "0 14px", gap: 10, position: "relative",
-            }}>
-              <TeamLogoImg abbr={selected.team} size={40} />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{selected.team}{selected.opponent ? ` vs ${selected.opponent}` : ""}</div>
-                {selected.player && <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>{selected.player}</div>}
-              </div>
-              <button onClick={() => setSelected(null)} style={{ position: "absolute", top: 8, right: 10, background: "none", border: "none", color: T.textFaint, cursor: "pointer" }}><X size={14} /></button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", borderBottom: `1px solid rgba(255,255,255,0.06)` }}>
-              {[
-                { label: "Verdict", value: selected.verdict.toUpperCase(), color: VERDICT_COLORS[selected.verdict] ?? T.textFaint },
-                { label: "Confidence", value: `${selected.confidence}%`, color: selected.confidence >= 80 ? T.gold : T.text },
-              ].map((s, i) => (
-                <div key={s.label} style={{ padding: "10px 0", textAlign: "center", background: T.surface2, borderRight: i === 0 ? `1px solid rgba(255,255,255,0.05)` : "none" }}>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: s.color }}>{s.value}</div>
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: "14px" }}>
-              <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>{selected.headline}</div>
-              <div style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.6, marginBottom: 10 }}>{selected.detail}</div>
-              <div style={{ background: "rgba(74,168,200,0.06)", border: `1px solid rgba(74,168,200,0.18)`, borderRadius: 4, padding: "10px 12px" }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
-                  Takeaway
-                </div>
-                <div style={{ fontSize: 12, color: T.text, lineHeight: 1.5 }}>{selected.action_takeaway}</div>
-              </div>
-            </div>
-          </div>
+          <MLBDetailPanel sig={selected} onClose={() => setSelected(null)} />
         )}
       </div>
       <style>{`.mlb-grid { } @media (max-width: 900px) { .mlb-grid { grid-template-columns: 1fr !important; } }`}</style>
