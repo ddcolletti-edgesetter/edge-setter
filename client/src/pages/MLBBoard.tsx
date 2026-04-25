@@ -8,6 +8,8 @@ import {
   T, VERDICT_COLORS, getTeamColors,
 } from "../components/v2/SportVisuals";
 import { ChevronRight, X, Filter } from "lucide-react";
+import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
+import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 
 const MLB_FILTERS = ["Today", "Pitchers", "Lineup", "Props", "Trends", "Line Moves"] as const;
 type MLBFilter = typeof MLB_FILTERS[number];
@@ -160,12 +162,14 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
           <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 4 }}>Signal Detail</div>
           <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
         </div>
-        <div style={{ background: "rgba(74,168,200,0.07)", border: `1px solid rgba(74,168,200,0.22)`, borderRadius: 4, padding: "10px 12px" }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
-            ⚡ Takeaway
+        <ProActionGate sport="MLB" actionText={sig.action_takeaway} darkMode={darkMode}>
+          <div style={{ background: "rgba(74,168,200,0.07)", border: `1px solid rgba(74,168,200,0.22)`, borderRadius: 4, padding: "10px 12px" }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
+              ⚡ Takeaway
+            </div>
+            <div style={{ fontSize: 14, color: TH.text, lineHeight: 1.55, fontWeight: 500 }}>{sig.action_takeaway}</div>
           </div>
-          <div style={{ fontSize: 14, color: TH.text, lineHeight: 1.55, fontWeight: 500 }}>{sig.action_takeaway}</div>
-        </div>
+        </ProActionGate>
       </div>
     </div>
   );
@@ -177,6 +181,7 @@ export default function MLBBoard() {
 
 function MLBBoardInner() {
   const darkMode = useShellTheme();
+  const { rowIsFree } = useSignalGate();
   // Theme-aware token overrides
   const TH = {
     bg:        darkMode ? T.bg        : "#F0ECE4",
@@ -398,6 +403,14 @@ function MLBBoardInner() {
             })}
           </div>
 
+          {/* Pro banner — locked signal count */}
+          <ProBoardBanner
+            freeCount={FREE_LIMIT}
+            totalCount={filtered.length}
+            sport="MLB"
+            darkMode={darkMode}
+          />
+
           {/* 2-col layout */}
           <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 280px" }} className="mlb-grid mlb-grid-wrap">
 
@@ -417,8 +430,9 @@ function MLBBoardInner() {
                 ))}
               </div>
 
-              {filtered.map(sig => {
+              {filtered.map((sig, idx) => {
                 const isSelected = selected?.id === sig.id;
+                const isFree = rowIsFree(idx);
                 const typeColor = {
                   injury: T.danger, line_move: T.green, matchup_edge: T.gold,
                   prop: T.orange, trend: T.cyan, lineup: T.cyan,
@@ -429,17 +443,19 @@ function MLBBoardInner() {
                     key={sig.id}
                     className="mlb-sig-row sig-row-tap"
                     data-testid={`mlb-signal-${sig.id}`}
-                    onClick={() => setSelected(isSelected ? null : sig)}
+                    onClick={() => isFree ? setSelected(isSelected ? null : sig) : undefined}
                     style={{
+                      position: "relative",
                       display: "grid", gridTemplateColumns: "48px 100px 1fr 68px 68px",
                       padding: "10px 20px",
                       borderBottom: `1px solid ${TH.border}`,
                       borderLeft: `3px solid ${isSelected ? T.cyan : typeColor + "44"}`,
                       background: isSelected ? "rgba(74,168,200,0.05)" : "transparent",
-                      cursor: "pointer", alignItems: "center",
+                      cursor: isFree ? "pointer" : "default", alignItems: "center",
                       transition: "background 0.1s",
                     }}
                   >
+                    {!isFree && <ProRowOverlay sport="MLB" />}
                     {/* Logo / headshot */}
                     {sig.player ? (
                       <PlayerHeadshot name={sig.player} team={sig.team} size={28} shape="circle" />

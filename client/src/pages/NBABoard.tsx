@@ -9,6 +9,8 @@ import {
   T, VERDICT_COLORS, getTeamColors,
 } from "../components/v2/SportVisuals";
 import { ChevronRight, X, Filter, Zap, TrendingUp, AlertCircle } from "lucide-react";
+import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
+import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 
 const FILTERS = ["Today", "Players", "Teams", "Injuries", "Props", "Matchups", "Playoffs"] as const;
 type FilterKey = typeof FILTERS[number];
@@ -196,15 +198,17 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
           <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.65 }}>{sig.why_it_matters}</div>
         </div>
 
-        <div style={{
-          background: "rgba(202,168,90,0.07)", border: `1px solid rgba(202,168,90,0.22)`,
-          borderRadius: 4, padding: "12px 14px",
-        }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold, marginBottom: 6 }}>
-            ⚡ Action Takeaway
+        <ProActionGate sport="NBA" actionText={sig.action_takeaway} darkMode={darkMode}>
+          <div style={{
+            background: "rgba(202,168,90,0.07)", border: `1px solid rgba(202,168,90,0.22)`,
+            borderRadius: 4, padding: "12px 14px",
+          }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold, marginBottom: 6 }}>
+              ⚡ Action Takeaway
+            </div>
+            <div style={{ fontSize: 14, color: TH.text, lineHeight: 1.65, fontWeight: 500 }}>{sig.action_takeaway}</div>
           </div>
-          <div style={{ fontSize: 14, color: TH.text, lineHeight: 1.65, fontWeight: 500 }}>{sig.action_takeaway}</div>
-        </div>
+        </ProActionGate>
 
         {/* Tags with team logos inline */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 12, alignItems: "center" }}>
@@ -285,6 +289,7 @@ export default function NBABoard() {
 
 function NBABoardInner() {
   const darkMode = useShellTheme();
+  const { rowIsFree } = useSignalGate();
   // Theme-aware token overrides (dark is T defaults; light gets warmer palette)
   const TH = {
     bg:        darkMode ? T.bg        : "#F0ECE4",
@@ -538,6 +543,14 @@ function NBABoardInner() {
             })}
           </div>
 
+          {/* Pro banner — locked signal count */}
+          <ProBoardBanner
+            freeCount={FREE_LIMIT}
+            totalCount={filtered.length}
+            sport="NBA"
+            darkMode={darkMode}
+          />
+
           {/* ── Signal table ── */}
           <div style={{ flex: 1, overflowY: "auto" }}>
             {/* Header */}
@@ -559,6 +572,7 @@ function NBABoardInner() {
 
             {filtered.map((sig, idx) => {
               const isSelected = selected?.id === sig.id;
+              const isFree = rowIsFree(idx);
               const typeColor = {
                 injury: T.danger, line_move: T.green, matchup_edge: T.gold,
                 prop: T.orange, rotation: T.cyan, news: TH.textMuted, trend: T.cyan,
@@ -569,18 +583,20 @@ function NBABoardInner() {
                   key={sig.id}
                   className="sig-row sig-row-tap"
                   data-testid={`nba-signal-${sig.id}`}
-                  onClick={() => setSelected(isSelected ? null : sig)}
+                  onClick={() => isFree ? setSelected(isSelected ? null : sig) : undefined}
                   style={{
+                    position: "relative",
                     display: "grid",
                     gridTemplateColumns: "36px 110px 1fr 130px 80px 80px 68px",
                     padding: "10px 20px",
                     borderBottom: `1px solid ${TH.border}`,
                     background: isSelected ? "rgba(202,168,90,0.055)" : "transparent",
-                    cursor: "pointer", alignItems: "center",
+                    cursor: isFree ? "pointer" : "default", alignItems: "center",
                     borderLeft: `3px solid ${isSelected ? T.gold : typeColor + "55"}`,
                     transition: "background 0.1s, border-left-color 0.1s",
                   }}
                 >
+                  {!isFree && <ProRowOverlay sport="NBA" />}
                   {/* Index */}
                   <div style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",

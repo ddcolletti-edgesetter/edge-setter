@@ -4,6 +4,7 @@ import {
   Home, LayoutGrid, Wrench, Star, List,
   ChevronDown, ChevronRight, Menu, X, Moon, Sun,
 } from "lucide-react";
+import { ProNavButton } from "./ProGate";
 
 /* ── Design tokens ── */
 const T = {
@@ -440,7 +441,7 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
             )}
           </div>
 
-          {/* Right controls — sport pills + dark toggle */}
+          {/* Right controls — sport pills + pro button + dark toggle */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             {/* Pills — hidden on very small screens, shown md+ */}
             <div className="hidden sm:flex" style={{ gap: 6, alignItems: "center" }}>
@@ -449,6 +450,9 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
               <SportPill sport="NFL" status="ACTIVE"    href="/v2/nfl" isCurrent={currentSport === "NFL"} />
               <SportPill sport="CFB" status="BUILDING"  href="/v2/cfb" isCurrent={currentSport === "CFB"} />
             </div>
+
+            {/* Pro nav button */}
+            <ProNavButton sport={(currentSport as any) ?? "generic"} />
 
             {/* Dark mode toggle */}
             <button

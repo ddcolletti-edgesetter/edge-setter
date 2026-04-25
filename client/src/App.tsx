@@ -32,6 +32,7 @@ import V2Sources from "./pages/V2Sources";
 import NotFound from "./pages/not-found";
 import { SignalGateProvider } from "./context/SignalGate";
 import { AdminGate } from "./components/AdminGate";
+import { ProModal } from "./components/ProGate";
 
 export type Theme = "dark" | "light";
 
@@ -47,6 +48,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SignalGateProvider>
+      <ProModal />
       <Router hook={useHashLocation}>
         <Switch>
           <Route path="/" component={FlagshipHome} />

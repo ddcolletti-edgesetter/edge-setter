@@ -5,7 +5,9 @@ import {
   NFL_QUICK_TEAMS, NFL_TEAM_COLORS,
   type NFLSignal, type NFLSignalType, type Verdict,
 } from "../data/nflMockData";
-import { Zap, X, Filter, TrendingUp, AlertCircle, ChevronRight } from "lucide-react";
+import { Zap, X, Filter, TrendingUp, AlertCircle, ChevronRight, Lock } from "lucide-react";
+import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
+import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 
 /* ── Design tokens (dark) ── */
 const T = {
@@ -144,7 +146,7 @@ function ConfBar({ value, color }: { value: number; color: string }) {
 }
 
 /* ── Detail Panel ── */
-function NFLDetailPanel({ sig, onClose, TH }: { sig: NFLSignal; onClose: () => void; TH: Record<string, string> }) {
+function NFLDetailPanel({ sig, onClose, TH, darkMode }: { sig: NFLSignal; onClose: () => void; TH: Record<string, string>; darkMode: boolean }) {
   const teamColors = NFL_TEAM_COLORS[sig.team] ?? { primary: T.gold, secondary: "#333" };
   const typeColor = TYPE_META[sig.type].color;
 
@@ -256,26 +258,28 @@ function NFLDetailPanel({ sig, onClose, TH }: { sig: NFLSignal; onClose: () => v
         </div>
 
         {/* Action */}
-        <div style={{
-          background: `${T.gold}12`, borderRadius: 4,
-          border: `1px solid ${T.gold}44`,
-          padding: "12px 14px",
-        }}>
+        <ProActionGate sport="NFL" actionText={sig.action_takeaway} darkMode={darkMode}>
           <div style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, fontWeight: 700, color: T.gold,
-            letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6,
+            background: `${T.gold}12`, borderRadius: 4,
+            border: `1px solid ${T.gold}44`,
+            padding: "12px 14px",
           }}>
-            <Zap size={11} style={{ display: "inline", marginRight: 4 }} />
-            Action →
+            <div style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 11, fontWeight: 700, color: T.gold,
+              letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6,
+            }}>
+              <Zap size={11} style={{ display: "inline", marginRight: 4 }} />
+              Action →
+            </div>
+            <div style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 14, color: TH.text, lineHeight: 1.55,
+            }}>
+              {sig.action_takeaway}
+            </div>
           </div>
-          <div style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 14, color: TH.text, lineHeight: 1.55,
-          }}>
-            {sig.action_takeaway}
-          </div>
-        </div>
+        </ProActionGate>
       </div>
     </div>
   );
@@ -350,6 +354,7 @@ function NFLSlateCard({ game, TH }: { game: typeof NFL_SLATE[number]; TH: Record
 /* ── NFLBoardInner ── */
 function NFLBoardInner() {
   const darkMode = useShellTheme();
+  const { rowIsFree, openModal } = useSignalGate();
   const TH: Record<string, string> = {
     bg:        darkMode ? T.bg        : "#F0ECE4",
     surface1:  darkMode ? T.surface1  : "#FFFFFF",
@@ -647,6 +652,14 @@ function NFLBoardInner() {
           )}
         </div>
 
+        {/* Pro banner — locked signal count */}
+        <ProBoardBanner
+          freeCount={FREE_LIMIT}
+          totalCount={visibleSigs.length}
+          sport="NFL"
+          darkMode={darkMode}
+        />
+
         {/* Signal table */}
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -683,11 +696,15 @@ function NFLBoardInner() {
                   const typeColor = TYPE_META[sig.type].color;
                   const vColor = VERDICT_COLORS[sig.verdict];
                   const isSelected = selectedSig?.id === sig.id;
+                  const isFree = rowIsFree(idx);
                   return (
                     <tr
                       key={sig.id}
                       className="sig-row-tap"
-                      onClick={() => setSelectedSig(isSelected ? null : sig)}
+                      onClick={() => {
+                        if (!isFree) { openModal("NFL"); return; }
+                        setSelectedSig(isSelected ? null : sig);
+                      }}
                       style={{
                         cursor: "pointer",
                         borderBottom: `1px solid ${TH.goldDim}`,
@@ -695,6 +712,9 @@ function NFLBoardInner() {
                           ? `${T.gold}0A`
                           : darkMode ? "transparent" : "transparent",
                         transition: "background 0.1s",
+                        filter: isFree ? "none" : "blur(1.5px)",
+                        opacity: isFree ? 1 : 0.55,
+                        pointerEvents: isFree ? "auto" : "auto",
                       }}
                       onMouseEnter={e => {
                         if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = darkMode ? "rgba(202,168,90,0.04)" : "rgba(202,168,90,0.06)";
@@ -704,7 +724,9 @@ function NFLBoardInner() {
                       }}
                     >
                       <td style={{ padding: "12px 8px 12px 24px", color: TH.textFaint, fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 13 }}>
-                        {idx + 1}
+                        {isFree ? idx + 1 : (
+                          <Lock size={12} color={T.gold} />
+                        )}
                       </td>
                       <td style={{ padding: "12px 12px" }}>
                         <TypeChip type={sig.type} />
@@ -744,12 +766,22 @@ function NFLBoardInner() {
                         <ConfBar value={sig.confidence} color={typeColor} />
                       </td>
                       <td style={{ padding: "12px 24px 12px 12px", whiteSpace: "nowrap" }}>
-                        <span style={{
-                          fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                          fontSize: 13, color: TH.textFaint,
-                        }}>
-                          {sig.timestamp}
-                        </span>
+                        {isFree ? (
+                          <span style={{
+                            fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+                            fontSize: 13, color: TH.textFaint,
+                          }}>
+                            {sig.timestamp}
+                          </span>
+                        ) : (
+                          <span style={{
+                            fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+                            fontSize: 12, fontWeight: 800, color: T.gold,
+                            letterSpacing: "0.1em", textTransform: "uppercase",
+                            background: `${T.gold}18`, padding: "3px 8px", borderRadius: 2,
+                            border: `1px solid ${T.gold}44`,
+                          }}>PRO</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -770,6 +802,7 @@ function NFLBoardInner() {
             sig={selectedSig}
             onClose={() => setSelectedSig(null)}
             TH={TH}
+            darkMode={darkMode}
           />
         </div>
       )}
