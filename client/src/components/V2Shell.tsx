@@ -137,7 +137,7 @@ export const BOARDS_NAV = [
   { href: "/v2/nba", label: "NBA Board", status: "LIVE"        as SportStatus },
   { href: "/v2/mlb", label: "MLB Board", status: "ACTIVE"      as SportStatus },
   { href: "/v2/nfl", label: "NFL Board", status: "ACTIVE"      as SportStatus },
-  { href: "/v2/cfb", label: "CFB Board", status: "BUILDING"    as SportStatus },
+  { href: "/v2/cfb", label: "CFB Board", status: "ACTIVE"      as SportStatus },
 ];
 
 /* ─────────────────────────────────────────────
@@ -448,7 +448,7 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
               <SportPill sport="NBA" status="LIVE"      href="/v2/nba" isCurrent={currentSport === "NBA"} />
               <SportPill sport="MLB" status="ACTIVE"    href="/v2/mlb" isCurrent={currentSport === "MLB"} />
               <SportPill sport="NFL" status="ACTIVE"    href="/v2/nfl" isCurrent={currentSport === "NFL"} />
-              <SportPill sport="CFB" status="BUILDING"  href="/v2/cfb" isCurrent={currentSport === "CFB"} />
+              <SportPill sport="CFB" status="ACTIVE"    href="/v2/cfb" isCurrent={currentSport === "CFB"} />
             </div>
 
             {/* Pro nav button */}

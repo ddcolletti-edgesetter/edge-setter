@@ -30,42 +30,76 @@ const T = {
   danger:    "#D94B4B",
 };
 
-/* ── Per-sport headline copy ── */
-const MODAL_COPY: Record<ModalTrigger, { headline: string; subhead: string; cta: string }> = {
+/* ── Per-sport modal copy ── */
+interface SportCopy {
+  headline: string;
+  subhead: string;
+  cta: string;
+  features: { icon: React.ElementType; label: string; detail: string }[];
+}
+
+const MODAL_COPY: Record<ModalTrigger, SportCopy> = {
   NBA: {
     headline: "Full playoff intelligence.",
     subhead: "Sharp money. Injury intel. Line movement. Every signal, every game.",
     cta: "Unlock Pro — $19/mo",
+    features: [
+      { icon: Zap,          label: "Full signal feed",          detail: "Every playoff signal — no blurring, no free limits." },
+      { icon: AlertCircle,  label: "Injury & status intel",     detail: "Questionable tags, DNP reports, and practice designations before tip-off." },
+      { icon: TrendingUp,   label: "Sharp money & line moves",  detail: "Exact sharp ticket percentages and steam moves — before the spread adjusts." },
+      { icon: BarChart2,    label: "Action takeaways",          detail: "Concrete bet/DFS actions for every high-confidence signal." },
+      { icon: CheckCircle2, label: "Props + player edges",      detail: "Player prop edges and matchup angles fully unlocked." },
+    ],
   },
   MLB: {
     headline: "Every pitching change. Every lineup shift.",
     subhead: "Pitcher news, lineup movement, and sharp signals — before the line moves.",
     cta: "Unlock Pro — $19/mo",
+    features: [
+      { icon: Zap,          label: "Full signal feed",          detail: "Every pitcher and lineup signal — no blurring, no limits." },
+      { icon: AlertCircle,  label: "Pitcher & health reports",  detail: "Scratches, bullpen load, and IL movement the moment it surfaces." },
+      { icon: TrendingUp,   label: "Line movement & steam",     detail: "Sharp percentages and overnight line movement before first pitch." },
+      { icon: BarChart2,    label: "Action takeaways",          detail: "Run-line, total, and prop angles for every high-confidence signal." },
+      { icon: CheckCircle2, label: "Weather + park factors",    detail: "Wind direction, temperature, and ballpark edge signals unlocked." },
+    ],
   },
   NFL: {
     headline: "Football intel before the market moves.",
-    subhead: "Injuries. Camp battles. Line movement. Sharp money. Every signal, every week.",
+    subhead: "Injuries. Role changes. Sharp money. Every signal, every week.",
     cta: "Unlock Pro — $19/mo",
+    features: [
+      { icon: Zap,          label: "Full signal feed",          detail: "Every injury, line move, and role change — nothing locked." },
+      { icon: AlertCircle,  label: "Practice & injury reports", detail: "Wednesday through Friday designations and snap-share changes." },
+      { icon: TrendingUp,   label: "Sharp money & line moves",  detail: "Steam moves, reverse line movement, and sharp side identification." },
+      { icon: BarChart2,    label: "Action takeaways",          detail: "Spread, total, and prop actions for every high-confidence signal." },
+      { icon: CheckCircle2, label: "Depth chart & role edges",  detail: "Target share shifts, backfield splits, and role changes — early." },
+    ],
   },
   CFB: {
     headline: "Transfer intel. QB battles. Power ratings.",
-    subhead: "Every CFB edge — depth charts, coaching changes, and sharp line moves.",
+    subhead: "Every CFB edge — depth charts, coaching changes, and sharp line moves — before the market adjusts.",
     cta: "Unlock Pro — $19/mo",
+    features: [
+      { icon: Zap,          label: "Full signal feed",          detail: "Every transfer, depth chart, and line move signal unlocked." },
+      { icon: AlertCircle,  label: "Transfer portal & depth",   detail: "Portal commits, starter battles, and eligibility decisions — first." },
+      { icon: TrendingUp,   label: "Sharp line movement",       detail: "Early CFB line moves and steam before the public arrives." },
+      { icon: BarChart2,    label: "Action takeaways",          detail: "ATS, total, and player prop actions for every high-confidence signal." },
+      { icon: CheckCircle2, label: "Coaching & scheme intel",   detail: "Coordinator moves, gameplanning tendencies, and motivational edges." },
+    ],
   },
   generic: {
     headline: "The information gap closes fast.",
-    subhead: "Get there first. Every signal, every sport, fully readable.",
+    subhead: "Get there first. Every signal, every sport, fully readable — NBA, MLB, NFL, CFB.",
     cta: "Unlock Pro — $19/mo",
+    features: [
+      { icon: Zap,          label: "Full signal feed",          detail: "Every signal across every sport — no blurring, no limits." },
+      { icon: AlertCircle,  label: "Injury & status intel",     detail: "Practice designations, depth changes, and scratches instantly." },
+      { icon: TrendingUp,   label: "Sharp money & line moves",  detail: "Steam moves and sharp percentages before the market adjusts." },
+      { icon: BarChart2,    label: "Action takeaways",          detail: "Concrete bet and DFS actions for every high-confidence signal." },
+      { icon: CheckCircle2, label: "All sports, one plan",      detail: "NBA · MLB · NFL · CFB — every sport covered in one subscription." },
+    ],
   },
 };
-
-const PRO_FEATURES = [
-  { icon: Zap,           label: "Full signal feed",       detail: "All signals fully readable — no blurring, no limits." },
-  { icon: AlertCircle,   label: "Priority injuries",      detail: "Every injury designation and practice report, instantly." },
-  { icon: TrendingUp,    label: "Sharp money & line moves", detail: "Exact sharp percentages and steam moves — before the line adjusts." },
-  { icon: BarChart2,     label: "Action takeaways",       detail: "Concrete bet/fantasy actions for every high-confidence signal." },
-  { icon: CheckCircle2,  label: "Props + advanced edges", detail: "Prop analysis and matchup edges fully unlocked." },
-];
 
 /* ─────────────────────────────────────────────────────────────
    ProModal — full overlay upgrade prompt
@@ -151,9 +185,9 @@ export function ProModal() {
           </div>
         </div>
 
-        {/* Features */}
+        {/* Features — sport-contextual */}
         <div style={{ padding: "0 28px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {PRO_FEATURES.map(f => (
+          {copy.features.map(f => (
             <div key={f.label} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
               <div style={{
                 width: 30, height: 30, borderRadius: 3, flexShrink: 0,
