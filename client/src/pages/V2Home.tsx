@@ -224,8 +224,8 @@ export default function V2Home() {
                 {[
                   { sport: "NBA", status: "LIVE" as const, color: T.green },
                   { sport: "MLB", status: "ACTIVE" as const, color: T.cyan },
-                  { sport: "NFL", status: "OFFSEASON" as const, color: T.textFaint },
-                  { sport: "CFB", status: "COMING SOON" as const, color: T.textFaint },
+                  { sport: "NFL", status: "ACTIVE" as const, color: T.cyan },
+                  { sport: "CFB", status: "ACTIVE" as const, color: T.cyan },
                 ].map(({ sport, status, color }) => (
                   <div key={sport} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "inline-block" }} />
@@ -323,15 +323,17 @@ export default function V2Home() {
                 />
                 <BoardCard
                   sport="NFL" label="NFL Board"
-                  description="Offseason. Draft analysis and roster movement. Full board launching August."
-                  href="/v2/nfl" status="OFFSEASON"
-                  color={T.textFaint}
+                  description="Active board. Injuries, depth chart movement, line shifts, and matchup intel — every week."
+                  href="/v2/nfl" status="ACTIVE"
+                  color={T.orange}
+                  accentBg="linear-gradient(135deg, rgba(217,138,66,0.07) 0%, rgba(30,20,10,0.1) 100%)"
                 />
                 <BoardCard
                   sport="CFB" label="CFB Board"
-                  description="Building now. College football intelligence board launching before fall camp."
-                  href="/v2/cfb" status="COMING SOON"
-                  color={T.textFaint}
+                  description="Active board. Transfer intel, QB battles, sharp line movement, and coaching/scheme edges."
+                  href="/v2/cfb" status="ACTIVE"
+                  color={T.green}
+                  accentBg="linear-gradient(135deg, rgba(76,175,130,0.07) 0%, rgba(0,30,15,0.1) 100%)"
                 />
               </div>
             </section>

@@ -77,7 +77,7 @@ function ConfBar({ value, color }: { value: number; color: string }) {
       </div>
       <span style={{
         fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-        fontSize: 12, fontWeight: 700, color,
+        fontSize: 14, fontWeight: 700, color,
       }}>{value}%</span>
     </div>
   );
@@ -161,7 +161,7 @@ function CFBDetailPanel({ sig, onClose, TH, darkMode }: {
 
         <div style={{
           fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-          fontSize: 16, fontWeight: 700, color: TH.text, lineHeight: 1.35, marginBottom: 12,
+          fontSize: 15, fontWeight: 700, color: TH.text, lineHeight: 1.35, marginBottom: 12,
         }}>
           {sig.headline}
         </div>
@@ -316,7 +316,7 @@ function CFBBoardInner() {
                   borderLeft: `3px solid ${isActive ? T.gold : "transparent"}`,
                   color: isActive ? T.gold : TH.textMuted,
                   fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                  fontSize: 13, fontWeight: isActive ? 700 : 500,
+                  fontSize: 14, fontWeight: isActive ? 700 : 500,
                   letterSpacing: "0.04em", textAlign: "left",
                   cursor: "pointer",
                   transition: "all 0.1s",
@@ -362,7 +362,7 @@ function CFBBoardInner() {
                 }} />
                 <span style={{
                   fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                  fontSize: 13, color: isActive ? T.gold : TH.textMuted, fontWeight: isActive ? 700 : 500,
+                  fontSize: 14, color: isActive ? T.gold : TH.textMuted, fontWeight: isActive ? 700 : 500,
                 }}>
                   {tm}
                 </span>
@@ -697,7 +697,7 @@ function CFBBoardInner() {
                         </div>
                         <div style={{
                           fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                          fontSize: 13, color: TH.textFaint, lineHeight: 1.4,
+                          fontSize: 12, color: TH.textFaint, lineHeight: 1.4,
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 380,
                         }}>
                           {sig.detail}

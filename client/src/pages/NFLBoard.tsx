@@ -440,7 +440,7 @@ function NFLBoardInner() {
               >
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                  fontSize: 14, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
                 }}>
                   {label}
                 </span>
@@ -485,7 +485,7 @@ function NFLBoardInner() {
                 }}>{t.abbr}</div>
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, fontWeight: 700, letterSpacing: "0.06em",
+                  fontSize: 14, fontWeight: 700, letterSpacing: "0.06em",
                   color: isActive ? teamColors.primary : TH.textMuted,
                   textTransform: "uppercase",
                 }}>{t.abbr}</span>
@@ -741,7 +741,7 @@ function NFLBoardInner() {
                         </div>
                         <div style={{
                           fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                          fontSize: 13, color: TH.textFaint, lineHeight: 1.4,
+                          fontSize: 12, color: TH.textFaint, lineHeight: 1.4,
                           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 380,
                         }}>
                           {sig.detail}
