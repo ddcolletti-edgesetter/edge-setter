@@ -21,6 +21,7 @@ import SiteWatchLogs from "./pages/SiteWatchLogs";
 import DistributionDrafts from "./pages/DistributionDrafts";
 import DailyOps from "./pages/DailyOps";
 import V2Home from "./pages/V2Home";
+import FlagshipHome from "./pages/FlagshipHome";
 import NBABoard from "./pages/NBABoard";
 import MLBBoard from "./pages/MLBBoard";
 import ToolsHub from "./pages/ToolsHub";
@@ -46,7 +47,7 @@ function App() {
       <SignalGateProvider>
       <Router hook={useHashLocation}>
         <Switch>
-          <Route path="/" component={() => <LandingPage theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/" component={FlagshipHome} />
           <Route path="/dashboard" component={() => <Dashboard theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/admin" component={() => <AdminGate><AdminReview theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/leaderboard" component={() => <SourceLeaderboard theme={theme} toggleTheme={toggleTheme} />} />
