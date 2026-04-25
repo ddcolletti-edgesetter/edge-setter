@@ -164,8 +164,12 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
 export default function MLBBoard() {
   const [activeFilter, setActiveFilter] = useState<MLBFilter>("Today");
   const [selected, setSelected] = useState<V2Signal | null>(null);
+  const [gameFilter, setGameFilter] = useState<string | null>(null);
 
-  const filtered = MLB_SIGNALS.filter(s => matchFilter(s, activeFilter));
+  const filtered = MLB_SIGNALS.filter(s =>
+    matchFilter(s, activeFilter) &&
+    (gameFilter === null || s.team === gameFilter || s.opponent === gameFilter || s.tags.includes(gameFilter))
+  );
 
   return (
     <V2Shell boardsMode>
@@ -201,7 +205,7 @@ export default function MLBBoard() {
               <ChevronRight size={10} style={{ opacity: i === 0 ? 1 : 0.4 }} />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
               }}>{label}</span>
             </div>
           ))}
@@ -212,20 +216,33 @@ export default function MLBBoard() {
             fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
             color: T.textFaint, padding: "0 8px", marginBottom: 8,
           }}>Teams</div>
-          {["NYY", "LAD", "ATL", "BAL", "CHC", "HOU"].map(tm => (
-            <div key={tm} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 3, cursor: "pointer",
-            }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(74,168,200,0.04)"; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; }}
-            >
-              <TeamLogoImg abbr={tm} size={22} />
-              <span style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: T.textMuted,
-              }}>{tm}</span>
-            </div>
-          ))}
+          {["NYY", "LAD", "ATL", "BAL", "CHC", "HOU"].map(tm => {
+            const isActive = gameFilter === tm;
+            return (
+              <button
+                key={tm}
+                onClick={() => setGameFilter(gf => gf === tm ? null : tm)}
+                aria-label={`Filter signals for ${tm}`}
+                aria-pressed={isActive}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 3,
+                  width: "100%", cursor: "pointer",
+                  background: isActive ? "rgba(74,168,200,0.08)" : "transparent",
+                  border: `1px solid ${isActive ? "rgba(74,168,200,0.28)" : "transparent"}`,
+                  transition: "background 0.1s, border-color 0.1s",
+                }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(74,168,200,0.04)"; }}
+                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+              >
+                <TeamLogoImg abbr={tm} size={22} />
+                <span style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                  color: isActive ? T.cyan : T.textMuted,
+                }}>{tm}</span>
+              </button>
+            );
+          })}
         </aside>
 
         {/* ─── Main canvas ─── */}
@@ -286,8 +303,15 @@ export default function MLBBoard() {
                       s.team === game.away || s.team === game.home ||
                       s.opponent === game.away || s.opponent === game.home
                     ).length}
+                    onClick={() => setGameFilter(gf => gf === game.away || gf === game.home ? null : game.away)}
                   />
-                  {game.note && (
+                  {(gameFilter === game.away || gameFilter === game.home) && (
+                    <div style={{ marginTop: 5, padding: "3px 8px", background: "rgba(74,168,200,0.08)", borderRadius: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.cyan, fontWeight: 700 }}>Filtering: {game.away} @ {game.home}</span>
+                      <button onClick={() => setGameFilter(null)} style={{ background: "none", border: "none", color: T.textFaint, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button>
+                    </div>
+                  )}
+                  {game.note && !(gameFilter === game.away || gameFilter === game.home) && (
                     <div style={{ marginTop: 5, padding: "3px 8px", background: "rgba(74,168,200,0.07)", borderRadius: 2, border: "1px solid rgba(74,168,200,0.12)" }}>
                       <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.cyan, fontWeight: 700, letterSpacing: "0.04em" }}>⚡ {game.note}</span>
                     </div>
@@ -312,7 +336,7 @@ export default function MLBBoard() {
                   background: isActive ? "rgba(74,168,200,0.08)" : "transparent",
                   color: isActive ? T.cyan : T.textMuted,
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
                   cursor: "pointer", transition: "all 0.12s",
                 }}>{f}</button>
               );
@@ -373,7 +397,7 @@ export default function MLBBoard() {
 
                     {/* Signal */}
                     <div style={{ paddingRight: 12 }}>
-                      <div style={{ fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 2 }}>
+                      <div style={{ fontSize: 14, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 2 }}>
                         {sig.headline}
                       </div>
                       <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.4 }}>

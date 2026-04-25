@@ -148,7 +148,7 @@ export default function FlagshipHome() {
                 background: link.hot ? "rgba(202,168,90,0.1)" : "transparent",
                 color: link.hot ? T.gold : T.textMuted,
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, fontWeight: 700, letterSpacing: "0.12em",
+                fontSize: 14, fontWeight: 700, letterSpacing: "0.1em",
                 textTransform: "uppercase", cursor: "pointer",
                 transition: "color 0.12s, background 0.12s",
               }}
@@ -166,28 +166,43 @@ export default function FlagshipHome() {
           ))}
         </div>
 
-        {/* Sport status pills */}
+        {/* Sport status pills — real clickable buttons */}
         <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
-          {SPORT_STATUS.map(s => (
-            <div key={s.label} style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "3px 9px", borderRadius: 20,
-              background: `${s.dot}12`, border: `1px solid ${s.dot}28`,
-            }}>
-              <span style={{
-                width: 5, height: 5, borderRadius: "50%",
-                background: s.dot,
-                boxShadow: s.status === "LIVE" ? `0 0 6px ${s.dot}` : "none",
-                display: "inline-block",
-                animation: s.status === "LIVE" ? "navPulse 2s ease-in-out infinite" : "none",
-              }} />
-              <span style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
-                textTransform: "uppercase", color: s.color,
-              }}>{s.label}</span>
-            </div>
-          ))}
+          {SPORT_STATUS.map(s => {
+            const disabled = s.status === "OFFSEASON" || s.status === "COMING SOON";
+            const href = s.label === "NBA" ? "/v2/nba" : s.label === "MLB" ? "/v2/mlb" : null;
+            return (
+              <button
+                key={s.label}
+                onClick={() => href && navigate(href)}
+                disabled={disabled}
+                aria-label={`${s.label} — ${s.status}`}
+                style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "4px 10px", borderRadius: 4,
+                  background: `${s.dot}12`, border: `1px solid ${s.dot}${disabled ? "20" : "38"}`,
+                  cursor: disabled ? "default" : "pointer",
+                  opacity: disabled ? 0.6 : 1,
+                  transition: "filter 0.12s, transform 0.1s",
+                }}
+                onMouseEnter={e => { if (!disabled) { (e.currentTarget as HTMLButtonElement).style.filter = "brightness(1.22)"; (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)"; } }}
+                onMouseLeave={e => { if (!disabled) { (e.currentTarget as HTMLButtonElement).style.filter = ""; (e.currentTarget as HTMLButtonElement).style.transform = ""; } }}
+              >
+                <span style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: s.dot,
+                  boxShadow: s.status === "LIVE" ? `0 0 7px ${s.dot}` : "none",
+                  display: "inline-block",
+                  animation: s.status === "LIVE" ? "navPulse 2s ease-in-out infinite" : "none",
+                }} />
+                <span style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.12em",
+                  textTransform: "uppercase", color: s.color,
+                }}>{s.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Pro CTA */}
@@ -344,7 +359,7 @@ export default function FlagshipHome() {
             <div style={{ marginTop: 32 }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.2em",
+                fontSize: 13, fontWeight: 700, letterSpacing: "0.18em",
                 textTransform: "uppercase", color: T.textFaint, marginBottom: 8,
               }}>Latest NBA Signals</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -365,13 +380,13 @@ export default function FlagshipHome() {
                     >
                       {sig.player && <PlayerHeadshot name={sig.player} team={sig.team} size={22} shape="circle" />}
                       {!sig.player && <TeamLogoImg abbr={sig.team} size={22} />}
-                      <div style={{ flex: 1, fontSize: 13, color: T.textMuted, lineHeight: 1.35 }}>
+                      <div style={{ flex: 1, fontSize: 14, color: T.textMuted, lineHeight: 1.35 }}>
                         {sig.headline.slice(0, 72)}{sig.headline.length > 72 ? "…" : ""}
                       </div>
                       <TypeChip type={sig.type} />
                       <span style={{
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 12, fontWeight: 700, color: vc,
+                        fontSize: 13, fontWeight: 700, color: vc,
                         letterSpacing: "0.1em", textTransform: "uppercase", flexShrink: 0,
                       }}>{sig.confidence}%</span>
                     </div>
@@ -532,7 +547,7 @@ export default function FlagshipHome() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 12, fontWeight: 700, letterSpacing: "0.2em",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.18em",
               textTransform: "uppercase", color: T.textFaint,
             }}>Tonight's NBA Slate</div>
             <div style={{
@@ -583,7 +598,7 @@ export default function FlagshipHome() {
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 40px" }}>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, fontWeight: 700, letterSpacing: "0.2em",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.18em",
             textTransform: "uppercase", color: T.textFaint, marginBottom: 14,
           }}>Featured NBA Edge</div>
           <FeaturedEdgeCard signal={HERO_SIGNAL} sport="NBA" />
@@ -638,7 +653,7 @@ export default function FlagshipHome() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 12, fontWeight: 700, letterSpacing: "0.2em",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.18em",
               textTransform: "uppercase", color: T.textFaint,
             }}>MLB Today</div>
             <div style={{
@@ -687,7 +702,7 @@ export default function FlagshipHome() {
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 12, fontWeight: 700, letterSpacing: "0.22em",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.2em",
               textTransform: "uppercase", color: T.textFaint, marginBottom: 10,
             }}>Intelligence Suite</div>
             <h2 style={{
@@ -802,7 +817,7 @@ export default function FlagshipHome() {
           <div>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 12, fontWeight: 700, letterSpacing: "0.22em",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.2em",
               textTransform: "uppercase", color: T.gold, marginBottom: 10,
             }}>Pro Intelligence</div>
             <h2 style={{

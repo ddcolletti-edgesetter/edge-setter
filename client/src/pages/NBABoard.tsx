@@ -262,8 +262,12 @@ function PlayoffContextBand() {
 export default function NBABoard() {
   const [activeFilter, setActiveFilter] = useState<FilterKey>("Today");
   const [selected, setSelected] = useState<V2Signal | null>(null);
+  const [gameFilter, setGameFilter] = useState<string | null>(null); // e.g. "LAL" to filter by team
 
-  const filtered = NBA_SIGNALS.filter(s => matchFilter(s, activeFilter));
+  const filtered = NBA_SIGNALS.filter(s =>
+    matchFilter(s, activeFilter) &&
+    (gameFilter === null || s.team === gameFilter || s.opponent === gameFilter || s.tags.includes(gameFilter))
+  );
   const featured = NBA_SIGNALS.find(s => s.confidence >= 84) ?? NBA_SIGNALS[0];
 
   return (
@@ -306,7 +310,7 @@ export default function NBABoard() {
               <span style={{ opacity: active ? 1 : 0.4, display: "flex" }}>{icon ?? <ChevronRight size={10} />}</span>
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
               }}>{label}</span>
             </div>
           ))}
@@ -319,21 +323,32 @@ export default function NBABoard() {
             color: T.textFaint, padding: "0 8px", marginBottom: 8,
           }}>Quick Teams</div>
 
-          {["LAL", "BOS", "DEN", "GSW", "MIA", "OKC", "NYK", "MIN"].map(tm => (
-            <div key={tm} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 3,
-              cursor: "pointer",
-            }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(202,168,90,0.05)"; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; }}
-            >
-              <TeamLogoImg abbr={tm} size={22} />
-              <span style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: T.textMuted,
-              }}>{tm}</span>
-            </div>
-          ))}
+          {["LAL", "BOS", "DEN", "GSW", "MIA", "OKC", "NYK", "MIN"].map(tm => {
+            const isTeamActive = gameFilter === tm;
+            return (
+              <button
+                key={tm}
+                onClick={() => setGameFilter(gf => gf === tm ? null : tm)}
+                aria-label={`Filter signals for ${tm}`}
+                aria-pressed={isTeamActive}
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 3,
+                  width: "100%", background: isTeamActive ? "rgba(202,168,90,0.09)" : "transparent",
+                  border: `1px solid ${isTeamActive ? "rgba(202,168,90,0.3)" : "transparent"}`,
+                  cursor: "pointer", transition: "background 0.1s, border-color 0.1s",
+                }}
+                onMouseEnter={e => { if (!isTeamActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(202,168,90,0.05)"; }}
+                onMouseLeave={e => { if (!isTeamActive) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+              >
+                <TeamLogoImg abbr={tm} size={22} />
+                <span style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                  color: isTeamActive ? T.gold : T.textMuted,
+                }}>{tm}</span>
+              </button>
+            );
+          })}
         </aside>
 
         {/* ─── Main canvas ─── */}
@@ -406,7 +421,14 @@ export default function NBABoard() {
                     spread={game.spread} total={game.total}
                     signalCount={signalsForGame(game.away, game.home)}
                     accentColor={T.gold}
+                    onClick={() => setGameFilter(gf => gf === game.away || gf === game.home ? null : game.away)}
                   />
+                  {(gameFilter === game.away || gameFilter === game.home) && (
+                    <div style={{ marginTop: 5, padding: "3px 8px", background: "rgba(202,168,90,0.08)", borderRadius: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.gold, fontWeight: 700 }}>Filtering: {game.away} @ {game.home}</span>
+                      <button onClick={() => setGameFilter(null)} style={{ background: "none", border: "none", color: T.textFaint, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -437,7 +459,7 @@ export default function NBABoard() {
                     background: isActive ? "rgba(202,168,90,0.1)" : "transparent",
                     color: isActive ? T.gold : T.textMuted,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+                    fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
                     cursor: "pointer", transition: "all 0.12s",
                   }}
                 >{f}</button>
@@ -500,7 +522,7 @@ export default function NBABoard() {
 
                   {/* Headline + sub */}
                   <div style={{ paddingRight: 14 }}>
-                    <div className="sig-headline" style={{ fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 3 }}>
+                    <div className="sig-headline" style={{ fontSize: 14, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 3 }}>
                       {sig.headline}
                     </div>
                     <div style={{
