@@ -267,7 +267,7 @@ function CFBBoardInner() {
     textFaint: darkMode ? T.textFaint : "#8C8277",
     border:    darkMode ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)",
     goldDim:   darkMode ? T.goldDim   : "rgba(202,168,90,0.25)",
-    surface1TL:darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
+    surface1TL: darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
   };
 
   const [sidebarFilter, setSidebarFilter] = useState<CFBFilterKey>("SIGNAL STREAM");
@@ -424,7 +424,7 @@ function CFBBoardInner() {
             }}>
               CFB Intelligence Board
             </span>
-            <SportBadge label="ACTIVE" color={T.green} />
+            <SportBadge status="ACTIVE" />
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
@@ -790,7 +790,7 @@ function CFBBoardInner() {
 /* ── Root export ── */
 export default function CFBBoard() {
   return (
-    <V2Shell currentSport="CFB">
+    <V2Shell boardsMode>
       <CFBBoardInner />
     </V2Shell>
   );
