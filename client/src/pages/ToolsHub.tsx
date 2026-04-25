@@ -44,7 +44,7 @@ function SportTag({ sport }: { sport: string }) {
   return (
     <span style={{
       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-      fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+      fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
       color: accent, padding: "2px 6px",
       background: bg, borderRadius: 2,
       border: `1px solid ${accent}33`,
@@ -126,7 +126,7 @@ function ToolCard({ tool }: { tool: typeof TOOLS[number] }) {
             padding: "3px 7px", borderRadius: 2,
             background: ss.bg, color: ss.color,
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.14em",
             border: `1px solid ${ss.border}`,
             flexShrink: 0,
           }}>
@@ -148,7 +148,7 @@ function ToolCard({ tool }: { tool: typeof TOOLS[number] }) {
           <div style={{
             display: "flex", alignItems: "center", gap: 5,
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
             color: ss.color, marginTop: "auto",
           }}>
             {tool.status === "Live" ? (
@@ -198,7 +198,7 @@ function FeaturedToolBanner() {
             <Zap size={14} style={{ color: T.gold }} />
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold,
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold,
             }}>Featured Tool — Now Live</span>
           </div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 6 }}>
@@ -216,7 +216,7 @@ function FeaturedToolBanner() {
           <button style={{
             background: T.gold, color: T.bg, border: "none", borderRadius: 3,
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
             padding: "10px 22px", cursor: "pointer",
             display: "inline-flex", alignItems: "center", gap: 6,
             flexShrink: 0,
@@ -244,7 +244,7 @@ export default function ToolsHub() {
             <div style={{ width: 4, height: 4, borderRadius: "50%", background: T.gold }} />
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint,
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint,
             }}>Intelligence Tools</span>
           </div>
           <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 8px" }}>
@@ -277,7 +277,7 @@ export default function ToolsHub() {
               }}>{s.count}</span>
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.textFaint,
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.textFaint,
               }}>{s.label}</span>
             </div>
           ))}
@@ -290,7 +290,7 @@ export default function ToolsHub() {
         <div style={{ display: "flex", gap: 8, marginBottom: 28, flexWrap: "wrap", alignItems: "center" }}>
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint,
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint,
             marginRight: 4,
           }}>By Sport:</span>
           {["NBA", "MLB", "NFL", "CFB"].map(sport => {
@@ -306,11 +306,11 @@ export default function ToolsHub() {
                 <div style={{ width: 6, height: 6, borderRadius: "50%", background: accent }} />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: accent,
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: accent,
                 }}>{sport}</span>
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 10, color: T.textFaint,
+                  fontSize: 12, color: T.textFaint,
                 }}>{count}</span>
               </div>
             );
@@ -329,12 +329,12 @@ export default function ToolsHub() {
               <div style={{ color: group.accentColor, opacity: 0.8 }}>{group.icon}</div>
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+                fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
                 color: group.accentColor,
               }}>{group.label}</span>
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 10, color: T.textFaint,
+                fontSize: 12, color: T.textFaint,
                 marginLeft: 2,
               }}>({group.tools.length})</span>
             </div>
@@ -367,7 +367,7 @@ export default function ToolsHub() {
             <button style={{
               background: T.gold, color: T.bg, border: "none", borderRadius: 3,
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
               padding: "8px 18px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
             }}>
               Get Pro Access · $19/mo <ArrowRight size={11} />

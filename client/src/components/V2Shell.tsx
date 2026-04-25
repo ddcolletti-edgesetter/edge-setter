@@ -44,7 +44,7 @@ export function SportBadge({ status }: { status: SportStatus }) {
         padding: "2px 7px", borderRadius: 2,
         background: s.bg, color: s.color,
         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-        fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+        fontSize: 14, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
       }}
     >
       <span style={{ width: 5, height: 5, borderRadius: "50%", background: s.dot, display: "inline-block" }} />
@@ -105,7 +105,7 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 3 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint }}>
                     Multi-Sport Intel
                   </span>
                 </div>
@@ -168,11 +168,11 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
                             }}
                           >
                             <span style={{ width: 5, height: 5, borderRadius: "50%", background: s.dot, display: "inline-block", flexShrink: 0 }} />
-                            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", flex: 1 }}>
+                            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", flex: 1 }}>
                               {b.label}
                             </span>
                             {(disabled) && (
-                              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.1em" }}>
+                              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: T.textFaint, letterSpacing: "0.1em" }}>
                                 {b.status}
                               </span>
                             )}
@@ -194,12 +194,12 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
             <div style={{ border: `1px solid rgba(202,168,90,0.22)`, borderRadius: 4, background: "rgba(202,168,90,0.04)", position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold }} />
               <div style={{ padding: "14px 12px 12px" }}>
-                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 12, fontWeight: 700, color: T.gold, marginBottom: 3 }}>Pro Intelligence</div>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.08em", marginBottom: 10, textTransform: "uppercase" }}>
+                <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.gold, marginBottom: 3 }}>Pro Intelligence</div>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: T.textFaint, letterSpacing: "0.08em", marginBottom: 10, textTransform: "uppercase" }}>
                   Alerts · Full Archive · Multi-sport
                 </div>
                 <Link href="/pro">
-                  <button style={{ width: "100%", minHeight: 34, background: T.gold, color: T.bg, border: "none", borderRadius: 3, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
+                  <button style={{ width: "100%", minHeight: 34, background: T.gold, color: T.bg, border: "none", borderRadius: 3, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
                     $19 / Month
                   </button>
                 </Link>
@@ -231,13 +231,13 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
 
           {/* Breadcrumb */}
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
               Edge Setter
             </span>
             {activeTop && activeTop.href !== "/v2" && (
               <>
                 <span style={{ color: T.textFaint, fontSize: 12 }}>›</span>
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.textMuted }}>
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.textMuted }}>
                   {activeTop.label}
                 </span>
               </>
@@ -247,17 +247,17 @@ export default function V2Shell({ children, boardsMode = false }: V2ShellProps) 
           {/* Sport status pills — right side */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             <SportBadge status="LIVE" />
-            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em" }}>NBA</span>
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, color: T.textFaint, letterSpacing: "0.1em" }}>NBA</span>
             <span style={{ color: T.textFaint, fontSize: 10 }}>·</span>
             <SportBadge status="ACTIVE" />
-            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em" }}>MLB</span>
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, color: T.textFaint, letterSpacing: "0.1em" }}>MLB</span>
             <span className="hidden md:inline" style={{ color: T.textFaint, fontSize: 10 }}>·</span>
-            <span className="hidden md:inline" style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em" }}>NFL OFFSEASON · CFB COMING SOON</span>
+            <span className="hidden md:inline" style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, color: T.textFaint, letterSpacing: "0.1em" }}>NFL OFFSEASON · CFB COMING SOON</span>
 
             {/* Dark indicator */}
             <div style={{ marginLeft: 8, display: "flex", alignItems: "center", gap: 4, padding: "3px 7px", borderRadius: 3, border: "1px solid rgba(202,168,90,0.14)", color: T.textFaint }}>
               <Moon size={9} />
-              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>Dark</span>
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase" }}>Dark</span>
             </div>
           </div>
         </header>

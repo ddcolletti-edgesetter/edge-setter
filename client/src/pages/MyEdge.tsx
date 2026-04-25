@@ -92,8 +92,8 @@ function CockpitStat({ label, value, sub, color }: { label: string; value: strin
       borderRadius: 4, textAlign: "center",
     }}>
       <div style={{ fontSize: 22, fontWeight: 800, color, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.1em", marginTop: 2 }}>{sub}</div>}
-      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.textFaint, marginTop: 4 }}>{label}</div>
+      {sub && <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: T.textFaint, letterSpacing: "0.1em", marginTop: 2 }}>{sub}</div>}
+      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.textFaint, marginTop: 4 }}>{label}</div>
     </div>
   );
 }
@@ -143,7 +143,7 @@ function FeatureCardItem({ feature }: { feature: FeatureCard }) {
           background: ts.bg, color: ts.color,
           border: `1px solid ${ts.border}`,
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+          fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
           flexShrink: 0,
         }}>{feature.timeline}</span>
       </div>
@@ -159,7 +159,7 @@ function FeatureCardItem({ feature }: { feature: FeatureCard }) {
           <div style={{
             marginTop: 8,
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, color: feature.accentColor, lineHeight: 1.5, letterSpacing: "0.04em",
+            fontSize: 13, color: feature.accentColor, lineHeight: 1.5, letterSpacing: "0.04em",
             borderTop: `1px solid ${feature.accentColor}22`, paddingTop: 8,
           }}>
             {feature.detail}
@@ -178,10 +178,10 @@ function TeamSilhouettes() {
       {teams.map(t => (
         <div key={t} style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 8px", background: "rgba(255,255,255,0.03)", borderRadius: 3 }}>
           <TeamLogo abbr={t} size={18} />
-          <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textFaint }}>{t}</span>
+          <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textFaint }}>{t}</span>
         </div>
       ))}
-      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>+ more when Watchlist launches</span>
+      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint }}>+ more when Watchlist launches</span>
     </div>
   );
 }
@@ -217,7 +217,7 @@ export default function MyEdge() {
               <Star size={13} style={{ color: T.gold }} />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint,
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint,
               }}>My Edge — Personalization Cockpit</span>
             </div>
             <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 10px" }}>
@@ -256,7 +256,7 @@ export default function MyEdge() {
           <div>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
               color: T.gold, marginBottom: 5,
             }}>In Development — Launching Q3 2026</div>
             <div style={{
@@ -276,7 +276,7 @@ export default function MyEdge() {
         }}>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint,
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint,
             marginBottom: 12,
           }}>Your Watchlist Preview — Placeholder Teams</div>
           <TeamSilhouettes />
@@ -288,7 +288,7 @@ export default function MyEdge() {
             <div style={{ width: 3, height: 16, borderRadius: 2, background: T.gold }} />
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold,
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold,
             }}>Upcoming Features</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 12, marginBottom: 40 }}>
@@ -304,7 +304,7 @@ export default function MyEdge() {
             <div style={{ width: 3, height: 16, borderRadius: 2, background: T.green }} />
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green,
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green,
             }}>Available Now</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
@@ -325,14 +325,14 @@ export default function MyEdge() {
                       <div style={{ width: 5, height: 5, borderRadius: "50%", background: item.dotColor }} />
                       <div style={{
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: item.color,
+                        fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: item.color,
                       }}>{item.label}</div>
                     </div>
                     <ArrowRight size={11} style={{ color: T.textFaint }} />
                   </div>
                   <div style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 10, color: T.textFaint, letterSpacing: "0.04em",
+                    fontSize: 12, color: T.textFaint, letterSpacing: "0.04em",
                     paddingLeft: 12,
                   }}>{item.desc}</div>
                 </div>
@@ -353,7 +353,7 @@ export default function MyEdge() {
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <Zap size={13} style={{ color: T.gold }} />
-            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.gold }}>
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.gold }}>
               Pro — Early Access to My Edge
             </span>
           </div>

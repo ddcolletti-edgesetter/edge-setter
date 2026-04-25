@@ -465,7 +465,7 @@ export function VerdictBadge({ verdict }: { verdict: string }) {
       padding: "2px 7px", borderRadius: 2,
       background: `${color}18`, border: `1px solid ${color}44`,
       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-      fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color,
+      fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color,
     }}>
       <span style={{ width: 4, height: 4, borderRadius: "50%", background: color, display: "inline-block" }} />
       {verdict}
@@ -527,7 +527,7 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
               }}>{away}</div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 9, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase",
+                fontSize: 11, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase",
               }}>Away</div>
             </div>
           </div>
@@ -541,7 +541,7 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
             {isLive && (
               <div style={{ display: "flex", alignItems: "center", gap: 3, justifyContent: "center", marginTop: 3 }}>
                 <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} />
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.green, fontWeight: 700, letterSpacing: "0.1em" }}>LIVE</span>
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.green, fontWeight: 700, letterSpacing: "0.1em" }}>LIVE</span>
               </div>
             )}
           </div>
@@ -555,7 +555,7 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
               }}>{home}</div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 9, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase",
+                fontSize: 11, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase",
               }}>Home</div>
             </div>
             <TeamLogoImg abbr={home} size={compact ? 28 : 34} shape="circle" />
@@ -566,7 +566,7 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
         {series && (
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 10, color: T.gold, fontWeight: 700, letterSpacing: "0.1em",
+            fontSize: 12, color: T.gold, fontWeight: 700, letterSpacing: "0.1em",
             textAlign: "center", marginBottom: 8,
             background: "rgba(202,168,90,0.06)", borderRadius: 2, padding: "2px 6px",
           }}>
@@ -587,7 +587,7 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
               border: `1px solid ${s.border}`,
             }}>
               <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: compact ? 11 : 13, fontWeight: 700, color: s.color, letterSpacing: "0.04em" }}>{s.val}</div>
-              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1 }}>{s.label}</div>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1 }}>{s.label}</div>
             </div>
           ))}
         </div>
@@ -676,21 +676,21 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
             <div style={{
               padding: "2px 8px", background: `${accentColor}18`, border: `1px solid ${accentColor}44`,
               borderRadius: 2, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: accentColor,
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: accentColor,
             }}>⚡ Featured Edge</div>
             <VerdictBadge verdict={signal.verdict} />
-            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{signal.timestamp}</span>
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint }}>{signal.timestamp}</span>
           </div>
 
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 16, fontWeight: 700, color: T.text, lineHeight: 1.35,
+            fontSize: 18, fontWeight: 700, color: T.text, lineHeight: 1.35,
             marginBottom: 8, letterSpacing: "-0.01em",
           }}>{signal.headline}</div>
 
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.03em", marginBottom: 12,
+            fontSize: 14, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.03em", marginBottom: 12,
           }}>{signal.detail.slice(0, 140)}…</div>
 
           <div style={{
@@ -699,9 +699,9 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
           }}>
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.gold, marginRight: 8,
+              fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.gold, marginRight: 8,
             }}>Action →</span>
-            <span style={{ fontSize: 12, color: T.text, fontWeight: 500 }}>{signal.action_takeaway.slice(0, 100)}</span>
+            <span style={{ fontSize: 14, color: T.text, fontWeight: 500 }}>{signal.action_takeaway.slice(0, 100)}</span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -711,7 +711,7 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
               </span>
               <div>
                 <ConfidenceBar value={signal.confidence} width={80} height={5} />
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>Confidence</div>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 3 }}>Confidence</div>
               </div>
             </div>
             <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.06em" }}>
@@ -745,7 +745,7 @@ export function TypeChip({ type }: { type: string }) {
       display: "inline-flex", padding: "2px 6px", borderRadius: 2,
       background: s.bg, color: s.color,
       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-      fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
       whiteSpace: "nowrap",
     }}>{s.label}</span>
   );

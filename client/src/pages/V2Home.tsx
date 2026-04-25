@@ -81,13 +81,13 @@ function BoardCard({
               {signalCount != null && (
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 11, color: T.textFaint, letterSpacing: "0.08em",
+                  fontSize: 13, color: T.textFaint, letterSpacing: "0.08em",
                 }}>{signalCount} signals</span>
               )}
               <span style={{
                 display: "flex", alignItems: "center", gap: 4, marginLeft: "auto",
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
                 color: primary ? T.gold : T.textMuted,
               }}>
                 Open Board <ArrowRight size={10} />
@@ -126,12 +126,12 @@ function FeedRow({ sig }: { sig: typeof NBA_SIGNALS[0] }) {
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: sportColor, textTransform: "uppercase",
+            fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", color: sportColor, textTransform: "uppercase",
           }}>{sig.sport}</span>
           <TypeChip type={sig.type} />
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 10, color: T.textFaint,
+            fontSize: 12, color: T.textFaint,
           }}>{sig.timestamp}</span>
         </div>
         <div style={{ fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 4 }}>
@@ -141,7 +141,7 @@ function FeedRow({ sig }: { sig: typeof NBA_SIGNALS[0] }) {
           <VerdictBadge verdict={sig.verdict} />
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 10, color: T.textFaint,
+            fontSize: 12, color: T.textFaint,
           }}>{sig.confidence}% conf · {sig.sources} sources</span>
         </div>
       </div>
@@ -176,7 +176,7 @@ export default function V2Home() {
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: T.green, display: "inline-block", animation: "pulse 1.8s infinite" }} />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.green,
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.green,
                 }}>Intelligence Terminal · Live</span>
               </div>
               <h1 style={{
@@ -231,7 +231,7 @@ export default function V2Home() {
                     <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "inline-block" }} />
                     <span style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 11, fontWeight: 700, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase",
+                      fontSize: 13, fontWeight: 700, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase",
                     }}>{sport}</span>
                     <SportBadge status={status} />
                   </div>
@@ -245,7 +245,7 @@ export default function V2Home() {
               <div>
                 <div style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
                   color: T.textFaint, marginBottom: 8, display: "flex", alignItems: "center", gap: 6,
                 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "pulse 1.8s infinite" }} />
@@ -270,7 +270,7 @@ export default function V2Home() {
                   <Zap size={11} style={{ color: T.gold }} />
                   <span style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold,
+                    fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold,
                   }}>Top Edge Right Now</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
@@ -283,7 +283,7 @@ export default function V2Home() {
                       <VerdictBadge verdict={featuredNBA.verdict} />
                       <span style={{
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 10, color: T.gold, fontWeight: 700,
+                        fontSize: 12, color: T.gold, fontWeight: 700,
                       }}>{featuredNBA.confidence}%</span>
                     </div>
                   </div>
@@ -303,7 +303,7 @@ export default function V2Home() {
             <section style={{ padding: "24px 28px 0" }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
+                fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
                 color: T.textFaint, marginBottom: 14,
               }}>Boards</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
@@ -346,13 +346,13 @@ export default function V2Home() {
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "pulse 1.8s infinite" }} />
                   <span style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.textFaint,
+                    fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.textFaint,
                   }}>Live Signal Feed</span>
                 </div>
                 <Link href="/v2/nba">
                   <span style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: T.gold,
+                    fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", color: T.gold,
                     cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
                   }}>All NBA <ArrowRight size={10} /></span>
                 </Link>
@@ -369,7 +369,7 @@ export default function V2Home() {
             <div style={{ padding: "24px 18px 0" }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
                 color: T.textFaint, marginBottom: 12,
                 display: "flex", alignItems: "center", gap: 6,
               }}>
@@ -393,7 +393,7 @@ export default function V2Home() {
             <div style={{ padding: "24px 18px 0" }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
                 color: T.textFaint, marginBottom: 12,
               }}>Tools</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -417,13 +417,13 @@ export default function V2Home() {
                           <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 1 }}>{tool.name}</div>
                           <div style={{
                             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                            fontSize: 9, color: T.textFaint, letterSpacing: "0.04em",
+                            fontSize: 13, color: T.textFaint, letterSpacing: "0.04em",
                             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                           }}>{tool.sport.join(" · ")}</div>
                         </div>
                         <span style={{
                           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                          fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                          fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
                           color: statusColor, flexShrink: 0,
                         }}>{tool.status}</span>
                       </div>
@@ -436,7 +436,7 @@ export default function V2Home() {
                   marginTop: 8, padding: "8px 12px",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
                   color: T.textMuted, cursor: "pointer",
                   border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 4,
                 }}>All Tools <ArrowRight size={10} /></div>
@@ -447,7 +447,7 @@ export default function V2Home() {
             <div style={{ padding: "24px 18px 0" }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
                 color: T.textFaint, marginBottom: 12,
                 display: "flex", alignItems: "center", gap: 6,
               }}>
@@ -471,7 +471,7 @@ export default function V2Home() {
                       </div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <TypeChip type={sig.type} />
-                        <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>
+                        <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint }}>
                           {sig.confidence}%
                         </span>
                       </div>
@@ -482,7 +482,7 @@ export default function V2Home() {
                   <Link href="/v2/mlb">
                     <span style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                      fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
                       color: T.cyan, cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
                     }}>Open MLB Board <ArrowRight size={10} /></span>
                   </Link>
@@ -492,7 +492,7 @@ export default function V2Home() {
 
             {/* Stub notice */}
             <div style={{ margin: "20px 18px 0", padding: "9px 12px", background: "rgba(202,168,90,0.03)", border: `1px solid rgba(202,168,90,0.1)`, borderRadius: 4 }}>
-              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, lineHeight: 1.5 }}>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: T.textFaint, lineHeight: 1.5 }}>
                 <strong style={{ color: T.gold }}>STUB DATA</strong> — Signals + odds are realistic placeholders.
               </div>
             </div>
