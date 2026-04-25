@@ -24,6 +24,8 @@ import V2Home from "./pages/V2Home";
 import FlagshipHome from "./pages/FlagshipHome";
 import NBABoard from "./pages/NBABoard";
 import MLBBoard from "./pages/MLBBoard";
+import NFLBoard from "./pages/NFLBoard";
+import CFBBoard from "./pages/CFBBoard";
 import ToolsHub from "./pages/ToolsHub";
 import MyEdge from "./pages/MyEdge";
 import V2Sources from "./pages/V2Sources";
@@ -66,24 +68,8 @@ function App() {
           <Route path="/v2" component={V2Home} />
           <Route path="/v2/nba" component={NBABoard} />
           <Route path="/v2/mlb" component={MLBBoard} />
-          <Route path="/v2/nfl" component={() => (
-            <div style={{ background: "#0A0B0D", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ textAlign: "center", fontFamily: "'Barlow Condensed', Arial, sans-serif", color: "#7E776A" }}>
-                <div style={{ fontSize: 48, fontWeight: 800, color: "#CAA85A", marginBottom: 8 }}>NFL</div>
-                <div style={{ fontSize: 14, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>Offseason Mode</div>
-                <div style={{ fontSize: 12, color: "#7E776A" }}>Full board launches August 2026</div>
-              </div>
-            </div>
-          )} />
-          <Route path="/v2/cfb" component={() => (
-            <div style={{ background: "#0A0B0D", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <div style={{ textAlign: "center", fontFamily: "'Barlow Condensed', Arial, sans-serif", color: "#7E776A" }}>
-                <div style={{ fontSize: 48, fontWeight: 800, color: "#CAA85A", marginBottom: 8 }}>CFB</div>
-                <div style={{ fontSize: 14, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 6 }}>Coming Soon</div>
-                <div style={{ fontSize: 12, color: "#7E776A" }}>Board launches before fall camp 2026</div>
-              </div>
-            </div>
-          )} />
+          <Route path="/v2/nfl" component={NFLBoard} />
+          <Route path="/v2/cfb" component={CFBBoard} />
           <Route path="/v2/tools" component={ToolsHub} />
           <Route path="/v2/my-edge" component={MyEdge} />
           <Route path="/v2/sources" component={V2Sources} />
