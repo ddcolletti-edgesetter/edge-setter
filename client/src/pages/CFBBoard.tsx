@@ -6,7 +6,7 @@ import {
   type CFBSignal, type CFBSignalType, type Verdict,
 } from "../data/cfbMockData";
 import { Zap, X, Filter, TrendingUp, AlertCircle, ChevronRight, Lock } from "lucide-react";
-import { scoreAndRankSignals, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
+import { scoreAndRankSignals, SCORE_BANDS, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 import { TeamLogoImg } from "../components/v2/SportVisuals";
@@ -685,10 +685,20 @@ function CFBBoardInner() {
               const URGENCY_COLORS: Record<UrgencyLabel, string> = { LIVE: T.danger, URGENT: T.orange, WATCH: T.gold, NOTE: TH.textFaint };
               if (!sc) return null;
               return (
-                <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 16, fontWeight: 800, color: T.gold, fontVariantNumeric: "tabular-nums" }}>{sc.totalScore}/100</span>
-                  <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "2px 6px" }}>{sc.urgencyLabel}</span>
-                </div>
+                <>
+                  <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 16, fontWeight: 800, color: T.gold, fontVariantNumeric: "tabular-nums" }}>{sc.totalScore}/100</span>
+                    <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "2px 6px" }}>{sc.urgencyLabel}</span>
+                    {sc.band && SCORE_BANDS[sc.band] && (
+                      <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: SCORE_BANDS[sc.band].color, background: `${SCORE_BANDS[sc.band].color}18`, border: `1px solid ${SCORE_BANDS[sc.band].color}40`, borderRadius: 3, padding: "2px 6px" }}>{SCORE_BANDS[sc.band].label}</span>
+                    )}
+                  </div>
+                  {sc.urgencyReason && (
+                    <div style={{ fontSize: 11, color: "#7E776A", marginTop: 4, fontStyle: "italic" }}>
+                      {sc.urgencyReason}
+                    </div>
+                  )}
+                </>
               );
             })()}
           </div>

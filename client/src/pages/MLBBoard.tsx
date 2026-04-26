@@ -177,6 +177,16 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
                 </div>
               ))}
             </div>
+            {/* Why-this-score explanation */}
+            {sc.scoreExplanation && (
+              <div style={{ padding: "6px 14px", borderTop: `1px solid ${TH.border}` }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Why This Score</div>
+                <div style={{ fontSize: 12, color: TH.textMuted, lineHeight: 1.5 }}>{sc.scoreExplanation}</div>
+                {sc.urgencyReason && (
+                  <div style={{ fontSize: 11, color: TH.textFaint, marginTop: 3, fontStyle: "italic" }}>Urgency: {sc.urgencyReason}</div>
+                )}
+              </div>
+            )}
           </>
         );
       })()}

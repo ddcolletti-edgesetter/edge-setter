@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { NBA_SIGNALS, NBA_TONIGHT, type V2Signal } from "../data/v2MockData";
-import { scoreAndRankSignals, selectFeaturedEdge, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
+import { scoreAndRankSignals, selectFeaturedEdge, type SignalScore, type UrgencyLabel, SCORE_BANDS } from "../lib/signalScorer";
 import {
   PlayerHeadshot, TeamLogoImg,
   MatchupCard, FeaturedEdgeCard, IntelCard,
@@ -178,6 +178,9 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
                 </div>
                 <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "1px 7px" }}>{sc.urgencyLabel}</span>
                 <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: sc.trustLabel === "Consensus" ? T.green : sc.trustLabel === "Corroborated" ? T.gold : TH.textFaint, background: "rgba(255,255,255,0.04)", borderRadius: 3, padding: "1px 7px" }}>{sc.trustLabel}</span>
+                {sc.band && (
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: SCORE_BANDS[sc.band].color, background: `${SCORE_BANDS[sc.band].color}18`, borderRadius: 3, padding: "1px 7px", border: `1px solid ${SCORE_BANDS[sc.band].color}40` }}>{SCORE_BANDS[sc.band].label}</span>
+                )}
                 <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: TH.textFaint, flex: 1 }}>Top factors: {sc.topFactors.join(", ")}</span>
               </div>
             )}
@@ -186,7 +189,7 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
                 {[
                   { k: "Conf", v: sc.breakdown.confidenceScore },
                   { k: "Src",  v: sc.breakdown.sourceQualityScore },
-                  { k: "Fresh",v: sc.breakdown.recencyScore },
+                  { k: "Fresh",v: sc.breakdown.recencyBonus },
                   { k: "Mkt",  v: sc.breakdown.marketImpactScore },
                   { k: "Rel",  v: sc.breakdown.relevanceScore },
                   { k: "Ctx",  v: sc.breakdown.contextScore },
@@ -196,6 +199,16 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
                     <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: TH.textFaint, letterSpacing: "0.1em" }}>{f.k.toUpperCase()}</div>
                   </div>
                 ))}
+              </div>
+            )}
+            {/* Why-this-score explanation */}
+            {sc && sc.scoreExplanation && (
+              <div style={{ padding: "8px 14px", borderTop: `1px solid ${TH.border}` }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Why This Score</div>
+                <div style={{ fontSize: 12, color: TH.textMuted, lineHeight: 1.5 }}>{sc.scoreExplanation}</div>
+                {sc.urgencyReason && (
+                  <div style={{ fontSize: 11, color: TH.textFaint, marginTop: 3, fontStyle: "italic" }}>Urgency: {sc.urgencyReason}</div>
+                )}
               </div>
             )}
           </>

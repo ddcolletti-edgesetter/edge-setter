@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
-import { scoreAndRankSignals, selectFeaturedEdge, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
+import { scoreAndRankSignals, selectFeaturedEdge, SCORE_BANDS, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
   NFL_SIGNALS, NFL_SLATE, NFL_FEATURED_EDGE,
   NFL_QUICK_TEAMS, NFL_TEAM_COLORS,
@@ -701,10 +701,20 @@ function NFLBoardInner() {
                   const URGENCY_COLORS: Record<UrgencyLabel, string> = { LIVE: T.danger, URGENT: T.orange, WATCH: T.gold, NOTE: TH.textFaint };
                   if (!sc) return null;
                   return (
-                    <div style={{ marginTop: 6, display: "flex", gap: 5, justifyContent: "flex-end", flexWrap: "wrap" }}>
-                      <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 16, fontWeight: 800, color: T.gold, fontVariantNumeric: "tabular-nums" }}>{sc.totalScore}/100</span>
-                      <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "2px 6px", alignSelf: "center" }}>{sc.urgencyLabel}</span>
-                    </div>
+                    <>
+                      <div style={{ marginTop: 6, display: "flex", gap: 5, justifyContent: "flex-end", flexWrap: "wrap", alignItems: "center" }}>
+                        <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 16, fontWeight: 800, color: T.gold, fontVariantNumeric: "tabular-nums" }}>{sc.totalScore}/100</span>
+                        <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "2px 6px", alignSelf: "center" }}>{sc.urgencyLabel}</span>
+                        {sc.band && SCORE_BANDS[sc.band] && (
+                          <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: SCORE_BANDS[sc.band].color, background: `${SCORE_BANDS[sc.band].color}18`, border: `1px solid ${SCORE_BANDS[sc.band].color}40`, borderRadius: 3, padding: "2px 6px", alignSelf: "center" }}>{SCORE_BANDS[sc.band].label}</span>
+                        )}
+                      </div>
+                      {sc.urgencyReason && (
+                        <div style={{ fontSize: 11, color: "#7E776A", marginTop: 4, fontStyle: "italic", textAlign: "right" }}>
+                          {sc.urgencyReason}
+                        </div>
+                      )}
+                    </>
                   );
                 })()}
               </div>
