@@ -156,7 +156,6 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
             border: liveCount > 0 ? "1px solid rgba(61,174,114,0.18)" : "1px solid rgba(202,168,90,0.14)",
             borderRadius: 3,
             flexWrap: "wrap",
-            gap: 10,
           }}
           data-testid="data-status-bar"
         >

@@ -509,17 +509,17 @@ function NFLBoardInner() {
                 onClick={() => setTeamFilter(isActive ? null : t.abbr)}
                 style={{
                   display: "flex", alignItems: "center", gap: 8,
-                  padding: "6px 10px", borderRadius: 3, width: "100%",
+                  padding: "8px 10px", borderRadius: 3, width: "100%",
                   background: isActive ? `${teamColors.primary}18` : "transparent",
                   border: "none",
                   cursor: "pointer", transition: "background 0.12s",
                   marginBottom: 1,
                 }}
               >
-                <TeamLogoImg abbr={t.abbr} src={NFL_LOGO_URLS[t.abbr]} size={22} shape="square" />
+                <TeamLogoImg abbr={t.abbr} src={NFL_LOGO_URLS[t.abbr]} size={30} shape="square" />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 14, fontWeight: 700, letterSpacing: "0.06em",
+                  fontSize: 15, fontWeight: 700, letterSpacing: "0.06em",
                   color: isActive ? teamColors.primary : TH.textMuted,
                   textTransform: "uppercase",
                 }}>{t.abbr}</span>
@@ -542,7 +542,7 @@ function NFLBoardInner() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
               <h1 style={{
                 fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 22, fontWeight: 700, color: TH.text, margin: 0, lineHeight: 1.2,
+                fontSize: 24, fontWeight: 700, color: TH.text, margin: 0, lineHeight: 1.2,
               }}>NFL Intelligence Board</h1>
               <SportBadge status="ACTIVE" />
             </div>
@@ -704,7 +704,7 @@ function NFLBoardInner() {
                     padding: h === "#" ? "10px 8px 10px 24px" : "10px 12px",
                     textAlign: "left",
                     fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                    fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
+                    fontSize: 13, fontWeight: 700, letterSpacing: "0.12em",
                     textTransform: "uppercase", color: TH.textFaint,
                     borderBottom: `1px solid ${TH.goldDim}`,
                     whiteSpace: "nowrap",

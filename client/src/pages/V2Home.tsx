@@ -1,4 +1,4 @@
-import V2Shell, { SportBadge } from "../components/V2Shell";
+import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { Link } from "wouter";
 import { NBA_SIGNALS, MLB_SIGNALS, NBA_TONIGHT, TOOLS } from "../data/v2MockData";
 import {
@@ -53,31 +53,34 @@ function LeagueLogo({ league, size = 20 }: { league: string; size?: number }) {
 
 /* ── Board card with visual treatment ── */
 function BoardCard({
-  sport, label, description, href, status, primary, signalCount, color, accentBg, league,
+  sport, label, description, href, status, primary, signalCount, color, accentBg, league, surfaceBg, borderMuted,
 }: {
   sport: string; label: string; description: string; href: string;
   status: "LIVE" | "ACTIVE" | "BUILDING" | "OFFSEASON" | "COMING SOON";
   primary?: boolean; signalCount?: number; color: string; accentBg?: string; league?: string;
+  surfaceBg?: string; borderMuted?: string;
 }) {
   const disabled = status === "COMING SOON" || status === "OFFSEASON";
+  const cardBg = surfaceBg ?? T.surface1;
+  const borderInactive = borderMuted ?? "rgba(255,255,255,0.08)";
 
   return (
     <Link href={disabled ? "#" : href}>
       <div
         data-testid={`board-card-${sport.toLowerCase()}`}
         style={{
-          border: primary ? `1px solid rgba(202,168,90,0.45)` : `1px solid rgba(255,255,255,0.08)`,
+          border: primary ? `1px solid rgba(202,168,90,0.45)` : `1px solid ${borderInactive}`,
           borderRadius: 5, overflow: "hidden",
           background: primary
-            ? `linear-gradient(135deg, rgba(202,168,90,0.06) 0%, ${T.surface1} 60%)`
-            : T.surface1,
+            ? `linear-gradient(135deg, rgba(202,168,90,0.08) 0%, ${cardBg} 60%)`
+            : cardBg,
           cursor: disabled ? "default" : "pointer",
           transition: "border-color 0.15s, transform 0.12s",
           position: "relative",
           opacity: disabled ? 0.55 : 1,
         }}
         onMouseEnter={e => { if (!disabled) { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(-1px)"; el.style.borderColor = primary ? "rgba(202,168,90,0.65)" : "rgba(202,168,90,0.28)"; } }}
-        onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(0)"; el.style.borderColor = primary ? "rgba(202,168,90,0.45)" : "rgba(255,255,255,0.08)"; }}
+        onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(0)"; el.style.borderColor = primary ? "rgba(202,168,90,0.45)" : borderInactive; }}
       >
         {primary && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: T.gold }} />}
 
@@ -112,14 +115,14 @@ function BoardCard({
           <SportBadge status={status} />
         </div>
 
-        <div style={{ padding: "14px 16px 16px" }}>
+        <div style={{ padding: "16px 16px 18px" }}>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 17, fontWeight: 700, color: T.text, marginBottom: 5,
+            fontSize: 19, fontWeight: 700, color: T.text, marginBottom: 7,
           }}>{label}</div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, color: T.textMuted, letterSpacing: "0.03em", lineHeight: 1.55, marginBottom: 14,
+            fontSize: 14, color: T.textMuted, letterSpacing: "0.025em", lineHeight: 1.55, marginBottom: 14,
           }}>{description}</div>
           {!disabled && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -196,7 +199,22 @@ function FeedRow({ sig }: { sig: typeof NBA_SIGNALS[0] }) {
   );
 }
 
-export default function V2Home() {
+/* ── Inner component — can call useShellTheme inside ThemeCtx.Provider ── */
+function V2HomeInner() {
+  const darkMode = useShellTheme();
+
+  // Light-mode aware tokens
+  const cardSurface  = darkMode ? T.surface1  : "#FFFFFF";
+  const cardBorderMuted = darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)";
+  const heroBg       = darkMode
+    ? `linear-gradient(135deg, rgba(202,168,90,0.04) 0%, transparent 50%)`
+    : `linear-gradient(135deg, rgba(202,168,90,0.06) 0%, transparent 50%)`;
+  const goldDimTH    = darkMode ? T.goldDim : "rgba(202,168,90,0.25)";
+  const textTH       = darkMode ? T.text    : "#1A1712";
+  const textMutedTH  = darkMode ? T.textMuted : "#4A443C";
+  const textFaintTH  = darkMode ? T.textFaint : "#8C8277";
+  const feedBorder   = darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
+
   const topSignals = [
     ...NBA_SIGNALS.filter(s => s.confidence >= 80),
     ...MLB_SIGNALS.filter(s => s.confidence >= 72),
@@ -205,14 +223,14 @@ export default function V2Home() {
   const featuredNBA = NBA_SIGNALS.find(s => s.confidence >= 91) ?? NBA_SIGNALS[0];
 
   return (
-    <V2Shell>
+    <>
       <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
       <div style={{ maxWidth: 1440, margin: "0 auto", paddingBottom: 48 }}>
 
         {/* ─── Above-the-fold hero strip ─── */}
         <section style={{
-          borderBottom: `1px solid ${T.goldDim}`,
-          background: `linear-gradient(135deg, rgba(202,168,90,0.04) 0%, transparent 50%)`,
+          borderBottom: `1px solid ${goldDimTH}`,
+          background: heroBg,
           padding: "24px 28px",
         }}>
           <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -228,8 +246,8 @@ export default function V2Home() {
               </div>
               <h1 style={{
                 fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 30, fontWeight: 700, color: T.text,
-                margin: "0 0 12px", lineHeight: 1.22, letterSpacing: "-0.02em",
+                fontSize: 36, fontWeight: 700, color: textTH,
+                margin: "0 0 14px", lineHeight: 1.18, letterSpacing: "-0.02em",
               }}>
                 Sports Intelligence<br />
                 <span style={{ color: T.gold }}>Research Workspace</span>
@@ -244,7 +262,7 @@ export default function V2Home() {
                 }}>What Edge Setter is</div>
                 <p style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 15, color: T.textMuted, margin: 0,
+                  fontSize: 17, color: textMutedTH, margin: 0,
                   lineHeight: 1.5, letterSpacing: "0.02em",
                 }}>
                   A multi‑sport intelligence terminal that surfaces high‑conviction signals — with confidence scores, context, and market‑aware edges — so serious bettors and fantasy players can act before the rest of the market catches up.
@@ -368,6 +386,7 @@ export default function V2Home() {
                   href="/v2/nba" status="LIVE" primary signalCount={NBA_SIGNALS.length}
                   color={T.gold} league="NBA"
                   accentBg="linear-gradient(135deg, rgba(202,168,90,0.08) 0%, rgba(85,37,131,0.1) 100%)"
+                  surfaceBg={cardSurface} borderMuted={cardBorderMuted}
                 />
                 <BoardCard
                   sport="MLB" label="MLB Board"
@@ -375,6 +394,7 @@ export default function V2Home() {
                   href="/v2/mlb" status="ACTIVE" signalCount={MLB_SIGNALS.length}
                   color={T.cyan} league="MLB"
                   accentBg="linear-gradient(135deg, rgba(74,168,200,0.08) 0%, rgba(0,42,98,0.1) 100%)"
+                  surfaceBg={cardSurface} borderMuted={cardBorderMuted}
                 />
                 <BoardCard
                   sport="NFL" label="NFL Board"
@@ -382,6 +402,7 @@ export default function V2Home() {
                   href="/v2/nfl" status="ACTIVE" league="NFL"
                   color={T.orange}
                   accentBg="linear-gradient(135deg, rgba(217,138,66,0.07) 0%, rgba(30,20,10,0.1) 100%)"
+                  surfaceBg={cardSurface} borderMuted={cardBorderMuted}
                 />
                 <BoardCard
                   sport="CFB" label="CFB Board"
@@ -389,6 +410,7 @@ export default function V2Home() {
                   href="/v2/cfb" status="ACTIVE" league="CFB"
                   color={T.green}
                   accentBg="linear-gradient(135deg, rgba(76,175,130,0.07) 0%, rgba(0,30,15,0.1) 100%)"
+                  surfaceBg={cardSurface} borderMuted={cardBorderMuted}
                 />
               </div>
             </section>
@@ -562,6 +584,14 @@ export default function V2Home() {
           .v2-main-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
+    </>
+  );
+}
+
+export default function V2Home() {
+  return (
+    <V2Shell>
+      <V2HomeInner />
     </V2Shell>
   );
 }

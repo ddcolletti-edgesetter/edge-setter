@@ -173,13 +173,13 @@ export function ProModal() {
           </div>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 24, fontWeight: 700, color: T.text, lineHeight: 1.2, marginBottom: 10,
+            fontSize: 30, fontWeight: 700, color: T.text, lineHeight: 1.2, marginBottom: 10,
           }}>
             {copy.headline}
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 15, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.02em",
+            fontSize: 15, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.02em",
           }}>
             {copy.subhead}
           </div>
@@ -190,23 +190,23 @@ export function ProModal() {
           {copy.features.map(f => (
             <div key={f.label} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
               <div style={{
-                width: 30, height: 30, borderRadius: 3, flexShrink: 0,
+                width: 36, height: 36, borderRadius: 3, flexShrink: 0,
                 background: `${T.gold}18`,
                 border: `1px solid ${T.gold}33`,
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}>
-                <f.icon size={14} color={T.gold} />
+                <f.icon size={22} color={T.gold} />
               </div>
               <div>
                 <div style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: "0.04em",
+                  fontSize: 15, fontWeight: 700, color: T.text, letterSpacing: "0.04em",
                 }}>
                   {f.label}
                 </div>
                 <div style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, color: T.textFaint, lineHeight: 1.45, marginTop: 1,
+                  fontSize: 15, color: T.textFaint, lineHeight: 1.45, marginTop: 1,
                 }}>
                   {f.detail}
                 </div>

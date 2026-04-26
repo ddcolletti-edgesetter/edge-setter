@@ -366,15 +366,15 @@ function CFBBoardInner() {
                 onClick={() => setTeamFilter(isActive ? null : tm)}
                 style={{
                   display: "flex", alignItems: "center", gap: 8,
-                  width: "100%", padding: "5px 0",
+                  width: "100%", padding: "8px 0",
                   background: "transparent", border: "none",
                   cursor: "pointer",
                 }}
               >
-                <TeamLogoImg abbr={tm} src={CFB_LOGO_URLS[tm]} size={20} shape="circle" />
+                <TeamLogoImg abbr={tm} src={CFB_LOGO_URLS[tm]} size={30} shape="circle" />
                 <span style={{
                   fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                  fontSize: 14, color: isActive ? T.gold : TH.textMuted, fontWeight: isActive ? 700 : 500,
+                  fontSize: 15, color: isActive ? T.gold : TH.textMuted, fontWeight: isActive ? 700 : 500,
                 }}>
                   {tm}
                 </span>
@@ -432,7 +432,7 @@ function CFBBoardInner() {
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
             <span style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-              fontSize: 22, fontWeight: 800, letterSpacing: "0.02em", color: TH.text,
+              fontSize: 24, fontWeight: 800, letterSpacing: "0.02em", color: TH.text,
             }}>
               CFB Intelligence Board
             </span>
@@ -656,7 +656,7 @@ function CFBBoardInner() {
                     <th key={h} style={{
                       padding: i === 0 ? "10px 8px 10px 24px" : "10px 12px",
                       fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                      fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
+                      fontSize: 13, fontWeight: 700, letterSpacing: "0.12em",
                       textTransform: "uppercase", color: TH.textFaint,
                       textAlign: "left", whiteSpace: "nowrap",
                     }}>
