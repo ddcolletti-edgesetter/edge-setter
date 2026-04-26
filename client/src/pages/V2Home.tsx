@@ -7,13 +7,57 @@ import {
 } from "../components/v2/SportVisuals";
 import { ArrowRight, Zap } from "lucide-react";
 
+/* ── League logo URLs with fallback abbreviation ── */
+const LEAGUE_LOGOS: Record<string, { src: string; abbr: string; color: string }> = {
+  NBA: { src: "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png", abbr: "NBA", color: T.gold },
+  MLB: { src: "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png", abbr: "MLB", color: T.cyan },
+  NFL: { src: "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png", abbr: "NFL", color: T.orange },
+  CFB: { src: "https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png", abbr: "CFB", color: T.green },
+};
+
+/* League logo chip — small inline mark */
+function LeagueLogo({ league, size = 20 }: { league: string; size?: number }) {
+  const meta = LEAGUE_LOGOS[league];
+  if (!meta) return null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
+      width: size, height: size, borderRadius: 3, flexShrink: 0,
+      background: `${meta.color}18`, border: `1px solid ${meta.color}33`,
+      overflow: "hidden",
+    }}>
+      <img
+        src={meta.src}
+        alt={meta.abbr}
+        width={size - 4}
+        height={size - 4}
+        style={{ objectFit: "contain" }}
+        onError={e => {
+          const el = e.currentTarget as HTMLImageElement;
+          el.style.display = "none";
+          const parent = el.parentElement;
+          if (parent) {
+            parent.textContent = meta.abbr.slice(0, 1);
+            Object.assign(parent.style, {
+              fontSize: `${Math.round(size * 0.44)}px`,
+              fontWeight: "700",
+              color: meta.color,
+              fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+              letterSpacing: "0",
+            });
+          }
+        }}
+      />
+    </span>
+  );
+}
+
 /* ── Board card with visual treatment ── */
 function BoardCard({
-  sport, label, description, href, status, primary, signalCount, color, accentBg,
+  sport, label, description, href, status, primary, signalCount, color, accentBg, league,
 }: {
   sport: string; label: string; description: string; href: string;
   status: "LIVE" | "ACTIVE" | "BUILDING" | "OFFSEASON" | "COMING SOON";
-  primary?: boolean; signalCount?: number; color: string; accentBg?: string;
+  primary?: boolean; signalCount?: number; color: string; accentBg?: string; league?: string;
 }) {
   const disabled = status === "COMING SOON" || status === "OFFSEASON";
 
@@ -64,13 +108,14 @@ function BoardCard({
             fontSize: 26, fontWeight: 900, color, letterSpacing: "-0.02em", lineHeight: 1,
             position: "relative", zIndex: 1,
           }}>{sport}</div>
+          {league && <LeagueLogo league={league} size={22} />}
           <SportBadge status={status} />
         </div>
 
         <div style={{ padding: "14px 16px 16px" }}>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 5,
+            fontSize: 17, fontWeight: 700, color: T.text, marginBottom: 5,
           }}>{label}</div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -124,6 +169,8 @@ function FeedRow({ sig }: { sig: typeof NBA_SIGNALS[0] }) {
 
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
+          {/* League logo chip */}
+          <LeagueLogo league={sig.sport} size={16} />
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", color: sportColor, textTransform: "uppercase",
@@ -134,7 +181,7 @@ function FeedRow({ sig }: { sig: typeof NBA_SIGNALS[0] }) {
             fontSize: 12, color: T.textFaint,
           }}>{sig.timestamp}</span>
         </div>
-        <div style={{ fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 4 }}>
+        <div style={{ fontSize: 14, color: T.text, fontWeight: 500, lineHeight: 1.4, marginBottom: 4 }}>
           {sig.headline}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -181,20 +228,28 @@ export default function V2Home() {
               </div>
               <h1 style={{
                 fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 28, fontWeight: 700, color: T.text,
-                margin: "0 0 10px", lineHeight: 1.2, letterSpacing: "-0.02em",
+                fontSize: 30, fontWeight: 700, color: T.text,
+                margin: "0 0 12px", lineHeight: 1.22, letterSpacing: "-0.02em",
               }}>
                 Sports Intelligence<br />
                 <span style={{ color: T.gold }}>Research Workspace</span>
               </h1>
-              <p style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, color: T.textMuted, margin: "0 0 20px",
-                lineHeight: 1.65, letterSpacing: "0.03em", maxWidth: 440,
-              }}>
-                Real-time signals, boards, and decision tools for NBA, MLB, and beyond.
-                Built for fantasy players, DFS grinders, and sharp bettors.
-              </p>
+
+              {/* What Edge Setter is — positioning block */}
+              <div style={{ marginBottom: 20, maxWidth: 460 }}>
+                <div style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+                  color: T.gold, marginBottom: 6,
+                }}>What Edge Setter is</div>
+                <p style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 15, color: T.textMuted, margin: 0,
+                  lineHeight: 1.5, letterSpacing: "0.02em",
+                }}>
+                  A multi‑sport intelligence terminal that surfaces high‑conviction signals — with confidence scores, context, and market‑aware edges — so serious bettors and fantasy players can act before the rest of the market catches up.
+                </p>
+              </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <Link href="/v2/nba">
                   <button data-testid="cta-open-nba" style={{
@@ -219,8 +274,8 @@ export default function V2Home() {
                 </Link>
               </div>
 
-              {/* Sport status strip */}
-              <div style={{ display: "flex", gap: 12, marginTop: 20, flexWrap: "wrap" }}>
+              {/* Sport status strip — with league logos */}
+              <div style={{ display: "flex", gap: 14, marginTop: 20, flexWrap: "wrap" }}>
                 {[
                   { sport: "NBA", status: "LIVE" as const, color: T.green },
                   { sport: "MLB", status: "ACTIVE" as const, color: T.cyan },
@@ -228,7 +283,7 @@ export default function V2Home() {
                   { sport: "CFB", status: "ACTIVE" as const, color: T.cyan },
                 ].map(({ sport, status, color }) => (
                   <div key={sport} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "inline-block" }} />
+                    <LeagueLogo league={sport} size={18} />
                     <span style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                       fontSize: 13, fontWeight: 700, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase",
@@ -311,27 +366,27 @@ export default function V2Home() {
                   sport="NBA" label="NBA Board"
                   description="Playoffs live. Injury flags, line movement, matchup edges, rotation intel."
                   href="/v2/nba" status="LIVE" primary signalCount={NBA_SIGNALS.length}
-                  color={T.gold}
+                  color={T.gold} league="NBA"
                   accentBg="linear-gradient(135deg, rgba(202,168,90,0.08) 0%, rgba(85,37,131,0.1) 100%)"
                 />
                 <BoardCard
                   sport="MLB" label="MLB Board"
                   description="Regular season active. Pitcher news, lineup movement, team trends."
                   href="/v2/mlb" status="ACTIVE" signalCount={MLB_SIGNALS.length}
-                  color={T.cyan}
+                  color={T.cyan} league="MLB"
                   accentBg="linear-gradient(135deg, rgba(74,168,200,0.08) 0%, rgba(0,42,98,0.1) 100%)"
                 />
                 <BoardCard
                   sport="NFL" label="NFL Board"
                   description="Active board. Injuries, depth chart movement, line shifts, and matchup intel — every week."
-                  href="/v2/nfl" status="ACTIVE"
+                  href="/v2/nfl" status="ACTIVE" league="NFL"
                   color={T.orange}
                   accentBg="linear-gradient(135deg, rgba(217,138,66,0.07) 0%, rgba(30,20,10,0.1) 100%)"
                 />
                 <BoardCard
                   sport="CFB" label="CFB Board"
                   description="Active board. Transfer intel, QB battles, sharp line movement, and coaching/scheme edges."
-                  href="/v2/cfb" status="ACTIVE"
+                  href="/v2/cfb" status="ACTIVE" league="CFB"
                   color={T.green}
                   accentBg="linear-gradient(135deg, rgba(76,175,130,0.07) 0%, rgba(0,30,15,0.1) 100%)"
                 />

@@ -41,7 +41,7 @@ interface SportCopy {
 const MODAL_COPY: Record<ModalTrigger, SportCopy> = {
   NBA: {
     headline: "Full playoff intelligence.",
-    subhead: "Sharp money. Injury intel. Line movement. Every signal, every game.",
+    subhead: "High-conviction signals with confidence scores, sharp money context, and market-aware edges — every game, fully readable.",
     cta: "Unlock Pro — $19/mo",
     features: [
       { icon: Zap,          label: "Full signal feed",          detail: "Every playoff signal — no blurring, no free limits." },
@@ -65,7 +65,7 @@ const MODAL_COPY: Record<ModalTrigger, SportCopy> = {
   },
   NFL: {
     headline: "Football intel before the market moves.",
-    subhead: "Injuries. Role changes. Sharp money. Every signal, every week.",
+    subhead: "High-conviction signals with confidence scores, injury context, and market-aware edges — every week, fully readable.",
     cta: "Unlock Pro — $19/mo",
     features: [
       { icon: Zap,          label: "Full signal feed",          detail: "Every injury, line move, and role change — nothing locked." },
@@ -88,8 +88,8 @@ const MODAL_COPY: Record<ModalTrigger, SportCopy> = {
     ],
   },
   generic: {
-    headline: "The information gap closes fast.",
-    subhead: "Get there first. Every signal, every sport, fully readable — NBA, MLB, NFL, CFB.",
+    headline: "Multi-sport intelligence terminal.",
+    subhead: "High-conviction signals with confidence scores, context, and market-aware edges — so you act before the rest of the market catches up.",
     cta: "Unlock Pro — $19/mo",
     features: [
       { icon: Zap,          label: "Full signal feed",          detail: "Every signal across every sport — no blurring, no limits." },
@@ -173,13 +173,13 @@ export function ProModal() {
           </div>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 22, fontWeight: 700, color: T.text, lineHeight: 1.25, marginBottom: 8,
+            fontSize: 24, fontWeight: 700, color: T.text, lineHeight: 1.2, marginBottom: 10,
           }}>
             {copy.headline}
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 15, color: T.textMuted, lineHeight: 1.5,
+            fontSize: 15, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.02em",
           }}>
             {copy.subhead}
           </div>
