@@ -364,3 +364,83 @@ export function getOutcomes(signal_id?: string): Outcome[] {
     : db.prepare("SELECT * FROM outcomes ORDER BY created_at DESC LIMIT 200").all();
   return (rows as any[]).map(r => ({ ...r, hit: r.hit === null ? null : r.hit === 1 }));
 }
+
+/* ─── Track Record aggregates ────────────────────────────── */
+
+export interface TrackRecordSlice {
+  signal_type: string | null;   // null → overall
+  total_signals: number;
+  wins: number;
+  losses: number;
+  hit_rate: number | null;      // null if no settled outcomes
+  avg_clv_points: number | null;
+}
+
+export interface TrackRecord {
+  league: string;
+  window: "all_time";           // may extend to 90d/30d later
+  overall: TrackRecordSlice;
+  by_signal_type: TrackRecordSlice[];
+}
+
+/**
+ * Compute aggregate track-record stats for a given league.
+ *
+ * Join outcomes → live_signals to get league + signal_type per outcome.
+ * Ignores outcomes where hit IS NULL (unsettled).
+ * Ignores clv_points where clv IS NULL for avg computation.
+ * Window: all-time (no date filter).
+ */
+export function getTrackRecord(league: string): TrackRecord {
+  const db = getPipelineDb();
+
+  // Overall aggregate for the league
+  const overallRow = db.prepare(`
+    SELECT
+      COUNT(*)                             AS total_signals,
+      SUM(CASE WHEN o.hit = 1 THEN 1 ELSE 0 END) AS wins,
+      SUM(CASE WHEN o.hit = 0 THEN 1 ELSE 0 END) AS losses,
+      AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END) AS avg_clv
+    FROM outcomes o
+    JOIN live_signals s ON s.id = o.signal_id
+    WHERE s.league = ?
+      AND o.hit IS NOT NULL
+  `).get(league) as any;
+
+  // Per-signal_type breakdown
+  const typeRows = db.prepare(`
+    SELECT
+      s.signal_type,
+      COUNT(*)                             AS total_signals,
+      SUM(CASE WHEN o.hit = 1 THEN 1 ELSE 0 END) AS wins,
+      SUM(CASE WHEN o.hit = 0 THEN 1 ELSE 0 END) AS losses,
+      AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END) AS avg_clv
+    FROM outcomes o
+    JOIN live_signals s ON s.id = o.signal_id
+    WHERE s.league = ?
+      AND o.hit IS NOT NULL
+    GROUP BY s.signal_type
+    ORDER BY total_signals DESC
+  `).all(league) as any[];
+
+  function toSlice(row: any, signal_type: string | null): TrackRecordSlice {
+    const total = row.total_signals ?? 0;
+    const wins = row.wins ?? 0;
+    const losses = row.losses ?? 0;
+    return {
+      signal_type,
+      total_signals: total,
+      wins,
+      losses,
+      hit_rate: total > 0 ? Math.round((wins / total) * 1000) / 1000 : null,
+      avg_clv_points: row.avg_clv != null ? Math.round(row.avg_clv * 100) / 100 : null,
+    };
+  }
+
+  return {
+    league,
+    window: "all_time",
+    overall: toSlice(overallRow, null),
+    by_signal_type: typeRows.map(r => toSlice(r, r.signal_type)),
+  };
+}

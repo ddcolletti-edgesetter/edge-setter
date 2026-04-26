@@ -13,6 +13,7 @@ import { ChevronRight, X, Filter } from "lucide-react";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 import OutcomePanel from "../components/OutcomePanel";
+import TrackRecordStrip from "../components/TrackRecordStrip";
 
 const MLB_FILTERS = ["Today", "Pitchers", "Lineup", "Props", "Trends", "Line Moves"] as const;
 type MLBFilter = typeof MLB_FILTERS[number];
@@ -478,6 +479,8 @@ function MLBBoardInner() {
               ))}
             </div>
           </div>
+
+          <TrackRecordStrip league="MLB" darkMode={darkMode} />
 
           {/* Games strip — MatchupCards */}
           <div style={{ padding: "12px 20px 14px", borderBottom: `1px solid ${TH.border}`, flexShrink: 0, overflowX: "auto" }}>

@@ -11,6 +11,7 @@ import { Zap, X, Filter, TrendingUp, AlertCircle, ChevronRight, Lock } from "luc
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 import OutcomePanel from "../components/OutcomePanel";
+import TrackRecordStrip from "../components/TrackRecordStrip";
 import { TeamLogoImg, PlayerHeadshot } from "../components/v2/SportVisuals";
 
 /* ── NFL team logo URLs (ESPN CDN) ── */
@@ -599,6 +600,8 @@ function NFLBoardInner() {
             ))}
           </div>
         </div>
+
+        <TrackRecordStrip league="NFL" darkMode={darkMode} />
 
         {/* Today's Slate */}
         <div style={{ padding: "14px 24px", borderBottom: `1px solid ${TH.goldDim}` }}>

@@ -14,6 +14,7 @@ import { ChevronRight, X, Filter, Zap, TrendingUp, AlertCircle } from "lucide-re
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 import OutcomePanel from "../components/OutcomePanel";
+import TrackRecordStrip from "../components/TrackRecordStrip";
 
 const FILTERS = ["Today", "Players", "Teams", "Injuries", "Props", "Matchups", "Playoffs"] as const;
 type FilterKey = typeof FILTERS[number];
@@ -610,6 +611,7 @@ function NBABoardInner() {
           </div>
 
           {/* Playoff context band */}
+          <TrackRecordStrip league="NBA" darkMode={darkMode} />
           <PlayoffContextBand />
 
           {/* ── Tonight's Slate — MatchupCards ── */}

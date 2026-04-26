@@ -1,5 +1,5 @@
 /**
- * Edge Setter — Pipeline API Routes  (Sprint 7)
+ * Edge Setter — Pipeline API Routes  (Sprint 7–9)
  *
  * Registers all pipeline endpoints on the Express app:
  *
@@ -8,6 +8,7 @@
  *   GET  /api/v2/signals              — filtered signal feed
  *   GET  /api/v2/signals/:id          — signal detail
  *   GET  /api/v2/games                — today's games
+ *   GET  /api/stats/track-record      — aggregate hit-rate + CLV stats per league
  *
  *   Ingestion (admin-gated)
  *   ──────────────────────
@@ -16,9 +17,9 @@
  *   GET  /api/pipeline/raw-events     — view raw events (admin)
  *   GET  /api/pipeline/status         — pipeline health summary
  *
- *   Outcomes (stub)
- *   ───────────────
- *   POST /api/outcomes                — record an outcome (schema ready, no CLV calc)
+ *   Outcomes
+ *   ────────
+ *   POST /api/outcomes                — record an outcome + auto-compute CLV
  *   GET  /api/outcomes/:signal_id     — get outcomes for a signal
  */
 
@@ -27,6 +28,7 @@ import {
   getLiveSignals, getLiveSignal,
   getGames, getRawEvents, insertRawEvent,
   createOutcome, getOutcomes,
+  getTrackRecord,
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
@@ -393,6 +395,31 @@ export function registerPipelineRoutes(app: Express) {
     const signalId: string = req.params.signal_id as string;
     const outcomes = getOutcomes(signalId);
     return res.json({ count: outcomes.length, outcomes });
+  });
+
+  /**
+   * GET /api/stats/track-record?league=NBA
+   *
+   * Returns aggregate hit-rate + avg CLV for a league (overall + per signal_type).
+   * Window: all-time (no date filter). Only settled outcomes (hit IS NOT NULL) count.
+   * Moneyline CLV is deferred so avg_clv_points excludes null clv rows.
+   *
+   * No auth required — display-only, no sensitive data.
+   */
+  app.get("/api/stats/track-record", (req: Request, res: Response) => {
+    const league = (req.query.league as string ?? "").toUpperCase();
+    const VALID = ["NBA", "MLB", "NFL", "CFB"];
+    if (!VALID.includes(league)) {
+      return res.status(400).json({
+        error: `league must be one of: ${VALID.join(", ")}.`,
+      });
+    }
+    try {
+      const record = getTrackRecord(league);
+      return res.json(record);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
   });
 
   console.log("[pipeline] Routes registered");

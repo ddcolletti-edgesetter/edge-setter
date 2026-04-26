@@ -11,6 +11,7 @@ import { scoreAndRankSignals, SCORE_BANDS, type SignalScore, type UrgencyLabel }
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 import OutcomePanel from "../components/OutcomePanel";
+import TrackRecordStrip from "../components/TrackRecordStrip";
 import { TeamLogoImg } from "../components/v2/SportVisuals";
 
 /* ── CFB team logo URLs (ESPN NCAA CDN, numeric IDs) ── */
@@ -572,6 +573,8 @@ function CFBBoardInner() {
             </div>
           ))}
         </div>
+
+        <TrackRecordStrip league="CFB" darkMode={darkMode} />
 
         {/* ── Slate cards ── */}
         <div style={{ padding: "14px 20px", borderBottom: `1px solid ${TH.border}`, flexShrink: 0 }}>
