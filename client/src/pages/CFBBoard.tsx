@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import {
   CFB_SIGNALS, CFB_SLATE, CFB_FEATURED_EDGE,
@@ -6,6 +6,7 @@ import {
   type CFBSignal, type CFBSignalType, type Verdict,
 } from "../data/cfbMockData";
 import { Zap, X, Filter, TrendingUp, AlertCircle, ChevronRight, Lock } from "lucide-react";
+import { scoreAndRankSignals, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 import { TeamLogoImg } from "../components/v2/SportVisuals";
@@ -355,8 +356,27 @@ function CFBBoardInner() {
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [selectedSig, setSelectedSig] = useState<CFBSignal | null>(null);
 
-  /* Filter signals */
-  const visibleSigs = CFB_SIGNALS.filter(s => {
+  /* Score + rank all CFB signals */
+  const rankedCFB = useMemo(() => scoreAndRankSignals(
+    CFB_SIGNALS.map(s => ({ ...s, sport: "CFB" as const }))
+  ), []);
+  const topCFB = rankedCFB[0];
+  // Build dynamic featured edge from top-scoring signal
+  const feat = topCFB ? {
+    ...CFB_FEATURED_EDGE,
+    headline: topCFB.headline,
+    subhead: topCFB.detail,
+    action: topCFB.action_takeaway,
+    verdict: topCFB.verdict,
+    confidence: topCFB.confidence,
+    sources: topCFB.sources,
+    sourceLabels: topCFB.sourceLabels,
+    whyItMatters: topCFB.why_it_matters,
+    _score: topCFB._score,
+  } : CFB_FEATURED_EDGE;
+
+  /* Filter signals — use ranked order */
+  const visibleSigs = rankedCFB.filter(s => {
     const types = FILTER_TYPES[sidebarFilter];
     if (types.length > 0 && !types.includes(s.type)) return false;
     if (tabFilter !== "Today" && s.conference && !s.conference.includes(tabFilter)) return false;
@@ -618,7 +638,7 @@ function CFBBoardInner() {
               color: T.gold, background: `${T.gold}16`, border: `1px solid ${T.gold}33`,
               padding: "3px 8px", borderRadius: 2,
             }}>⚡ Featured Edge</span>
-            <VerdictBadge verdict={CFB_FEATURED_EDGE.verdict} />
+            <VerdictBadge verdict={feat.verdict} />
             <span style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               fontSize: 12, color: TH.textFaint,
@@ -628,10 +648,10 @@ function CFBBoardInner() {
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
             fontSize: 17, fontWeight: 800, color: TH.text, lineHeight: 1.3, marginBottom: 8,
           }}>
-            {CFB_FEATURED_EDGE.headline}
+            {feat.headline}
           </div>
           <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.6, marginBottom: 10 }}>
-            {CFB_FEATURED_EDGE.subhead}
+            {feat.subhead}
           </div>
           <div style={{
             background: `${T.gold}0F`, border: `1px solid ${T.gold}30`,
@@ -640,26 +660,37 @@ function CFBBoardInner() {
             fontSize: 13, color: TH.text, lineHeight: 1.5,
           }}>
             <span style={{ color: T.orange, fontWeight: 700, letterSpacing: "0.04em" }}>Action → </span>
-            {CFB_FEATURED_EDGE.action}
+            {feat.action}
           </div>
-          {CFB_FEATURED_EDGE.whyItMatters && (
+          {feat.whyItMatters && (
             <div style={{ marginBottom: 8 }}>
               <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Why It Matters</div>
-              <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.5 }}>{CFB_FEATURED_EDGE.whyItMatters}</div>
+              <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.5 }}>{feat.whyItMatters}</div>
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-            <ConfBar value={CFB_FEATURED_EDGE.confidence} color={T.gold} />
+            <ConfBar value={feat.confidence} color={T.gold} />
             <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 12, color: TH.textFaint }}>
-              {CFB_FEATURED_EDGE.sources} sources · {CFB_FEATURED_EDGE.conference}
+              {feat.sources} sources · {CFB_FEATURED_EDGE.conference}
             </span>
-            {CFB_FEATURED_EDGE.sourceLabels && CFB_FEATURED_EDGE.sourceLabels.length > 0 && (
+            {feat.sourceLabels && feat.sourceLabels.length > 0 && (
               <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                {CFB_FEATURED_EDGE.sourceLabels.map(label => (
+                {feat.sourceLabels.map(label => (
                   <span key={label} style={{ fontSize: 11, color: TH.textMuted, background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", borderRadius: 3, padding: "1px 6px" }}>{label}</span>
                 ))}
               </div>
             )}
+            {(() => {
+              const sc: SignalScore | undefined = (feat as any)._score;
+              const URGENCY_COLORS: Record<UrgencyLabel, string> = { LIVE: T.danger, URGENT: T.orange, WATCH: T.gold, NOTE: TH.textFaint };
+              if (!sc) return null;
+              return (
+                <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 16, fontWeight: 800, color: T.gold, fontVariantNumeric: "tabular-nums" }}>{sc.totalScore}/100</span>
+                  <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "2px 6px" }}>{sc.urgencyLabel}</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
 

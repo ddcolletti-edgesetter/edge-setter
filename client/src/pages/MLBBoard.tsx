@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { MLB_SIGNALS, type V2Signal } from "../data/v2MockData";
+import { scoreAndRankSignals, selectFeaturedEdge, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
   PlayerHeadshot, TeamLogoImg,
   MatchupCard, IntelCard,
@@ -145,6 +146,41 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
         ))}
       </div>
 
+      {/* Score strip */}
+      {(() => {
+        const sc: SignalScore | undefined = (sig as any)._score;
+        const URGENCY_COLORS: Record<UrgencyLabel, string> = { LIVE: T.danger, URGENT: T.orange, WATCH: T.gold, NOTE: TH.textFaint };
+        if (!sc) return null;
+        return (
+          <>
+            <div style={{ background: darkMode ? "rgba(74,168,200,0.04)" : "rgba(74,168,200,0.06)", borderBottom: `1px solid ${TH.border}`, padding: "7px 14px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+                <span style={{ fontSize: 17, fontWeight: 800, color: T.cyan, fontVariantNumeric: "tabular-nums" }}>{sc.totalScore}</span>
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint }}>/100</span>
+              </div>
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "1px 7px" }}>{sc.urgencyLabel}</span>
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, color: sc.trustLabel === "Consensus" ? T.green : sc.trustLabel === "Corroborated" ? T.gold : TH.textFaint, background: "rgba(255,255,255,0.04)", borderRadius: 3, padding: "1px 7px" }}>{sc.trustLabel}</span>
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: TH.textFaint, flex: 1 }}>Top: {sc.topFactors.join(", ")}</span>
+            </div>
+            <div style={{ padding: "5px 14px 0", display: "flex", gap: 8 }}>
+              {[
+                { k: "Conf", v: sc.breakdown.confidenceScore },
+                { k: "Src",  v: sc.breakdown.sourceQualityScore },
+                { k: "Fresh",v: sc.breakdown.recencyScore },
+                { k: "Mkt",  v: sc.breakdown.marketImpactScore },
+                { k: "Rel",  v: sc.breakdown.relevanceScore },
+                { k: "Ctx",  v: sc.breakdown.contextScore },
+              ].map(f => (
+                <div key={f.k} style={{ textAlign: "center" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: TH.textMuted, fontVariantNumeric: "tabular-nums" }}>{f.v.toFixed(1)}</div>
+                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: TH.textFaint, letterSpacing: "0.1em" }}>{f.k}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        );
+      })()}
+
       {/* Conf bar */}
       <div style={{ padding: "8px 14px 0" }}>
         <ConfidenceBar value={sig.confidence} width="100%" height={4} />
@@ -274,10 +310,18 @@ function MLBBoardInner() {
   const [selected, setSelected] = useState<V2Signal | null>(null);
   const [gameFilter, setGameFilter] = useState<string | null>(null);
 
-  const filtered = MLB_SIGNALS.filter(s =>
+  const rankedSignals = useMemo(() => scoreAndRankSignals(
+    MLB_SIGNALS.map(s => ({ ...s, sport: "MLB" as const }))
+  ), []);
+  const featuredRanked = useMemo(() => selectFeaturedEdge(
+    MLB_SIGNALS.map(s => ({ ...s, sport: "MLB" as const }))
+  ), []);
+
+  const filtered = rankedSignals.filter(s =>
     matchFilter(s, activeFilter) &&
     (gameFilter === null || s.team === gameFilter || s.opponent === gameFilter || s.tags.includes(gameFilter))
   );
+  const featured = rankedSignals.find(s => s.id === featuredRanked?.id) ?? rankedSignals[0];
 
   return (
     <>

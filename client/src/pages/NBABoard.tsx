@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { NBA_SIGNALS, NBA_TONIGHT, type V2Signal } from "../data/v2MockData";
+import { scoreAndRankSignals, selectFeaturedEdge, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
   PlayerHeadshot, TeamLogoImg,
   MatchupCard, FeaturedEdgeCard, IntelCard,
@@ -150,21 +151,56 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
       </div>
 
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", background: TH.surface2, borderBottom: `1px solid ${TH.border}` }}>
-        {[
-          { label: "Verdict", value: sig.verdict.toUpperCase(), color: vColor },
-          { label: "Confidence", value: `${sig.confidence}%`, color: sig.confidence >= 80 ? T.gold : TH.text },
-          { label: "Sources", value: String(sig.sources), color: TH.text },
-        ].map((s, i) => (
-          <div key={s.label} style={{
-            padding: "10px 0", textAlign: "center",
-            borderRight: i < 2 ? `1px solid ${TH.border}` : "none",
-          }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: s.color, letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
+      {(() => {
+        const scored = sig as any;
+        const sc: SignalScore | undefined = scored._score;
+        const URGENCY_COLORS: Record<UrgencyLabel, string> = { LIVE: T.danger, URGENT: T.orange, WATCH: T.gold, NOTE: TH.textFaint };
+        return (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", background: TH.surface2, borderBottom: `1px solid ${TH.border}` }}>
+              {[
+                { label: "Verdict", value: sig.verdict.toUpperCase(), color: vColor },
+                { label: "Confidence", value: `${sig.confidence}%`, color: sig.confidence >= 80 ? T.gold : TH.text },
+                { label: "Sources", value: String(sig.sources), color: TH.text },
+              ].map((s, i) => (
+                <div key={s.label} style={{ padding: "10px 0", textAlign: "center", borderRight: i < 2 ? `1px solid ${TH.border}` : "none" }}>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: s.color, letterSpacing: "-0.01em", fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
+                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+            {/* Score strip */}
+            {sc && (
+              <div style={{ background: darkMode ? "rgba(202,168,90,0.04)" : "rgba(202,168,90,0.06)", borderBottom: `1px solid ${TH.border}`, padding: "8px 14px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: T.gold, fontVariantNumeric: "tabular-nums" }}>{sc.totalScore}</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: TH.textFaint }}>/100</span>
+                </div>
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "1px 7px" }}>{sc.urgencyLabel}</span>
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: sc.trustLabel === "Consensus" ? T.green : sc.trustLabel === "Corroborated" ? T.gold : TH.textFaint, background: "rgba(255,255,255,0.04)", borderRadius: 3, padding: "1px 7px" }}>{sc.trustLabel}</span>
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: TH.textFaint, flex: 1 }}>Top factors: {sc.topFactors.join(", ")}</span>
+              </div>
+            )}
+            {sc && (
+              <div style={{ padding: "6px 14px 0", display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[
+                  { k: "Conf", v: sc.breakdown.confidenceScore },
+                  { k: "Src",  v: sc.breakdown.sourceQualityScore },
+                  { k: "Fresh",v: sc.breakdown.recencyScore },
+                  { k: "Mkt",  v: sc.breakdown.marketImpactScore },
+                  { k: "Rel",  v: sc.breakdown.relevanceScore },
+                  { k: "Ctx",  v: sc.breakdown.contextScore },
+                ].map(f => (
+                  <div key={f.k} style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: TH.textMuted, fontVariantNumeric: "tabular-nums" }}>{f.v.toFixed(1)}</div>
+                    <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: TH.textFaint, letterSpacing: "0.1em" }}>{f.k.toUpperCase()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Confidence bar */}
       <div style={{ padding: "10px 16px 0" }}>
@@ -381,11 +417,19 @@ function NBABoardInner() {
   const [selected, setSelected] = useState<V2Signal | null>(null);
   const [gameFilter, setGameFilter] = useState<string | null>(null); // e.g. "LAL" to filter by team
 
-  const filtered = NBA_SIGNALS.filter(s =>
+  // Score and rank all signals
+  const rankedSignals = useMemo(() => scoreAndRankSignals(
+    NBA_SIGNALS.map(s => ({ ...s, sport: "NBA" as const }))
+  ), []);
+
+  const filtered = rankedSignals.filter(s =>
     matchFilter(s, activeFilter) &&
     (gameFilter === null || s.team === gameFilter || s.opponent === gameFilter || s.tags.includes(gameFilter))
   );
-  const featured = NBA_SIGNALS.find(s => s.confidence >= 84) ?? NBA_SIGNALS[0];
+  const featuredRanked = useMemo(() => selectFeaturedEdge(
+    NBA_SIGNALS.map(s => ({ ...s, sport: "NBA" as const }))
+  ), []);
+  const featured = rankedSignals.find(s => s.id === featuredRanked?.id) ?? rankedSignals[0];
 
   return (
     <>
@@ -713,11 +757,20 @@ function NBABoardInner() {
                     <ConfidenceBar value={sig.confidence} width={50} height={3} />
                   </div>
 
-                  {/* Time */}
-                  <div style={{
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 11, color: TH.textFaint,
-                  }}>{sig.timestamp}</div>
+                  {/* Time + score */}
+                  <div style={{ textAlign: "right" }}>
+                    {(() => {
+                      const sc: SignalScore | undefined = (sig as any)._score;
+                      const URGENCY_COLORS: Record<UrgencyLabel, string> = { LIVE: T.danger, URGENT: T.orange, WATCH: T.gold, NOTE: TH.textFaint };
+                      return sc ? (
+                        <>
+                          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: URGENCY_COLORS[sc.urgencyLabel], marginBottom: 2 }}>{sc.urgencyLabel}</div>
+                          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, color: T.gold }}>{sc.totalScore}</div>
+                        </>
+                      ) : null;
+                    })()}
+                    <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint, marginTop: 1 }}>{sig.timestamp}</div>
+                  </div>
                 </div>
               );
             })}

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
+import { scoreAndRankSignals, selectFeaturedEdge, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
   NFL_SIGNALS, NFL_SLATE, NFL_FEATURED_EDGE,
   NFL_QUICK_TEAMS, NFL_TEAM_COLORS,
@@ -412,10 +413,31 @@ function NFLBoardInner() {
   const [selectedSig, setSelectedSig] = useState<NFLSignal | null>(null);
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
 
-  const feat = NFL_FEATURED_EDGE;
+  /* Score and rank all signals */
+  const rankedNFL = useMemo(() => scoreAndRankSignals(
+    NFL_SIGNALS.map(s => ({ ...s, sport: "NFL" as const }))
+  ), []);
+  const featuredNFL = useMemo(() => selectFeaturedEdge(
+    NFL_SIGNALS.map(s => ({ ...s, sport: "NFL" as const }))
+  ), []);
+  // Featured edge: use scorer-selected signal, fallback to hardcoded
+  const topNFL = rankedNFL[0];
+  const feat = topNFL ? {
+    ...NFL_FEATURED_EDGE,
+    headline: topNFL.headline,
+    body: topNFL.detail,
+    action: topNFL.action_takeaway,
+    verdict: topNFL.verdict,
+    confidence: topNFL.confidence,
+    sources: topNFL.sources,
+    sourceLabels: topNFL.sourceLabels,
+    whyItMatters: topNFL.why_it_matters,
+    teamColor: NFL_TEAM_COLORS[topNFL.team]?.primary ?? NFL_FEATURED_EDGE.teamColor,
+    _score: topNFL._score,
+  } : NFL_FEATURED_EDGE;
 
   /* Filter pipeline */
-  let visibleSigs = NFL_SIGNALS.filter(s => matchNFLFilter(s, activeFilter));
+  let visibleSigs = rankedNFL.filter(s => matchNFLFilter(s, activeFilter));
   if (teamFilter) {
     visibleSigs = visibleSigs.filter(s => s.team === teamFilter || s.opponent === teamFilter);
   }
@@ -674,6 +696,17 @@ function NFLBoardInner() {
                 <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 11, color: TH.textFaint, marginTop: 4 }}>
                   {feat.sources} sources
                 </div>
+                {(() => {
+                  const sc: SignalScore | undefined = (feat as any)._score;
+                  const URGENCY_COLORS: Record<UrgencyLabel, string> = { LIVE: T.danger, URGENT: T.orange, WATCH: T.gold, NOTE: TH.textFaint };
+                  if (!sc) return null;
+                  return (
+                    <div style={{ marginTop: 6, display: "flex", gap: 5, justifyContent: "flex-end", flexWrap: "wrap" }}>
+                      <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 16, fontWeight: 800, color: T.gold, fontVariantNumeric: "tabular-nums" }}>{sc.totalScore}/100</span>
+                      <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "2px 6px", alignSelf: "center" }}>{sc.urgencyLabel}</span>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

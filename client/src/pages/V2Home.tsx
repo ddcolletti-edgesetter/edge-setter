@@ -1,6 +1,7 @@
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { Link } from "wouter";
 import { NBA_SIGNALS, MLB_SIGNALS, NBA_TONIGHT, TOOLS } from "../data/v2MockData";
+import { scoreAndRankSignals, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
   PlayerAvatar, TeamLogo, GameCard, FeaturedEdgeCard,
   VerdictBadge, TypeChip, ConfidenceBar, T, VERDICT_COLORS, getTeamColors,
@@ -180,8 +181,11 @@ function BoardCard({
   );
 }
 
+/* ── Urgency label colors ── */
+const URGENCY_COLORS_FEED: Record<UrgencyLabel, string> = { LIVE: T.danger, URGENT: T.orange, WATCH: T.gold, NOTE: T.textFaint };
+
 /* ── Signal feed row ── */
-function FeedRow({ sig, feedBorder, darkMode }: { sig: typeof NBA_SIGNALS[0]; feedBorder: string; darkMode: boolean }) {
+function FeedRow({ sig, feedBorder, darkMode }: { sig: typeof NBA_SIGNALS[0] & { _score?: SignalScore }; feedBorder: string; darkMode: boolean }) {
   const sportColor = sig.sport === "NBA" ? T.gold : T.cyan;
   const textColor = darkMode ? T.text : "#1A1712";
   const textFaintColor = darkMode ? T.textFaint : "#8C8277";
@@ -230,6 +234,12 @@ function FeedRow({ sig, feedBorder, darkMode }: { sig: typeof NBA_SIGNALS[0]; fe
           }}>{sig.confidence}% conf · {sig.sources} src{sig.confirmationStrength === "consensus" ? " ✓" : sig.confirmationStrength === "corroborated" ? " ◎" : ""}</span>
           {sig.bettingRelevance && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: darkMode ? T.gold : "#8B6914", background: darkMode ? "rgba(202,168,90,0.10)" : "rgba(202,168,90,0.15)", borderRadius: 3, padding: "1px 6px" }}>Bet</span>}
           {sig.fantasyRelevance && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: darkMode ? T.cyan : "#2A6980", background: darkMode ? "rgba(74,168,200,0.10)" : "rgba(74,168,200,0.15)", borderRadius: 3, padding: "1px 6px" }}>DFS</span>}
+          {sig._score && sig._score.urgencyLabel !== "NOTE" && (
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.10em", textTransform: "uppercase", color: URGENCY_COLORS_FEED[sig._score.urgencyLabel], background: `${URGENCY_COLORS_FEED[sig._score.urgencyLabel]}18`, borderRadius: 3, padding: "1px 6px", border: `1px solid ${URGENCY_COLORS_FEED[sig._score.urgencyLabel]}40` }}>{sig._score.urgencyLabel}</span>
+          )}
+          {sig._score && (
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: darkMode ? T.textFaint : "#8C8277", fontVariantNumeric: "tabular-nums" }}>{sig._score.totalScore}/100</span>
+          )}
         </div>
       </div>
     </div>
@@ -253,10 +263,11 @@ function V2HomeInner() {
   const feedBorder       = darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.07)";
   const surfaceMini      = darkMode ? T.surface1 : "#FFFFFF";
 
-  const topSignals = [
-    ...NBA_SIGNALS.filter(s => s.confidence >= 80),
-    ...MLB_SIGNALS.filter(s => s.confidence >= 72),
-  ].sort((a, b) => b.confidence - a.confidence).slice(0, 9);
+  // Score + rank combined NBA + MLB feed by composite score
+  const topSignals = scoreAndRankSignals([
+    ...NBA_SIGNALS.map(s => ({ ...s, sport: "NBA" as const })),
+    ...MLB_SIGNALS.map(s => ({ ...s, sport: "MLB" as const })),
+  ]).filter(s => s.confidence >= 72).slice(0, 9);
 
   const featuredNBA = NBA_SIGNALS.find(s => s.confidence >= 91) ?? NBA_SIGNALS[0];
 
