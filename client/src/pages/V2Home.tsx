@@ -222,12 +222,14 @@ function FeedRow({ sig, feedBorder, darkMode }: { sig: typeof NBA_SIGNALS[0]; fe
         <div style={{ fontSize: 16, color: textColor, fontWeight: 500, lineHeight: 1.45, marginBottom: 5 }}>
           {sig.headline}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <VerdictBadge verdict={sig.verdict} />
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 14, color: textFaintColor,
-          }}>{sig.confidence}% conf · {sig.sources} sources</span>
+          }}>{sig.confidence}% conf · {sig.sources} src{sig.confirmationStrength === "consensus" ? " ✓" : sig.confirmationStrength === "corroborated" ? " ◎" : ""}</span>
+          {sig.bettingRelevance && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: darkMode ? T.gold : "#8B6914", background: darkMode ? "rgba(202,168,90,0.10)" : "rgba(202,168,90,0.15)", borderRadius: 3, padding: "1px 6px" }}>Bet</span>}
+          {sig.fantasyRelevance && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: darkMode ? T.cyan : "#2A6980", background: darkMode ? "rgba(74,168,200,0.10)" : "rgba(74,168,200,0.15)", borderRadius: 3, padding: "1px 6px" }}>DFS</span>}
         </div>
       </div>
     </div>

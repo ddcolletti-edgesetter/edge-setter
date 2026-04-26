@@ -249,6 +249,69 @@ function CFBDetailPanel({ sig, onClose, TH, darkMode }: {
           </div>
         </ProActionGate>
 
+        {/* ── Source metadata ── */}
+        {(sig.sourceLabels?.length || sig.confirmationStrength) && (
+          <div style={{ background: darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", borderRadius: 4, padding: "10px 12px" }}>
+            <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 6 }}>Source Coverage</div>
+            {sig.sourceLabels && sig.sourceLabels.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: sig.confirmationStrength ? 6 : 0 }}>
+                {sig.sourceLabels.map(label => (
+                  <span key={label} style={{ fontSize: 11, color: TH.textMuted, background: darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)", borderRadius: 3, padding: "2px 7px", fontWeight: 500 }}>{label}</span>
+                ))}
+              </div>
+            )}
+            {sig.confirmationStrength && (
+              <div style={{ fontSize: 11, color: sig.confirmationStrength === "consensus" ? T.green : sig.confirmationStrength === "corroborated" ? T.gold : TH.textFaint, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", marginTop: 2 }}>
+                {sig.confirmationStrength === "consensus" ? "✓ Consensus" : sig.confirmationStrength === "corroborated" ? "◎ Corroborated" : "△ Single source"}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Scheme + matchup intel ── */}
+        {(sig.schemeNote || sig.matchupEdge || sig.injuryDesignation) && (
+          <div>
+            {sig.injuryDesignation && (
+              <div style={{ marginBottom: 6 }}>
+                <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: T.danger, background: "rgba(217,75,75,0.1)", borderRadius: 3, padding: "2px 8px" }}>Designation: {sig.injuryDesignation}</span>
+              </div>
+            )}
+            {sig.schemeNote && (
+              <div style={{ marginBottom: 6 }}>
+                <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Scheme Note</div>
+                <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.5 }}>{sig.schemeNote}</div>
+              </div>
+            )}
+            {sig.matchupEdge && (
+              <div>
+                <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Matchup Edge</div>
+                <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.5 }}>{sig.matchupEdge}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Line movement ── */}
+        {sig.lineMovement && (
+          <div style={{ background: "rgba(76,175,130,0.07)", border: "1px solid rgba(76,175,130,0.18)", borderRadius: 4, padding: "10px 12px" }}>
+            <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 6 }}>Line Movement</div>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: TH.textMuted }}><span style={{ color: TH.textFaint }}>Open:</span> {sig.lineMovement.open}</span>
+              <span style={{ color: TH.textFaint }}>→</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.green }}>{sig.lineMovement.current}</span>
+            </div>
+            {sig.lineMovement.note && <div style={{ fontSize: 11, color: TH.textFaint, marginTop: 5 }}>{sig.lineMovement.note}</div>}
+          </div>
+        )}
+
+        {/* ── Relevance flags ── */}
+        {(sig.bettingRelevance || sig.fantasyRelevance) && (
+          <div style={{ display: "flex", gap: 6 }}>
+            {sig.bettingRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.gold, background: "rgba(202,168,90,0.12)", borderRadius: 3, padding: "2px 8px" }}>Betting Signal</span>}
+            {sig.fantasyRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.cyan, background: "rgba(74,168,200,0.12)", borderRadius: 3, padding: "2px 8px" }}>Fantasy Impact</span>}
+          </div>
+        )}
+
         {/* Tags */}
         {sig.tags.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5, paddingTop: 4 }}>
@@ -579,11 +642,24 @@ function CFBBoardInner() {
             <span style={{ color: T.orange, fontWeight: 700, letterSpacing: "0.04em" }}>Action → </span>
             {CFB_FEATURED_EDGE.action}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+          {CFB_FEATURED_EDGE.whyItMatters && (
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Why It Matters</div>
+              <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.5 }}>{CFB_FEATURED_EDGE.whyItMatters}</div>
+            </div>
+          )}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
             <ConfBar value={CFB_FEATURED_EDGE.confidence} color={T.gold} />
             <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 12, color: TH.textFaint }}>
               {CFB_FEATURED_EDGE.sources} sources · {CFB_FEATURED_EDGE.conference}
             </span>
+            {CFB_FEATURED_EDGE.sourceLabels && CFB_FEATURED_EDGE.sourceLabels.length > 0 && (
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                {CFB_FEATURED_EDGE.sourceLabels.map(label => (
+                  <span key={label} style={{ fontSize: 11, color: TH.textMuted, background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", borderRadius: 3, padding: "1px 6px" }}>{label}</span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

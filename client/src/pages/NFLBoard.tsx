@@ -639,9 +639,16 @@ function NFLBoardInner() {
                   {feat.body}
                 </div>
 
+                {feat.whyItMatters && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 4 }}>Why It Matters</div>
+                    <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.55 }}>{feat.whyItMatters}</div>
+                  </div>
+                )}
+
                 <div style={{
                   background: `${T.gold}14`, border: `1px solid ${T.gold}44`,
-                  borderRadius: 3, padding: "9px 14px",
+                  borderRadius: 3, padding: "9px 14px", marginBottom: 10,
                 }}>
                   <span style={{
                     fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
@@ -651,6 +658,15 @@ function NFLBoardInner() {
                     {feat.action}
                   </span>
                 </div>
+
+                {feat.sourceLabels && feat.sourceLabels.length > 0 && (
+                  <div style={{ display: "flex", gap: 5, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, color: TH.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>Sources:</span>
+                    {feat.sourceLabels.map(label => (
+                      <span key={label} style={{ fontSize: 11, color: TH.textMuted, background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", borderRadius: 3, padding: "1px 6px" }}>{label}</span>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div style={{ textAlign: "right", flexShrink: 0 }}>

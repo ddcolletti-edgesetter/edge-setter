@@ -210,6 +210,80 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
           </div>
         </ProActionGate>
 
+        {/* ── Source metadata ── */}
+        {(sig.sourceLabels?.length || sig.sourceTypes?.length || sig.confirmationStrength) && (
+          <div style={{
+            background: `${TH.border}`, borderRadius: 4, padding: "10px 12px", marginTop: 12,
+          }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 6 }}>
+              Source Coverage
+            </div>
+            {sig.sourceLabels && sig.sourceLabels.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: sig.confirmationStrength ? 6 : 0 }}>
+                {sig.sourceLabels.map(label => (
+                  <span key={label} style={{
+                    fontSize: 11, color: TH.textMuted, background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)",
+                    borderRadius: 3, padding: "2px 7px", fontWeight: 500,
+                  }}>{label}</span>
+                ))}
+              </div>
+            )}
+            {sig.confirmationStrength && (
+              <div style={{ fontSize: 11, color: sig.confirmationStrength === "consensus" ? T.green : sig.confirmationStrength === "corroborated" ? T.gold : TH.textFaint, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", marginTop: 2 }}>
+                {sig.confirmationStrength === "consensus" ? "✓ Consensus" : sig.confirmationStrength === "corroborated" ? "◎ Corroborated" : "△ Single source"}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Line movement ── */}
+        {sig.lineMovement && (
+          <div style={{
+            background: "rgba(76,175,130,0.07)", border: "1px solid rgba(76,175,130,0.18)",
+            borderRadius: 4, padding: "10px 12px", marginTop: 10,
+          }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 6 }}>Line Movement</div>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: TH.textMuted }}><span style={{ color: TH.textFaint }}>Open:</span> {sig.lineMovement.open}</span>
+              <span style={{ color: TH.textFaint }}>→</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.green }}>{sig.lineMovement.current}</span>
+            </div>
+            {sig.lineMovement.note && (
+              <div style={{ fontSize: 11, color: TH.textFaint, marginTop: 5 }}>{sig.lineMovement.note}</div>
+            )}
+          </div>
+        )}
+
+        {/* ── Rotation / matchup intel ── */}
+        {(sig.rotationNote || sig.matchupEdge) && (
+          <div style={{ marginTop: 10 }}>
+            {sig.rotationNote && (
+              <div style={{ marginBottom: 8 }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 4 }}>Rotation Intel</div>
+                <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.5 }}>{sig.rotationNote}</div>
+              </div>
+            )}
+            {sig.matchupEdge && (
+              <div>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 4 }}>Matchup Edge</div>
+                <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.5 }}>{sig.matchupEdge}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Relevance flags ── */}
+        {(sig.bettingRelevance || sig.fantasyRelevance) && (
+          <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+            {sig.bettingRelevance && (
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.gold, background: "rgba(202,168,90,0.12)", borderRadius: 3, padding: "2px 8px" }}>Betting Signal</span>
+            )}
+            {sig.fantasyRelevance && (
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.cyan, background: "rgba(74,168,200,0.12)", borderRadius: 3, padding: "2px 8px" }}>Fantasy Impact</span>
+            )}
+          </div>
+        )}
+
         {/* Tags with team logos inline */}
         <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 12, alignItems: "center" }}>
           {sig.tags.map(tag => {

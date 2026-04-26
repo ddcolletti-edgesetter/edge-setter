@@ -162,6 +162,11 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
           <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 4 }}>Signal Detail</div>
           <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
         </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 4 }}>Why It Matters</div>
+          <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.65 }}>{sig.why_it_matters}</div>
+        </div>
+
         <ProActionGate sport="MLB" actionText={sig.action_takeaway} darkMode={darkMode}>
           <div style={{ background: "rgba(74,168,200,0.07)", border: `1px solid rgba(74,168,200,0.22)`, borderRadius: 4, padding: "10px 12px" }}>
             <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
@@ -170,6 +175,76 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
             <div style={{ fontSize: 14, color: TH.text, lineHeight: 1.55, fontWeight: 500 }}>{sig.action_takeaway}</div>
           </div>
         </ProActionGate>
+
+        {/* ── Source metadata ── */}
+        {(sig.sourceLabels?.length || sig.confirmationStrength) && (
+          <div style={{ background: `${TH.border}`, borderRadius: 4, padding: "10px 12px", marginTop: 10 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 6 }}>Source Coverage</div>
+            {sig.sourceLabels && sig.sourceLabels.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: sig.confirmationStrength ? 6 : 0 }}>
+                {sig.sourceLabels.map(label => (
+                  <span key={label} style={{ fontSize: 11, color: TH.textMuted, background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", borderRadius: 3, padding: "2px 7px", fontWeight: 500 }}>{label}</span>
+                ))}
+              </div>
+            )}
+            {sig.confirmationStrength && (
+              <div style={{ fontSize: 11, color: sig.confirmationStrength === "consensus" ? T.green : sig.confirmationStrength === "corroborated" ? T.gold : TH.textFaint, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", marginTop: 2 }}>
+                {sig.confirmationStrength === "consensus" ? "✓ Consensus" : sig.confirmationStrength === "corroborated" ? "◎ Corroborated" : "△ Single source"}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── MLB-specific intel ── */}
+        {(sig.pitcherMatchup || sig.lineupStatus || sig.weatherNote || sig.matchupEdge) && (
+          <div style={{ marginTop: 10 }}>
+            {sig.pitcherMatchup && (
+              <div style={{ marginBottom: 7 }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Pitcher Matchup</div>
+                <div style={{ fontSize: 13, color: TH.textMuted }}>{sig.pitcherMatchup}</div>
+              </div>
+            )}
+            {sig.lineupStatus && (
+              <div style={{ marginBottom: 7 }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Lineup Status</div>
+                <div style={{ fontSize: 13, color: TH.textMuted }}>{sig.lineupStatus}</div>
+              </div>
+            )}
+            {sig.weatherNote && (
+              <div style={{ marginBottom: 7 }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.cyan, marginBottom: 3 }}>Weather Note</div>
+                <div style={{ fontSize: 13, color: TH.textMuted }}>{sig.weatherNote}</div>
+              </div>
+            )}
+            {sig.matchupEdge && (
+              <div>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Matchup Edge</div>
+                <div style={{ fontSize: 13, color: TH.textMuted }}>{sig.matchupEdge}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Line movement ── */}
+        {sig.lineMovement && (
+          <div style={{ background: "rgba(76,175,130,0.07)", border: "1px solid rgba(76,175,130,0.18)", borderRadius: 4, padding: "10px 12px", marginTop: 10 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 6 }}>Line Movement</div>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              <span style={{ fontSize: 13, color: TH.textMuted }}><span style={{ color: TH.textFaint }}>Open:</span> {sig.lineMovement.open}</span>
+              <span style={{ color: TH.textFaint }}>→</span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: T.green }}>{sig.lineMovement.current}</span>
+            </div>
+            {sig.lineMovement.note && <div style={{ fontSize: 11, color: TH.textFaint, marginTop: 5 }}>{sig.lineMovement.note}</div>}
+          </div>
+        )}
+
+        {/* ── Relevance flags ── */}
+        {(sig.bettingRelevance || sig.fantasyRelevance) && (
+          <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+            {sig.bettingRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.gold, background: "rgba(202,168,90,0.12)", borderRadius: 3, padding: "2px 8px" }}>Betting Signal</span>}
+            {sig.fantasyRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.cyan, background: "rgba(74,168,200,0.12)", borderRadius: 3, padding: "2px 8px" }}>Fantasy Impact</span>}
+          </div>
+        )}
       </div>
     </div>
   );
