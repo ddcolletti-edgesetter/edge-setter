@@ -6,6 +6,8 @@ import { createServer } from "http";
 import { runSiteWatch } from "./site-watch";
 import { runDailyOps } from "./daily-ops";
 import { runDistributionDraft } from "./distribution-draft";
+import { registerPipelineRoutes } from "./pipeline/routes";
+import { startIngestionScheduler } from "./pipeline/ingestion";
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,6 +67,10 @@ app.use((req, res, next) => {
 
 (async () => {
   await registerRoutes(httpServer, app);
+
+  // ─── Pipeline: register routes + start ingestion scheduler ───────────────
+  registerPipelineRoutes(app);
+  startIngestionScheduler();
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

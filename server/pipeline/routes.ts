@@ -1,0 +1,348 @@
+/**
+ * Edge Setter — Pipeline API Routes  (Sprint 7)
+ *
+ * Registers all pipeline endpoints on the Express app:
+ *
+ *   Delivery (public)
+ *   ─────────────────
+ *   GET  /api/v2/signals              — filtered signal feed
+ *   GET  /api/v2/signals/:id          — signal detail
+ *   GET  /api/v2/games                — today's games
+ *
+ *   Ingestion (admin-gated)
+ *   ──────────────────────
+ *   POST /api/pipeline/ingest/manual  — operator creates a RawEvent by hand
+ *   POST /api/pipeline/ingest/run     — trigger a full ingest + process cycle
+ *   GET  /api/pipeline/raw-events     — view raw events (admin)
+ *   GET  /api/pipeline/status         — pipeline health summary
+ *
+ *   Outcomes (stub)
+ *   ───────────────
+ *   POST /api/outcomes                — record an outcome (schema ready, no CLV calc)
+ *   GET  /api/outcomes/:signal_id     — get outcomes for a signal
+ */
+
+import type { Express, Request, Response } from "express";
+import {
+  getLiveSignals, getLiveSignal,
+  getGames, getRawEvents, insertRawEvent,
+  createOutcome, getOutcomes,
+} from "./store";
+import { processRawEvents, processOne } from "./processor";
+import { runIngestionCycle } from "./ingestion";
+import type { League, RawEventType } from "./types";
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+
+function requireAdmin(req: Request, res: Response): boolean {
+  const authHeader = req.headers.authorization ?? "";
+  const pw = authHeader.startsWith("Bearer ") ? authHeader.slice(7)
+    : (req.body?.password ?? (req.query as any).password);
+  if (pw !== ADMIN_PASSWORD) {
+    res.status(401).json({ error: "Unauthorized" });
+    return false;
+  }
+  return true;
+}
+
+export function registerPipelineRoutes(app: Express) {
+
+  /* ══════════════════════════════════════════════════════
+     DELIVERY API — public
+     ══════════════════════════════════════════════════════ */
+
+  /**
+   * GET /api/v2/signals
+   *
+   * Query params:
+   *   league  — NBA | MLB | NFL | CFB
+   *   since   — ISO timestamp (e.g. 2026-04-26T00:00:00Z)
+   *   limit   — default 50, max 200
+   *   band    — Elite | Strong | Watchlist | Informational
+   *   type    — signal_type filter
+   *
+   * Returns: LiveSignal[] sorted by score DESC
+   *
+   * Example:
+   *   GET /api/v2/signals?league=NBA&limit=20
+   *   GET /api/v2/signals?since=2026-04-26T12:00:00Z&band=Elite
+   */
+  app.get("/api/v2/signals", (req: Request, res: Response) => {
+    const { league, since, band, type } = req.query as Record<string, string | undefined>;
+    const limit = Math.min(Number(req.query.limit ?? 50), 200);
+
+    let signals = getLiveSignals({
+      league: league as League | undefined,
+      since,
+      limit: Math.min(limit * 3, 600), // fetch more, filter below
+    });
+
+    if (band) signals = signals.filter(s => s.score_band === band);
+    if (type) signals = signals.filter(s => s.signal_type === type);
+
+    // Final sort and limit
+    signals = signals
+      .sort((a, b) => b.score - a.score || new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, limit);
+
+    res.json({ count: signals.length, signals });
+  });
+
+  /**
+   * GET /api/v2/signals/:id
+   *
+   * Returns: LiveSignal with full breakdown
+   *
+   * Example:
+   *   GET /api/v2/signals/550e8400-e29b-41d4-a716-446655440000
+   */
+  app.get("/api/v2/signals/:id", (req: Request, res: Response) => {
+    const signal = getLiveSignal(req.params.id as string);
+    if (!signal) return res.status(404).json({ error: "Signal not found" });
+    return res.json(signal);
+  });
+
+  /**
+   * GET /api/v2/games
+   *
+   * Query params:
+   *   league  — NBA | MLB | NFL | CFB
+   *
+   * Example:
+   *   GET /api/v2/games?league=MLB
+   */
+  app.get("/api/v2/games", (req: Request, res: Response) => {
+    const { league } = req.query as { league?: string };
+    const games = getGames(league);
+    res.json({ count: games.length, games });
+  });
+
+  /* ══════════════════════════════════════════════════════
+     INGESTION API — admin-gated
+     ══════════════════════════════════════════════════════ */
+
+  /**
+   * POST /api/pipeline/ingest/manual
+   *
+   * Creates a RawEvent by hand (operator use).
+   * The event is immediately processed into a LiveSignal.
+   *
+   * Body:
+   * {
+   *   "password": "edgesetter-admin-2026",
+   *   "league": "NBA",
+   *   "team": "BOS",
+   *   "player": "Jayson Tatum",
+   *   "event_type": "injury_update",
+   *   "payload": {
+   *     "designation": "Questionable",
+   *     "body_part": "ankle",
+   *     "notes": "Tatum tweaked ankle in practice — status TBD.",
+   *     "confidence": 72,
+   *     "confirmation": "Developing",
+   *     "source_types": ["beat_reporter"],
+   *     "source_labels": ["ESPN Adrian Wojnarowski"],
+   *     "source_count": 1,
+   *     "sources": [{ "name": "ESPN Woj", "type": "beat_reporter" }]
+   *   }
+   * }
+   *
+   * Returns: { raw_event, signal }
+   *
+   * Supported event_types:
+   *   injury_update | lineup_confirm | lineup_change | line_move |
+   *   weather_update | scheme_note | transaction | manual
+   */
+  app.post("/api/pipeline/ingest/manual", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+
+    const { league, team, player, event_type, game_id, payload } = req.body;
+    if (!league || !event_type || !payload) {
+      return res.status(400).json({ error: "league, event_type, and payload are required" });
+    }
+
+    const VALID_LEAGUES = ["NBA", "MLB", "NFL", "CFB"];
+    const VALID_TYPES: RawEventType[] = [
+      "injury_update", "lineup_confirm", "lineup_change", "line_move",
+      "weather_update", "scheme_note", "transaction", "manual", "odds_open",
+    ];
+
+    if (!VALID_LEAGUES.includes(league)) {
+      return res.status(400).json({ error: `Invalid league. Must be one of: ${VALID_LEAGUES.join(", ")}` });
+    }
+    if (!VALID_TYPES.includes(event_type)) {
+      return res.status(400).json({ error: `Invalid event_type. Must be one of: ${VALID_TYPES.join(", ")}` });
+    }
+
+    try {
+      const raw = insertRawEvent({
+        source_id: "operator",
+        source_type: "manual",
+        league: league as League,
+        game_id: game_id ?? null,
+        team: team ?? null,
+        player: player ?? null,
+        event_type: event_type as RawEventType,
+        payload,
+      });
+
+      // Process immediately
+      const signal = await processOne(raw);
+
+      return res.json({
+        success: true,
+        raw_event: raw,
+        signal,
+      });
+    } catch (err: any) {
+      console.error("[pipeline/manual]", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/pipeline/ingest/run
+   *
+   * Triggers a full ingest + process cycle (all adapters).
+   * Admin-gated. Useful for on-demand refresh without waiting for scheduler.
+   *
+   * Body: { "password": "edgesetter-admin-2026" }
+   */
+  app.post("/api/pipeline/ingest/run", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const result = await runIngestionCycle();
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/pipeline/process
+   *
+   * Runs the processor against all pending unprocessed RawEvents.
+   * Admin-gated. Useful if ingestion ran but processor was skipped.
+   */
+  app.post("/api/pipeline/process", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const result = await processRawEvents();
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/pipeline/raw-events
+   *
+   * View raw events (admin). Useful for debugging the pipeline.
+   *
+   * Query params:
+   *   league    — filter by league
+   *   processed — "true" | "false" | unset (all)
+   *   limit     — default 50
+   */
+  app.get("/api/pipeline/raw-events", (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const { league } = req.query as { league?: string };
+    const processed = req.query.processed === "true" ? true
+      : req.query.processed === "false" ? false
+      : undefined;
+    const limit = Math.min(Number(req.query.limit ?? 50), 500);
+
+    const events = getRawEvents({ league: league as League | undefined, processed, limit });
+    return res.json({ count: events.length, events });
+  });
+
+  /**
+   * GET /api/pipeline/status
+   *
+   * Pipeline health summary — useful for the ops dashboard.
+   */
+  app.get("/api/pipeline/status", (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const pending = getRawEvents({ processed: false, limit: 500 });
+    const recent = getLiveSignals({ limit: 20 });
+    const byLeague = { NBA: 0, MLB: 0, NFL: 0, CFB: 0 } as Record<string, number>;
+    recent.forEach(s => { byLeague[s.league] = (byLeague[s.league] ?? 0) + 1; });
+
+    return res.json({
+      pending_raw_events: pending.length,
+      recent_signals_count: recent.length,
+      signals_by_league: byLeague,
+      top_signal: recent[0] ?? null,
+    });
+  });
+
+  /* ══════════════════════════════════════════════════════
+     OUTCOMES — schema ready, no CLV calc yet
+     ══════════════════════════════════════════════════════ */
+
+  /**
+   * POST /api/outcomes
+   *
+   * Record the final result for a game market.
+   * hit and clv are not calculated yet — set manually or leave null.
+   *
+   * Body:
+   * {
+   *   "password": "edgesetter-admin-2026",
+   *   "signal_id": "<uuid>",
+   *   "game_id": "<game_id>",
+   *   "market": "spread",
+   *   "home_score": 112,
+   *   "away_score": 108,
+   *   "line_at_signal": -6.5,
+   *   "closing_line": -7.5,
+   *   "actual_result": 4,
+   *   "hit": true,
+   *   "clv": 1.0
+   * }
+   *
+   * Note: hit = did the recommended side cover?
+   *        clv = line_at_signal − closing_line (positive = we got the better number)
+   */
+  app.post("/api/outcomes", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const { signal_id, game_id, market, home_score, away_score,
+            line_at_signal, closing_line, actual_result, hit, clv } = req.body;
+
+    if (!signal_id || !game_id) {
+      return res.status(400).json({ error: "signal_id and game_id are required" });
+    }
+
+    try {
+      const outcome = createOutcome({
+        signal_id,
+        game_id,
+        market: market ?? "spread",
+        home_score: home_score ?? null,
+        away_score: away_score ?? null,
+        line_at_signal: line_at_signal ?? null,
+        closing_line: closing_line ?? null,
+        actual_result: actual_result ?? null,
+        hit: hit ?? null,
+        clv: clv ?? null,
+        recorded_at: new Date().toISOString(),
+      });
+      return res.json({ success: true, outcome });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/outcomes/:signal_id
+   *
+   * Get all outcomes recorded for a given signal.
+   */
+  app.get("/api/outcomes/:signal_id", (req: Request, res: Response) => {
+    const signalId: string = req.params.signal_id as string;
+    const outcomes = getOutcomes(signalId);
+    return res.json({ count: outcomes.length, outcomes });
+  });
+
+  console.log("[pipeline] Routes registered");
+}
