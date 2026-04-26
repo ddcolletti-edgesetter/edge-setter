@@ -508,18 +508,18 @@ function NFLBoardInner() {
                 key={t.abbr}
                 onClick={() => setTeamFilter(isActive ? null : t.abbr)}
                 style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "8px 10px", borderRadius: 3, width: "100%",
+                  display: "flex", alignItems: "center", gap: 9,
+                  padding: "9px 10px", borderRadius: 3, width: "100%",
                   background: isActive ? `${teamColors.primary}18` : "transparent",
                   border: "none",
                   cursor: "pointer", transition: "background 0.12s",
                   marginBottom: 1,
                 }}
               >
-                <TeamLogoImg abbr={t.abbr} src={NFL_LOGO_URLS[t.abbr]} size={30} shape="square" />
+                <TeamLogoImg abbr={t.abbr} src={NFL_LOGO_URLS[t.abbr]} size={36} shape="square" />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 15, fontWeight: 700, letterSpacing: "0.06em",
+                  fontSize: 16, fontWeight: 700, letterSpacing: "0.05em",
                   color: isActive ? teamColors.primary : TH.textMuted,
                   textTransform: "uppercase",
                 }}>{t.abbr}</span>

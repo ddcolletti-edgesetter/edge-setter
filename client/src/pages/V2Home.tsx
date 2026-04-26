@@ -15,21 +15,21 @@ const LEAGUE_LOGOS: Record<string, { src: string; abbr: string; color: string }>
   CFB: { src: "https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png", abbr: "CFB", color: T.green },
 };
 
-/* League logo chip — small inline mark */
-function LeagueLogo({ league, size = 20 }: { league: string; size?: number }) {
+/* League logo badge — standalone, sized for context */
+function LeagueLogo({ league, size = 28 }: { league: string; size?: number }) {
   const meta = LEAGUE_LOGOS[league];
   if (!meta) return null;
   return (
     <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center",
-      width: size, height: size, borderRadius: 3, flexShrink: 0,
-      background: `${meta.color}18`, border: `1px solid ${meta.color}33`,
+      width: size, height: size, borderRadius: 4, flexShrink: 0,
+      background: `${meta.color}18`, border: `1px solid ${meta.color}44`,
       overflow: "hidden",
     }}>
       <img
         src={meta.src}
         alt={meta.abbr}
-        width={size - 4}
-        height={size - 4}
+        width={size - 6}
+        height={size - 6}
         style={{ objectFit: "contain" }}
         onError={e => {
           const el = e.currentTarget as HTMLImageElement;
@@ -38,7 +38,7 @@ function LeagueLogo({ league, size = 20 }: { league: string; size?: number }) {
           if (parent) {
             parent.textContent = meta.abbr.slice(0, 1);
             Object.assign(parent.style, {
-              fontSize: `${Math.round(size * 0.44)}px`,
+              fontSize: `${Math.round(size * 0.46)}px`,
               fontWeight: "700",
               color: meta.color,
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
@@ -81,16 +81,16 @@ function BoardCard({
           position: "relative",
           opacity: disabled ? 0.55 : 1,
         }}
-        onMouseEnter={e => { if (!disabled) { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(-1px)"; el.style.borderColor = primary ? "rgba(202,168,90,0.65)" : "rgba(202,168,90,0.28)"; } }}
+        onMouseEnter={e => { if (!disabled) { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(-2px)"; el.style.borderColor = primary ? "rgba(202,168,90,0.65)" : "rgba(202,168,90,0.28)"; } }}
         onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(0)"; el.style.borderColor = primary ? "rgba(202,168,90,0.45)" : borderInactive; }}
       >
         {primary && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: T.gold }} />}
 
-        {/* Visual band */}
+        {/* Visual band — taller, logo in own lane */}
         <div style={{
-          height: 52, background: accentBg ?? `rgba(202,168,90,0.03)`,
+          height: 68, background: accentBg ?? `rgba(202,168,90,0.03)`,
           borderBottom: `1px solid rgba(255,255,255,0.05)`,
-          display: "flex", alignItems: "center", padding: "0 16px", gap: 10,
+          display: "flex", alignItems: "center", padding: "0 18px", gap: 12,
           position: "relative", overflow: "hidden",
         }}>
           {/* Background glow */}
@@ -102,45 +102,75 @@ function BoardCard({
           )}
           {/* Sport abbr giant watermark */}
           <div style={{
-            position: "absolute", right: 12, bottom: -4,
+            position: "absolute", right: 14, bottom: -6,
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 44, fontWeight: 900, color: `${color}18`, letterSpacing: "-0.04em", lineHeight: 1,
+            fontSize: 56, fontWeight: 900, color: `${color}15`, letterSpacing: "-0.04em", lineHeight: 1,
             userSelect: "none",
           }}>{sport}</div>
 
-          <div style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 26, fontWeight: 900, color, letterSpacing: "-0.02em", lineHeight: 1,
-            position: "relative", zIndex: 1,
-          }}>{sport}</div>
-          {league && <LeagueLogo league={league} size={22} />}
-          <SportBadge status={status} />
+          {/* League logo — own visual lane */}
+          {league && (
+            <div style={{
+              width: 40, height: 40, borderRadius: 5, flexShrink: 0,
+              background: `${color}18`, border: `1px solid ${color}44`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              position: "relative", zIndex: 1,
+            }}>
+              <img
+                src={LEAGUE_LOGOS[league]?.src}
+                alt={league}
+                width={28}
+                height={28}
+                style={{ objectFit: "contain" }}
+                onError={e => {
+                  const el = e.currentTarget as HTMLImageElement;
+                  el.style.display = "none";
+                  const parent = el.parentElement;
+                  if (parent) {
+                    parent.textContent = league.slice(0, 1);
+                    Object.assign(parent.style, {
+                      fontSize: "16px", fontWeight: "800", color,
+                      fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+                    });
+                  }
+                }}
+              />
+            </div>
+          )}
+
+          <div style={{ position: "relative", zIndex: 1 }}>
+            <div style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 30, fontWeight: 900, color, letterSpacing: "-0.02em", lineHeight: 1,
+            }}>{sport}</div>
+            <SportBadge status={status} />
+          </div>
         </div>
 
-        <div style={{ padding: "16px 16px 18px" }}>
+        <div style={{ padding: "18px 18px 20px" }}>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 19, fontWeight: 700, color: labelColor, marginBottom: 7,
+            fontSize: 20, fontWeight: 700, color: labelColor, marginBottom: 8,
           }}>{label}</div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 14, color: bodyColor, letterSpacing: "0.025em", lineHeight: 1.55, marginBottom: 14,
+            fontSize: 17, color: bodyColor, letterSpacing: "0.02em", lineHeight: 1.55, marginBottom: 16,
           }}>{description}</div>
           {!disabled && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
               {signalCount != null && (
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, color: T.textFaint, letterSpacing: "0.08em",
+                  fontSize: 15, color: T.textFaint, letterSpacing: "0.06em",
                 }}>{signalCount} signals</span>
               )}
               <span style={{
                 display: "flex", alignItems: "center", gap: 4, marginLeft: "auto",
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                fontSize: 15, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
                 color: primary ? T.gold : T.textMuted,
               }}>
-                Open Board <ArrowRight size={10} />
+                Open Board <ArrowRight size={12} />
               </span>
             </div>
           )}
@@ -151,49 +181,52 @@ function BoardCard({
 }
 
 /* ── Signal feed row ── */
-function FeedRow({ sig }: { sig: typeof NBA_SIGNALS[0] }) {
+function FeedRow({ sig, feedBorder, darkMode }: { sig: typeof NBA_SIGNALS[0]; feedBorder: string; darkMode: boolean }) {
   const sportColor = sig.sport === "NBA" ? T.gold : T.cyan;
+  const textColor = darkMode ? T.text : "#1A1712";
+  const textFaintColor = darkMode ? T.textFaint : "#8C8277";
   return (
     <div
       style={{
-        display: "flex", alignItems: "flex-start", gap: 10, padding: "11px 16px",
-        borderBottom: `1px solid rgba(255,255,255,0.04)`,
+        display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 18px",
+        borderBottom: `1px solid ${feedBorder}`,
         transition: "background 0.12s", cursor: "pointer",
       }}
-      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(202,168,90,0.025)"; }}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(202,168,90,0.03)"; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
     >
-      {/* Sport accent */}
-      <div style={{ width: 2, alignSelf: "stretch", borderRadius: 2, background: sportColor, flexShrink: 0, marginTop: 2 }} />
+      {/* Sport accent bar */}
+      <div style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: sportColor, flexShrink: 0, marginTop: 2 }} />
+
+      {/* League logo — own column */}
+      <LeagueLogo league={sig.sport} size={24} />
 
       {/* Avatar or logo */}
       {sig.player
-        ? <PlayerAvatar name={sig.player} team={sig.team} size={30} />
-        : <TeamLogo abbr={sig.team} size={30} />
+        ? <PlayerAvatar name={sig.player} team={sig.team} size={36} />
+        : <TeamLogo abbr={sig.team} size={36} />
       }
 
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3, flexWrap: "wrap" }}>
-          {/* League logo chip */}
-          <LeagueLogo league={sig.sport} size={16} />
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", color: sportColor, textTransform: "uppercase",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", color: sportColor, textTransform: "uppercase",
           }}>{sig.sport}</span>
           <TypeChip type={sig.type} />
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, color: T.textFaint,
+            fontSize: 13, color: textFaintColor,
           }}>{sig.timestamp}</span>
         </div>
-        <div style={{ fontSize: 14, color: T.text, fontWeight: 500, lineHeight: 1.4, marginBottom: 4 }}>
+        <div style={{ fontSize: 16, color: textColor, fontWeight: 500, lineHeight: 1.45, marginBottom: 5 }}>
           {sig.headline}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <VerdictBadge verdict={sig.verdict} />
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, color: T.textFaint,
+            fontSize: 14, color: textFaintColor,
           }}>{sig.confidence}% conf · {sig.sources} sources</span>
         </div>
       </div>
@@ -206,16 +239,17 @@ function V2HomeInner() {
   const darkMode = useShellTheme();
 
   // Light-mode aware tokens
-  const cardSurface  = darkMode ? T.surface1  : "#FFFFFF";
-  const cardBorderMuted = darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)";
-  const heroBg       = darkMode
+  const cardSurface      = darkMode ? T.surface1  : "#FFFFFF";
+  const cardBorderMuted  = darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)";
+  const heroBg           = darkMode
     ? `linear-gradient(135deg, rgba(202,168,90,0.04) 0%, transparent 50%)`
     : `linear-gradient(135deg, rgba(202,168,90,0.06) 0%, transparent 50%)`;
-  const goldDimTH    = darkMode ? T.goldDim : "rgba(202,168,90,0.25)";
-  const textTH       = darkMode ? T.text    : "#1A1712";
-  const textMutedTH  = darkMode ? T.textMuted : "#4A443C";
-  const textFaintTH  = darkMode ? T.textFaint : "#8C8277";
-  const feedBorder   = darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
+  const goldDimTH        = darkMode ? T.goldDim : "rgba(202,168,90,0.25)";
+  const textTH           = darkMode ? T.text    : "#1A1712";
+  const textMutedTH      = darkMode ? T.textMuted : "#4A443C";
+  const textFaintTH      = darkMode ? T.textFaint : "#8C8277";
+  const feedBorder       = darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.07)";
+  const surfaceMini      = darkMode ? T.surface1 : "#FFFFFF";
 
   const topSignals = [
     ...NBA_SIGNALS.filter(s => s.confidence >= 80),
@@ -233,14 +267,14 @@ function V2HomeInner() {
         <section style={{
           borderBottom: `1px solid ${goldDimTH}`,
           background: heroBg,
-          padding: "24px 28px",
+          padding: "28px 32px",
         }}>
-          <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 28, alignItems: "flex-start", flexWrap: "wrap" }}>
 
             {/* Left — command center text */}
-            <div style={{ flex: "1 0 320px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ width: 7, height: 7, borderRadius: "50%", background: T.green, display: "inline-block", animation: "pulse 1.8s infinite" }} />
+            <div style={{ flex: "1 0 340px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: T.green, display: "inline-block", animation: "pulse 1.8s infinite" }} />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.green,
@@ -248,24 +282,24 @@ function V2HomeInner() {
               </div>
               <h1 style={{
                 fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 36, fontWeight: 700, color: textTH,
-                margin: "0 0 14px", lineHeight: 1.18, letterSpacing: "-0.02em",
+                fontSize: 38, fontWeight: 700, color: textTH,
+                margin: "0 0 16px", lineHeight: 1.16, letterSpacing: "-0.02em",
               }}>
                 Sports Intelligence<br />
                 <span style={{ color: T.gold }}>Research Workspace</span>
               </h1>
 
               {/* What Edge Setter is — positioning block */}
-              <div style={{ marginBottom: 20, maxWidth: 460 }}>
+              <div style={{ marginBottom: 22, maxWidth: 480 }}>
                 <div style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
-                  color: T.gold, marginBottom: 6,
+                  color: T.gold, marginBottom: 7,
                 }}>What Edge Setter is</div>
                 <p style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 17, color: textMutedTH, margin: 0,
-                  lineHeight: 1.5, letterSpacing: "0.02em",
+                  lineHeight: 1.55, letterSpacing: "0.02em",
                 }}>
                   A multi‑sport intelligence terminal that surfaces high‑conviction signals — with confidence scores, context, and market‑aware edges — so serious bettors and fantasy players can act before the rest of the market catches up.
                 </p>
@@ -275,38 +309,44 @@ function V2HomeInner() {
                   <button data-testid="cta-open-nba" style={{
                     background: T.gold, color: T.bg, border: "none", borderRadius: 3,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
-                    padding: "11px 24px", cursor: "pointer",
+                    fontSize: 14, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+                    padding: "12px 26px", cursor: "pointer",
                     display: "flex", alignItems: "center", gap: 6,
                     boxShadow: `0 4px 20px rgba(202,168,90,0.3)`,
                   }}>
-                    Open NBA Board <ArrowRight size={12} />
+                    Open NBA Board <ArrowRight size={13} />
                   </button>
                 </Link>
                 <Link href="/v2/tools">
                   <button style={{
-                    background: "transparent", color: T.text,
+                    background: "transparent", color: darkMode ? T.text : "#1A1712",
                     border: `1px solid rgba(202,168,90,0.28)`, borderRadius: 3,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
-                    padding: "11px 22px", cursor: "pointer",
+                    fontSize: 14, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+                    padding: "12px 24px", cursor: "pointer",
                   }}>Explore Tools</button>
                 </Link>
               </div>
 
-              {/* Sport status strip — with league logos */}
-              <div style={{ display: "flex", gap: 14, marginTop: 20, flexWrap: "wrap" }}>
+              {/* Sport status strip — larger logos, clearer lane */}
+              <div style={{ display: "flex", gap: 16, marginTop: 24, flexWrap: "wrap" }}>
                 {[
                   { sport: "NBA", status: "LIVE" as const, color: T.green },
                   { sport: "MLB", status: "ACTIVE" as const, color: T.cyan },
                   { sport: "NFL", status: "ACTIVE" as const, color: T.cyan },
                   { sport: "CFB", status: "ACTIVE" as const, color: T.cyan },
                 ].map(({ sport, status, color }) => (
-                  <div key={sport} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <LeagueLogo league={sport} size={18} />
+                  <div key={sport} style={{
+                    display: "flex", alignItems: "center", gap: 8,
+                    padding: "6px 10px 6px 6px",
+                    background: darkMode ? "rgba(255,255,255,0.03)" : "rgba(0,0,0,0.03)",
+                    border: `1px solid ${darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+                    borderRadius: 4,
+                  }}>
+                    <LeagueLogo league={sport} size={32} />
                     <span style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 13, fontWeight: 700, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase",
+                      fontSize: 15, fontWeight: 700, color: textFaintTH, letterSpacing: "0.08em", textTransform: "uppercase",
                     }}>{sport}</span>
                     <SportBadge status={status} />
                   </div>
@@ -320,8 +360,8 @@ function V2HomeInner() {
               <div>
                 <div style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
-                  color: T.textFaint, marginBottom: 8, display: "flex", alignItems: "center", gap: 6,
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+                  color: textFaintTH, marginBottom: 8, display: "flex", alignItems: "center", gap: 6,
                 }}>
                   <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "pulse 1.8s infinite" }} />
                   Marquee Tonight · NBA Playoffs
@@ -337,28 +377,28 @@ function V2HomeInner() {
               </div>
               {/* Top featured edge mini */}
               <div style={{
-                background: T.surface1, border: `1px solid rgba(202,168,90,0.2)`,
-                borderRadius: 4, padding: "12px 14px",
+                background: surfaceMini, border: `1px solid rgba(202,168,90,0.2)`,
+                borderRadius: 4, padding: "14px 16px",
                 borderLeft: `3px solid ${T.gold}`,
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <Zap size={11} style={{ color: T.gold }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <Zap size={12} style={{ color: T.gold }} />
                   <span style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold,
                   }}>Top Edge Right Now</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <PlayerAvatar name={featuredNBA.player ?? ""} team={featuredNBA.team} size={36} />
+                  <PlayerAvatar name={featuredNBA.player ?? ""} team={featuredNBA.team} size={40} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, color: T.text, fontWeight: 600, lineHeight: 1.35, marginBottom: 4 }}>
+                    <div style={{ fontSize: 15, color: darkMode ? T.text : "#1A1712", fontWeight: 600, lineHeight: 1.4, marginBottom: 6 }}>
                       {featuredNBA.headline}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <VerdictBadge verdict={featuredNBA.verdict} />
                       <span style={{
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 12, color: T.gold, fontWeight: 700,
+                        fontSize: 14, color: T.gold, fontWeight: 700,
                       }}>{featuredNBA.confidence}%</span>
                     </div>
                   </div>
@@ -369,19 +409,19 @@ function V2HomeInner() {
         </section>
 
         {/* ─── Main grid ─── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 308px", gap: 0 }} className="v2-main-grid">
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 320px", gap: 0 }} className="v2-main-grid">
 
           {/* Left column */}
-          <div style={{ borderRight: `1px solid ${T.goldDim}` }}>
+          <div style={{ borderRight: `1px solid ${goldDimTH}` }}>
 
             {/* Board cards */}
-            <section style={{ padding: "24px 28px 0" }}>
+            <section style={{ padding: "28px 32px 0" }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-                color: T.textFaint, marginBottom: 14,
+                color: textFaintTH, marginBottom: 16,
               }}>Boards</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
                 <BoardCard
                   sport="NBA" label="NBA Board"
                   description="Playoffs live. Injury flags, line movement, matchup edges, rotation intel."
@@ -422,28 +462,28 @@ function V2HomeInner() {
             </section>
 
             {/* Live signal feed */}
-            <section style={{ marginTop: 28 }}>
+            <section style={{ marginTop: 32 }}>
               <div style={{
-                padding: "0 28px 12px",
+                padding: "0 32px 14px",
                 display: "flex", alignItems: "center", justifyContent: "space-between",
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "pulse 1.8s infinite" }} />
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, display: "inline-block", animation: "pulse 1.8s infinite" }} />
                   <span style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.textFaint,
+                    fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: textFaintTH,
                   }}>Live Signal Feed</span>
                 </div>
                 <Link href="/v2/nba">
                   <span style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", color: T.gold,
+                    fontSize: 14, fontWeight: 700, letterSpacing: "0.1em", color: T.gold,
                     cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
-                  }}>All NBA <ArrowRight size={10} /></span>
+                  }}>All NBA <ArrowRight size={11} /></span>
                 </Link>
               </div>
-              <div style={{ border: `1px solid rgba(255,255,255,0.06)`, borderLeft: "none", borderRight: "none" }}>
-                {topSignals.map(sig => <FeedRow key={sig.id} sig={sig} />)}
+              <div style={{ borderTop: `1px solid ${feedBorder}`, borderBottom: `1px solid ${feedBorder}` }}>
+                {topSignals.map(sig => <FeedRow key={sig.id} sig={sig} feedBorder={feedBorder} darkMode={darkMode} />)}
               </div>
             </section>
           </div>
@@ -451,11 +491,11 @@ function V2HomeInner() {
           {/* Right column */}
           <div>
             {/* Tonight's slate */}
-            <div style={{ padding: "24px 18px 0" }}>
+            <div style={{ padding: "28px 20px 0" }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
-                color: T.textFaint, marginBottom: 12,
+                color: textFaintTH, marginBottom: 12,
                 display: "flex", alignItems: "center", gap: 6,
               }}>
                 <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} />
@@ -475,11 +515,11 @@ function V2HomeInner() {
             </div>
 
             {/* Tools preview */}
-            <div style={{ padding: "24px 18px 0" }}>
+            <div style={{ padding: "24px 20px 0" }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 12, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-                color: T.textFaint, marginBottom: 12,
+                color: textFaintTH, marginBottom: 12,
               }}>Tools</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {TOOLS.slice(0, 5).map(tool => {
@@ -490,19 +530,19 @@ function V2HomeInner() {
                         data-testid={`tool-preview-${tool.id}`}
                         style={{
                           padding: "10px 12px", borderRadius: 4,
-                          background: T.surface1, border: `1px solid rgba(255,255,255,0.06)`,
+                          background: surfaceMini, border: `1px solid ${darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"}`,
                           cursor: "pointer", display: "flex", alignItems: "center", gap: 9,
                           transition: "border-color 0.12s, transform 0.1s",
                         }}
                         onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = "rgba(202,168,90,0.25)"; el.style.transform = "translateX(2px)"; }}
-                        onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = "rgba(255,255,255,0.06)"; el.style.transform = "translateX(0)"; }}
+                        onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"; el.style.transform = "translateX(0)"; }}
                       >
-                        <span style={{ fontSize: 15 }}>{tool.icon}</span>
+                        <span style={{ fontSize: 16 }}>{tool.icon}</span>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 1 }}>{tool.name}</div>
+                          <div style={{ fontSize: 14, fontWeight: 600, color: darkMode ? T.text : "#1A1712", marginBottom: 1 }}>{tool.name}</div>
                           <div style={{
                             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                            fontSize: 13, color: T.textFaint, letterSpacing: "0.04em",
+                            fontSize: 13, color: textFaintTH, letterSpacing: "0.04em",
                             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                           }}>{tool.sport.join(" · ")}</div>
                         </div>
@@ -518,66 +558,66 @@ function V2HomeInner() {
               </div>
               <Link href="/v2/tools">
                 <div style={{
-                  marginTop: 8, padding: "8px 12px",
+                  marginTop: 8, padding: "9px 12px",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
-                  color: T.textMuted, cursor: "pointer",
-                  border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 4,
-                }}>All Tools <ArrowRight size={10} /></div>
+                  fontSize: 14, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                  color: textFaintTH, cursor: "pointer",
+                  border: `1px solid ${darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"}`, borderRadius: 4,
+                }}>All Tools <ArrowRight size={11} /></div>
               </Link>
             </div>
 
             {/* MLB mini */}
-            <div style={{ padding: "24px 18px 0" }}>
+            <div style={{ padding: "24px 20px 0" }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
-                color: T.textFaint, marginBottom: 12,
+                color: textFaintTH, marginBottom: 12,
                 display: "flex", alignItems: "center", gap: 6,
               }}>
                 <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
                 MLB Signals
               </div>
               <div style={{
-                background: T.surface1, border: `1px solid rgba(255,255,255,0.06)`,
+                background: surfaceMini, border: `1px solid ${darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"}`,
                 borderRadius: 4, overflow: "hidden",
               }}>
                 {MLB_SIGNALS.slice(0, 3).map(sig => (
                   <div key={sig.id} style={{
-                    display: "flex", alignItems: "flex-start", gap: 9, padding: "10px 12px",
-                    borderBottom: `1px solid rgba(255,255,255,0.04)`,
+                    display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px",
+                    borderBottom: `1px solid ${feedBorder}`,
                   }}>
-                    <div style={{ width: 2, alignSelf: "stretch", borderRadius: 2, background: T.cyan, flexShrink: 0 }} />
-                    <TeamLogo abbr={sig.team} size={24} />
+                    <div style={{ width: 3, alignSelf: "stretch", borderRadius: 2, background: T.cyan, flexShrink: 0 }} />
+                    <TeamLogo abbr={sig.team} size={28} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 3 }}>
+                      <div style={{ fontSize: 15, color: darkMode ? T.text : "#1A1712", fontWeight: 500, lineHeight: 1.4, marginBottom: 4 }}>
                         {sig.headline}
                       </div>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <TypeChip type={sig.type} />
-                        <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint }}>
+                        <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 14, color: textFaintTH }}>
                           {sig.confidence}%
                         </span>
                       </div>
                     </div>
                   </div>
                 ))}
-                <div style={{ padding: "8px 12px", borderTop: `1px solid rgba(255,255,255,0.05)` }}>
+                <div style={{ padding: "9px 14px", borderTop: `1px solid ${feedBorder}` }}>
                   <Link href="/v2/mlb">
                     <span style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                      fontSize: 14, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
                       color: T.cyan, cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
-                    }}>Open MLB Board <ArrowRight size={10} /></span>
+                    }}>Open MLB Board <ArrowRight size={11} /></span>
                   </Link>
                 </div>
               </div>
             </div>
 
             {/* Stub notice */}
-            <div style={{ margin: "20px 18px 0", padding: "9px 12px", background: "rgba(202,168,90,0.03)", border: `1px solid rgba(202,168,90,0.1)`, borderRadius: 4 }}>
-              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: T.textFaint, lineHeight: 1.5 }}>
+            <div style={{ margin: "20px 20px 0", padding: "10px 14px", background: "rgba(202,168,90,0.03)", border: `1px solid rgba(202,168,90,0.1)`, borderRadius: 4 }}>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: textFaintTH, lineHeight: 1.5 }}>
                 <strong style={{ color: T.gold }}>STUB DATA</strong> — Signals + odds are realistic placeholders.
               </div>
             </div>
