@@ -53,16 +53,18 @@ function LeagueLogo({ league, size = 20 }: { league: string; size?: number }) {
 
 /* ── Board card with visual treatment ── */
 function BoardCard({
-  sport, label, description, href, status, primary, signalCount, color, accentBg, league, surfaceBg, borderMuted,
+  sport, label, description, href, status, primary, signalCount, color, accentBg, league, surfaceBg, borderMuted, textColor, textMutedColor,
 }: {
   sport: string; label: string; description: string; href: string;
   status: "LIVE" | "ACTIVE" | "BUILDING" | "OFFSEASON" | "COMING SOON";
   primary?: boolean; signalCount?: number; color: string; accentBg?: string; league?: string;
-  surfaceBg?: string; borderMuted?: string;
+  surfaceBg?: string; borderMuted?: string; textColor?: string; textMutedColor?: string;
 }) {
   const disabled = status === "COMING SOON" || status === "OFFSEASON";
   const cardBg = surfaceBg ?? T.surface1;
   const borderInactive = borderMuted ?? "rgba(255,255,255,0.08)";
+  const labelColor = textColor ?? T.text;
+  const bodyColor = textMutedColor ?? T.textMuted;
 
   return (
     <Link href={disabled ? "#" : href}>
@@ -118,11 +120,11 @@ function BoardCard({
         <div style={{ padding: "16px 16px 18px" }}>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 19, fontWeight: 700, color: T.text, marginBottom: 7,
+            fontSize: 19, fontWeight: 700, color: labelColor, marginBottom: 7,
           }}>{label}</div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 14, color: T.textMuted, letterSpacing: "0.025em", lineHeight: 1.55, marginBottom: 14,
+            fontSize: 14, color: bodyColor, letterSpacing: "0.025em", lineHeight: 1.55, marginBottom: 14,
           }}>{description}</div>
           {!disabled && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -387,6 +389,7 @@ function V2HomeInner() {
                   color={T.gold} league="NBA"
                   accentBg="linear-gradient(135deg, rgba(202,168,90,0.08) 0%, rgba(85,37,131,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
+                  textColor={textTH} textMutedColor={textMutedTH}
                 />
                 <BoardCard
                   sport="MLB" label="MLB Board"
@@ -395,6 +398,7 @@ function V2HomeInner() {
                   color={T.cyan} league="MLB"
                   accentBg="linear-gradient(135deg, rgba(74,168,200,0.08) 0%, rgba(0,42,98,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
+                  textColor={textTH} textMutedColor={textMutedTH}
                 />
                 <BoardCard
                   sport="NFL" label="NFL Board"
@@ -403,6 +407,7 @@ function V2HomeInner() {
                   color={T.orange}
                   accentBg="linear-gradient(135deg, rgba(217,138,66,0.07) 0%, rgba(30,20,10,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
+                  textColor={textTH} textMutedColor={textMutedTH}
                 />
                 <BoardCard
                   sport="CFB" label="CFB Board"
@@ -411,6 +416,7 @@ function V2HomeInner() {
                   color={T.green}
                   accentBg="linear-gradient(135deg, rgba(76,175,130,0.07) 0%, rgba(0,30,15,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
+                  textColor={textTH} textMutedColor={textMutedTH}
                 />
               </div>
             </section>
