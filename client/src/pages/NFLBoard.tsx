@@ -8,6 +8,36 @@ import {
 import { Zap, X, Filter, TrendingUp, AlertCircle, ChevronRight, Lock } from "lucide-react";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
+import { TeamLogoImg, PlayerHeadshot } from "../components/v2/SportVisuals";
+
+/* ── NFL team logo URLs (ESPN CDN) ── */
+const NFL_LOGO_URLS: Record<string, string> = {
+  KC:  "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png",
+  BUF: "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png",
+  SF:  "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png",
+  DAL: "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png",
+  CIN: "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png",
+  BAL: "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png",
+  NYG: "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png",
+  PHI: "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png",
+  LV:  "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png",
+  DET: "https://a.espncdn.com/i/teamlogos/nfl/500/det.png",
+  GB:  "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png",
+  NE:  "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png",
+  LAR: "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png",
+  MIA: "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png",
+};
+
+/* ── NFL player headshot URLs (ESPN CDN) ── */
+const NFL_PLAYER_HEADSHOTS: Record<string, string> = {
+  "Christian McCaffrey": "https://a.espncdn.com/i/headshots/nfl/players/full/3054211.png",
+  "Raheem Mostert":      "https://a.espncdn.com/i/headshots/nfl/players/full/16751.png",
+  "Malik Nabers":        "https://a.espncdn.com/i/headshots/nfl/players/full/4431611.png",
+  "Lamar Jackson":       "https://a.espncdn.com/i/headshots/nfl/players/full/3916387.png",
+  "Brock Bowers":        "https://a.espncdn.com/i/headshots/nfl/players/full/4432788.png",
+  "Patrick Mahomes":     "https://a.espncdn.com/i/headshots/nfl/players/full/3139477.png",
+  "Sam LaPorta":         "https://a.espncdn.com/i/headshots/nfl/players/full/4430185.png",
+};
 
 /* ── Design tokens (dark) ── */
 const T = {
@@ -181,7 +211,18 @@ function NFLDetailPanel({ sig, onClose, TH, darkMode }: { sig: NFLSignal; onClos
 
         <div style={{ position: "relative", zIndex: 2 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <TeamAbbr abbr={sig.team} color={teamColors.primary} size={38} />
+            {/* Player headshot if player-driven signal, else team logo */}
+            {sig.player && NFL_PLAYER_HEADSHOTS[sig.player] ? (
+              <PlayerHeadshot
+                name={sig.player}
+                team={sig.team}
+                src={NFL_PLAYER_HEADSHOTS[sig.player]}
+                size={38}
+                shape="circle"
+              />
+            ) : (
+              <TeamLogoImg abbr={sig.team} src={NFL_LOGO_URLS[sig.team]} size={38} shape="square" />
+            )}
             <div>
               <TypeChip type={sig.type} />
               {sig.player && (
@@ -299,7 +340,7 @@ function NFLSlateCard({ game, TH }: { game: typeof NFL_SLATE[number]; TH: Record
         {/* Away */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <TeamAbbr abbr={game.away} color={game.awayColor} size={26} />
+            <TeamLogoImg abbr={game.away} src={NFL_LOGO_URLS[game.away]} size={26} shape="square" />
             <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 16, fontWeight: 800, color: TH.text, letterSpacing: "0.04em" }}>
               {game.away}
             </span>
@@ -309,7 +350,7 @@ function NFLSlateCard({ game, TH }: { game: typeof NFL_SLATE[number]; TH: Record
         {/* Home */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-            <TeamAbbr abbr={game.home} color={game.homeColor} size={26} />
+            <TeamLogoImg abbr={game.home} src={NFL_LOGO_URLS[game.home]} size={26} shape="square" />
             <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 16, fontWeight: 800, color: TH.text, letterSpacing: "0.04em" }}>
               {game.home}
             </span>
@@ -475,14 +516,7 @@ function NFLBoardInner() {
                   marginBottom: 1,
                 }}
               >
-                <div style={{
-                  width: 22, height: 22, borderRadius: 3,
-                  background: `${teamColors.primary}33`,
-                  border: `1px solid ${teamColors.primary}55`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-                  fontSize: 9, fontWeight: 800, color: teamColors.primary, flexShrink: 0,
-                }}>{t.abbr}</div>
+                <TeamLogoImg abbr={t.abbr} src={NFL_LOGO_URLS[t.abbr]} size={22} shape="square" />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 14, fontWeight: 700, letterSpacing: "0.06em",
@@ -572,7 +606,7 @@ function NFLBoardInner() {
 
             <div style={{ padding: "16px 20px", position: "relative", zIndex: 2, display: "flex", gap: 16, alignItems: "flex-start" }}>
               <div style={{ flexShrink: 0 }}>
-                <TeamAbbr abbr={feat.team} color={feat.teamColor} size={52} />
+                <TeamLogoImg abbr={feat.team} src={NFL_LOGO_URLS[feat.team]} size={52} shape="square" />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>

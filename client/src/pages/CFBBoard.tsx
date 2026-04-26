@@ -8,6 +8,23 @@ import {
 import { Zap, X, Filter, TrendingUp, AlertCircle, ChevronRight, Lock } from "lucide-react";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
+import { TeamLogoImg } from "../components/v2/SportVisuals";
+
+/* ── CFB team logo URLs (ESPN NCAA CDN, numeric IDs) ── */
+const CFB_LOGO_URLS: Record<string, string> = {
+  BAMA: "https://a.espncdn.com/i/teamlogos/ncaa/500/333.png",
+  UGA:  "https://a.espncdn.com/i/teamlogos/ncaa/500/61.png",
+  OHIO: "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
+  MICH: "https://a.espncdn.com/i/teamlogos/ncaa/500/130.png",
+  TX:   "https://a.espncdn.com/i/teamlogos/ncaa/500/251.png",
+  LSU:  "https://a.espncdn.com/i/teamlogos/ncaa/500/99.png",
+  USC:  "https://a.espncdn.com/i/teamlogos/ncaa/500/30.png",
+  ND:   "https://a.espncdn.com/i/teamlogos/ncaa/500/87.png",
+  FSU:  "https://a.espncdn.com/i/teamlogos/ncaa/500/52.png",
+  CLEM: "https://a.espncdn.com/i/teamlogos/ncaa/500/228.png",
+  UNC:  "https://a.espncdn.com/i/teamlogos/ncaa/500/153.png",
+  PENN: "https://a.espncdn.com/i/teamlogos/ncaa/500/213.png",
+};
 
 /* ── Design tokens (dark) ── */
 const T = {
@@ -354,12 +371,7 @@ function CFBBoardInner() {
                   cursor: "pointer",
                 }}
               >
-                <div style={{
-                  width: 18, height: 18, borderRadius: "50%",
-                  background: colors?.primary ?? T.gold,
-                  border: isActive ? `2px solid ${T.gold}` : `2px solid transparent`,
-                  flexShrink: 0,
-                }} />
+                <TeamLogoImg abbr={tm} src={CFB_LOGO_URLS[tm]} size={20} shape="circle" />
                 <span style={{
                   fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
                   fontSize: 14, color: isActive ? T.gold : TH.textMuted, fontWeight: isActive ? 700 : 500,
@@ -489,7 +501,7 @@ function CFBBoardInner() {
                 }}>
                   {/* Teams */}
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: awayC?.primary ?? T.gold }} />
+                    <TeamLogoImg abbr={game.away} src={CFB_LOGO_URLS[game.away]} size={22} shape="square" />
                     <span style={{
                       fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
                       fontSize: 14, fontWeight: 800, color: TH.textMuted,
@@ -498,7 +510,7 @@ function CFBBoardInner() {
                       fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
                       fontSize: 11, color: TH.textFaint,
                     }}>@</span>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: homeC?.primary ?? T.gold }} />
+                    <TeamLogoImg abbr={game.home} src={CFB_LOGO_URLS[game.home]} size={22} shape="square" />
                     <span style={{
                       fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
                       fontSize: 14, fontWeight: 800, color: TH.text,
