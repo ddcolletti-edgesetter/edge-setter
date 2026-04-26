@@ -277,57 +277,108 @@ export function registerPipelineRoutes(app: Express) {
   });
 
   /* ══════════════════════════════════════════════════════
-     OUTCOMES — schema ready, no CLV calc yet
+     OUTCOMES — CLV computation implemented
      ══════════════════════════════════════════════════════ */
 
   /**
    * POST /api/outcomes
    *
-   * Record the final result for a game market.
-   * hit and clv are not calculated yet — set manually or leave null.
+   * Record the final result for a game market and auto-compute CLV.
+   *
+   * CLV model:
+   *   For spreads and totals:
+   *     clv_points = line_at_signal − closing_line
+   *     Positive  = we got the better number (beat the close)
+   *     Negative  = market moved against us
+   *
+   *   For moneylines:
+   *     clv_points = null (not yet computed — moneyline CLV deferred)
+   *
+   *   Pure scheme/context signals with no numeric market:
+   *     clv_points = null
    *
    * Body:
    * {
    *   "password": "edgesetter-admin-2026",
    *   "signal_id": "<uuid>",
    *   "game_id": "<game_id>",
-   *   "market": "spread",
+   *   "market": "spread",         // spread | total | moneyline
    *   "home_score": 112,
    *   "away_score": 108,
-   *   "line_at_signal": -6.5,
-   *   "closing_line": -7.5,
+   *   "line_at_signal": -6.5,     // line when signal was generated
+   *   "closing_line": -7.5,       // line at game start
    *   "actual_result": 4,
-   *   "hit": true,
-   *   "clv": 1.0
+   *   "hit": true
    * }
    *
-   * Note: hit = did the recommended side cover?
-   *        clv = line_at_signal − closing_line (positive = we got the better number)
+   * Response includes computed clv_points.
    */
   app.post("/api/outcomes", async (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
     const { signal_id, game_id, market, home_score, away_score,
-            line_at_signal, closing_line, actual_result, hit, clv } = req.body;
+            line_at_signal, closing_line, actual_result, hit } = req.body;
 
     if (!signal_id || !game_id) {
       return res.status(400).json({ error: "signal_id and game_id are required" });
     }
 
+    // ── CLV computation ────────────────────────────────────────
+    //
+    // CLV is only meaningful for numeric markets (spread / total).
+    // Moneyline CLV requires implied-probability conversion — deferred.
+    // Pure context signals with no numeric line → null.
+    //
+    let computedClv: number | null = null;
+    const mkt: string = market ?? "spread";
+
+    if ((mkt === "spread" || mkt === "total")
+        && line_at_signal != null && closing_line != null) {
+      // line_at_signal: the number we recommended acting on.
+      // closing_line:   the market's final number at game time.
+      //
+      // For spreads — positive means we got the better number:
+      //   e.g. signal said -3, closed -5 → we beat the close by 2 pts → +2.0
+      //   e.g. signal said -6.5, closed -5 → market moved in our favour? No —
+      //        the team is now a smaller fav, so we would have gotten more points
+      //        at the close. This convention tracks: did the market validate us?
+      //
+      // Convention: clv_points = line_at_signal − closing_line
+      //   Works for spreads (neg fav): signal=-3, close=-5 → -3−(−5) = +2 (we beat close)
+      //   Works for totals: signal=220, close=224 → -4 (over bettor took worse number)
+      //
+      const rawClv = (line_at_signal as number) - (closing_line as number);
+      // Round to 1 decimal; cap at ±20 to guard against data entry errors
+      computedClv = Math.min(20, Math.max(-20, Math.round(rawClv * 10) / 10));
+    }
+    // Moneyline CLV: deferred (not yet computed)
+    // if (mkt === "moneyline") { ... }
+
     try {
       const outcome = createOutcome({
         signal_id,
         game_id,
-        market: market ?? "spread",
+        market: mkt as "spread" | "total" | "moneyline",
         home_score: home_score ?? null,
         away_score: away_score ?? null,
         line_at_signal: line_at_signal ?? null,
         closing_line: closing_line ?? null,
         actual_result: actual_result ?? null,
         hit: hit ?? null,
-        clv: clv ?? null,
+        clv: computedClv,
         recorded_at: new Date().toISOString(),
       });
-      return res.json({ success: true, outcome });
+
+      return res.json({
+        success: true,
+        outcome,
+        clv_computed: computedClv !== null,
+        clv_points: computedClv,
+        clv_note: computedClv !== null
+          ? `${computedClv > 0 ? "+" : ""}${computedClv} pts vs closing line (${computedClv > 0 ? "beat the close" : "market moved against signal"})`
+          : mkt === "moneyline"
+            ? "Moneyline CLV deferred — use clv_cents when implemented"
+            : "No numeric line available — CLV not applicable for this signal type",
+      });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

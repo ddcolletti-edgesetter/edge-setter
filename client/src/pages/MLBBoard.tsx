@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { MLB_SIGNALS, type V2Signal } from "../data/v2MockData";
+import { useMLBSignals } from "../hooks/useSignals";
 import { scoreAndRankSignals, selectFeaturedEdge, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
   PlayerHeadshot, TeamLogoImg,
@@ -11,6 +12,7 @@ import {
 import { ChevronRight, X, Filter } from "lucide-react";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
+import OutcomePanel from "../components/OutcomePanel";
 
 const MLB_FILTERS = ["Today", "Pitchers", "Lineup", "Props", "Trends", "Line Moves"] as const;
 type MLBFilter = typeof MLB_FILTERS[number];
@@ -222,6 +224,9 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
           </div>
         </ProActionGate>
 
+        {/* Outcome + CLV */}
+        {(sig as any)._live && <OutcomePanel signalId={sig.id} darkMode={darkMode} />}
+
         {/* ── Source metadata ── */}
         {(sig.sourceLabels?.length || sig.confirmationStrength) && (
           <div style={{ background: `${TH.border}`, borderRadius: 4, padding: "10px 12px", marginTop: 10 }}>
@@ -320,18 +325,22 @@ function MLBBoardInner() {
   const [selected, setSelected] = useState<V2Signal | null>(null);
   const [gameFilter, setGameFilter] = useState<string | null>(null);
 
-  const rankedSignals = useMemo(() => scoreAndRankSignals(
-    MLB_SIGNALS.map(s => ({ ...s, sport: "MLB" as const }))
-  ), []);
-  const featuredRanked = useMemo(() => selectFeaturedEdge(
-    MLB_SIGNALS.map(s => ({ ...s, sport: "MLB" as const }))
-  ), []);
+  // Live signals — falls back to mocks if API unavailable
+  const { signals: liveSignals, isLive, error: liveError } = useMLBSignals(MLB_SIGNALS);
+
+  const rankedSignals = useMemo(() => {
+    const src = (liveSignals as V2Signal[]).map(s => ({ ...s, sport: "MLB" as const }));
+    return src.some(s => (s as any)._score)
+      ? [...src].sort((a, b) => ((b as any)._score?.totalScore ?? 0) - ((a as any)._score?.totalScore ?? 0))
+      : scoreAndRankSignals(src);
+  }, [liveSignals]);
+
+  const featured = rankedSignals[0] ?? null;
 
   const filtered = rankedSignals.filter(s =>
     matchFilter(s, activeFilter) &&
     (gameFilter === null || s.team === gameFilter || s.opponent === gameFilter || s.tags.includes(gameFilter))
   );
-  const featured = rankedSignals.find(s => s.id === featuredRanked?.id) ?? rankedSignals[0];
 
   return (
     <>
@@ -452,12 +461,12 @@ function MLBBoardInner() {
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 13, color: TH.textFaint, letterSpacing: "0.04em",
-              }}>Regular season · {MLB_SIGNALS.length} signals · Updated continuously</div>
+              }}>{isLive ? "Live" : "Cached"} · {rankedSignals.length} signals · Updated continuously</div>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               {[
-                { label: "Signals", value: MLB_SIGNALS.length, color: TH.text },
-                { label: "Confirmed", value: MLB_SIGNALS.filter(s => s.verdict === "confirmed").length, color: T.green },
+                { label: "Signals", value: rankedSignals.length, color: TH.text },
+                { label: "Confirmed", value: rankedSignals.filter(s => s.verdict === "confirmed").length, color: T.green },
               ].map(stat => (
                 <div key={stat.label} style={{
                   textAlign: "center", padding: "6px 14px",
@@ -488,7 +497,7 @@ function MLBBoardInner() {
                     away={game.away} home={game.home}
                     time={game.time} spread={game.spread} total={game.total}
                     accentColor={T.cyan}
-                    signalCount={MLB_SIGNALS.filter(s =>
+                    signalCount={rankedSignals.filter(s =>
                       s.team === game.away || s.team === game.home ||
                       s.opponent === game.away || s.opponent === game.home
                     ).length}
@@ -565,7 +574,7 @@ function MLBBoardInner() {
                 const typeColor = {
                   injury: T.danger, line_move: T.green, matchup_edge: T.gold,
                   prop: T.orange, trend: T.cyan, lineup: T.cyan,
-                }[sig.type] ?? TH.textFaint;
+                }[(sig as any).type] ?? TH.textFaint;
 
                 return (
                   <div
@@ -621,7 +630,7 @@ function MLBBoardInner() {
 
               <div style={{ margin: "16px 20px", padding: "10px 14px", background: "rgba(74,168,200,0.04)", border: `1px solid rgba(74,168,200,0.1)`, borderRadius: 4 }}>
                 <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: TH.textFaint }}>
-                  <strong style={{ color: T.cyan }}>STUB DATA</strong> · {MLB_SIGNALS.length} realistic placeholder signals.
+                  {isLive ? <><strong style={{ color: T.green }}>LIVE DATA</strong> · {rankedSignals.length} signals from pipeline · Last fetch: just now</> : <><strong style={{ color: T.cyan }}>CACHED DATA</strong> · {rankedSignals.length} signals · {liveError ?? "API not returning data — showing mock fallback"}</>}
                 </div>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { NBA_SIGNALS, NBA_TONIGHT, type V2Signal } from "../data/v2MockData";
+import { useNBASignals } from "../hooks/useSignals";
 import { scoreAndRankSignals, selectFeaturedEdge, type SignalScore, type UrgencyLabel, SCORE_BANDS } from "../lib/signalScorer";
 import {
   PlayerHeadshot, TeamLogoImg,
@@ -12,6 +13,7 @@ import {
 import { ChevronRight, X, Filter, Zap, TrendingUp, AlertCircle } from "lucide-react";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
+import OutcomePanel from "../components/OutcomePanel";
 
 const FILTERS = ["Today", "Players", "Teams", "Injuries", "Props", "Matchups", "Playoffs"] as const;
 type FilterKey = typeof FILTERS[number];
@@ -259,6 +261,9 @@ function DetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
           </div>
         </ProActionGate>
 
+        {/* ── Outcome + CLV (only renders when outcome exists) ── */}
+        {(sig as any)._live && <OutcomePanel signalId={sig.id} darkMode={darkMode} />}
+
         {/* ── Source metadata ── */}
         {(sig.sourceLabels?.length || sig.sourceTypes?.length || sig.confirmationStrength) && (
           <div style={{
@@ -428,21 +433,25 @@ function NBABoardInner() {
 
   const [activeFilter, setActiveFilter] = useState<FilterKey>("Today");
   const [selected, setSelected] = useState<V2Signal | null>(null);
-  const [gameFilter, setGameFilter] = useState<string | null>(null); // e.g. "LAL" to filter by team
+  const [gameFilter, setGameFilter] = useState<string | null>(null);
 
-  // Score and rank all signals
-  const rankedSignals = useMemo(() => scoreAndRankSignals(
-    NBA_SIGNALS.map(s => ({ ...s, sport: "NBA" as const }))
-  ), []);
+  // Live signals — falls back to mocks if API unavailable
+  const { signals: liveSignals, isLive, error: liveError } = useNBASignals(NBA_SIGNALS);
+
+  // Use live signals; they already carry _score from server — scoreAndRankSignals
+  // will sort by _score.totalScore when _score is present, so this is a no-op sort.
+  const rankedSignals = useMemo(() => {
+    const src = (liveSignals as V2Signal[]).map(s => ({ ...s, sport: "NBA" as const }));
+    return src.some(s => (s as any)._score)
+      ? [...src].sort((a, b) => ((b as any)._score?.totalScore ?? 0) - ((a as any)._score?.totalScore ?? 0))
+      : scoreAndRankSignals(src);
+  }, [liveSignals]);
 
   const filtered = rankedSignals.filter(s =>
-    matchFilter(s, activeFilter) &&
+    matchFilter(s as V2Signal, activeFilter) &&
     (gameFilter === null || s.team === gameFilter || s.opponent === gameFilter || s.tags.includes(gameFilter))
   );
-  const featuredRanked = useMemo(() => selectFeaturedEdge(
-    NBA_SIGNALS.map(s => ({ ...s, sport: "NBA" as const }))
-  ), []);
-  const featured = rankedSignals.find(s => s.id === featuredRanked?.id) ?? rankedSignals[0];
+  const featured = rankedSignals[0] ?? null;
 
   return (
     <>
@@ -577,14 +586,14 @@ function NBABoardInner() {
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 13, color: TH.textFaint, letterSpacing: "0.04em",
               }}>
-                Playoffs active · {NBA_SIGNALS.length} signals · Updated continuously
+                {isLive ? "Live" : "Cached"} · {rankedSignals.length} signals · Updated continuously
               </div>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               {[
-                { label: "Total", value: NBA_SIGNALS.length, color: TH.text },
-                { label: "Confirmed", value: NBA_SIGNALS.filter(s => s.verdict === "confirmed").length, color: T.green },
-                { label: "High Conf", value: NBA_SIGNALS.filter(s => s.confidence >= 80).length, color: T.gold },
+                { label: "Total", value: rankedSignals.length, color: TH.text },
+                { label: "Confirmed", value: rankedSignals.filter(s => s.verdict === "confirmed").length, color: T.green },
+                { label: "High Conf", value: rankedSignals.filter(s => s.confidence >= 80).length, color: T.gold },
               ].map(stat => (
                 <div key={stat.label} style={{
                   textAlign: "center", padding: "6px 14px",
@@ -707,7 +716,7 @@ function NBABoardInner() {
               const typeColor = {
                 injury: T.danger, line_move: T.green, matchup_edge: T.gold,
                 prop: T.orange, rotation: T.cyan, news: TH.textMuted, trend: T.cyan,
-              }[sig.type] ?? TH.textFaint;
+              }[(sig as any).type] ?? TH.textFaint;
 
               return (
                 <div
@@ -797,7 +806,10 @@ function NBABoardInner() {
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 11, color: TH.textFaint, lineHeight: 1.5,
               }}>
-                <strong style={{ color: T.gold }}>STUB DATA</strong> · {NBA_SIGNALS.length} realistic placeholder signals. Wire live NBA signal ingestion to replace. Click any row to open the intelligence detail panel →
+                {isLive
+                ? <><strong style={{ color: T.green }}>LIVE DATA</strong> · {rankedSignals.length} signals from pipeline · Last fetch: just now · Click any row to open the intelligence detail panel →</>
+                : <><strong style={{ color: T.gold }}>CACHED DATA</strong> · {rankedSignals.length} signals · {liveError ?? "API not returning data — showing mock fallback"}</>
+              }
               </div>
             </div>
           </div>

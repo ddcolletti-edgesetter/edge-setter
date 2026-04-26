@@ -6,9 +6,11 @@ import {
   NFL_QUICK_TEAMS, NFL_TEAM_COLORS,
   type NFLSignal, type NFLSignalType, type Verdict,
 } from "../data/nflMockData";
+import { useNFLSignals } from "../hooks/useSignals";
 import { Zap, X, Filter, TrendingUp, AlertCircle, ChevronRight, Lock } from "lucide-react";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
+import OutcomePanel from "../components/OutcomePanel";
 import { TeamLogoImg, PlayerHeadshot } from "../components/v2/SportVisuals";
 
 /* ── NFL team logo URLs (ESPN CDN) ── */
@@ -322,6 +324,9 @@ function NFLDetailPanel({ sig, onClose, TH, darkMode }: { sig: NFLSignal; onClos
             </div>
           </div>
         </ProActionGate>
+
+        {/* Outcome + CLV */}
+        {(sig as any)._live && <OutcomePanel signalId={sig.id} darkMode={darkMode} />}
       </div>
     </div>
   );
@@ -413,14 +418,17 @@ function NFLBoardInner() {
   const [selectedSig, setSelectedSig] = useState<NFLSignal | null>(null);
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
 
-  /* Score and rank all signals */
-  const rankedNFL = useMemo(() => scoreAndRankSignals(
-    NFL_SIGNALS.map(s => ({ ...s, sport: "NFL" as const }))
-  ), []);
-  const featuredNFL = useMemo(() => selectFeaturedEdge(
-    NFL_SIGNALS.map(s => ({ ...s, sport: "NFL" as const }))
-  ), []);
-  // Featured edge: use scorer-selected signal, fallback to hardcoded
+  /* Live signals — falls back to mocks if API unavailable */
+  const { signals: liveNFLSignals, isLive, error: liveError } = useNFLSignals(NFL_SIGNALS);
+
+  const rankedNFL = useMemo(() => {
+    const src = (liveNFLSignals as NFLSignal[]).map(s => ({ ...s, sport: "NFL" as const }));
+    return src.some(s => (s as any)._score)
+      ? [...src].sort((a, b) => ((b as any)._score?.totalScore ?? 0) - ((a as any)._score?.totalScore ?? 0))
+      : scoreAndRankSignals(src);
+  }, [liveNFLSignals]);
+
+  // Featured edge: use highest-score live signal, fallback to hardcoded
   const topNFL = rankedNFL[0];
   const feat = topNFL ? {
     ...NFL_FEATURED_EDGE,
@@ -433,19 +441,19 @@ function NFLBoardInner() {
     sourceLabels: topNFL.sourceLabels,
     whyItMatters: topNFL.why_it_matters,
     teamColor: NFL_TEAM_COLORS[topNFL.team]?.primary ?? NFL_FEATURED_EDGE.teamColor,
-    _score: topNFL._score,
+    _score: (topNFL as any)._score,
   } : NFL_FEATURED_EDGE;
 
   /* Filter pipeline */
-  let visibleSigs = rankedNFL.filter(s => matchNFLFilter(s, activeFilter));
+  let visibleSigs = rankedNFL.filter(s => matchNFLFilter(s as NFLSignal, activeFilter));
   if (teamFilter) {
     visibleSigs = visibleSigs.filter(s => s.team === teamFilter || s.opponent === teamFilter);
   }
 
-  const totalSignals   = NFL_SIGNALS.length;
-  const confirmedCount = NFL_SIGNALS.filter(s => s.verdict === "confirmed").length;
-  const highConfCount  = NFL_SIGNALS.filter(s => s.confidence >= 80).length;
-  const injuryCount    = NFL_SIGNALS.filter(s => s.type === "injury").length;
+  const totalSignals   = rankedNFL.length;
+  const confirmedCount = rankedNFL.filter(s => s.verdict === "confirmed").length;
+  const highConfCount  = rankedNFL.filter(s => s.confidence >= 80).length;
+  const injuryCount    = rankedNFL.filter(s => s.type === "injury").length;
 
   /* Tab button style */
   function tabStyle(active: boolean, accent = T.gold): React.CSSProperties {

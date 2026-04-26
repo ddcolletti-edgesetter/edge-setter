@@ -5,10 +5,12 @@ import {
   CFB_QUICK_TEAMS, CFB_TEAM_COLORS, CFB_TYPE_META,
   type CFBSignal, type CFBSignalType, type Verdict,
 } from "../data/cfbMockData";
+import { useCFBSignals } from "../hooks/useSignals";
 import { Zap, X, Filter, TrendingUp, AlertCircle, ChevronRight, Lock } from "lucide-react";
 import { scoreAndRankSignals, SCORE_BANDS, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
+import OutcomePanel from "../components/OutcomePanel";
 import { TeamLogoImg } from "../components/v2/SportVisuals";
 
 /* ── CFB team logo URLs (ESPN NCAA CDN, numeric IDs) ── */
@@ -250,6 +252,9 @@ function CFBDetailPanel({ sig, onClose, TH, darkMode }: {
           </div>
         </ProActionGate>
 
+        {/* Outcome + CLV */}
+        {(sig as any)._live && <OutcomePanel signalId={sig.id} darkMode={darkMode} />}
+
         {/* ── Source metadata ── */}
         {(sig.sourceLabels?.length || sig.confirmationStrength) && (
           <div style={{ background: darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)", borderRadius: 4, padding: "10px 12px" }}>
@@ -356,12 +361,18 @@ function CFBBoardInner() {
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [selectedSig, setSelectedSig] = useState<CFBSignal | null>(null);
 
-  /* Score + rank all CFB signals */
-  const rankedCFB = useMemo(() => scoreAndRankSignals(
-    CFB_SIGNALS.map(s => ({ ...s, sport: "CFB" as const }))
-  ), []);
+  /* Live signals — falls back to mocks if API unavailable */
+  const { signals: liveCFBSignals, isLive, error: liveError } = useCFBSignals(CFB_SIGNALS);
+
+  const rankedCFB = useMemo(() => {
+    const src = (liveCFBSignals as CFBSignal[]).map(s => ({ ...s, sport: "CFB" as const }));
+    return src.some(s => (s as any)._score)
+      ? [...src].sort((a, b) => ((b as any)._score?.totalScore ?? 0) - ((a as any)._score?.totalScore ?? 0))
+      : scoreAndRankSignals(src);
+  }, [liveCFBSignals]);
+
   const topCFB = rankedCFB[0];
-  // Build dynamic featured edge from top-scoring signal
+  // Build dynamic featured edge from top-scoring live signal
   const feat = topCFB ? {
     ...CFB_FEATURED_EDGE,
     headline: topCFB.headline,
@@ -372,23 +383,23 @@ function CFBBoardInner() {
     sources: topCFB.sources,
     sourceLabels: topCFB.sourceLabels,
     whyItMatters: topCFB.why_it_matters,
-    _score: topCFB._score,
+    _score: (topCFB as any)._score,
   } : CFB_FEATURED_EDGE;
 
   /* Filter signals — use ranked order */
   const visibleSigs = rankedCFB.filter(s => {
     const types = FILTER_TYPES[sidebarFilter];
-    if (types.length > 0 && !types.includes(s.type)) return false;
-    if (tabFilter !== "Today" && s.conference && !s.conference.includes(tabFilter)) return false;
+    if (types.length > 0 && !types.includes(s.type as any)) return false;
+    if (tabFilter !== "Today" && (s as any).conference && !(s as any).conference.includes(tabFilter)) return false;
     if (teamFilter && s.team !== teamFilter) return false;
     return true;
   });
 
-  const totalSignals = CFB_SIGNALS.length;
-  const confirmed = CFB_SIGNALS.filter(s => s.verdict === "confirmed").length;
-  const highConf = CFB_SIGNALS.filter(s => s.confidence >= 80).length;
-  const injuries = CFB_SIGNALS.filter(s => s.type === "injury").length;
-  const transfers = CFB_SIGNALS.filter(s => s.type === "transfer" || s.type === "portal").length;
+  const totalSignals = rankedCFB.length;
+  const confirmed = rankedCFB.filter(s => s.verdict === "confirmed").length;
+  const highConf = rankedCFB.filter(s => s.confidence >= 80).length;
+  const injuries = rankedCFB.filter(s => s.type === "injury").length;
+  const transfers = rankedCFB.filter(s => s.type === "transfer" || (s.type as any) === "portal").length;
 
   return (
     <div style={{ display: "flex", height: "100%", background: TH.bg }}>
@@ -525,7 +536,7 @@ function CFBBoardInner() {
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
             fontSize: 13, color: TH.textFaint,
           }}>
-            Fall season · {totalSignals} signals · Updated continuously
+            {isLive ? "Live" : "Cached"} · {totalSignals} signals · Updated continuously
           </div>
         </div>
 
@@ -895,7 +906,7 @@ function CFBBoardInner() {
               <span style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}33`, padding: "2px 7px", borderRadius: 2, marginRight: 6 }}>
                 STUB DATA
               </span>
-              {totalSignals} realistic placeholder signals — live CFB ingestion coming next sprint
+              {isLive ? <><strong style={{ color: "#4CAF82" }}>LIVE</strong> · {totalSignals} signals from pipeline · {liveError ?? ""}</> : <><strong style={{ color: "#CAA85A" }}>CACHED</strong> · {totalSignals} signals · {liveError ?? "API not returning data — showing mock fallback"}</>}
             </div>
           </div>
 

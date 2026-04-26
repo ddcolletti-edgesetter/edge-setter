@@ -1,6 +1,7 @@
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { Link } from "wouter";
 import { NBA_SIGNALS, MLB_SIGNALS, NBA_TONIGHT, TOOLS } from "../data/v2MockData";
+import { useAllSignals } from "../hooks/useSignals";
 import { scoreAndRankSignals, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
   PlayerAvatar, TeamLogo, GameCard, FeaturedEdgeCard,
@@ -263,13 +264,16 @@ function V2HomeInner() {
   const feedBorder       = darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.07)";
   const surfaceMini      = darkMode ? T.surface1 : "#FFFFFF";
 
-  // Score + rank combined NBA + MLB feed by composite score
-  const topSignals = scoreAndRankSignals([
-    ...NBA_SIGNALS.map(s => ({ ...s, sport: "NBA" as const })),
-    ...MLB_SIGNALS.map(s => ({ ...s, sport: "MLB" as const })),
-  ]).filter(s => s.confidence >= 72).slice(0, 9);
-
-  const featuredNBA = NBA_SIGNALS.find(s => s.confidence >= 91) ?? NBA_SIGNALS[0];
+  // Live combined feed — falls back to mocks if API unavailable
+  const { signals: allLiveSignals, isLive: feedIsLive } = useAllSignals(NBA_SIGNALS, MLB_SIGNALS);
+  const topSignals = allLiveSignals
+    .filter(s => s.confidence >= 60 || (s as any)._live)
+    .sort((a, b) => ((b as any)._score?.totalScore ?? b.confidence) - ((a as any)._score?.totalScore ?? a.confidence))
+    .slice(0, 9);
+  const featuredNBA = (allLiveSignals.find(s => s.sport === "NBA" && (s as any)._live && s.confidence >= 70)
+    ?? allLiveSignals.find(s => s.sport === "NBA")
+    ?? NBA_SIGNALS.find(s => s.confidence >= 91)
+    ?? NBA_SIGNALS[0]) as typeof NBA_SIGNALS[0];
 
   return (
     <>
@@ -438,7 +442,7 @@ function V2HomeInner() {
                 <BoardCard
                   sport="NBA" label="NBA Board"
                   description="Playoffs live. Injury flags, line movement, matchup edges, rotation intel."
-                  href="/v2/nba" status="LIVE" primary signalCount={NBA_SIGNALS.length}
+                  href="/v2/nba" status="LIVE" primary signalCount={allLiveSignals.filter(s => s.sport === "NBA").length || NBA_SIGNALS.length}
                   color={T.gold} league="NBA"
                   accentBg="linear-gradient(135deg, rgba(202,168,90,0.08) 0%, rgba(85,37,131,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
@@ -447,7 +451,7 @@ function V2HomeInner() {
                 <BoardCard
                   sport="MLB" label="MLB Board"
                   description="Regular season active. Pitcher news, lineup movement, team trends."
-                  href="/v2/mlb" status="ACTIVE" signalCount={MLB_SIGNALS.length}
+                  href="/v2/mlb" status="ACTIVE" signalCount={allLiveSignals.filter(s => s.sport === "MLB").length || MLB_SIGNALS.length}
                   color={T.cyan} league="MLB"
                   accentBg="linear-gradient(135deg, rgba(74,168,200,0.08) 0%, rgba(0,42,98,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
@@ -596,7 +600,7 @@ function V2HomeInner() {
                 background: surfaceMini, border: `1px solid ${darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"}`,
                 borderRadius: 4, overflow: "hidden",
               }}>
-                {MLB_SIGNALS.slice(0, 3).map(sig => (
+                {(allLiveSignals.filter(s => s.sport === "MLB").length > 0 ? allLiveSignals.filter(s => s.sport === "MLB") : MLB_SIGNALS).slice(0, 3).map(sig => (
                   <div key={sig.id} style={{
                     display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px",
                     borderBottom: `1px solid ${feedBorder}`,
