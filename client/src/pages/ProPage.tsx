@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { trackProVisit, trackCheckoutClick } from "@/lib/analytics";
+import { isProUser } from "@shared/pro-utils";
 import { CheckCircle2, Zap, BarChart2, Filter, BookOpen, ChevronRight } from "lucide-react";
 
 const C = {
@@ -232,9 +233,11 @@ export default function ProPage() {
     try {
       const res = await apiRequest("GET", `/api/user?email=${encodeURIComponent(e)}`);
       const user = await res.json();
-      const active = user?.plan === "pro" && user?.access_status === "active";
+      // is_pro is computed server-side (covers Stripe + beta_until).
+      // isProUser() is the client-side fallback for the same logic.
+      const active = user?.is_pro ?? isProUser(user);
       setIsPro(active);
-      if (active) setBillingStatus(user?.billing_status ?? "active");
+      if (active) setBillingStatus(user?.billing_status ?? (user?.beta_until ? "beta" : "active"));
     } finally {
       setChecking(false);
     }

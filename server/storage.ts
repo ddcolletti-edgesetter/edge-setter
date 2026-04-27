@@ -179,9 +179,11 @@ sqlite.exec(`
     access_status TEXT NOT NULL DEFAULT 'pending',
     billing_status TEXT DEFAULT 'active',
     billing_email_sent TEXT,
+    beta_until TEXT,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
+
   CREATE TABLE IF NOT EXISTS event_log (
     id TEXT PRIMARY KEY,
     event_name TEXT NOT NULL,
@@ -266,6 +268,21 @@ sqlite.exec(`
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+// Sprint 10 migration: add beta_until to users if it doesn't exist yet.
+// SQLite does not support IF NOT EXISTS on ALTER TABLE, so we check PRAGMA.
+// This is safe to run on every startup.
+(function migrateBetaUntil() {
+  try {
+    const cols = (sqlite.prepare("PRAGMA table_info(users)").all() as any[]).map((c: any) => c.name);
+    if (!cols.includes("beta_until")) {
+      sqlite.exec("ALTER TABLE users ADD COLUMN beta_until TEXT;");
+      console.log("[db] migrated: users.beta_until added");
+    }
+  } catch (e: any) {
+    console.warn("[db] beta_until migration skipped:", e.message);
+  }
+})();
 
 function uuid() {
   return crypto.randomUUID();

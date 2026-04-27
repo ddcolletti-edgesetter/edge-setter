@@ -14,6 +14,7 @@ import { getStripe, STRIPE_PRO_PRICE_ID, STRIPE_WEBHOOK_SECRET } from "./stripe"
 import { sendWaitlistConfirmation, sendProWelcome, sendBillingRetryEmail } from "./email";
 import express from "express";
 import { syncToSupabase } from "./supabase-sync";
+import { isProUser } from "@shared/pro-utils";
 
 export function registerRoutes(httpServer: Server, app: Express) {
   // ─── Seed demo data on startup (non-blocking) ─────────────────────────────────
@@ -267,7 +268,11 @@ export function registerRoutes(httpServer: Server, app: Express) {
   app.get("/api/user", (req, res) => {
     const email = req.query.email as string;
     if (!email) return res.json(null);
-    res.json(storage.getUserByEmail(email) ?? null);
+    const user = storage.getUserByEmail(email) ?? null;
+    if (!user) return res.json(null);
+    // Attach computed is_pro flag — covers both Stripe path and beta_until comp path.
+    // Client should prefer this flag over re-implementing the logic.
+    return res.json({ ...user, is_pro: isProUser(user) });
   });
 
   // ─── MVP: Stripe Checkout ──────────────────────────────────────────────────────
@@ -801,6 +806,105 @@ export function registerRoutes(httpServer: Server, app: Express) {
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
     }
+  });
+
+  // ─── Beta Comp Grants ────────────────────────────────────────────────────────
+  /**
+   * POST /api/admin/grant-beta
+   *
+   * Grant time-boxed beta Pro access to a user by email.
+   * Creates the user record if it doesn't exist yet.
+   * Does NOT touch the Stripe subscription — additive override only.
+   *
+   * Auth: Authorization: Bearer <ADMIN_PASSWORD>  (same token as all admin routes)
+   *
+   * Body:
+   *   { "email": "user@example.com", "beta_until": "2026-05-31T23:59:59Z" }
+   *
+   * Returns the updated user row + computed is_pro.
+   *
+   * Example (curl):
+   *   curl -X POST http://localhost:5000/api/admin/grant-beta \
+   *     -H "Authorization: Bearer edgesetter-admin-2026" \
+   *     -H "Content-Type: application/json" \
+   *     -d '{"email":"tester@example.com","beta_until":"2026-05-31T23:59:59Z"}'
+   *
+   * To revoke, set beta_until to a past date:
+   *   -d '{"email":"tester@example.com","beta_until":"2020-01-01T00:00:00Z"}'
+   *
+   * To check current status (no admin required):
+   *   curl "http://localhost:5000/api/user?email=tester@example.com"
+   */
+  app.post("/api/admin/grant-beta", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+
+    const { email, beta_until } = req.body ?? {};
+
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ error: "email is required" });
+    }
+    if (!beta_until || typeof beta_until !== "string") {
+      return res.status(400).json({ error: "beta_until is required (ISO 8601 datetime string)" });
+    }
+    // Validate that beta_until is a parseable date
+    const parsed = new Date(beta_until);
+    if (isNaN(parsed.getTime())) {
+      return res.status(400).json({ error: `beta_until is not a valid date: ${beta_until}` });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    try {
+      // upsertUser creates if not exists, updates if exists.
+      // We only set beta_until; all other fields are preserved on update.
+      const user = storage.upsertUser({
+        email: normalizedEmail,
+        beta_until,
+      } as any);
+
+      const isActive = isProUser(user);
+      const expiresIn = parsed.getTime() - Date.now();
+      const expiresInDays = Math.round(expiresIn / (1000 * 60 * 60 * 24));
+
+      console.log(`[grant-beta] ${normalizedEmail} → beta_until=${beta_until} | is_pro=${isActive} | expires_in=${expiresInDays}d`);
+      storage.logEvent({
+        event_name: "beta_access_granted",
+        email: normalizedEmail,
+        metadata: JSON.stringify({ beta_until, granted_at: new Date().toISOString() }),
+      });
+
+      return res.json({
+        success: true,
+        user: { ...user, is_pro: isActive },
+        beta_until,
+        expires_in_days: expiresInDays,
+        message: isActive
+          ? `Beta Pro access granted. Expires in ${expiresInDays} day(s).`
+          : `beta_until set, but date is in the past — user does NOT have active Pro access.`,
+      });
+    } catch (err: any) {
+      console.error("[grant-beta]", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/admin/grant-beta?email=...
+   *
+   * Debug: check beta_until and is_pro status for any email.
+   * Auth: Authorization: Bearer <ADMIN_PASSWORD>
+   *
+   * Example:
+   *   curl -H "Authorization: Bearer edgesetter-admin-2026" \
+   *     "http://localhost:5000/api/admin/grant-beta?email=tester@example.com"
+   */
+  app.get("/api/admin/grant-beta", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const email = (req.query.email as string ?? "").toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: "email query param required" });
+    const user = storage.getUserByEmail(email);
+    if (!user) return res.status(404).json({ error: `No user found for email: ${email}` });
+    return res.json({ ...user, is_pro: isProUser(user) });
   });
 
   return httpServer;

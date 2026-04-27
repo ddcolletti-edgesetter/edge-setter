@@ -187,6 +187,12 @@ export const users = sqliteTable("users", {
   access_status: text("access_status").notNull().default("pending"), // pending | active | canceled
   billing_status: text("billing_status").default("active"), // active | past_due | payment_failed | canceled
   billing_email_sent: text("billing_email_sent"), // ISO timestamp of last billing retry email sent
+  /**
+   * beta_until — ISO 8601 datetime string.
+   * If set and > now(), user has beta Pro access regardless of Stripe subscription.
+   * Grants Pro on the existing plan/access_status path without touching Stripe.
+   */
+  beta_until: text("beta_until"),
   created_at: text("created_at").default(new Date().toISOString()),
   updated_at: text("updated_at").default(new Date().toISOString()),
 });
