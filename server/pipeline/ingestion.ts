@@ -17,6 +17,7 @@ import { ingestOdds } from "./adapters/the-odds-api";
 import { ingestNBAInjuries } from "./adapters/balldontlie";
 import { ingestMLBSchedule, ingestMLBTransactions, ingestProbablePitchers } from "./adapters/mlb-statsapi";
 import { processRawEvents } from "./processor";
+import { autoSettleFinishedGames } from "./settlement";
 
 let _running = false;
 
@@ -70,6 +71,15 @@ export async function runIngestionCycle(): Promise<{
       console.error("[ingestion] Processor error:", e.message);
       return { processed: 0, errors: 0 };
     });
+
+    // ── 5. Settle any games that are now final ─────────────
+    const settlement = await autoSettleFinishedGames().catch(e => {
+      console.error("[ingestion] Settlement error:", e.message);
+      return { scores_fetched: { NBA: 0, MLB: 0 }, games_updated: 0, games_settled: 0, signals_settled: 0 };
+    });
+    if (settlement.signals_settled > 0) {
+      console.log(`[ingestion] Settlement: ${settlement.signals_settled} signals settled across ${settlement.games_settled} games`);
+    }
 
     const elapsed = Date.now() - start;
     console.log(

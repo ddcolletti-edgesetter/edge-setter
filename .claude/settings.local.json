@@ -3,7 +3,15 @@
     "allow": [
       "Bash(xargs grep *)",
       "Bash(xargs wc *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git *)",
+      "Bash(npx tsc *)",
+      "Read(//mnt/c/Users/ddcol/**)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(node \"./node_modules/typescript/bin/tsc\" --noEmit)",
+      "PowerShell(Get-Command *)",
+      "PowerShell($env:Path; \\(Get-ChildItem \"C:\\\\Program Files\\\\nodejs\" -ErrorAction SilentlyContinue | Select-Object -First 5\\))"
     ]
   }
 }

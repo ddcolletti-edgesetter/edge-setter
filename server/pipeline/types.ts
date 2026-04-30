@@ -41,6 +41,9 @@ export interface Game {
   // Open-market values (for CLV computation later)
   open_spread: number | null;
   open_total: number | null;
+  // Final scores (populated by settlement engine once game is complete)
+  home_score: number | null;
+  away_score: number | null;
   // Metadata
   source_game_id: string | null;    // id from the upstream API
   created_at: string;

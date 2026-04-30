@@ -44,6 +44,13 @@ export function getPipelineDb(): Database.Database {
   return _db;
 }
 
+function addColumnIfMissing(db: Database.Database, table: string, column: string, definition: string) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+  if (!cols.some(c => c.name === column)) {
+    db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`).run();
+  }
+}
+
 function initSchema(db: Database.Database) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS games (
@@ -60,10 +67,13 @@ function initSchema(db: Database.Database) {
       moneyline_away  REAL,
       open_spread     REAL,
       open_total      REAL,
+      home_score      REAL,
+      away_score      REAL,
       source_game_id  TEXT,
       created_at      TEXT NOT NULL,
       updated_at      TEXT NOT NULL
     );
+
 
     CREATE TABLE IF NOT EXISTS raw_events (
       id            TEXT PRIMARY KEY,
@@ -139,6 +149,10 @@ function initSchema(db: Database.Database) {
       created_at      TEXT NOT NULL
     );
   `);
+
+  // Migrate existing DBs that predate home_score/away_score columns on games
+  addColumnIfMissing(db, "games", "home_score", "REAL");
+  addColumnIfMissing(db, "games", "away_score", "REAL");
 }
 
 /* ─── Game CRUD ─────────────────────────────────────────── */
@@ -180,6 +194,55 @@ export function getGames(league?: string): Game[] {
 export function getGame(id: string): Game | null {
   const db = getPipelineDb();
   return (db.prepare("SELECT * FROM games WHERE id=?").get(id) as Game) ?? null;
+}
+
+/** Mark a game as final and store the actual scores. */
+export function updateGameFinal(id: string, homeScore: number, awayScore: number): void {
+  getPipelineDb()
+    .prepare("UPDATE games SET status='final', home_score=?, away_score=?, updated_at=? WHERE id=?")
+    .run(homeScore, awayScore, new Date().toISOString(), id);
+}
+
+/** All betting_relevance signals for a game that have not yet been settled. */
+export function getUnsettledSignalsForGame(gameId: string): any[] {
+  return getPipelineDb()
+    .prepare("SELECT * FROM live_signals WHERE game_id=? AND betting_relevance=1 AND outcome_id IS NULL")
+    .all(gameId) as any[];
+}
+
+/** Write the outcome FK back onto the signal row. */
+export function linkOutcomeToSignal(signalId: string, outcomeId: string): void {
+  getPipelineDb()
+    .prepare("UPDATE live_signals SET outcome_id=? WHERE id=?")
+    .run(outcomeId, signalId);
+}
+
+/** All games that have final scores but still have unsettled signals. */
+export function getSettleable(): any[] {
+  return getPipelineDb().prepare(`
+    SELECT DISTINCT g.id, g.league, g.home_team, g.away_team,
+           g.spread_line, g.spread_team, g.total_line,
+           g.home_score, g.away_score, g.game_time
+    FROM games g
+    JOIN live_signals s ON s.game_id = g.id
+    WHERE g.home_score IS NOT NULL
+      AND g.away_score IS NOT NULL
+      AND s.betting_relevance = 1
+      AND s.outcome_id IS NULL
+  `).all();
+}
+
+/** Games past their game_time that are not yet marked final (candidates for score lookup). */
+export function getCompletedUnfinalGames(hoursAfterGameTime = 4): any[] {
+  const cutoff = new Date(Date.now() - hoursAfterGameTime * 60 * 60 * 1000).toISOString();
+  return getPipelineDb().prepare(`
+    SELECT * FROM games
+    WHERE game_time < ?
+      AND status != 'final'
+      AND status != 'postponed'
+    ORDER BY game_time DESC
+    LIMIT 100
+  `).all(cutoff);
 }
 
 /* ─── RawEvent CRUD ─────────────────────────────────────── */

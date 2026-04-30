@@ -127,8 +127,46 @@ export async function ingestNBAInjuries(): Promise<{ created: number; skipped: n
 
 export async function fetchNBALineups(gameId: string): Promise<{ starters: BDLPlayer[]; bench: BDLPlayer[] }> {
   // BallDontLie free tier doesn't expose live lineup confirmations yet.
-  // This is a placeholder for when the endpoint is available or a premium key is used.
   // For now: return empty and rely on operator manual entries.
   console.log(`[balldontlie] Lineup fetch for game ${gameId} — endpoint requires premium key (stub)`);
   return { starters: [], bench: [] };
+}
+
+/* ─── Fetch final scores for recently completed NBA games ─── */
+
+interface BDLGame {
+  id: number;
+  date: string;       // YYYY-MM-DD
+  status: string;     // "Final" | "1st Qtr" | etc.
+  home_team: { abbreviation: string };
+  visitor_team: { abbreviation: string };
+  home_team_score: number;
+  visitor_team_score: number;
+}
+
+export async function fetchNBAFinalScores(): Promise<Array<{
+  game_id: string;
+  home_score: number;
+  away_score: number;
+}>> {
+  try {
+    const headers: Record<string, string> = API_KEY ? { Authorization: API_KEY } : {};
+    // Fetch last 2 days to catch late-finishing games
+    const today = new Date().toISOString().slice(0, 10);
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const url = `${BASE_URL}/games?dates[]=${yesterday}&dates[]=${today}&per_page=50`;
+    const resp = await fetch(url, { headers });
+    if (!resp.ok) { console.error(`[balldontlie] HTTP ${resp.status} NBA final scores`); return []; }
+    const data = await resp.json() as { data: BDLGame[] };
+    return (data.data ?? [])
+      .filter(g => g.status === "Final")
+      .map(g => ({
+        game_id: `nba_${g.id}`,
+        home_score: g.home_team_score,
+        away_score: g.visitor_team_score,
+      }));
+  } catch (err: any) {
+    console.error("[balldontlie] NBA final scores error:", err.message);
+    return [];
+  }
 }

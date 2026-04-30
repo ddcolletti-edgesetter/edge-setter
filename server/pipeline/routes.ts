@@ -32,6 +32,7 @@ import {
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
+import { settleGame, autoSettleFinishedGames, computeSourceAccuracy } from "./settlement";
 import type { League, RawEventType } from "./types";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
@@ -417,6 +418,75 @@ export function registerPipelineRoutes(app: Express) {
     try {
       const record = getTrackRecord(league);
       return res.json(record);
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════
+     SETTLEMENT — admin-gated
+     ══════════════════════════════════════════════════════ */
+
+  /**
+   * POST /api/pipeline/settle
+   *
+   * Fetch final scores from NBA + MLB APIs and auto-settle all
+   * signals for completed games. Recomputes source accuracy table.
+   *
+   * Body: { "password": "..." }
+   *
+   * This is also called automatically at the end of each ingestion cycle.
+   */
+  app.post("/api/pipeline/settle", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const result = await autoSettleFinishedGames();
+      computeSourceAccuracy();
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/pipeline/settle/:game_id
+   *
+   * Manually settle a specific game by providing the final scores.
+   * Use this when auto-settlement misses a game (e.g. NFL/CFB with no adapter).
+   *
+   * Body:
+   * {
+   *   "password": "...",
+   *   "home_score": 28,
+   *   "away_score": 21
+   * }
+   */
+  app.post("/api/pipeline/settle/:game_id", (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    const { home_score, away_score } = req.body;
+    if (home_score == null || away_score == null) {
+      return res.status(400).json({ error: "home_score and away_score are required" });
+    }
+    try {
+      const result = settleGame(req.params.game_id, Number(home_score), Number(away_score));
+      computeSourceAccuracy();
+      return res.json({ success: true, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/pipeline/recompute-accuracy
+   *
+   * Force-recompute source accuracy stats from existing settled outcomes.
+   * Useful after manual outcome edits via POST /api/outcomes.
+   */
+  app.post("/api/pipeline/recompute-accuracy", (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      computeSourceAccuracy();
+      return res.json({ success: true });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
