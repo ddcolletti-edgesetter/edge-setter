@@ -11,7 +11,11 @@
       "Bash(node_modules/.bin/tsc --noEmit)",
       "Bash(node \"./node_modules/typescript/bin/tsc\" --noEmit)",
       "PowerShell(Get-Command *)",
-      "PowerShell($env:Path; \\(Get-ChildItem \"C:\\\\Program Files\\\\nodejs\" -ErrorAction SilentlyContinue | Select-Object -First 5\\))"
+      "PowerShell($env:Path; \\(Get-ChildItem \"C:\\\\Program Files\\\\nodejs\" -ErrorAction SilentlyContinue | Select-Object -First 5\\))",
+      "Bash(npm install *)",
+      "Read(//usr/local/**)",
+      "Read(//c/Users/ddcol/.nvm/versions/**)",
+      "PowerShell(Get-ChildItem *)"
     ]
   }
 }

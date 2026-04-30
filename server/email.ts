@@ -3,6 +3,7 @@
  * Falls back to console log if RESEND_API_KEY is not set.
  */
 import type { Signal } from "@shared/schema";
+import type { LiveSignal } from "./pipeline/types";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY ?? "";
 const FROM_EMAIL = process.env.FROM_EMAIL ?? "Edge Setter <hello@edgesetter.com>";
@@ -505,6 +506,162 @@ export function buildDailyDigestHtml(
 
 </body>
 </html>`;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * Signal Alert Email — sent to Pro users when a high-confidence signal hits
+ * ─────────────────────────────────────────────────────────────────────────────
+ */
+
+const SIGNAL_TYPE_LABELS: Record<string, string> = {
+  injury_update:  "Injury Update",
+  line_move:      "Line Move",
+  lineup_change:  "Lineup Change",
+  lineup_confirm: "Lineup Confirmation",
+  transaction:    "Transaction",
+  weather_update: "Weather Alert",
+};
+
+function urgencyColor(label: string): string {
+  switch (label) {
+    case "CRITICAL": return "#D94B4B";
+    case "HIGH":     return "#CAA85A";
+    case "MODERATE": return "#B7AFA0";
+    default:         return "#7E776A";
+  }
+}
+
+export async function sendSignalAlert(to: string, signal: LiveSignal): Promise<boolean> {
+  const boardUrl    = `${BASE_URL}/#/v2/${signal.league.toLowerCase()}`;
+  const alertsUrl   = `${BASE_URL}/#/v2/alerts`;
+  const signalLabel = SIGNAL_TYPE_LABELS[signal.signal_type] ?? signal.signal_type;
+  const uColor      = urgencyColor(signal.urgency_label);
+  const score       = signal.score ?? signal.confidence ?? 0;
+
+  const playerLine  = [signal.player, signal.team].filter(Boolean).join(" · ");
+  const matchupLine = signal.matchup ?? signal.team ?? signal.league;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+</head>
+<body style="margin:0;padding:0;background:#0A0B0D;font-family:'Arial Narrow',Arial,sans-serif">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#0A0B0D;padding:32px 16px">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#111317;border-top:2px solid #CAA85A;border-radius:2px;max-width:560px;width:100%">
+        <tr><td style="padding:0">
+
+          <!-- Header -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding:18px 28px;border-bottom:1px solid #1B1F25">
+            <tr>
+              <td>
+                <p style="margin:0 0 2px;font-size:10px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:#CAA85A">Edge Setter Pro</p>
+                <p style="margin:0;font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#7E776A">Signal Alert</p>
+              </td>
+              <td align="right">
+                <table cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding:3px 10px;background:#1A1208;border:1px solid ${uColor}40;border-radius:2px">
+                      <span style="font-size:9px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:${uColor}">${signal.urgency_label}</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <!-- League + Signal Type -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding:20px 28px 0">
+            <tr>
+              <td>
+                <table cellpadding="0" cellspacing="0" style="margin-bottom:14px">
+                  <tr>
+                    <td style="padding:3px 9px;background:#1B1F25;border:1px solid #2A2620;border-radius:2px;margin-right:6px">
+                      <span style="font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#7E776A">${signal.league}</span>
+                    </td>
+                    <td style="padding:0 6px;color:#2A2620">&nbsp;</td>
+                    <td style="padding:3px 9px;background:#1B1F25;border:1px solid #2A2620;border-radius:2px">
+                      <span style="font-size:9px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#7E776A">${signalLabel}</span>
+                    </td>
+                  </tr>
+                </table>
+                <h1 style="margin:0 0 8px;font-family:Georgia,serif;font-size:22px;font-weight:900;color:#F3EFE6;line-height:1.2">${signal.headline.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</h1>
+                ${playerLine ? `<p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#CAA85A">${playerLine.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>` : ""}
+                <p style="margin:0 0 16px;font-size:12px;color:#7E776A">${matchupLine.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>
+              </td>
+              <td align="right" valign="top" style="padding-left:16px;white-space:nowrap">
+                <span style="font-family:Georgia,serif;font-size:38px;font-weight:900;color:${score >= 88 ? "#3DAE72" : score >= 75 ? "#CAA85A" : "#B7AFA0"};line-height:1">${score}</span>
+                <p style="margin:2px 0 0;font-size:9px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#7E776A;text-align:right">Score</p>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Body -->
+          ${signal.body ? `
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding:0 28px 16px">
+            <tr><td>
+              <p style="margin:0;font-size:14px;color:#B7AFA0;line-height:1.65">${signal.body.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>
+            </td></tr>
+          </table>` : ""}
+
+          <!-- Action Note -->
+          ${signal.action_note ? `
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding:0 28px 16px">
+            <tr>
+              <td style="background:#16191E;border-left:3px solid #CAA85A;padding:12px 16px;border-radius:0 2px 2px 0">
+                <p style="margin:0 0 3px;font-size:9px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#CAA85A">Action Note</p>
+                <p style="margin:0;font-size:14px;color:#F3EFE6;line-height:1.5">${signal.action_note.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>
+              </td>
+            </tr>
+          </table>` : ""}
+
+          <!-- Why It Matters -->
+          ${signal.why_it_matters ? `
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding:0 28px 20px">
+            <tr>
+              <td style="background:#0F1208;border-left:3px solid #3DAE7240;padding:12px 16px;border-radius:0 2px 2px 0">
+                <p style="margin:0 0 3px;font-size:9px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#3DAE72">Why It Matters</p>
+                <p style="margin:0;font-size:13px;color:#B7AFA0;line-height:1.5">${signal.why_it_matters.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</p>
+              </td>
+            </tr>
+          </table>` : ""}
+
+          <!-- CTA -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="padding:0 28px 28px">
+            <tr>
+              <td>
+                <a href="${boardUrl}" style="display:inline-block;padding:10px 22px;background:#CAA85A;color:#0A0B0D;font-family:'Arial Narrow',Arial,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;text-decoration:none;border-radius:2px">View on ${signal.league} Board →</a>
+              </td>
+            </tr>
+          </table>
+
+          <!-- Footer -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #1B1F25;padding:16px 28px">
+            <tr>
+              <td>
+                <p style="margin:0;font-size:11px;color:#5A5448;line-height:1.5">
+                  You're receiving this because you enabled signal alerts in Edge Setter Pro.
+                  &nbsp;<a href="${alertsUrl}" style="color:#7E776A;text-decoration:underline">Manage alerts</a>
+                </p>
+              </td>
+            </tr>
+          </table>
+
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+  return sendEmail({
+    to,
+    subject: `[${signal.league}] ${signal.urgency_label}: ${signal.headline}`,
+    html,
+  });
 }
 
 /**

@@ -267,6 +267,25 @@ sqlite.exec(`
     email_sent INTEGER NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS alert_preferences (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    leagues TEXT NOT NULL DEFAULT '["NBA","MLB"]',
+    signal_types TEXT NOT NULL DEFAULT '[]',
+    min_confidence INTEGER NOT NULL DEFAULT 80,
+    channels TEXT NOT NULL DEFAULT '["email"]',
+    is_active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE TABLE IF NOT EXISTS push_subscriptions (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    endpoint TEXT NOT NULL UNIQUE,
+    p256dh TEXT NOT NULL,
+    auth TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Sprint 10 migration: add beta_until to users if it doesn't exist yet.
@@ -762,4 +781,103 @@ export class SqliteStorage implements IStorage {
 }
 
 export const storage = new SqliteStorage();
+
+/* ─── Alert Preferences (module-level, used by alerts.ts) ────────────────── */
+
+export interface AlertPreferences {
+  email: string;
+  leagues: string[];
+  signal_types: string[];
+  min_confidence: number;
+  channels: string[];
+  is_active: boolean;
+}
+
+export function getAlertPreferences(email: string): AlertPreferences | null {
+  const row = sqlite.prepare(`SELECT * FROM alert_preferences WHERE email = ?`).get(email) as any;
+  if (!row) return null;
+  return {
+    email: row.email,
+    leagues:        JSON.parse(row.leagues       ?? '["NBA","MLB"]'),
+    signal_types:   JSON.parse(row.signal_types  ?? '[]'),
+    min_confidence: row.min_confidence           ?? 80,
+    channels:       JSON.parse(row.channels      ?? '["email"]'),
+    is_active:      row.is_active === 1,
+  };
+}
+
+export function upsertAlertPreferences(data: AlertPreferences): void {
+  const ts = new Date().toISOString();
+  sqlite.prepare(`
+    INSERT INTO alert_preferences (id, email, leagues, signal_types, min_confidence, channels, is_active, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(email) DO UPDATE SET
+      leagues        = excluded.leagues,
+      signal_types   = excluded.signal_types,
+      min_confidence = excluded.min_confidence,
+      channels       = excluded.channels,
+      is_active      = excluded.is_active,
+      updated_at     = excluded.updated_at
+  `).run(
+    crypto.randomUUID(), data.email,
+    JSON.stringify(data.leagues),
+    JSON.stringify(data.signal_types),
+    data.min_confidence,
+    JSON.stringify(data.channels),
+    data.is_active ? 1 : 0,
+    ts, ts,
+  );
+}
+
+export function getActiveAlertUsers(): AlertPreferences[] {
+  const rows = sqlite.prepare(`
+    SELECT ap.* FROM alert_preferences ap
+    JOIN users u ON u.email = ap.email
+    WHERE ap.is_active = 1
+      AND (
+        (u.plan = 'pro' AND u.access_status = 'active')
+        OR (u.beta_until IS NOT NULL AND u.beta_until > datetime('now'))
+      )
+  `).all() as any[];
+  return rows.map(row => ({
+    email:          row.email,
+    leagues:        JSON.parse(row.leagues       ?? '["NBA","MLB"]'),
+    signal_types:   JSON.parse(row.signal_types  ?? '[]'),
+    min_confidence: row.min_confidence           ?? 80,
+    channels:       JSON.parse(row.channels      ?? '["email"]'),
+    is_active:      row.is_active === 1,
+  }));
+}
+
+/* ─── Push Subscriptions (module-level, used by alerts.ts) ───────────────── */
+
+export interface PushSubscriptionRow {
+  email:    string;
+  endpoint: string;
+  p256dh:   string;
+  auth:     string;
+}
+
+export function getPushSubscriptions(email?: string): PushSubscriptionRow[] {
+  const rows = email
+    ? sqlite.prepare(`SELECT * FROM push_subscriptions WHERE email = ?`).all(email) as any[]
+    : sqlite.prepare(`SELECT * FROM push_subscriptions`).all() as any[];
+  return rows.map(r => ({ email: r.email, endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth }));
+}
+
+export function upsertPushSubscription(data: PushSubscriptionRow): void {
+  const ts = new Date().toISOString();
+  sqlite.prepare(`
+    INSERT INTO push_subscriptions (id, email, endpoint, p256dh, auth, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(endpoint) DO UPDATE SET
+      email  = excluded.email,
+      p256dh = excluded.p256dh,
+      auth   = excluded.auth
+  `).run(crypto.randomUUID(), data.email, data.endpoint, data.p256dh, data.auth, ts);
+}
+
+export function deletePushSubscription(endpoint: string): void {
+  sqlite.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
+}
 

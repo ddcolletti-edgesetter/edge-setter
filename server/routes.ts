@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { Server } from "http";
-import { storage } from "./storage";
+import { storage, getAlertPreferences, upsertAlertPreferences, getPushSubscriptions, upsertPushSubscription, deletePushSubscription } from "./storage";
 import { insertWaitlistSchema } from "@shared/schema";
 import { sendDailyDigest } from "./email";
 import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
@@ -905,6 +905,62 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const user = storage.getUserByEmail(email);
     if (!user) return res.status(404).json({ error: `No user found for email: ${email}` });
     return res.json({ ...user, is_pro: isProUser(user) });
+  });
+
+  /* ─── Alert Preferences ────────────────────────────────────────────────────── */
+
+  app.get("/api/user/alert-preferences", (req, res) => {
+    const email = req.query.email as string;
+    if (!email) return res.status(400).json({ error: "email required" });
+    const user = storage.getUserByEmail(email);
+    if (!user || !isProUser(user)) return res.status(403).json({ error: "Pro required" });
+    const prefs = getAlertPreferences(email);
+    return res.json({ preferences: prefs });
+  });
+
+  app.put("/api/user/alert-preferences", (req, res) => {
+    const { email, leagues, signal_types, min_confidence, channels, is_active } = req.body ?? {};
+    if (!email) return res.status(400).json({ error: "email required" });
+    const user = storage.getUserByEmail(email);
+    if (!user || !isProUser(user)) return res.status(403).json({ error: "Pro required" });
+    upsertAlertPreferences({
+      email,
+      leagues:        Array.isArray(leagues)      ? leagues      : ["NBA", "MLB"],
+      signal_types:   Array.isArray(signal_types) ? signal_types : [],
+      min_confidence: typeof min_confidence === "number" ? min_confidence : 80,
+      channels:       Array.isArray(channels)     ? channels     : ["email"],
+      is_active:      is_active !== false,
+    });
+    return res.json({ success: true });
+  });
+
+  /* ─── Push Subscriptions ────────────────────────────────────────────────────── */
+
+  app.get("/api/alerts/vapid-public-key", (_req, res) => {
+    const publicKey = process.env.VAPID_PUBLIC_KEY ?? "";
+    res.json({ publicKey: publicKey || null });
+  });
+
+  app.post("/api/user/push-subscription", (req, res) => {
+    const { email, endpoint, p256dh, auth } = req.body ?? {};
+    if (!email || !endpoint || !p256dh || !auth) {
+      return res.status(400).json({ error: "email, endpoint, p256dh, auth required" });
+    }
+    const user = storage.getUserByEmail(email);
+    if (!user || !isProUser(user)) return res.status(403).json({ error: "Pro required" });
+    upsertPushSubscription({ email, endpoint, p256dh, auth });
+    return res.json({ success: true });
+  });
+
+  app.delete("/api/user/push-subscription", (req, res) => {
+    const { email, endpoint } = req.body ?? {};
+    if (!endpoint) return res.status(400).json({ error: "endpoint required" });
+    if (email) {
+      const user = storage.getUserByEmail(email);
+      if (!user || !isProUser(user)) return res.status(403).json({ error: "Pro required" });
+    }
+    deletePushSubscription(endpoint);
+    return res.json({ success: true });
   });
 
   return httpServer;

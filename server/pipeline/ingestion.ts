@@ -20,6 +20,7 @@ import { ingestNFLInjuries } from "./adapters/espn-nfl";
 import { ingestCFBInjuries } from "./adapters/espn-cfb";
 import { processRawEvents } from "./processor";
 import { autoSettleFinishedGames } from "./settlement";
+import { dispatchSignalAlerts } from "../alerts";
 
 let _running = false;
 
@@ -114,7 +115,16 @@ export async function runIngestionCycle(): Promise<{
       return { processed: 0, errors: 0 };
     });
 
-    // ── 6. Settle any games that are now final ─────────────
+    // ── 6. Dispatch alerts for newly scored signals ──────────
+    const alertResult = await dispatchSignalAlerts().catch(e => {
+      console.error("[ingestion] Alert dispatch error:", e.message);
+      return { dispatched: 0, users_notified: 0 };
+    });
+    if (alertResult.dispatched > 0) {
+      console.log(`[ingestion] Alerts: ${alertResult.dispatched} signals → ${alertResult.users_notified} users`);
+    }
+
+    // ── 7. Settle any games that are now final ───────────────
     const settlement = await autoSettleFinishedGames().catch(e => {
       console.error("[ingestion] Settlement error:", e.message);
       return { scores_fetched: { NBA: 0, MLB: 0, NFL: 0, CFB: 0 }, games_updated: 0, games_settled: 0, signals_settled: 0 };

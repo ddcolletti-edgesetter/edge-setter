@@ -29,6 +29,7 @@ import CFBBoard from "./pages/CFBBoard";
 import ToolsHub from "./pages/ToolsHub";
 import MyEdge from "./pages/MyEdge";
 import V2Sources from "./pages/V2Sources";
+import AlertSettingsPage from "./pages/AlertSettingsPage";
 import NotFound from "./pages/not-found";
 import { SignalGateProvider } from "./context/SignalGate";
 import { AuthProvider } from "./context/AuthContext";
@@ -77,6 +78,7 @@ function App() {
           <Route path="/v2/tools" component={ToolsHub} />
           <Route path="/v2/my-edge" component={MyEdge} />
           <Route path="/v2/sources" component={V2Sources} />
+          <Route path="/v2/alerts" component={AlertSettingsPage} />
           <Route component={NotFound} />
         </Switch>
       </Router>
