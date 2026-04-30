@@ -5,6 +5,11 @@
  */
 import { storage } from "./storage";
 import { type InsertEvent, type InsertClaim, type InsertEvidence, type InsertVerdict, type InsertAlert, type InsertAgentLog } from "@shared/schema";
+import {
+  findCorroboratingEvents,
+  checkOfficialInjuryStatus,
+  checkLineReaction,
+} from "./retrieval";
 
 // High-risk topic types that require human review
 const HIGH_RISK_TOPICS = ["injury", "draft", "coaching", "trade"];
@@ -110,30 +115,106 @@ export async function clustererAgent(event_id: string): Promise<{ cluster_key: s
 }
 
 // ─── Retriever Agent ──────────────────────────────────────────────────────────
-// Creates evidence records (in production: fetches real sources)
+// Gathers real evidence: pipeline corroboration → official API → line reaction → source-tier fallback
 export async function retrieverAgent(claim_id: string): Promise<{ evidence_count: number }> {
   const claim = storage.getClaim(claim_id);
   if (!claim) throw new Error(`Claim ${claim_id} not found`);
 
-  // In MVP: synthetic evidence from source tier logic
+  const event  = claim.event_id  ? storage.getEvent(claim.event_id)   : null;
   const source = claim.source_id ? storage.getSource(claim.source_id) : null;
-  const tier = source?.trust_tier ?? "tier3";
+  const tier   = source?.trust_tier ?? "tier3";
 
-  const supportStance = tier === "tier1" || tier === "tier2" ? "support" : "context";
-  const authLevel = tier === "tier1" ? 5 : tier === "tier2" ? 4 : tier === "tier3" ? 3 : 2;
+  const player     = event?.player ?? null;
+  const team       = event?.team   ?? null;
+  const league     = event?.league ?? null;
+  const claimType  = claim.claim_type ?? null;
+  const claimCreatedAt = (claim as any).created_at ?? new Date().toISOString();
 
-  storage.createEvidence({
-    id: uuid(),
-    claim_id,
-    source_url: source?.url ?? null,
-    evidence_type: "primary",
-    stance: supportStance,
-    extracted_text: `Source: ${source?.name ?? "Unknown"} — ${claim.raw_claim_text?.substring(0, 100)}`,
-    authority_level: authLevel,
-  });
+  let evidenceCount = 0;
 
-  await log("Retriever", claim_id, `evidence for ${claim_id}`, `Retrieved ${1} evidence items with stance: ${supportStance}`);
-  return { evidence_count: 1 };
+  // ── 1. Pipeline corroboration ──────────────────────────────────────────────
+  const corroboration = findCorroboratingEvents(player, team, league, claimType, claimCreatedAt);
+
+  for (const srcName of corroboration.sourceNames) {
+    storage.createEvidence({
+      id: uuid(), claim_id,
+      source_url: null,
+      evidence_type: "corroborating",
+      stance: "support",
+      extracted_text: `${srcName} reports the same ${claimType ?? "event"}`,
+      authority_level: Math.min(5, 2 + corroboration.supporting),
+    });
+    evidenceCount++;
+  }
+
+  for (const srcName of corroboration.contradictingNames) {
+    storage.createEvidence({
+      id: uuid(), claim_id,
+      source_url: null,
+      evidence_type: "corroborating",
+      stance: "contradict",
+      extracted_text: `${srcName} contradicts this ${claimType ?? "claim"}`,
+      authority_level: 2,
+    });
+    evidenceCount++;
+  }
+
+  // ── 2. Official injury / transaction status ────────────────────────────────
+  const officialClaimTypes = ["injury", "transaction"];
+  if (officialClaimTypes.includes(claimType ?? "")) {
+    const raw = claim.raw_claim_text ?? "";
+    const designationMatch = raw.match(/\b(OUT|Doubtful|Questionable|Probable|IL-\d+|DNP|day-to-day)\b/i);
+    const claimDesignation = designationMatch?.[1] ?? null;
+
+    const official = await checkOfficialInjuryStatus(player, league, claimDesignation);
+    if (official.checked && official.stance) {
+      storage.createEvidence({
+        id: uuid(), claim_id,
+        source_url: null,
+        evidence_type: "official",
+        stance: official.stance,
+        extracted_text: official.notes,
+        authority_level: official.stance === "support" ? 5 : 4,
+      });
+      evidenceCount++;
+    }
+  }
+
+  // ── 3. Market line reaction ────────────────────────────────────────────────
+  const bettingClaimTypes = ["injury", "trade", "depth_chart", "lineup"];
+  if (team && bettingClaimTypes.includes(claimType ?? "")) {
+    const lineReaction = checkLineReaction(team, league, claimType);
+    if (lineReaction.checked && lineReaction.stance) {
+      storage.createEvidence({
+        id: uuid(), claim_id,
+        source_url: null,
+        evidence_type: "market",
+        stance: lineReaction.stance,
+        extracted_text: lineReaction.notes,
+        authority_level: 3,
+      });
+      evidenceCount++;
+    }
+  }
+
+  // ── 4. Fallback: source-tier logic if no real data found ───────────────────
+  if (evidenceCount === 0) {
+    const supportStance = tier === "tier1" || tier === "tier2" ? "support" : "context";
+    const authLevel = tier === "tier1" ? 5 : tier === "tier2" ? 4 : tier === "tier3" ? 3 : 2;
+
+    storage.createEvidence({
+      id: uuid(), claim_id,
+      source_url: source?.url ?? null,
+      evidence_type: "primary",
+      stance: supportStance,
+      extracted_text: `Source: ${source?.name ?? "Unknown"} — ${claim.raw_claim_text?.substring(0, 100)}`,
+      authority_level: authLevel,
+    });
+    evidenceCount = 1;
+  }
+
+  await log("Retriever", claim_id, `evidence for ${claim_id}`, `Retrieved ${evidenceCount} evidence items`);
+  return { evidence_count: evidenceCount };
 }
 
 // ─── Verifier Agent ──────────────────────────────────────────────────────────
