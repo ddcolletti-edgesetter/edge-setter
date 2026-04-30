@@ -42,6 +42,8 @@ import {
 } from "./store";
 import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
 import { fetchNBAFinalScores } from "./adapters/balldontlie";
+import { fetchNFLFinalScores } from "./adapters/espn-nfl";
+import { fetchCFBFinalScores } from "./adapters/espn-cfb";
 import type { LiveSignal, Game } from "./types";
 
 /* ─── Schema for source accuracy table ─────────────────── */
@@ -287,7 +289,7 @@ export function settleGame(
 /* ─── Batch auto-settlement ──────────────────────────────── */
 
 export interface AutoSettleResult {
-  scores_fetched: { NBA: number; MLB: number };
+  scores_fetched: { NBA: number; MLB: number; NFL: number; CFB: number };
   games_updated: number;
   games_settled: number;
   signals_settled: number;
@@ -304,13 +306,15 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
   ensureAccuracyTable(db);
 
   // ── Fetch fresh scores ──────────────────────────────────
-  const [mlbScores, nbaScores] = await Promise.all([
+  const [mlbScores, nbaScores, nflScores, cfbScores] = await Promise.all([
     fetchMLBFinalScores().catch(() => []),
     fetchNBAFinalScores().catch(() => []),
+    fetchNFLFinalScores().catch(() => []),
+    fetchCFBFinalScores().catch(() => []),
   ]);
 
   let gamesUpdated = 0;
-  const allScores = [...mlbScores, ...nbaScores];
+  const allScores = [...mlbScores, ...nbaScores, ...nflScores, ...cfbScores];
 
   for (const { game_id, home_score, away_score } of allScores) {
     const game = getGame(game_id);
@@ -338,7 +342,7 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
   }
 
   return {
-    scores_fetched: { NBA: nbaScores.length, MLB: mlbScores.length },
+    scores_fetched: { NBA: nbaScores.length, MLB: mlbScores.length, NFL: nflScores.length, CFB: cfbScores.length },
     games_updated: gamesUpdated,
     games_settled: gamesSettled,
     signals_settled: signalsSettled,

@@ -232,6 +232,28 @@ export function getSettleable(): any[] {
   `).all();
 }
 
+/**
+ * Look up a game by team abbreviations + date.
+ * Used by ESPN adapters to resolve scores to our canonical game_id,
+ * since ESPN and The Odds API use different internal IDs.
+ */
+export function findGameByTeams(
+  league: string,
+  homeTeam: string,
+  awayTeam: string,
+  gameDate: string, // YYYY-MM-DD
+): Game | null {
+  const db = getPipelineDb();
+  return (db.prepare(`
+    SELECT * FROM games
+    WHERE league = ?
+      AND home_team = ? AND away_team = ?
+      AND date(game_time) = date(?)
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `).get(league, homeTeam, awayTeam, gameDate) as Game) ?? null;
+}
+
 /** Games past their game_time that are not yet marked final (candidates for score lookup). */
 export function getCompletedUnfinalGames(hoursAfterGameTime = 4): any[] {
   const cutoff = new Date(Date.now() - hoursAfterGameTime * 60 * 60 * 1000).toISOString();

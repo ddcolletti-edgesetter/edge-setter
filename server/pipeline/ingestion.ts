@@ -9,36 +9,61 @@
  *   - MLB transactions + pitchers: every 60 minutes
  *   - Processor: runs immediately after each ingest batch
  *
- * NFL/CFB: season is off — no automated adapters yet.
- *   Use POST /api/pipeline/ingest/manual instead.
+ * NFL/CFB (season-gated): odds + ESPN injuries run Sep–Feb (NFL) and Sep–Jan (CFB).
+ *   Manual trigger: POST /api/pipeline/ingest/nfl or /cfb (bypasses season guard).
  */
 
 import { ingestOdds } from "./adapters/the-odds-api";
 import { ingestNBAInjuries } from "./adapters/balldontlie";
 import { ingestMLBSchedule, ingestMLBTransactions, ingestProbablePitchers } from "./adapters/mlb-statsapi";
+import { ingestNFLInjuries } from "./adapters/espn-nfl";
+import { ingestCFBInjuries } from "./adapters/espn-cfb";
 import { processRawEvents } from "./processor";
 import { autoSettleFinishedGames } from "./settlement";
 
 let _running = false;
 
+/* ─── Season helpers ─────────────────────────────────────── */
+
+/** NFL regular season: Sep–Feb; includes August preseason. */
+function isNFLSeason(): boolean {
+  const m = new Date().getMonth() + 1; // 1-indexed
+  return m >= 8 || m <= 2;
+}
+
+/** CFB season: Sep–Jan (bowl games extend into January). */
+function isCFBSeason(): boolean {
+  const m = new Date().getMonth() + 1;
+  return m >= 8 || m === 1;
+}
+
 /* ─── Run one full ingest cycle ──────────────────────────── */
 
 export async function runIngestionCycle(): Promise<{
-  odds: { NBA: { games: number; events: number }; MLB: { games: number; events: number } };
+  odds: {
+    NBA: { games: number; events: number };
+    MLB: { games: number; events: number };
+    NFL: { games: number; events: number } | null;
+    CFB: { games: number; events: number } | null;
+  };
   nba_injuries: { created: number; skipped: number };
   mlb_schedule: { games: number };
   mlb_transactions: { created: number };
   mlb_pitchers: { created: number };
+  nfl_injuries: { created: number; skipped: number } | null;
+  cfb_injuries: { created: number; skipped: number } | null;
   processed: { processed: number; errors: number };
 }> {
   if (_running) {
     console.log("[ingestion] Cycle already running — skipping");
     return {
-      odds: { NBA: { games: 0, events: 0 }, MLB: { games: 0, events: 0 } },
+      odds: { NBA: { games: 0, events: 0 }, MLB: { games: 0, events: 0 }, NFL: null, CFB: null },
       nba_injuries: { created: 0, skipped: 0 },
       mlb_schedule: { games: 0 },
       mlb_transactions: { created: 0 },
       mlb_pitchers: { created: 0 },
+      nfl_injuries: null,
+      cfb_injuries: null,
       processed: { processed: 0, errors: 0 },
     };
   }
@@ -48,9 +73,18 @@ export async function runIngestionCycle(): Promise<{
 
   try {
     // ── 1. Odds (line data) ────────────────────────────────
-    const [nbaOdds, mlbOdds] = await Promise.all([
+    const nflSeason = isNFLSeason();
+    const cfbSeason = isCFBSeason();
+
+    const [nbaOdds, mlbOdds, nflOdds, cfbOdds] = await Promise.all([
       ingestOdds("NBA").catch(e => { console.error("[ingestion] NBA odds error:", e.message); return { games: 0, events: 0 }; }),
       ingestOdds("MLB").catch(e => { console.error("[ingestion] MLB odds error:", e.message); return { games: 0, events: 0 }; }),
+      nflSeason
+        ? ingestOdds("NFL").catch(e => { console.error("[ingestion] NFL odds error:", e.message); return { games: 0, events: 0 }; })
+        : Promise.resolve(null),
+      cfbSeason
+        ? ingestOdds("CFB").catch(e => { console.error("[ingestion] CFB odds error:", e.message); return { games: 0, events: 0 }; })
+        : Promise.resolve(null),
     ]);
 
     // ── 2. NBA injuries ────────────────────────────────────
@@ -66,16 +100,24 @@ export async function runIngestionCycle(): Promise<{
       ingestProbablePitchers().catch(e => { console.error("[ingestion] MLB pitchers error:", e.message); return { created: 0 }; }),
     ]);
 
-    // ── 4. Process all new RawEvents ───────────────────────
+    // ── 4. NFL + CFB injuries (season-gated) ──────────────
+    const nfl_injuries = nflSeason
+      ? await ingestNFLInjuries().catch(e => { console.error("[ingestion] NFL injuries error:", e.message); return { created: 0, skipped: 0 }; })
+      : null;
+    const cfb_injuries = cfbSeason
+      ? await ingestCFBInjuries().catch(e => { console.error("[ingestion] CFB injuries error:", e.message); return { created: 0, skipped: 0 }; })
+      : null;
+
+    // ── 5. Process all new RawEvents ───────────────────────
     const processed = await processRawEvents().catch(e => {
       console.error("[ingestion] Processor error:", e.message);
       return { processed: 0, errors: 0 };
     });
 
-    // ── 5. Settle any games that are now final ─────────────
+    // ── 6. Settle any games that are now final ─────────────
     const settlement = await autoSettleFinishedGames().catch(e => {
       console.error("[ingestion] Settlement error:", e.message);
-      return { scores_fetched: { NBA: 0, MLB: 0 }, games_updated: 0, games_settled: 0, signals_settled: 0 };
+      return { scores_fetched: { NBA: 0, MLB: 0, NFL: 0, CFB: 0 }, games_updated: 0, games_settled: 0, signals_settled: 0 };
     });
     if (settlement.signals_settled > 0) {
       console.log(`[ingestion] Settlement: ${settlement.signals_settled} signals settled across ${settlement.games_settled} games`);
@@ -85,16 +127,20 @@ export async function runIngestionCycle(): Promise<{
     console.log(
       `[ingestion] Cycle complete in ${elapsed}ms — ` +
       `NBA odds: ${nbaOdds.games}g/${nbaOdds.events}e, MLB odds: ${mlbOdds.games}g/${mlbOdds.events}e, ` +
-      `NBA inj: ${nba_injuries.created}, MLB txn: ${mlb_transactions.created}, ` +
-      `MLB SP: ${mlb_pitchers.created}, processed: ${processed.processed}`
+      `NFL odds: ${nflOdds?.games ?? "-"}g, CFB odds: ${cfbOdds?.games ?? "-"}g, ` +
+      `NBA inj: ${nba_injuries.created}, NFL inj: ${nfl_injuries?.created ?? "-"}, ` +
+      `MLB txn: ${mlb_transactions.created}, MLB SP: ${mlb_pitchers.created}, ` +
+      `processed: ${processed.processed}`
     );
 
     return {
-      odds: { NBA: nbaOdds, MLB: mlbOdds },
+      odds: { NBA: nbaOdds, MLB: mlbOdds, NFL: nflOdds, CFB: cfbOdds },
       nba_injuries,
       mlb_schedule,
       mlb_transactions,
       mlb_pitchers,
+      nfl_injuries,
+      cfb_injuries,
       processed,
     };
   } finally {

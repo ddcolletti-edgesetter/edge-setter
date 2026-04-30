@@ -32,6 +32,9 @@ import {
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
+import { ingestNFLInjuries } from "./adapters/espn-nfl";
+import { ingestCFBInjuries } from "./adapters/espn-cfb";
+import { ingestOdds } from "./adapters/the-odds-api";
 import { settleGame, autoSettleFinishedGames, computeSourceAccuracy } from "./settlement";
 import type { League, RawEventType } from "./types";
 
@@ -216,6 +219,49 @@ export function registerPipelineRoutes(app: Express) {
     try {
       const result = await runIngestionCycle();
       return res.json({ success: true, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/pipeline/ingest/nfl
+   *
+   * Manually trigger NFL odds + injury ingestion (bypasses season guard).
+   * Useful for preseason testing or on-demand refresh.
+   *
+   * Body: { "password": "..." }
+   */
+  app.post("/api/pipeline/ingest/nfl", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const [odds, injuries] = await Promise.all([
+        ingestOdds("NFL").catch(e => ({ games: 0, events: 0, error: e.message })),
+        ingestNFLInjuries().catch(e => ({ created: 0, skipped: 0, error: e.message })),
+      ]);
+      const processed = await processRawEvents().catch(e => ({ processed: 0, errors: 0 }));
+      return res.json({ success: true, odds, injuries, processed });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/pipeline/ingest/cfb
+   *
+   * Manually trigger CFB odds + injury ingestion (bypasses season guard).
+   *
+   * Body: { "password": "..." }
+   */
+  app.post("/api/pipeline/ingest/cfb", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const [odds, injuries] = await Promise.all([
+        ingestOdds("CFB").catch(e => ({ games: 0, events: 0, error: e.message })),
+        ingestCFBInjuries().catch(e => ({ created: 0, skipped: 0, error: e.message })),
+      ]);
+      const processed = await processRawEvents().catch(e => ({ processed: 0, errors: 0 }));
+      return res.json({ success: true, odds, injuries, processed });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }
