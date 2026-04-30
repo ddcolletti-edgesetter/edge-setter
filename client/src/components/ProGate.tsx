@@ -8,10 +8,11 @@
  *  - ProNavButton: top-right header button (free → opens modal, Pro → ✓ PRO)
  */
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { Lock, Zap, X, CheckCircle2, TrendingUp, AlertCircle, BarChart2 } from "lucide-react";
 import { useSignalGate, type ModalTrigger } from "../context/SignalGate";
+import { useAuth } from "../context/AuthContext";
 
 /* ── Design tokens ── */
 const T = {
@@ -106,6 +107,11 @@ const MODAL_COPY: Record<ModalTrigger, SportCopy> = {
 ──────────────────────────────────────────────────────────────── */
 export function ProModal() {
   const { modalOpen, modalTrigger, closeModal } = useSignalGate();
+  const { login } = useAuth();
+  const [signinMode, setSigninMode] = useState(false);
+  const [signinEmail, setSigninEmail] = useState("");
+  const [signinLoading, setSigninLoading] = useState(false);
+  const [signinError, setSigninError] = useState("");
 
   // Trap scroll when open
   useEffect(() => {
@@ -116,6 +122,28 @@ export function ProModal() {
     }
     return () => { document.body.style.overflow = ""; };
   }, [modalOpen]);
+
+  // Reset sign-in state when modal closes
+  useEffect(() => {
+    if (!modalOpen) {
+      setSigninMode(false);
+      setSigninEmail("");
+      setSigninError("");
+    }
+  }, [modalOpen]);
+
+  async function handleSignin() {
+    if (!signinEmail || signinLoading) return;
+    setSigninLoading(true);
+    setSigninError("");
+    const err = await login(signinEmail);
+    setSigninLoading(false);
+    if (err) {
+      setSigninError(err);
+    } else {
+      closeModal();
+    }
+  }
 
   if (!modalOpen) return null;
 
@@ -215,45 +243,122 @@ export function ProModal() {
           ))}
         </div>
 
-        {/* Price + CTA */}
+        {/* Price + CTA / Sign-in toggle */}
         <div style={{ padding: "0 28px 28px" }}>
-          <div style={{
-            display: "flex", alignItems: "baseline", gap: 6, marginBottom: 14,
-          }}>
-            <span style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 36, fontWeight: 800, color: T.gold, lineHeight: 1,
-            }}>$19</span>
-            <span style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 15, color: T.textFaint, fontWeight: 700,
-            }}>/month · cancel anytime</span>
-          </div>
+          {signinMode ? (
+            /* ── Sign-in panel ── */
+            <div>
+              <div style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 13, fontWeight: 700, color: T.textMuted,
+                letterSpacing: "0.06em", marginBottom: 10,
+              }}>
+                Enter your subscription email to activate access:
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 0, border: `1px solid ${T.gold}44`, borderRadius: 3, overflow: "hidden" }}>
+                <input
+                  type="email"
+                  placeholder="you@example.com"
+                  value={signinEmail}
+                  autoFocus
+                  onChange={e => { setSigninEmail(e.target.value); setSigninError(""); }}
+                  onKeyDown={e => e.key === "Enter" && handleSignin()}
+                  style={{
+                    background: T.surface2, border: "none",
+                    borderRight: `1px solid ${T.gold}33`,
+                    color: T.text, fontSize: 15, padding: "12px 14px",
+                    outline: "none", fontFamily: "inherit", minWidth: 0,
+                  }}
+                />
+                <button
+                  onClick={handleSignin}
+                  disabled={signinLoading || !signinEmail}
+                  style={{
+                    padding: "12px 16px",
+                    background: signinLoading || !signinEmail ? T.goldDim : T.gold,
+                    color: T.bg, border: "none",
+                    cursor: signinLoading || !signinEmail ? "default" : "pointer",
+                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                    fontSize: 13, fontWeight: 800, letterSpacing: "0.12em",
+                    textTransform: "uppercase", whiteSpace: "nowrap",
+                  }}
+                >
+                  {signinLoading ? "…" : "Activate"}
+                </button>
+              </div>
+              {signinError && (
+                <div style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 13, color: T.danger, marginTop: 8,
+                }}>
+                  {signinError}
+                </div>
+              )}
+              <button
+                onClick={() => { setSigninMode(false); setSigninError(""); }}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 12, color: T.textFaint, marginTop: 12,
+                  letterSpacing: "0.06em", padding: 0,
+                }}
+              >
+                ← Back to upgrade options
+              </button>
+            </div>
+          ) : (
+            /* ── Subscribe CTA ── */
+            <div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 14 }}>
+                <span style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 36, fontWeight: 800, color: T.gold, lineHeight: 1,
+                }}>$19</span>
+                <span style={{
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 15, color: T.textFaint, fontWeight: 700,
+                }}>/month · cancel anytime</span>
+              </div>
 
-          <Link href="/pro" onClick={closeModal}>
-            <a style={{
-              display: "block", width: "100%", padding: "14px 0",
-              background: T.gold, color: T.bg,
-              borderRadius: 3, border: "none",
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 16, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
-              textAlign: "center", textDecoration: "none",
-              cursor: "pointer",
-              transition: "background 0.12s",
-            }}
-              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = T.goldBright; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = T.gold; }}
-            >
-              {copy.cta}
-            </a>
-          </Link>
+              <Link href="/pro" onClick={closeModal}>
+                <a style={{
+                  display: "block", width: "100%", padding: "14px 0",
+                  background: T.gold, color: T.bg,
+                  borderRadius: 3, border: "none",
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 16, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase",
+                  textAlign: "center", textDecoration: "none",
+                  cursor: "pointer", transition: "background 0.12s",
+                }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = T.goldBright; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = T.gold; }}
+                >
+                  {copy.cta}
+                </a>
+              </Link>
 
-          <div style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, color: T.textFaint, textAlign: "center", marginTop: 10,
-          }}>
-            NBA · MLB · NFL · CFB — all sports in one subscription
-          </div>
+              <div style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 12, color: T.textFaint, textAlign: "center", marginTop: 10,
+              }}>
+                NBA · MLB · NFL · CFB — all sports in one subscription
+              </div>
+
+              <div style={{ textAlign: "center", marginTop: 14 }}>
+                <button
+                  onClick={() => setSigninMode(true)}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                    fontSize: 12, color: T.textFaint, letterSpacing: "0.06em",
+                    padding: 0, textDecoration: "underline",
+                  }}
+                >
+                  Already subscribed? Activate access →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

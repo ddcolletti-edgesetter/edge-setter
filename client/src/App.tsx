@@ -31,6 +31,7 @@ import MyEdge from "./pages/MyEdge";
 import V2Sources from "./pages/V2Sources";
 import NotFound from "./pages/not-found";
 import { SignalGateProvider } from "./context/SignalGate";
+import { AuthProvider } from "./context/AuthContext";
 import { AdminGate } from "./components/AdminGate";
 import { ProModal } from "./components/ProGate";
 
@@ -47,6 +48,7 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <AuthProvider>
       <SignalGateProvider>
       <ProModal />
       <Router hook={useHashLocation}>
@@ -79,6 +81,7 @@ function App() {
         </Switch>
       </Router>
       </SignalGateProvider>
+      </AuthProvider>
       <Toaster />
     </QueryClientProvider>
   );

@@ -4,11 +4,11 @@
  * Rules:
  *  - FREE_LIMIT = 3 readable rows (rows 4+ are blurred for free users)
  *  - Tracks viewed signal IDs in a Set so back/fwd nav doesn't double-count
- *  - No localStorage/sessionStorage — pure React state
- *  - isPro is always false for non-authenticated visitors (no auth in this app)
+ *  - isPro is read from AuthContext (email → /api/user → is_pro)
  *  - modalTrigger tracks which board triggered the modal for context-aware copy
  */
 import { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { useAuth } from "./AuthContext";
 
 export const FREE_LIMIT = 3;
 
@@ -35,7 +35,7 @@ export function SignalGateProvider({ children }: { children: ReactNode }) {
   const [viewedIds, setViewedIds] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [modalTrigger, setModalTrigger] = useState<ModalTrigger>("generic");
-  const isPro = false;
+  const { isPro } = useAuth();
 
   const freeCount = viewedIds.size;
   const isGated = !isPro;
