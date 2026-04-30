@@ -781,6 +781,39 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // POST /api/agent/distribution-drafts/:id/post — manually post any draft to X
+  app.post("/api/agent/distribution-drafts/:id/post", async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const draft = (storage as any).getDistributionDraft(req.params.id);
+    if (!draft) return res.status(404).json({ error: "Draft not found" });
+    if (draft.channel !== "x") return res.status(400).json({ error: "Only X drafts can be posted here" });
+    if (draft.status === "posted") return res.status(409).json({ error: "Already posted", tweet_url: draft.tweet_url });
+
+    const { postTweet: tweet, canAutoPost } = await import("./twitter");
+    if (!canAutoPost()) return res.status(503).json({ error: "Twitter credentials not configured" });
+
+    try {
+      const result = await tweet(draft.copy);
+      if (!result) return res.status(502).json({ error: "Tweet failed — check server logs" });
+      const updated = (storage as any).updateDistributionDraft(req.params.id, {
+        status:    "posted",
+        tweet_id:  result.id,
+        tweet_url: result.url,
+        posted_at: new Date().toISOString(),
+      });
+      storage.logAgentAction({
+        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+        agent_name: "DistributionDraft/ManualPost",
+        input_ref: req.params.id, output_ref: result.id,
+        decision_summary: `Manually posted tweet ${result.id} for draft ${req.params.id}`,
+        error_state: null, warning_state: null,
+      });
+      return res.json({ success: true, tweet_id: result.id, tweet_url: result.url, draft: updated });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // ─── Daily Product Ops Agent routes ────────────────────────────────────────
 
   // GET /api/agent/daily-ops — list past summaries

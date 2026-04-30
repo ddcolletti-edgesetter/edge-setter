@@ -18,7 +18,7 @@ import { type Theme } from "../App";
 import { useToast } from "@/hooks/use-toast";
 import {
   Send, CheckCircle, XCircle, RefreshCw, Play,
-  Twitter, MessageSquare, Clock, Filter
+  Twitter, MessageSquare, Clock, Filter, ExternalLink
 } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
@@ -49,6 +49,7 @@ const STATUS_COLORS: Record<string, string> = {
   review_required:  T.yellow,
   approved:         T.green,
   rejected:         T.red,
+  posted:           "#3DAE72",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -56,6 +57,7 @@ const STATUS_LABELS: Record<string, string> = {
   review_required:  "Review Required",
   approved:         "Approved",
   rejected:         "Rejected",
+  posted:           "Auto-posted",
 };
 
 function ChannelIcon({ channel }: { channel: string }) {
@@ -122,6 +124,17 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
+  // Post Now
+  const postMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiRequest("POST", `/api/agent/distribution-drafts/${id}/post`, { password: ADMIN_PASSWORD }).then(r => r.json()),
+    onSuccess: (data) => {
+      toast({ title: "Posted", description: `Tweet live: ${data.tweet_url}` });
+      qc.invalidateQueries({ queryKey: ["/api/agent/distribution-drafts"] });
+    },
+    onError: (e: any) => toast({ title: "Post failed", description: e.message, variant: "destructive" }),
+  });
+
   // Manual run
   const runMutation = useMutation({
     mutationFn: () =>
@@ -162,7 +175,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
               </h1>
             </div>
             <p style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase", margin: 0 }}>
-              Phase 2 Agent · No external publishing · Human review required
+              Phase 2 Agent · X auto-posts at 95%+ confidence · Human review for all others
             </p>
           </div>
           <button
@@ -188,9 +201,10 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
         {!isLoading && (
           <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
             {[
-              { label: "Total", value: (drafts as any[]).length },
-              { label: "Pending", value: pendingCount, color: T.yellow },
+              { label: "Total",    value: (drafts as any[]).length },
+              { label: "Pending",  value: pendingCount, color: T.yellow },
               { label: "Approved", value: (drafts as any[]).filter(d => d.status === "approved").length, color: T.green },
+              { label: "Posted",   value: (drafts as any[]).filter(d => d.status === "posted").length, color: "#3DAE72" },
               { label: "Rejected", value: (drafts as any[]).filter(d => d.status === "rejected").length, color: T.red },
             ].map(stat => (
               <div key={stat.label} style={{ background: T.surface1, border: `1px solid ${T.goldDim}`, borderRadius: 3, padding: "10px 16px", minWidth: 80 }}>
@@ -379,7 +393,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
 
                       {/* Actions */}
                       {isPending && (
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                           <button
                             data-testid={`button-approve-${draft.id}`}
                             onClick={() => approveMutation.mutate(draft.id)}
@@ -428,11 +442,78 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
                           >
                             <RefreshCw size={11} /> Regenerate
                           </button>
+                          {draft.channel === "x" && (
+                            <button
+                              data-testid={`button-post-${draft.id}`}
+                              onClick={() => postMutation.mutate(draft.id)}
+                              disabled={postMutation.isPending}
+                              style={{
+                                display: "flex", alignItems: "center", gap: 5,
+                                padding: "7px 14px",
+                                background: "rgba(29,161,242,0.10)", color: "#1DA1F2",
+                                border: `1px solid rgba(29,161,242,0.25)`,
+                                borderRadius: 3, cursor: "pointer",
+                                fontFamily: "'Barlow Condensed', sans-serif",
+                                fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                              }}
+                            >
+                              <Twitter size={11} /> Post Now
+                            </button>
+                          )}
                         </div>
                       )}
-                      {!isPending && draft.status === "approved" && (
+                      {!isPending && draft.status === "approved" && draft.channel === "x" && (
+                        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.green, fontSize: 12 }}>
+                            <CheckCircle size={13} /> Approved
+                          </div>
+                          <button
+                            onClick={() => postMutation.mutate(draft.id)}
+                            disabled={postMutation.isPending}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 5,
+                              padding: "7px 14px",
+                              background: "rgba(29,161,242,0.10)", color: "#1DA1F2",
+                              border: `1px solid rgba(29,161,242,0.25)`,
+                              borderRadius: 3, cursor: "pointer",
+                              fontFamily: "'Barlow Condensed', sans-serif",
+                              fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                            }}
+                          >
+                            <Twitter size={11} /> Post Now
+                          </button>
+                        </div>
+                      )}
+                      {!isPending && draft.status === "approved" && draft.channel !== "x" && (
                         <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.green, fontSize: 12 }}>
                           <CheckCircle size={13} /> Approved — ready when you are
+                        </div>
+                      )}
+                      {!isPending && draft.status === "posted" && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#3DAE72", fontSize: 12 }}>
+                            <Twitter size={13} /> Auto-posted to X
+                          </div>
+                          {draft.tweet_url && (
+                            <a
+                              href={draft.tweet_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: "flex", alignItems: "center", gap: 4,
+                                fontSize: 11, color: "#1DA1F2", textDecoration: "none",
+                                fontFamily: "'Barlow Condensed', sans-serif",
+                                letterSpacing: "0.08em",
+                              }}
+                            >
+                              <ExternalLink size={10} /> View tweet
+                            </a>
+                          )}
+                          {draft.posted_at && (
+                            <span style={{ fontSize: 10, color: T.textFaint }}>
+                              {new Date(draft.posted_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                            </span>
+                          )}
                         </div>
                       )}
                       {!isPending && draft.status === "rejected" && (

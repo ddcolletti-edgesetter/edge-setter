@@ -19,11 +19,12 @@
  */
 
 import { storage } from "./storage";
+import { postTweet, canAutoPost } from "./twitter";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type DraftChannel = "x" | "reddit";
-export type DraftStatus = "draft" | "review_required" | "approved" | "rejected";
+export type DraftStatus = "draft" | "review_required" | "approved" | "rejected" | "posted";
 
 export interface DistributionDraft {
   id: string;
@@ -235,6 +236,31 @@ export async function runDistributionDraft(
         logLines.push(`[Queue] Created ${channel} draft ${draft.id} for signal ${sig.id}`);
         agentLog("Queue", sig.id, draft.id,
           `Draft queued: channel=${channel} signal=${sig.id}`);
+
+        // ── Stage 5: Auto-post if channel=x and confidence ≥ 95 ──────────────
+        if (channel === "x" && (sig.confidence_score ?? 0) >= 95 && canAutoPost()) {
+          logLines.push(`[AutoPost] Signal ${sig.id} score=${sig.confidence_score} — attempting auto-post`);
+          try {
+            const tweet = await postTweet(copy);
+            if (tweet) {
+              (storage as any).updateDistributionDraft(draft.id, {
+                status:    "posted",
+                tweet_id:  tweet.id,
+                tweet_url: tweet.url,
+                posted_at: new Date().toISOString(),
+                notes:     notes + ` | Auto-posted at ${new Date().toISOString()}.`,
+              });
+              logLines.push(`[AutoPost] Posted tweet ${tweet.id} → ${tweet.url}`);
+              agentLog("AutoPost", sig.id, draft.id,
+                `Auto-posted tweet ${tweet.id} for signal ${sig.id} (score=${sig.confidence_score})`);
+            } else {
+              logLines.push(`[AutoPost] Post returned null — draft stays in queue`);
+            }
+          } catch (e: any) {
+            logLines.push(`[AutoPost] ERROR: ${e.message} — draft stays in queue`);
+            agentLog("AutoPost", sig.id, draft.id, `Auto-post failed`, e.message);
+          }
+        }
       } catch (e: any) {
         logLines.push(`[Queue] ERROR creating draft: ${e.message}`);
         agentLog("Queue", sig.id, runId, `Draft creation failed`, e.message);

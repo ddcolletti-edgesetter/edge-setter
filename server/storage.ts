@@ -294,6 +294,18 @@ sqlite.exec(`
   );
 `);
 
+// Migration: add tweet columns to distribution_drafts if missing.
+(function migrateDistributionDrafts() {
+  try {
+    const cols = (sqlite.prepare("PRAGMA table_info(distribution_drafts)").all() as any[]).map((c: any) => c.name);
+    if (!cols.includes("tweet_id"))  sqlite.exec("ALTER TABLE distribution_drafts ADD COLUMN tweet_id TEXT;");
+    if (!cols.includes("tweet_url")) sqlite.exec("ALTER TABLE distribution_drafts ADD COLUMN tweet_url TEXT;");
+    if (!cols.includes("posted_at")) sqlite.exec("ALTER TABLE distribution_drafts ADD COLUMN posted_at TEXT;");
+  } catch (e: any) {
+    console.warn("[db] distribution_drafts migration skipped:", e.message);
+  }
+})();
+
 // Sprint 10 migration: add beta_until to users if it doesn't exist yet.
 // SQLite does not support IF NOT EXISTS on ALTER TABLE, so we check PRAGMA.
 // This is safe to run on every startup.
@@ -711,13 +723,16 @@ export class SqliteStorage implements IStorage {
     return !!row;
   }
 
-  updateDistributionDraft(id: string, data: { status?: string; copy?: string; notes?: string }): Record<string, any> | undefined {
+  updateDistributionDraft(id: string, data: { status?: string; copy?: string; notes?: string; tweet_id?: string; tweet_url?: string; posted_at?: string }): Record<string, any> | undefined {
     const ts = now();
     const sets: string[] = [];
     const vals: any[] = [];
-    if (data.status !== undefined) { sets.push(`status=?`); vals.push(data.status); }
-    if (data.copy   !== undefined) { sets.push(`copy=?`);   vals.push(data.copy); }
-    if (data.notes  !== undefined) { sets.push(`notes=?`);  vals.push(data.notes); }
+    if (data.status    !== undefined) { sets.push(`status=?`);    vals.push(data.status); }
+    if (data.copy      !== undefined) { sets.push(`copy=?`);      vals.push(data.copy); }
+    if (data.notes     !== undefined) { sets.push(`notes=?`);     vals.push(data.notes); }
+    if (data.tweet_id  !== undefined) { sets.push(`tweet_id=?`);  vals.push(data.tweet_id); }
+    if (data.tweet_url !== undefined) { sets.push(`tweet_url=?`); vals.push(data.tweet_url); }
+    if (data.posted_at !== undefined) { sets.push(`posted_at=?`); vals.push(data.posted_at); }
     if (sets.length === 0) return this.getDistributionDraft(id);
     sets.push(`updated_at=?`); vals.push(ts);
     sqlite.prepare(`UPDATE distribution_drafts SET ${sets.join(',')} WHERE id=?`).run(...vals, id);
