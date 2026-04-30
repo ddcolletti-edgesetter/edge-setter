@@ -21,6 +21,7 @@ import { ingestCFBInjuries } from "./adapters/espn-cfb";
 import { processRawEvents } from "./processor";
 import { autoSettleFinishedGames } from "./settlement";
 import { dispatchSignalAlerts } from "../alerts";
+import { recordPipelineHealth } from "../storage";
 
 let _running = false;
 
@@ -123,6 +124,10 @@ export async function runIngestionCycle(): Promise<{
     if (alertResult.dispatched > 0) {
       console.log(`[ingestion] Alerts: ${alertResult.dispatched} signals → ${alertResult.users_notified} users`);
     }
+    recordPipelineHealth("alerts", "ok", {
+      dispatched:     alertResult.dispatched,
+      users_notified: alertResult.users_notified,
+    });
 
     // ── 7. Settle any games that are now final ───────────────
     const settlement = await autoSettleFinishedGames().catch(e => {
@@ -132,6 +137,10 @@ export async function runIngestionCycle(): Promise<{
     if (settlement.signals_settled > 0) {
       console.log(`[ingestion] Settlement: ${settlement.signals_settled} signals settled across ${settlement.games_settled} games`);
     }
+    recordPipelineHealth("settlement", "ok", {
+      signals_settled: settlement.signals_settled,
+      games_settled:   settlement.games_settled,
+    });
 
     const elapsed = Date.now() - start;
     console.log(
@@ -142,6 +151,18 @@ export async function runIngestionCycle(): Promise<{
       `MLB txn: ${mlb_transactions.created}, MLB SP: ${mlb_pitchers.created}, ` +
       `processed: ${processed.processed}`
     );
+
+    recordPipelineHealth("ingestion", processed.errors > 0 ? "warning" : "ok", {
+      elapsed_ms:       elapsed,
+      nba_odds_games:   nbaOdds.games,
+      mlb_odds_games:   mlbOdds.games,
+      nfl_odds_games:   nflOdds?.games ?? 0,
+      cfb_odds_games:   cfbOdds?.games ?? 0,
+      nba_injuries:     nba_injuries.created,
+      mlb_transactions: mlb_transactions.created,
+      processed:        processed.processed,
+      errors:           processed.errors,
+    });
 
     return {
       odds: { NBA: nbaOdds, MLB: mlbOdds, NFL: nflOdds, CFB: cfbOdds },

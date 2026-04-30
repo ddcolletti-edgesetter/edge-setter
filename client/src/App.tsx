@@ -30,6 +30,7 @@ import ToolsHub from "./pages/ToolsHub";
 import MyEdge from "./pages/MyEdge";
 import V2Sources from "./pages/V2Sources";
 import AlertSettingsPage from "./pages/AlertSettingsPage";
+import OpsBoard from "./pages/OpsBoard";
 import NotFound from "./pages/not-found";
 import { SignalGateProvider } from "./context/SignalGate";
 import { AuthProvider } from "./context/AuthContext";
@@ -79,6 +80,7 @@ function App() {
           <Route path="/v2/my-edge" component={MyEdge} />
           <Route path="/v2/sources" component={V2Sources} />
           <Route path="/v2/alerts" component={AlertSettingsPage} />
+          <Route path="/admin/ops" component={() => <AdminGate><OpsBoard /></AdminGate>} />
           <Route component={NotFound} />
         </Switch>
       </Router>

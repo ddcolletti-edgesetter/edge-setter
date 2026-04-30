@@ -267,6 +267,12 @@ sqlite.exec(`
     email_sent INTEGER NOT NULL DEFAULT 0,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS pipeline_health (
+    component   TEXT PRIMARY KEY,
+    last_run_at TEXT,
+    last_status TEXT,
+    last_result TEXT
+  );
   CREATE TABLE IF NOT EXISTS alert_preferences (
     id TEXT PRIMARY KEY,
     email TEXT NOT NULL UNIQUE,
@@ -781,6 +787,39 @@ export class SqliteStorage implements IStorage {
 }
 
 export const storage = new SqliteStorage();
+
+/* ─── Pipeline Health (module-level) ─────────────────────────────────────── */
+
+export function recordPipelineHealth(
+  component: string,
+  status: "ok" | "warning" | "error",
+  result: Record<string, any>,
+): void {
+  const ts = new Date().toISOString();
+  sqlite.prepare(`
+    INSERT INTO pipeline_health (component, last_run_at, last_status, last_result)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(component) DO UPDATE SET
+      last_run_at = excluded.last_run_at,
+      last_status = excluded.last_status,
+      last_result = excluded.last_result
+  `).run(component, ts, status, JSON.stringify(result));
+}
+
+export function getAllPipelineHealth(): Array<{
+  component:   string;
+  last_run_at: string | null;
+  last_status: string | null;
+  last_result: Record<string, any>;
+}> {
+  const rows = sqlite.prepare(`SELECT * FROM pipeline_health`).all() as any[];
+  return rows.map(r => ({
+    component:   r.component,
+    last_run_at: r.last_run_at  ?? null,
+    last_status: r.last_status  ?? null,
+    last_result: r.last_result ? JSON.parse(r.last_result) : {},
+  }));
+}
 
 /* ─── Alert Preferences (module-level, used by alerts.ts) ────────────────── */
 

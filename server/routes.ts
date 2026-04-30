@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { Server } from "http";
-import { storage, getAlertPreferences, upsertAlertPreferences, getPushSubscriptions, upsertPushSubscription, deletePushSubscription } from "./storage";
+import { storage, getAlertPreferences, upsertAlertPreferences, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth } from "./storage";
 import { insertWaitlistSchema } from "@shared/schema";
 import { sendDailyDigest } from "./email";
 import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
@@ -15,6 +15,7 @@ import { sendWaitlistConfirmation, sendProWelcome, sendBillingRetryEmail } from 
 import express from "express";
 import { syncToSupabase } from "./supabase-sync";
 import { isProUser } from "@shared/pro-utils";
+import { getPipelineDb } from "./pipeline/store";
 
 export function registerRoutes(httpServer: Server, app: Express) {
   // ─── Seed demo data on startup (non-blocking) ─────────────────────────────────
@@ -905,6 +906,102 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const user = storage.getUserByEmail(email);
     if (!user) return res.status(404).json({ error: `No user found for email: ${email}` });
     return res.json({ ...user, is_pro: isProUser(user) });
+  });
+
+  /* ─── Ops Dashboard ─────────────────────────────────────────────────────────── */
+
+  app.get("/api/admin/ops-dashboard", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+
+    // Pipeline health (edge_setter.db)
+    const pipeline_health = getAllPipelineHealth();
+
+    // Signal volume by league — last 24h (pipeline.db)
+    let signal_volume: Array<{ league: string; count: number }> = [];
+    let alerts_today = 0;
+    let source_accuracy: any[] = [];
+    try {
+      const pdb = getPipelineDb();
+      const cutoff24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      signal_volume = pdb.prepare(
+        `SELECT league, COUNT(*) as count FROM live_signals WHERE created_at >= ? GROUP BY league ORDER BY count DESC`
+      ).all(cutoff24h) as any[];
+      alerts_today = (pdb.prepare(
+        `SELECT COUNT(*) as n FROM live_signals WHERE alerted_at >= ?`
+      ).get(cutoff24h) as any)?.n ?? 0;
+      source_accuracy = pdb.prepare(
+        `SELECT * FROM pipeline_source_accuracy WHERE total_signals >= 5 ORDER BY hit_rate DESC LIMIT 10`
+      ).all() as any[];
+    } catch { /* pipeline.db not yet populated — return empty */ }
+
+    // Subscriber stats (edge_setter.db)
+    const allUsers = storage.getAllUsers();
+    const activeProUsers = allUsers.filter(u =>
+      u.plan === "pro" && u.access_status === "active"
+    );
+    const betaUsers = allUsers.filter(u =>
+      u.beta_until && new Date(u.beta_until) > new Date()
+    );
+    const subscribers = {
+      active: activeProUsers.length,
+      mrr:    activeProUsers.length * 19,
+      beta:   betaUsers.length,
+    };
+
+    // Action log — merge site_watch_log anomalies + agent_logs warnings
+    const action_log: Array<{ timestamp: string; component: string; message: string; severity: string }> = [];
+    try {
+      const watchRows = (storage as any).getSiteWatchLog(20) as any[];
+      for (const row of watchRows) {
+        const anomalies: string[] = Array.isArray(row.anomalies) ? row.anomalies : [];
+        for (const a of anomalies.slice(0, 3)) {
+          action_log.push({
+            timestamp: row.run_timestamp,
+            component: "site-watch",
+            message:   typeof a === "string" ? a : JSON.stringify(a),
+            severity:  row.status === "critical" ? "error" : "warning",
+          });
+        }
+        if (row.recommended_action) {
+          action_log.push({
+            timestamp: row.run_timestamp,
+            component: "site-watch",
+            message:   row.recommended_action,
+            severity:  "info",
+          });
+        }
+      }
+    } catch { /* skip */ }
+    try {
+      const agentLogs = storage.getAgentLogs(50);
+      for (const log of agentLogs) {
+        if (log.error_state) {
+          action_log.push({
+            timestamp: log.timestamp,
+            component: log.agent_name,
+            message:   log.error_state,
+            severity:  "error",
+          });
+        } else if (log.warning_state) {
+          action_log.push({
+            timestamp: log.timestamp,
+            component: log.agent_name,
+            message:   log.warning_state,
+            severity:  "warning",
+          });
+        }
+      }
+    } catch { /* skip */ }
+    action_log.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+    return res.json({
+      pipeline_health,
+      signal_volume,
+      subscribers,
+      alerts_today,
+      source_accuracy,
+      action_log: action_log.slice(0, 20),
+    });
   });
 
   /* ─── Alert Preferences ────────────────────────────────────────────────────── */
