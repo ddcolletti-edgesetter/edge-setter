@@ -24,7 +24,7 @@ import { backfillNBASeason } from "./adapters/balldontlie-historical";
 import { backfillMLBSeason } from "./adapters/mlb-statsapi-historical";
 import { processRawEvents } from "./processor";
 import { settleGame, computeSourceAccuracy } from "./settlement";
-import { getSettleable, getAllBackfillProgress } from "./store";
+import { getSettleable, getAllBackfillProgress, resetBackfillPhases } from "./store";
 import type { BackfillPhase } from "./store";
 
 export type { BackfillPhase };
@@ -38,6 +38,7 @@ export interface BackfillOptions {
   mlb?: { seasons?: (2025 | 2026)[] };
   skipProcessing?: boolean;   // skip processRawEvents (useful for game-only runs)
   skipSettlement?: boolean;   // skip settlement (useful for ingestion-only runs)
+  resetPhases?: string[];     // league names to clear before running, e.g. ["MLB"]
 }
 
 export interface BackfillSummary {
@@ -84,7 +85,10 @@ export async function runFullBackfill(options: BackfillOptions = {}): Promise<Ba
   const nbaResult = { games: 0 };
   const mlbResult = { games: 0, transactions: 0 };
 
+  const reset = (options.resetPhases ?? []).map(l => l.toUpperCase());
+
   // ── NFL ────────────────────────────────────────────────
+  if (reset.includes("NFL")) resetBackfillPhases("NFL");
   console.log("[backfill] Starting NFL backfill...");
   for (const season of nflSeasons) {
     try {
@@ -99,6 +103,7 @@ export async function runFullBackfill(options: BackfillOptions = {}): Promise<Ba
   }
 
   // ── CFB ────────────────────────────────────────────────
+  if (reset.includes("CFB")) resetBackfillPhases("CFB");
   console.log("[backfill] Starting CFB backfill...");
   for (const season of cfbSeasons) {
     try {
@@ -113,6 +118,7 @@ export async function runFullBackfill(options: BackfillOptions = {}): Promise<Ba
   }
 
   // ── NBA ────────────────────────────────────────────────
+  if (reset.includes("NBA")) resetBackfillPhases("NBA");
   console.log("[backfill] Starting NBA backfill...");
   for (const season of nbaSeasons) {
     try {
@@ -127,6 +133,7 @@ export async function runFullBackfill(options: BackfillOptions = {}): Promise<Ba
   }
 
   // ── MLB ────────────────────────────────────────────────
+  if (reset.includes("MLB")) resetBackfillPhases("MLB");
   console.log("[backfill] Starting MLB backfill...");
   for (const season of mlbSeasons) {
     try {

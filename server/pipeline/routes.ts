@@ -559,14 +559,15 @@ export function registerPipelineRoutes(app: Express) {
    *   "nba":  { "seasons": ["2024-25", "2025-26"] },
    *   "mlb":  { "seasons": [2025, 2026] },
    *   "skipProcessing": false,
-   *   "skipSettlement": false
+   *   "skipSettlement": false,
+   *   "resetPhases": ["MLB"]   // clear phase records before running (forces re-run)
    * }
    */
   app.post("/api/pipeline/backfill", async (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
     try {
-      const { nfl, cfb, nba, mlb, skipProcessing, skipSettlement } = req.body ?? {};
-      const result = await runFullBackfill({ nfl, cfb, nba, mlb, skipProcessing, skipSettlement });
+      const { nfl, cfb, nba, mlb, skipProcessing, skipSettlement, resetPhases } = req.body ?? {};
+      const result = await runFullBackfill({ nfl, cfb, nba, mlb, skipProcessing, skipSettlement, resetPhases });
       return res.json({ success: result.errors.length === 0, ...result });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });

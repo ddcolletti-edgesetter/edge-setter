@@ -559,6 +559,11 @@ export function getAllBackfillProgress(): BackfillPhase[] {
   return db.prepare("SELECT * FROM backfill_progress ORDER BY created_at DESC").all() as BackfillPhase[];
 }
 
+export function resetBackfillPhases(league: string): void {
+  const db = getPipelineDb();
+  db.prepare("DELETE FROM backfill_progress WHERE league=?").run(league);
+}
+
 /* ─── Calibration weight CRUD ────────────────────────────── */
 
 export interface CalibrationWeight {
