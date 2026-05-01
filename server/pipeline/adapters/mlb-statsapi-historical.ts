@@ -97,7 +97,7 @@ function dateChunks(startDate: string, endDate: string, chunkDays = 30): Array<[
 async function fetchScheduleChunk(startDate: string, endDate: string): Promise<MLBGame[]> {
   try {
     const url = `${BASE_URL}/schedule?sportId=1&startDate=${startDate}&endDate=${endDate}`
-      + `&hydrate=linescore,probablePitcher&gameType=R,F,D,L,W`;
+      + `&hydrate=team,linescore,probablePitcher&gameType=R,F,D,L,W`;
     const resp = await fetch(url);
     if (!resp.ok) {
       console.warn(`[mlb-hist] HTTP ${resp.status} schedule ${startDate}–${endDate}`);
