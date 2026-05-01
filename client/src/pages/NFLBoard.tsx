@@ -13,6 +13,7 @@ import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProG
 import OutcomePanel from "../components/OutcomePanel";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { TeamLogoImg, PlayerHeadshot } from "../components/v2/SportVisuals";
+import SignalImpactPanel from "../components/signals/SignalImpactPanel";
 
 /* ── NFL team logo URLs (ESPN CDN) ── */
 const NFL_LOGO_URLS: Record<string, string> = {
@@ -301,6 +302,9 @@ function NFLDetailPanel({ sig, onClose, TH, darkMode }: { sig: NFLSignal; onClos
             {sig.why_it_matters}
           </div>
         </div>
+
+        {/* Impact Overview */}
+        <SignalImpactPanel signal={sig} darkMode={darkMode} />
 
         {/* Action */}
         <ProActionGate sport="NFL" actionText={sig.action_takeaway} darkMode={darkMode}>

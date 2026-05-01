@@ -13,6 +13,7 @@ import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProG
 import OutcomePanel from "../components/OutcomePanel";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { TeamLogoImg } from "../components/v2/SportVisuals";
+import SignalImpactPanel from "../components/signals/SignalImpactPanel";
 
 /* ── CFB team logo URLs (ESPN NCAA CDN, numeric IDs) ── */
 const CFB_LOGO_URLS: Record<string, string> = {
@@ -228,6 +229,9 @@ function CFBDetailPanel({ sig, onClose, TH, darkMode }: {
             {sig.why_it_matters}
           </div>
         </div>
+
+        {/* Impact Overview */}
+        <SignalImpactPanel signal={sig} darkMode={darkMode} />
 
         {/* Action — Pro gated */}
         <ProActionGate sport="CFB" actionText={sig.action_takeaway} darkMode={darkMode}>

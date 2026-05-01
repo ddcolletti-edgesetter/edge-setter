@@ -14,6 +14,7 @@ import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
 import OutcomePanel from "../components/OutcomePanel";
 import TrackRecordStrip from "../components/TrackRecordStrip";
+import SignalImpactPanel from "../components/signals/SignalImpactPanel";
 
 const MLB_FILTERS = ["Today", "Pitchers", "Lineup", "Props", "Trends", "Line Moves"] as const;
 type MLBFilter = typeof MLB_FILTERS[number];
@@ -215,6 +216,8 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
           <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 4 }}>Why It Matters</div>
           <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.65 }}>{sig.why_it_matters}</div>
         </div>
+
+        <SignalImpactPanel signal={sig} darkMode={darkMode} />
 
         <ProActionGate sport="MLB" actionText={sig.action_takeaway} darkMode={darkMode}>
           <div style={{ background: "rgba(74,168,200,0.07)", border: `1px solid rgba(74,168,200,0.22)`, borderRadius: 4, padding: "10px 12px" }}>
