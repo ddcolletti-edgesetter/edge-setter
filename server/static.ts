@@ -12,6 +12,12 @@ export function serveStatic(app: Express) {
 
   app.use(express.static(distPath));
 
+  // API routes that reach this point have no handler — return JSON 404 instead
+  // of silently serving the React app, which would mask backend routing errors.
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ message: "API endpoint not found" });
+  });
+
   // fall through to index.html if the file doesn't exist
   app.use("/{*path}", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));

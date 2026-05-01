@@ -31,6 +31,10 @@ export async function setupVite(server: Server, app: Express) {
 
   app.use(vite.middlewares);
 
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ message: "API endpoint not found" });
+  });
+
   app.use("/{*path}", async (req, res, next) => {
     const url = req.originalUrl;
 
