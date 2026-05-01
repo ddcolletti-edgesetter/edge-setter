@@ -574,12 +574,12 @@ export function registerPipelineRoutes(app: Express) {
   });
 
   /**
-   * GET /api/pipeline/backfill/status
+   * GET /api/pipeline/backfill-status
    *
    * Returns the current state of each backfill phase.
    * No auth required — read-only progress display.
    */
-  app.get("/api/pipeline/backfill/status", (_req: Request, res: Response) => {
+  app.get("/api/pipeline/backfill-status", (_req: Request, res: Response) => {
     try {
       const phases = getBackfillStatus();
       const summary = {
