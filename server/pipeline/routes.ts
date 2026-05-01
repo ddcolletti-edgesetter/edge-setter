@@ -28,7 +28,7 @@ import {
   getLiveSignals, getLiveSignal,
   getGames, getRawEvents, insertRawEvent,
   createOutcome, getOutcomes,
-  getTrackRecord,
+  getTrackRecord, getPipelineDb,
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
@@ -36,6 +36,8 @@ import { ingestNFLInjuries } from "./adapters/espn-nfl";
 import { ingestCFBInjuries } from "./adapters/espn-cfb";
 import { ingestOdds } from "./adapters/the-odds-api";
 import { settleGame, autoSettleFinishedGames, computeSourceAccuracy } from "./settlement";
+import { runFullBackfill, getBackfillStatus } from "./backfill";
+import { runCalibration, getStoredCalibration } from "./calibration";
 import type { League, RawEventType } from "./types";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
@@ -533,6 +535,129 @@ export function registerPipelineRoutes(app: Express) {
     try {
       computeSourceAccuracy();
       return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════
+     BACKFILL — admin-gated
+     ══════════════════════════════════════════════════════ */
+
+  /**
+   * POST /api/pipeline/backfill
+   *
+   * Trigger the full historical backfill.
+   * Re-entrant: completed phases are skipped automatically.
+   * This is a long-running operation (~5–20 min for full backfill).
+   *
+   * Body (all optional — defaults run all seasons):
+   * {
+   *   "password": "...",
+   *   "nfl":  { "seasons": [2024, 2025] },
+   *   "cfb":  { "seasons": [2024, 2025] },
+   *   "nba":  { "seasons": ["2024-25", "2025-26"] },
+   *   "mlb":  { "seasons": [2025, 2026] },
+   *   "skipProcessing": false,
+   *   "skipSettlement": false
+   * }
+   */
+  app.post("/api/pipeline/backfill", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const { nfl, cfb, nba, mlb, skipProcessing, skipSettlement } = req.body ?? {};
+      const result = await runFullBackfill({ nfl, cfb, nba, mlb, skipProcessing, skipSettlement });
+      return res.json({ success: result.errors.length === 0, ...result });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/pipeline/backfill/status
+   *
+   * Returns the current state of each backfill phase.
+   * No auth required — read-only progress display.
+   */
+  app.get("/api/pipeline/backfill/status", (_req: Request, res: Response) => {
+    try {
+      const phases = getBackfillStatus();
+      const summary = {
+        total: phases.length,
+        done: phases.filter(p => p.status === "done").length,
+        running: phases.filter(p => p.status === "running").length,
+        error: phases.filter(p => p.status === "error").length,
+        pending: phases.filter(p => p.status === "pending").length,
+      };
+      return res.json({ summary, phases });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════
+     CALIBRATION — admin-gated
+     ══════════════════════════════════════════════════════ */
+
+  /**
+   * POST /api/pipeline/calibrate
+   *
+   * Run the calibration engine against all settled outcomes.
+   * Returns a CalibrationReport with component correlations and suggested weights.
+   * Suggested weights are NOT auto-applied — review before changing scorer.ts.
+   *
+   * Body: { "password": "..." }
+   */
+  app.post("/api/pipeline/calibrate", (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const report = runCalibration();
+      return res.json({ success: true, report });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/stats/accuracy-ledger
+   *
+   * Full accuracy ledger: hit rates and CLV by league, signal_type, and (optionally) season.
+   * Sourced from the pipeline_source_accuracy table, populated by computeSourceAccuracy().
+   *
+   * Query params:
+   *   league — filter to a specific league (NBA | MLB | NFL | CFB)
+   *
+   * No auth required — display-only.
+   */
+  app.get("/api/stats/accuracy-ledger", (req: Request, res: Response) => {
+    try {
+      const { league } = req.query as { league?: string };
+      const db = getPipelineDb();
+
+      const conds: string[] = [];
+      const params: unknown[] = [];
+      if (league) {
+        const valid = ["NBA", "MLB", "NFL", "CFB"];
+        if (!valid.includes(league.toUpperCase())) {
+          return res.status(400).json({ error: `league must be one of: ${valid.join(", ")}` });
+        }
+        conds.push("league = ?");
+        params.push(league.toUpperCase());
+      }
+      const where = conds.length ? `WHERE ${conds.join(" AND ")}` : "";
+
+      const rows = db.prepare(
+        `SELECT * FROM pipeline_source_accuracy ${where} ORDER BY league, signal_type NULLS FIRST`
+      ).all(...params) as any[];
+
+      const calibration = getStoredCalibration();
+
+      return res.json({
+        count: rows.length,
+        ledger: rows,
+        calibration_available: calibration.length > 0,
+        calibration_computed_at: calibration[0]?.computed_at ?? null,
+      });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

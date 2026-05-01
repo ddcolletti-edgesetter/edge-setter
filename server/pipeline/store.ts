@@ -53,6 +53,29 @@ function addColumnIfMissing(db: Database.Database, table: string, column: string
 
 function initSchema(db: Database.Database) {
   db.exec(`
+    CREATE TABLE IF NOT EXISTS backfill_progress (
+      id            TEXT PRIMARY KEY,   -- "{league}|{season}|{phase}"
+      league        TEXT NOT NULL,
+      season        TEXT NOT NULL,
+      phase         TEXT NOT NULL,
+      status        TEXT NOT NULL DEFAULT 'pending',
+      records_inserted INTEGER NOT NULL DEFAULT 0,
+      error         TEXT,
+      started_at    TEXT,
+      completed_at  TEXT,
+      created_at    TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS calibration_weights (
+      id            TEXT PRIMARY KEY,   -- "{weight_type}|{league}"
+      league        TEXT NOT NULL,
+      seasons       TEXT NOT NULL DEFAULT '[]',
+      weight_type   TEXT NOT NULL,
+      weights       TEXT NOT NULL DEFAULT '{}',
+      sample_size   INTEGER NOT NULL DEFAULT 0,
+      computed_at   TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS games (
       id              TEXT PRIMARY KEY,
       league          TEXT NOT NULL,
@@ -183,6 +206,35 @@ export function upsertGame(g: Omit<Game, "created_at" | "updated_at"> & Partial<
   return game;
 }
 
+/**
+ * Insert or update a historical game that already has a final score.
+ * Unlike upsertGame, this also persists home_score/away_score and status on conflict.
+ */
+export function upsertHistoricalGame(g: Omit<Game, "created_at" | "updated_at">): Game {
+  const db = getPipelineDb();
+  const now = new Date().toISOString();
+  const game: Game = { ...g, created_at: now, updated_at: now };
+  db.prepare(`
+    INSERT INTO games (id,league,home_team,away_team,game_time,status,
+      spread_line,spread_team,total_line,moneyline_home,moneyline_away,
+      open_spread,open_total,home_score,away_score,source_game_id,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET
+      status=excluded.status,
+      home_score=excluded.home_score,
+      away_score=excluded.away_score,
+      spread_line=COALESCE(excluded.spread_line, spread_line),
+      updated_at=excluded.updated_at
+  `).run(
+    game.id, game.league, game.home_team, game.away_team, game.game_time,
+    game.status, game.spread_line, game.spread_team, game.total_line,
+    game.moneyline_home, game.moneyline_away, game.open_spread, game.open_total,
+    game.home_score, game.away_score, game.source_game_id,
+    game.created_at, game.updated_at,
+  );
+  return game;
+}
+
 export function getGames(league?: string): Game[] {
   const db = getPipelineDb();
   const rows = league
@@ -269,9 +321,12 @@ export function getCompletedUnfinalGames(hoursAfterGameTime = 4): any[] {
 
 /* ─── RawEvent CRUD ─────────────────────────────────────── */
 
-export function insertRawEvent(e: Omit<RawEvent, "id" | "created_at" | "received_at" | "processed" | "processed_at">): RawEvent {
+export function insertRawEvent(
+  e: Omit<RawEvent, "id" | "created_at" | "received_at" | "processed" | "processed_at">,
+  opts?: { eventTime?: string },  // override timestamps for historical backfill
+): RawEvent {
   const db = getPipelineDb();
-  const now = new Date().toISOString();
+  const now = opts?.eventTime ?? new Date().toISOString();
   const raw: RawEvent = {
     id: randomUUID(),
     ...e,
@@ -448,6 +503,109 @@ export function getOutcomes(signal_id?: string): Outcome[] {
     ? db.prepare("SELECT * FROM outcomes WHERE signal_id=? ORDER BY created_at DESC").all(signal_id)
     : db.prepare("SELECT * FROM outcomes ORDER BY created_at DESC LIMIT 200").all();
   return (rows as any[]).map(r => ({ ...r, hit: r.hit === null ? null : r.hit === 1 }));
+}
+
+/* ─── Backfill progress CRUD ─────────────────────────────── */
+
+export interface BackfillPhase {
+  id: string;
+  league: string;
+  season: string;
+  phase: string;
+  status: "pending" | "running" | "done" | "error";
+  records_inserted: number;
+  error: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+}
+
+export function markBackfillPhase(
+  league: string,
+  season: string,
+  phase: string,
+  status: "running" | "done" | "error",
+  meta?: { records?: number; error?: string },
+): void {
+  const db = getPipelineDb();
+  const id = `${league}|${season}|${phase}`;
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO backfill_progress (id,league,season,phase,status,records_inserted,error,started_at,completed_at,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET
+      status=excluded.status,
+      records_inserted=CASE WHEN excluded.records_inserted > 0 THEN excluded.records_inserted ELSE records_inserted END,
+      error=excluded.error,
+      started_at=CASE WHEN excluded.status='running' THEN excluded.started_at ELSE started_at END,
+      completed_at=CASE WHEN excluded.status IN ('done','error') THEN excluded.completed_at ELSE NULL END
+  `).run(
+    id, league, season, phase, status,
+    meta?.records ?? 0, meta?.error ?? null,
+    status === "running" ? now : null,
+    status === "done" || status === "error" ? now : null,
+    now,
+  );
+}
+
+export function getBackfillPhase(league: string, season: string, phase: string): BackfillPhase | null {
+  const db = getPipelineDb();
+  const id = `${league}|${season}|${phase}`;
+  return (db.prepare("SELECT * FROM backfill_progress WHERE id=?").get(id) as BackfillPhase) ?? null;
+}
+
+export function getAllBackfillProgress(): BackfillPhase[] {
+  const db = getPipelineDb();
+  return db.prepare("SELECT * FROM backfill_progress ORDER BY created_at DESC").all() as BackfillPhase[];
+}
+
+/* ─── Calibration weight CRUD ────────────────────────────── */
+
+export interface CalibrationWeight {
+  id: string;
+  league: string;
+  seasons: string[];
+  weight_type: string;
+  weights: Record<string, number>;
+  sample_size: number;
+  computed_at: string;
+}
+
+export function upsertCalibrationWeights(
+  league: string,
+  weightType: string,
+  weights: Record<string, number>,
+  seasons: string[],
+  sampleSize: number,
+): void {
+  const db = getPipelineDb();
+  const id = `${weightType}|${league}`;
+  db.prepare(`
+    INSERT INTO calibration_weights (id,league,seasons,weight_type,weights,sample_size,computed_at)
+    VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET
+      seasons=excluded.seasons,
+      weights=excluded.weights,
+      sample_size=excluded.sample_size,
+      computed_at=excluded.computed_at
+  `).run(
+    id, league, JSON.stringify(seasons), weightType,
+    JSON.stringify(weights), sampleSize, new Date().toISOString(),
+  );
+}
+
+export function getCalibrationWeights(league: string, weightType: string): CalibrationWeight | null {
+  const db = getPipelineDb();
+  const id = `${weightType}|${league}`;
+  const row = db.prepare("SELECT * FROM calibration_weights WHERE id=?").get(id) as any;
+  if (!row) return null;
+  return { ...row, seasons: JSON.parse(row.seasons ?? "[]"), weights: JSON.parse(row.weights ?? "{}") };
+}
+
+export function getAllCalibrationWeights(): CalibrationWeight[] {
+  const db = getPipelineDb();
+  const rows = db.prepare("SELECT * FROM calibration_weights ORDER BY computed_at DESC").all() as any[];
+  return rows.map(r => ({ ...r, seasons: JSON.parse(r.seasons ?? "[]"), weights: JSON.parse(r.weights ?? "{}") }));
 }
 
 /* ─── Track Record aggregates ────────────────────────────── */
