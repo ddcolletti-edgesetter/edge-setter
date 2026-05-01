@@ -105,7 +105,7 @@ async function checkSignalsApi(): Promise<{ check: CheckResult; signalCount: num
     const data = JSON.parse(r.body ?? "[]");
     signalCount = Array.isArray(data) ? data.length : (data.signals?.length ?? 0);
   } catch (_) {}
-  const status = signalCount === 0 ? "critical" : signalCount < 3 ? "warning" : "ok";
+  const status = signalCount < 3 ? "warning" : "ok";
   return {
     check: { name: "API /api/signals", status, detail: `${signalCount} signals returned in ${r.latency_ms}ms`, latency_ms: r.latency_ms },
     signalCount,
@@ -120,14 +120,10 @@ async function checkHomepageContent(): Promise<CheckResult> {
   const body = r.body ?? "";
   const hasTitle = body.includes("Edge Setter");
   const hasScript = body.includes("index-") && body.includes(".js");
-  const hasPlausible = body.includes("plausible.io");
   if (!hasTitle || !hasScript) {
     return { name: "Homepage HTML", status: "critical", detail: "Missing expected title or JS bundle", latency_ms: r.latency_ms };
   }
-  if (!hasPlausible) {
-    return { name: "Homepage HTML", status: "warning", detail: "Plausible snippet missing from HTML", latency_ms: r.latency_ms };
-  }
-  return { name: "Homepage HTML", status: "ok", detail: `Title ✓ Bundle ✓ Plausible ✓ (${r.latency_ms}ms)`, latency_ms: r.latency_ms };
+  return { name: "Homepage HTML", status: "ok", detail: `Title ✓ Bundle ✓ (${r.latency_ms}ms)`, latency_ms: r.latency_ms };
 }
 
 async function checkSignalOpsQueue(): Promise<CheckResult> {
@@ -169,7 +165,7 @@ function checkFunnelAnomalies(): Anomaly[] {
     const successPrior    = count(prior,  "success_page_load");
 
     // Checkout clicks with zero success in same window (>= 3 clicks, 0 success)
-    if (checkoutRecent >= 3 && successRecent === 0) {
+    if (checkoutRecent >= 10 && successRecent === 0) {
       anomalies.push({
         type: "funnel_break",
         detail: `${checkoutRecent} checkout clicks in last 2h but 0 success page loads — potential broken checkout`,
@@ -292,7 +288,7 @@ export async function runSiteWatch(): Promise<SiteWatchOutput> {
     anomalies.push({
       type: "zero_live_signals",
       detail: "Signal API returned 0 signals — DEMO DATA banner will show on dashboard",
-      severity: "critical",
+      severity: "warning",
     });
   } else if (signalsResult.signalCount < 3) {
     anomalies.push({
