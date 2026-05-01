@@ -135,6 +135,7 @@ function processGame(game: MLBGame): { game_id: string | null; isNew: boolean } 
   const raw = game as any;
   const homeAbbr = game.teams.home.team.abbreviation;
   const awayAbbr = game.teams.away.team.abbreviation;
+  if (!homeAbbr || !awayAbbr) return { game_id: null, isNew: false };
   const gameDate = game.gameDate.slice(0, 10);
   const gameId = `mlb_${game.gamePk}`;
 
