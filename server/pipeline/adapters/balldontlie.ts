@@ -4,7 +4,7 @@
  * Source: https://www.balldontlie.io  (free tier, no key required for basic endpoints)
  * Provides: player injury reports, game status, player stats
  *
- * Env: BALLDONTLIE_API_KEY  (optional — free tier works without)
+ * Env: BALLDONTLIE_API_KEY  (required — v1 API requires a key even on free tier)
  *
  * Fetches active NBA injuries and normalizes them into RawEvents
  * of type "injury_update".
@@ -14,6 +14,10 @@ import { insertRawEvent, getRawEvents } from "../store";
 
 const BASE_URL = "https://api.balldontlie.io/v1";
 const API_KEY  = process.env.BALLDONTLIE_API_KEY ?? "";
+
+if (!API_KEY) {
+  console.warn("[balldontlie] BALLDONTLIE_API_KEY is not set — all requests will return HTTP 401. Get a free key at https://www.balldontlie.io");
+}
 
 interface BDLInjury {
   id: number;

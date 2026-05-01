@@ -1,8 +1,8 @@
 /**
  * Distribution Draft Agent — Phase 2
  *
- * Converts approved/live signals into channel-specific copy drafts
- * for human review. Does NOT auto-post to any external platform.
+ * Converts approved/live signals into channel-specific copy drafts.
+ * Auto-posts to X/Twitter when confidence ≥ 95 and Twitter credentials are set.
  *
  * Pipeline:
  *   1. Fetch — load eligible live signals (is_public=1, not already drafted)
@@ -20,6 +20,7 @@
 
 import { storage } from "./storage";
 import { postTweet, canAutoPost } from "./twitter";
+import { getLiveSignals } from "./pipeline/store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -172,13 +173,47 @@ export async function runDistributionDraft(
 
   agentLog("Start", runId, runId, `Run started${options.signalId ? ` for signal ${options.signalId}` : " (batch)"}`);
 
+  // Warn early if Twitter credentials are missing — explains why auto-posts won't fire
+  if (!canAutoPost()) {
+    const missing = [
+      !process.env.TWITTER_API_KEY       && "TWITTER_API_KEY",
+      !process.env.TWITTER_API_SECRET    && "TWITTER_API_SECRET",
+      !process.env.TWITTER_ACCESS_TOKEN  && "TWITTER_ACCESS_TOKEN",
+      !process.env.TWITTER_ACCESS_SECRET && "TWITTER_ACCESS_SECRET",
+    ].filter(Boolean).join(", ");
+    logLines.push(`[AutoPost] Twitter credentials not configured (${missing}) — auto-posting disabled for this run`);
+    console.warn(`[distribution-draft] Auto-posting disabled: missing env vars: ${missing}`);
+  }
+
   // ── Stage 1: Fetch eligible signals ─────────────────────────────────────────
   let signals: Record<string, any>[];
   if (options.signalId) {
     const s = (storage as any).getSignal(options.signalId);
     signals = s ? [s] : [];
   } else {
-    signals = ((storage as any).getSignals(true) as Record<string, any>[]).slice(0, 50);
+    // Legacy curated signals (signals table)
+    const legacySignals = ((storage as any).getSignals(true) as Record<string, any>[]).slice(0, 50);
+
+    // Pipeline live signals (live_signals table) — normalize field names to match legacy shape
+    const pipelineSignals = getLiveSignals({ limit: 50 })
+      .filter(s => s.score >= 82) // Elite (≥82) or Strong (≥65) — focus on high-value signals
+      .map(s => ({
+        id: s.id,
+        signal_type: s.signal_type,
+        confidence_score: s.score,    // use computed score as the confidence proxy
+        source_count: s.source_count,
+        player_name: null,
+        player: s.player,
+        team: s.team,
+        title: s.headline,
+        normalized_headline: s.headline,
+        summary: s.body,
+        verdict: s.verdict,
+        action_takeaway: s.action_note,
+        _source: "pipeline" as const,
+      }));
+
+    signals = [...legacySignals, ...pipelineSignals];
   }
 
   logLines.push(`[Fetch] ${signals.length} live signal(s) found`);
@@ -238,6 +273,9 @@ export async function runDistributionDraft(
           `Draft queued: channel=${channel} signal=${sig.id}`);
 
         // ── Stage 5: Auto-post if channel=x and confidence ≥ 95 ──────────────
+        if (channel === "x" && (sig.confidence_score ?? 0) >= 95 && !canAutoPost()) {
+          logLines.push(`[AutoPost] Signal ${sig.id} score=${sig.confidence_score} qualifies for auto-post but Twitter credentials are not configured — set TWITTER_API_KEY/SECRET/ACCESS_TOKEN/ACCESS_SECRET to enable`);
+        }
         if (channel === "x" && (sig.confidence_score ?? 0) >= 95 && canAutoPost()) {
           logLines.push(`[AutoPost] Signal ${sig.id} score=${sig.confidence_score} — attempting auto-post`);
           try {
