@@ -53,44 +53,76 @@ export interface DistributionDraftRunResult {
 
 // ─── Copy generators ──────────────────────────────────────────────────────────
 
-/**
- * X post: ≤280 chars, signal-first, no hype.
- * Format: "[VERDICT] Player — Type signal. Confidence N%. Source count."
- */
-function generateXCopy(signal: Record<string, any>): string {
-  const verdictEmoji: Record<string, string> = {
-    confirmed: "✅",
-    likely:    "🔵",
-    rumor:     "⚪",
-    review:    "🔍",
-    contradicted: "❌",
-  };
-  const emoji = verdictEmoji[signal.verdict] ?? "⚪";
-  const type  = (signal.signal_type ?? "signal").replace(/_/g, " ");
-  const conf  = signal.confidence_score ?? 0;
+// Cut at the last sentence end (. ! ?) within max, then word boundary, then hard cut.
+function truncateAtBoundary(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const slice = text.slice(0, max);
+  const sentenceEnd = Math.max(
+    slice.lastIndexOf(". "),
+    slice.lastIndexOf("! "),
+    slice.lastIndexOf("? "),
+  );
+  if (sentenceEnd > max * 0.5) return text.slice(0, sentenceEnd + 1).trim();
+  const wordEnd = slice.lastIndexOf(" ");
+  if (wordEnd > 0) return slice.slice(0, wordEnd) + "…";
+  return slice + "…";
+}
+
+const VERDICT_EMOJI: Record<string, string> = {
+  confirmed: "✅",
+  likely:    "🔵",
+  rumor:     "⚪",
+  review:    "🔍",
+  contradicted: "❌",
+};
+
+function signalMeta(signal: Record<string, any>) {
+  const type    = (signal.signal_type ?? "signal").replace(/_/g, " ");
+  const conf    = signal.confidence_score ?? 0;
   const sources = signal.source_count ?? 1;
-  const player = signal.player_name ?? signal.player ?? "Unknown";
-  const team   = signal.team ?? "";
-
-  // Title line
-  const title = signal.title ?? signal.normalized_headline ?? "";
-  const titleClean = title.length > 120 ? title.slice(0, 117) + "…" : title;
-
-  // Summary line (truncated)
-  const summary = (signal.summary ?? "").slice(0, 80);
-
+  const team    = signal.team ?? "";
   const teamStr = team && team !== "Unknown" ? ` · ${team}` : "";
   const srcStr  = sources > 1 ? `${sources} sources` : "1 source";
+  const typeStr = type.charAt(0).toUpperCase() + type.slice(1);
+  return { typeStr, conf, srcStr, teamStr };
+}
+
+/**
+ * X post: ≤280 chars, signal-first, no hype.
+ */
+function generateXCopy(signal: Record<string, any>): string {
+  const emoji = VERDICT_EMOJI[signal.verdict] ?? "⚪";
+  const { typeStr, conf, srcStr, teamStr } = signalMeta(signal);
+
+  const title   = signal.title ?? signal.normalized_headline ?? "";
+  const titleClean = truncateAtBoundary(title, 120);
+  const summary = truncateAtBoundary(signal.summary ?? "", 80);
 
   let copy = `${emoji} ${titleClean}\n\n`;
   if (summary && summary !== titleClean) copy += `${summary}\n\n`;
-  copy += `${type.charAt(0).toUpperCase() + type.slice(1)} · ${conf}% confidence · ${srcStr}${teamStr}\n`;
+  copy += `${typeStr} · ${conf}% confidence · ${srcStr}${teamStr}\n`;
   copy += `#NFL #EdgeSetter`;
 
-  // Hard cap at 280
-  if (copy.length > 280) {
-    copy = copy.slice(0, 277) + "…";
-  }
+  if (copy.length > 280) copy = truncateAtBoundary(copy, 280);
+
+  return copy.trim();
+}
+
+/**
+ * Discord / Telegram post: same format as X but no character limit —
+ * full title and summary, no mid-sentence truncation.
+ */
+function generateSocialCopy(signal: Record<string, any>): string {
+  const emoji = VERDICT_EMOJI[signal.verdict] ?? "⚪";
+  const { typeStr, conf, srcStr, teamStr } = signalMeta(signal);
+
+  const title   = signal.title ?? signal.normalized_headline ?? "";
+  const summary = signal.summary ?? "";
+
+  let copy = `${emoji} ${title}\n\n`;
+  if (summary && summary !== title) copy += `${summary}\n\n`;
+  copy += `${typeStr} · ${conf}% confidence · ${srcStr}${teamStr}\n`;
+  copy += `#NFL #EdgeSetter`;
 
   return copy.trim();
 }
@@ -247,11 +279,11 @@ export async function runDistributionDraft(
           headline = `X post — ${player}`;
           notes    = `Auto-generated X post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
         } else if (channel === "discord") {
-          copy     = generateXCopy(sig);
+          copy     = generateSocialCopy(sig);
           headline = `Discord post — ${player}`;
           notes    = `Auto-generated Discord post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
         } else if (channel === "telegram") {
-          copy     = generateXCopy(sig);
+          copy     = generateSocialCopy(sig);
           headline = `Telegram post — ${player}`;
           notes    = `Auto-generated Telegram post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
         } else {
