@@ -20,11 +20,13 @@
 
 import { storage } from "./storage";
 import { postTweet, canAutoPost } from "./twitter";
+import { postToDiscord, canPostDiscord } from "./discord";
+import { postToTelegram, canPostTelegram } from "./telegram";
 import { getLiveSignals } from "./pipeline/store";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type DraftChannel = "x" | "reddit";
+export type DraftChannel = "x" | "reddit" | "discord" | "telegram";
 export type DraftStatus = "draft" | "review_required" | "approved" | "rejected" | "posted";
 
 export interface DistributionDraft {
@@ -219,7 +221,7 @@ export async function runDistributionDraft(
   logLines.push(`[Fetch] ${signals.length} live signal(s) found`);
   agentLog("Fetch", runId, runId, `${signals.length} signals eligible`);
 
-  const channels: DraftChannel[] = ["x", "reddit"];
+  const channels: DraftChannel[] = ["x", "reddit", "discord", "telegram"];
 
   for (const sig of signals) {
     for (const channel of channels) {
@@ -239,13 +241,22 @@ export async function runDistributionDraft(
       let notes: string;
 
       try {
+        const player = (sig.player_name ?? sig.player ?? "Unknown").slice(0, 40);
         if (channel === "x") {
           copy     = generateXCopy(sig);
-          headline = `X post — ${(sig.player_name ?? sig.player ?? "Unknown").slice(0, 40)}`;
+          headline = `X post — ${player}`;
           notes    = `Auto-generated X post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
+        } else if (channel === "discord") {
+          copy     = generateXCopy(sig);
+          headline = `Discord post — ${player}`;
+          notes    = `Auto-generated Discord post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
+        } else if (channel === "telegram") {
+          copy     = generateXCopy(sig);
+          headline = `Telegram post — ${player}`;
+          notes    = `Auto-generated Telegram post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
         } else {
           copy     = generateRedditCopy(sig);
-          headline = `Reddit post — ${(sig.player_name ?? sig.player ?? "Unknown").slice(0, 40)}`;
+          headline = `Reddit post — ${player}`;
           notes    = `Auto-generated Reddit post. Review tone and accuracy before approving.`;
         }
         agentLog("Generate", sig.id, runId,
@@ -272,31 +283,82 @@ export async function runDistributionDraft(
         agentLog("Queue", sig.id, draft.id,
           `Draft queued: channel=${channel} signal=${sig.id}`);
 
-        // ── Stage 5: Auto-post if channel=x and confidence ≥ 95 ──────────────
-        if (channel === "x" && (sig.confidence_score ?? 0) >= 95 && !canAutoPost()) {
-          logLines.push(`[AutoPost] Signal ${sig.id} score=${sig.confidence_score} qualifies for auto-post but Twitter credentials are not configured — set TWITTER_API_KEY/SECRET/ACCESS_TOKEN/ACCESS_SECRET to enable`);
-        }
-        if (channel === "x" && (sig.confidence_score ?? 0) >= 95 && canAutoPost()) {
-          logLines.push(`[AutoPost] Signal ${sig.id} score=${sig.confidence_score} — attempting auto-post`);
-          try {
-            const tweet = await postTweet(copy);
-            if (tweet) {
-              (storage as any).updateDistributionDraft(draft.id, {
-                status:    "posted",
-                tweet_id:  tweet.id,
-                tweet_url: tweet.url,
-                posted_at: new Date().toISOString(),
-                notes:     notes + ` | Auto-posted at ${new Date().toISOString()}.`,
-              });
-              logLines.push(`[AutoPost] Posted tweet ${tweet.id} → ${tweet.url}`);
-              agentLog("AutoPost", sig.id, draft.id,
-                `Auto-posted tweet ${tweet.id} for signal ${sig.id} (score=${sig.confidence_score})`);
-            } else {
-              logLines.push(`[AutoPost] Post returned null — draft stays in queue`);
+        // ── Stage 5: Auto-post if confidence ≥ 95 ────────────────────────────
+        const score = sig.confidence_score ?? 0;
+
+        if (channel === "x" && score >= 95) {
+          if (!canAutoPost()) {
+            logLines.push(`[AutoPost/X] Signal ${sig.id} score=${score} qualifies but Twitter credentials not configured`);
+          } else {
+            logLines.push(`[AutoPost/X] Signal ${sig.id} score=${score} — attempting post`);
+            try {
+              const tweet = await postTweet(copy);
+              if (tweet) {
+                (storage as any).updateDistributionDraft(draft.id, {
+                  status: "posted", tweet_id: tweet.id, tweet_url: tweet.url,
+                  posted_at: new Date().toISOString(),
+                  notes: notes + ` | Auto-posted at ${new Date().toISOString()}.`,
+                });
+                logLines.push(`[AutoPost/X] Posted tweet ${tweet.id} → ${tweet.url}`);
+                agentLog("AutoPost", sig.id, draft.id,
+                  `Auto-posted tweet ${tweet.id} for signal ${sig.id} (score=${score})`);
+              } else {
+                logLines.push(`[AutoPost/X] Post returned null — draft stays in queue`);
+              }
+            } catch (e: any) {
+              logLines.push(`[AutoPost/X] ERROR: ${e.message} — draft stays in queue`);
+              agentLog("AutoPost", sig.id, draft.id, `X auto-post failed`, e.message);
             }
-          } catch (e: any) {
-            logLines.push(`[AutoPost] ERROR: ${e.message} — draft stays in queue`);
-            agentLog("AutoPost", sig.id, draft.id, `Auto-post failed`, e.message);
+          }
+        }
+
+        if (channel === "discord" && score >= 95) {
+          if (!canPostDiscord()) {
+            logLines.push(`[AutoPost/Discord] Signal ${sig.id} score=${score} qualifies but DISCORD_WEBHOOK_URL not configured`);
+          } else {
+            logLines.push(`[AutoPost/Discord] Signal ${sig.id} score=${score} — attempting post`);
+            try {
+              const ok = await postToDiscord(copy);
+              if (ok) {
+                (storage as any).updateDistributionDraft(draft.id, {
+                  status: "posted", posted_at: new Date().toISOString(),
+                  notes: notes + ` | Auto-posted to Discord at ${new Date().toISOString()}.`,
+                });
+                logLines.push(`[AutoPost/Discord] Posted successfully`);
+                agentLog("AutoPost", sig.id, draft.id,
+                  `Auto-posted to Discord for signal ${sig.id} (score=${score})`);
+              } else {
+                logLines.push(`[AutoPost/Discord] Post failed — draft stays in queue`);
+              }
+            } catch (e: any) {
+              logLines.push(`[AutoPost/Discord] ERROR: ${e.message} — draft stays in queue`);
+              agentLog("AutoPost", sig.id, draft.id, `Discord auto-post failed`, e.message);
+            }
+          }
+        }
+
+        if (channel === "telegram" && score >= 95) {
+          if (!canPostTelegram()) {
+            logLines.push(`[AutoPost/Telegram] Signal ${sig.id} score=${score} qualifies but TELEGRAM_BOT_TOKEN/CHAT_ID not configured`);
+          } else {
+            logLines.push(`[AutoPost/Telegram] Signal ${sig.id} score=${score} — attempting post`);
+            try {
+              const ok = await postToTelegram(copy);
+              if (ok) {
+                (storage as any).updateDistributionDraft(draft.id, {
+                  status: "posted", posted_at: new Date().toISOString(),
+                  notes: notes + ` | Auto-posted to Telegram at ${new Date().toISOString()}.`,
+                });
+                logLines.push(`[AutoPost/Telegram] Posted successfully`);
+                agentLog("AutoPost", sig.id, draft.id,
+                  `Auto-posted to Telegram for signal ${sig.id} (score=${score})`);
+              } else {
+                logLines.push(`[AutoPost/Telegram] Post failed — draft stays in queue`);
+              }
+            } catch (e: any) {
+              logLines.push(`[AutoPost/Telegram] ERROR: ${e.message} — draft stays in queue`);
+              agentLog("AutoPost", sig.id, draft.id, `Telegram auto-post failed`, e.message);
+            }
           }
         }
       } catch (e: any) {

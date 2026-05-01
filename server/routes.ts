@@ -781,37 +781,95 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  // POST /api/agent/distribution-drafts/:id/post — manually post any draft to X
+  // POST /api/agent/distribution-drafts/:id/post — manually post any draft
   app.post("/api/agent/distribution-drafts/:id/post", async (req, res) => {
     if (!requireAdmin(req, res)) return;
     const draft = (storage as any).getDistributionDraft(req.params.id);
     if (!draft) return res.status(404).json({ error: "Draft not found" });
-    if (draft.channel !== "x") return res.status(400).json({ error: "Only X drafts can be posted here" });
-    if (draft.status === "posted") return res.status(409).json({ error: "Already posted", tweet_url: draft.tweet_url });
-
-    const { postTweet: tweet, canAutoPost } = await import("./twitter");
-    if (!canAutoPost()) return res.status(503).json({ error: "Twitter credentials not configured" });
+    if (draft.status === "posted") return res.status(409).json({ error: "Already posted" });
 
     try {
-      const result = await tweet(draft.copy);
-      if (!result) return res.status(502).json({ error: "Tweet failed — check server logs" });
-      const updated = (storage as any).updateDistributionDraft(req.params.id, {
-        status:    "posted",
-        tweet_id:  result.id,
-        tweet_url: result.url,
-        posted_at: new Date().toISOString(),
-      });
-      storage.logAgentAction({
-        id: crypto.randomUUID(), timestamp: new Date().toISOString(),
-        agent_name: "DistributionDraft/ManualPost",
-        input_ref: req.params.id, output_ref: result.id,
-        decision_summary: `Manually posted tweet ${result.id} for draft ${req.params.id}`,
-        error_state: null, warning_state: null,
-      });
-      return res.json({ success: true, tweet_id: result.id, tweet_url: result.url, draft: updated });
+      if (draft.channel === "x") {
+        const { postTweet: tweet, canAutoPost } = await import("./twitter");
+        if (!canAutoPost()) return res.status(503).json({ error: "Twitter credentials not configured" });
+        const result = await tweet(draft.copy);
+        if (!result) return res.status(502).json({ error: "Tweet failed — check server logs" });
+        const updated = (storage as any).updateDistributionDraft(req.params.id, {
+          status: "posted", tweet_id: result.id, tweet_url: result.url,
+          posted_at: new Date().toISOString(),
+        });
+        storage.logAgentAction({
+          id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+          agent_name: "DistributionDraft/ManualPost",
+          input_ref: req.params.id, output_ref: result.id,
+          decision_summary: `Manually posted tweet ${result.id} for draft ${req.params.id}`,
+          error_state: null, warning_state: null,
+        });
+        return res.json({ success: true, tweet_id: result.id, tweet_url: result.url, draft: updated });
+
+      } else if (draft.channel === "discord") {
+        const { postToDiscord, canPostDiscord } = await import("./discord");
+        if (!canPostDiscord()) return res.status(503).json({ error: "DISCORD_WEBHOOK_URL not configured" });
+        const ok = await postToDiscord(draft.copy);
+        if (!ok) return res.status(502).json({ error: "Discord post failed — check server logs" });
+        const updated = (storage as any).updateDistributionDraft(req.params.id, {
+          status: "posted", posted_at: new Date().toISOString(),
+        });
+        storage.logAgentAction({
+          id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+          agent_name: "DistributionDraft/ManualPost",
+          input_ref: req.params.id, output_ref: req.params.id,
+          decision_summary: `Manually posted to Discord for draft ${req.params.id}`,
+          error_state: null, warning_state: null,
+        });
+        return res.json({ success: true, channel: "discord", draft: updated });
+
+      } else if (draft.channel === "telegram") {
+        const { postToTelegram, canPostTelegram } = await import("./telegram");
+        if (!canPostTelegram()) return res.status(503).json({ error: "TELEGRAM_BOT_TOKEN/CHAT_ID not configured" });
+        const ok = await postToTelegram(draft.copy);
+        if (!ok) return res.status(502).json({ error: "Telegram post failed — check server logs" });
+        const updated = (storage as any).updateDistributionDraft(req.params.id, {
+          status: "posted", posted_at: new Date().toISOString(),
+        });
+        storage.logAgentAction({
+          id: crypto.randomUUID(), timestamp: new Date().toISOString(),
+          agent_name: "DistributionDraft/ManualPost",
+          input_ref: req.params.id, output_ref: req.params.id,
+          decision_summary: `Manually posted to Telegram for draft ${req.params.id}`,
+          error_state: null, warning_state: null,
+        });
+        return res.json({ success: true, channel: "telegram", draft: updated });
+
+      } else {
+        return res.status(400).json({ error: `Channel "${draft.channel}" does not support manual posting` });
+      }
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
     }
+  });
+
+  // POST /api/agent/social/test — send a test message to Discord and Telegram
+  app.post("/api/agent/social/test", async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const text = `✅ Edge Setter — integration test\n\nDraft Intelligence · 97% confidence · 1 source · Test\n#NFL #EdgeSetter`;
+    const results: Record<string, any> = {};
+
+    const { postToDiscord, canPostDiscord } = await import("./discord");
+    if (canPostDiscord()) {
+      results.discord = await postToDiscord(text) ? "ok" : "failed";
+    } else {
+      results.discord = "not_configured";
+    }
+
+    const { postToTelegram, canPostTelegram } = await import("./telegram");
+    if (canPostTelegram()) {
+      results.telegram = await postToTelegram(text) ? "ok" : "failed";
+    } else {
+      results.telegram = "not_configured";
+    }
+
+    return res.json({ success: true, results });
   });
 
   // ─── Daily Product Ops Agent routes ────────────────────────────────────────
