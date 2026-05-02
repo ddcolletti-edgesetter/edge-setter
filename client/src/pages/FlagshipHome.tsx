@@ -89,6 +89,7 @@ export default function FlagshipHome() {
     text:      darkMode ? T.text      : "#1A1712",
     textMuted: darkMode ? T.textMuted : "#4A443C",
     textFaint: darkMode ? T.textFaint : "#8C8277",
+    border:    darkMode ? T.border    : "rgba(0,0,0,0.1)",
   };
 
   const heroColors = getTeamColors(HERO_SIGNAL.team);
@@ -257,6 +258,9 @@ export default function FlagshipHome() {
           .flag-panel-grid { grid-template-columns: 1fr !important; }
           .flag-section-pad { padding: 20px 20px !important; }
           .flag-ticker-row { padding: 8px 12px !important; min-height: 52px !important; }
+          .flag-pro-band { grid-template-columns: 1fr !important; }
+          .flag-footer { flex-direction: column !important; gap: 16px !important; align-items: flex-start !important; }
+          .flag-sport-pill:disabled { display: none !important; }
         }
       `}</style>
 
@@ -575,7 +579,7 @@ export default function FlagshipHome() {
         borderBottom: `1px solid ${TH.border}`,
         background: TH.surface1,
       }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 40px" }}>
+        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 40px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -627,7 +631,7 @@ export default function FlagshipHome() {
       <section style={{
         borderBottom: `1px solid ${TH.border}`,
       }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 40px" }}>
+        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 40px" }}>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 13, fontWeight: 700, letterSpacing: "0.18em",
@@ -644,7 +648,7 @@ export default function FlagshipHome() {
         background: TH.surface2,
         borderBottom: `1px solid ${TH.border}`,
       }}>
-        <div style={{
+        <div className="flag-section-pad" style={{
           maxWidth: 1280, margin: "0 auto", padding: "20px 40px",
           display: "flex", alignItems: "center", gap: 0,
         }}>
@@ -681,7 +685,7 @@ export default function FlagshipHome() {
           MLB STRIP
       ══════════════════════════════════ */}
       <section style={{ borderBottom: `1px solid ${TH.border}`, background: TH.surface1 }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 40px" }}>
+        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 40px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -730,7 +734,7 @@ export default function FlagshipHome() {
           FEATURE PANELS — 3-col
       ══════════════════════════════════ */}
       <section style={{ borderBottom: `1px solid ${TH.border}` }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "48px 40px" }}>
+        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "48px 40px" }}>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -746,7 +750,7 @@ export default function FlagshipHome() {
             </h2>
           </div>
 
-          <div style={{
+          <div className="flag-panel-grid" style={{
             display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20,
           }}>
             {FEATURE_PANELS.map(panel => {
@@ -841,7 +845,7 @@ export default function FlagshipHome() {
         background: `linear-gradient(135deg, rgba(202,168,90,0.08), rgba(202,168,90,0.03))`,
         borderBottom: `1px solid rgba(202,168,90,0.2)`,
       }}>
-        <div style={{
+        <div className="flag-section-pad flag-pro-band" style={{
           maxWidth: 1280, margin: "0 auto", padding: "48px 40px",
           display: "grid", gridTemplateColumns: "1fr auto",
           gap: 40, alignItems: "center",
@@ -910,7 +914,7 @@ export default function FlagshipHome() {
       {/* ══════════════════════════════════
           FOOTER
       ══════════════════════════════════ */}
-      <footer style={{
+      <footer className="flag-section-pad flag-footer" style={{
         padding: "24px 40px",
         maxWidth: 1280, margin: "0 auto",
         display: "flex", alignItems: "center", justifyContent: "space-between",
