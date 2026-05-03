@@ -253,7 +253,7 @@ export async function runDistributionDraft(
   logLines.push(`[Fetch] ${signals.length} live signal(s) found`);
   agentLog("Fetch", runId, runId, `${signals.length} signals eligible`);
 
-  const xEnabled = process.env.SOCIAL_X_ENABLED !== "false";
+  const xEnabled = process.env.SOCIAL_X_ENABLED === "true";
   const channels: DraftChannel[] = (["x", "reddit", "discord", "telegram"] as DraftChannel[])
     .filter(c => c !== "x" || xEnabled);
 

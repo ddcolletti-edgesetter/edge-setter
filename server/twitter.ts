@@ -55,7 +55,7 @@ function authHeader(
 /* ─── Public API ─────────────────────────────────────────── */
 
 export function canAutoPost(): boolean {
-  if (process.env.SOCIAL_X_ENABLED === "false") return false;
+  if (process.env.SOCIAL_X_ENABLED !== "true") return false;
   return !!(
     process.env.TWITTER_API_KEY &&
     process.env.TWITTER_API_SECRET &&

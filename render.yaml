@@ -35,7 +35,7 @@ services:
       - key: BALLDONTLIE_API_KEY
         fromGroup: edge-setter-env
       - key: SOCIAL_X_ENABLED
-        value: false
+        value: "false"
     disk:
       name: edge-setter-data
       mountPath: /var/data
