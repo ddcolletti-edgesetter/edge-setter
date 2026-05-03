@@ -10,12 +10,7 @@
  *   - IL transactions → transaction RawEvents
  */
 
-import { insertRawEvent, upsertGame, getGame, getPipelineDb } from "../store";
-
-// In-process dedup caches — prevents re-inserting the same events within a server run.
-// Cleared on restart; first cycle after restart does a single re-upsert (expected).
-const _seenTxIds   = new Set<number>();
-const _seenPitcherKeys = new Set<string>(); // "game_id|team|player"
+import { insertRawEvent, upsertGame, getGame, getRawEvents, getPipelineDb } from "../store";
 
 const BASE_URL = "https://statsapi.mlb.com/api/v1";
 
@@ -131,6 +126,15 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
   const txns = await fetchMLBTransactions(1);
   let created = 0;
 
+  // Build dedup set from unprocessed raw events so we skip duplicates within a batch
+  // but re-insert (and refresh updated_at on the signal) in subsequent cycles.
+  const recentEvents = getRawEvents({ league: "MLB", processed: false, limit: 500 });
+  const seenTxIds = new Set<number>(
+    recentEvents
+      .map(e => (e.payload as any)?.mlb_transaction_id)
+      .filter((id): id is number => id != null)
+  );
+
   // SC = Status Change (IL placements + activations), CU = Recalled (IL activation),
   // DES = Designated for Assignment. MLB does not use "IL", "ACT", or "DFA" as typeCodes.
   const relevant = txns.filter(t =>
@@ -140,7 +144,7 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
   );
 
   for (const tx of relevant) {
-    if (_seenTxIds.has(tx.id)) continue;
+    if (seenTxIds.has(tx.id)) continue;
 
     const isActivation =
       tx.typeCode === "CU" ||
@@ -174,7 +178,7 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
         effective_date: tx.effectiveDate,
       },
     });
-    _seenTxIds.add(tx.id);
+    seenTxIds.add(tx.id);
     created++;
   }
 
@@ -219,6 +223,15 @@ export async function ingestProbablePitchers(): Promise<{ created: number }> {
   const pitchers = await fetchProbablePitchers();
   let created = 0;
 
+  // Dedup against unprocessed raw events only — after processing, re-insert each cycle
+  // so the derived live_signal's updated_at stays current and time-decay doesn't bury it.
+  const recentPitcherEvents = getRawEvents({ league: "MLB", processed: false, limit: 500 });
+  const seenPitcherKeys = new Set<string>(
+    recentPitcherEvents
+      .filter(e => e.event_type === "lineup_confirm")
+      .map(e => `${e.game_id}|${e.team}|${e.player}`)
+  );
+
   for (const p of pitchers) {
     const game = getGame(p.game_id);
     if (!game) continue;
@@ -226,7 +239,7 @@ export async function ingestProbablePitchers(): Promise<{ created: number }> {
     for (const [side, pitcher] of [[game.home_team, p.home_pitcher], [game.away_team, p.away_pitcher]] as [string, string | null][]) {
       if (!pitcher) continue;
       const pitcherKey = `${p.game_id}|${side}|${pitcher}`;
-      if (_seenPitcherKeys.has(pitcherKey)) continue;
+      if (seenPitcherKeys.has(pitcherKey)) continue;
       insertRawEvent({
         source_id: "mlb_statsapi",
         source_type: "api",
@@ -249,7 +262,7 @@ export async function ingestProbablePitchers(): Promise<{ created: number }> {
           matchup: `${game.away_team} @ ${game.home_team}`,
         },
       });
-      _seenPitcherKeys.add(pitcherKey);
+      seenPitcherKeys.add(pitcherKey);
       created++;
     }
   }
