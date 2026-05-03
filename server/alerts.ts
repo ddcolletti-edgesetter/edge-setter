@@ -120,6 +120,8 @@ export async function dispatchSignalAlerts(): Promise<{
       fantasy_relevance: raw.fantasy_relevance === 1,
     };
 
+    const notifiedBefore = notifiedEmails.size;
+
     for (const user of alertUsers) {
       if (!user.leagues.includes(signal.league))              continue;
       if (user.signal_types.length > 0 &&
@@ -142,10 +144,13 @@ export async function dispatchSignalAlerts(): Promise<{
       notifiedEmails.add(user.email);
     }
 
-    // Stamp regardless of user matches — prevents re-dispatch on next cycle
-    db.prepare("UPDATE live_signals SET alerted_at = ? WHERE id = ?")
-      .run(new Date().toISOString(), raw.id);
-    dispatched++;
+    // Only stamp when at least one user actually received this signal.
+    // Signals that match no user preferences stay eligible for future cycles.
+    if (notifiedEmails.size > notifiedBefore) {
+      db.prepare("UPDATE live_signals SET alerted_at = ? WHERE id = ?")
+        .run(new Date().toISOString(), raw.id);
+      dispatched++;
+    }
   }
 
   if (dispatched > 0 || notifiedEmails.size > 0) {

@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { Server } from "http";
-import { storage, getAlertPreferences, upsertAlertPreferences, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth } from "./storage";
+import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth } from "./storage";
 import { insertWaitlistSchema } from "@shared/schema";
 import { sendDailyDigest } from "./email";
 import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
@@ -35,6 +35,32 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
     if (remoteSignals.length > 0) console.log(`[supabase] hydrated ${remoteSignals.length} signals from Supabase`);
   }).catch(() => {});
+
+  // Auto-seed owner as pro on first boot if no active pro users exist.
+  // Runs after a short delay to let DB hydration complete.
+  setTimeout(() => {
+    try {
+      const activeUsers = getActiveAlertUsers();
+      if (activeUsers.length === 0) {
+        const ownerEmail = process.env.OWNER_EMAIL ?? "ddcolletti@gmail.com";
+        storage.upsertUser({ email: ownerEmail, plan: "pro", access_status: "active" });
+        const existing = getAlertPreferences(ownerEmail);
+        if (!existing) {
+          upsertAlertPreferences({
+            email:          ownerEmail,
+            leagues:        ["NBA", "MLB"],
+            signal_types:   [],
+            min_confidence: 60,
+            channels:       ["email"],
+            is_active:      true,
+          });
+        }
+        console.log(`[boot] No pro users found — auto-seeded owner: ${ownerEmail}`);
+      }
+    } catch (e: any) {
+      console.error("[boot] Auto-seed owner failed:", e.message);
+    }
+  }, 5000);
 
   // ─── Waitlist ─────────────────────────────────────────────────────────────────
   app.post("/api/waitlist", async (req, res) => {

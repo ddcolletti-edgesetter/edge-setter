@@ -3,7 +3,7 @@ services:
     name: edge-setter
     runtime: node
     region: oregon
-    plan: free
+    plan: starter
     buildCommand: npm install --include=dev && node script/build.mjs
     startCommand: node dist/index.cjs
     healthCheckPath: /api/signals
