@@ -17,6 +17,8 @@ const API_KEY  = process.env.BALLDONTLIE_API_KEY ?? "";
 
 if (!API_KEY) {
   console.warn("[balldontlie] BALLDONTLIE_API_KEY is not set — all requests will return HTTP 401. Get a free key at https://www.balldontlie.io");
+} else {
+  console.log(`[balldontlie] API key loaded: "${API_KEY.slice(0, 8)}..." (total length: ${API_KEY.length})`);
 }
 
 interface BDLInjury {
