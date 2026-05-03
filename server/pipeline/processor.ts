@@ -39,6 +39,7 @@ function handleInjuryUpdate(raw: RawEvent): Partial<LiveSignal> {
   const designation: string = p.designation ?? p.status ?? "Questionable";
   const bodyPart: string = p.body_part ?? p.injury ?? "undisclosed";
   const isOut = designation === "OUT" || designation === "IL-60" || designation === "DNP";
+  const defaultConfidence = isOut ? 88 : 65;
   return {
     signal_type: "injury_update",
     headline: `${raw.player ?? "Player"} (${bodyPart}) — ${designation}`,
@@ -52,7 +53,7 @@ function handleInjuryUpdate(raw: RawEvent): Partial<LiveSignal> {
     injury_designation: designation,
     betting_relevance: true,
     fantasy_relevance: true,
-    confidence: isOut ? 88 : 65,
+    confidence: p.confidence ?? defaultConfidence,
     verdict: isOut ? "confirmed" : "likely",
     confirmation_strength: p.confirmation ?? (isOut ? "Consensus" : "Developing"),
   };
@@ -63,6 +64,7 @@ function handleInjuryUpdate(raw: RawEvent): Partial<LiveSignal> {
 function handleLineup(raw: RawEvent, isChange: boolean): Partial<LiveSignal> {
   const p = raw.payload as any;
   const status: string = p.status ?? (isChange ? "scratched" : "confirmed");
+  const defaultConfidence = isChange ? 82 : 75;
   return {
     signal_type: isChange ? "lineup_change" : "lineup_confirm",
     headline: `${raw.player ?? raw.team ?? "Player"} ${isChange ? "scratched" : "confirmed"} — ${status}`,
@@ -76,7 +78,7 @@ function handleLineup(raw: RawEvent, isChange: boolean): Partial<LiveSignal> {
     lineup_status: status,
     betting_relevance: true,
     fantasy_relevance: true,
-    confidence: isChange ? 82 : 75,
+    confidence: p.confidence ?? defaultConfidence,
     verdict: "confirmed",
     confirmation_strength: p.confirmation ?? "Corroborated",
   };

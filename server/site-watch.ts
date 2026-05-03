@@ -93,21 +93,21 @@ async function checkRoute(name: string, path: string): Promise<CheckResult> {
 }
 
 async function checkSignalsApi(): Promise<{ check: CheckResult; signalCount: number }> {
-  const r = await fetchWithTimeout(`${BASE_URL}/api/signals?limit=50`);
+  const r = await fetchWithTimeout(`${BASE_URL}/api/v2/signals?limit=50`);
   if (!r.ok) {
     return {
-      check: { name: "API /api/signals", status: "critical", detail: `HTTP ${r.status}`, latency_ms: r.latency_ms },
+      check: { name: "API /api/v2/signals", status: "critical", detail: `HTTP ${r.status}`, latency_ms: r.latency_ms },
       signalCount: 0,
     };
   }
   let signalCount = 0;
   try {
-    const data = JSON.parse(r.body ?? "[]");
-    signalCount = Array.isArray(data) ? data.length : (data.signals?.length ?? 0);
+    const data = JSON.parse(r.body ?? "{}");
+    signalCount = data.count ?? (Array.isArray(data.signals) ? data.signals.length : 0);
   } catch (_) {}
   const status = signalCount < 3 ? "warning" : "ok";
   return {
-    check: { name: "API /api/signals", status, detail: `${signalCount} signals returned in ${r.latency_ms}ms`, latency_ms: r.latency_ms },
+    check: { name: "API /api/v2/signals", status, detail: `${signalCount} signals returned in ${r.latency_ms}ms`, latency_ms: r.latency_ms },
     signalCount,
   };
 }
@@ -287,7 +287,7 @@ export async function runSiteWatch(): Promise<SiteWatchOutput> {
   if (signalsResult.signalCount === 0) {
     anomalies.push({
       type: "zero_live_signals",
-      detail: "Signal API returned 0 signals — DEMO DATA banner will show on dashboard",
+      detail: "Pipeline signal API returned 0 signals — boards will fall back to mock data",
       severity: "warning",
     });
   } else if (signalsResult.signalCount < 3) {

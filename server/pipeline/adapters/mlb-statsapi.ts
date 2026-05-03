@@ -10,7 +10,12 @@
  *   - IL transactions → transaction RawEvents
  */
 
-import { insertRawEvent, upsertGame, getGame } from "../store";
+import { insertRawEvent, upsertGame, getGame, getPipelineDb } from "../store";
+
+// In-process dedup caches — prevents re-inserting the same events within a server run.
+// Cleared on restart; first cycle after restart does a single re-upsert (expected).
+const _seenTxIds   = new Set<number>();
+const _seenPitcherKeys = new Set<string>(); // "game_id|team|player"
 
 const BASE_URL = "https://statsapi.mlb.com/api/v1";
 
@@ -135,6 +140,8 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
   );
 
   for (const tx of relevant) {
+    if (_seenTxIds.has(tx.id)) continue;
+
     const isActivation =
       tx.typeCode === "CU" ||
       (tx.typeCode === "SC" && tx.description.toLowerCase().includes("activated"));
@@ -167,6 +174,7 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
         effective_date: tx.effectiveDate,
       },
     });
+    _seenTxIds.add(tx.id);
     created++;
   }
 
@@ -217,6 +225,8 @@ export async function ingestProbablePitchers(): Promise<{ created: number }> {
 
     for (const [side, pitcher] of [[game.home_team, p.home_pitcher], [game.away_team, p.away_pitcher]] as [string, string | null][]) {
       if (!pitcher) continue;
+      const pitcherKey = `${p.game_id}|${side}|${pitcher}`;
+      if (_seenPitcherKeys.has(pitcherKey)) continue;
       insertRawEvent({
         source_id: "mlb_statsapi",
         source_type: "api",
@@ -239,6 +249,7 @@ export async function ingestProbablePitchers(): Promise<{ created: number }> {
           matchup: `${game.away_team} @ ${game.home_team}`,
         },
       });
+      _seenPitcherKeys.add(pitcherKey);
       created++;
     }
   }

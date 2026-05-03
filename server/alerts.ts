@@ -80,12 +80,12 @@ export async function dispatchSignalAlerts(): Promise<{
 
   ensureAlertedAt(db);
 
-  // Signals created in the last 30 min, high-confidence, not yet alerted
-  const cutoff = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  // Signals updated in the last ingestion cycle (20 min), eligible confidence, not yet alerted
+  const cutoff = new Date(Date.now() - 20 * 60 * 1000).toISOString();
   const rawSignals = db.prepare(`
     SELECT * FROM live_signals
-    WHERE created_at >= ?
-      AND score >= 70
+    WHERE updated_at >= ?
+      AND score >= 60
       AND betting_relevance = 1
       AND alerted_at IS NULL
     ORDER BY score DESC
