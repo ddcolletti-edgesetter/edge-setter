@@ -139,40 +139,58 @@ export async function ingestNBAInjuries(): Promise<{ created: number; skipped: n
 
 /* ─── Fetch final scores ──────────────────────────────────── */
 
+function toESPNDate(d: Date): string {
+  return d.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
+async function fetchScoreboardForDate(dateStr: string): Promise<ESPNEvent[]> {
+  try {
+    const resp = await fetch(`${ESPN_BASE}/scoreboard?dates=${dateStr}`);
+    if (!resp.ok) { console.error(`[espn-nba] HTTP ${resp.status} scoreboard (${dateStr})`); return []; }
+    const data = await resp.json() as ESPNScoreboardResponse;
+    return data.events ?? [];
+  } catch (err: any) {
+    console.error(`[espn-nba] Scoreboard fetch error (${dateStr}):`, err.message);
+    return [];
+  }
+}
+
 export async function fetchNBAFinalScores(): Promise<Array<{
   game_id: string;
   home_score: number;
   away_score: number;
 }>> {
-  try {
-    const resp = await fetch(`${ESPN_BASE}/scoreboard`);
-    if (!resp.ok) { console.error(`[espn-nba] HTTP ${resp.status} scoreboard`); return []; }
-    const data = await resp.json() as ESPNScoreboardResponse;
+  // Fetch yesterday + today to catch games that finished after midnight
+  const today     = toESPNDate(new Date());
+  const yesterday = toESPNDate(new Date(Date.now() - 86400000));
 
-    const results: Array<{ game_id: string; home_score: number; away_score: number }> = [];
+  const [todayEvents, yesterdayEvents] = await Promise.all([
+    fetchScoreboardForDate(today),
+    fetchScoreboardForDate(yesterday),
+  ]);
 
-    for (const event of data.events ?? []) {
-      const comp = event.competitions?.[0];
-      if (!comp?.status?.type?.completed) continue;
+  const results: Array<{ game_id: string; home_score: number; away_score: number }> = [];
+  const seen = new Set<string>();
 
-      const home = comp.competitors?.find(c => c.homeAway === "home");
-      const away = comp.competitors?.find(c => c.homeAway === "away");
-      if (!home || !away) continue;
+  for (const event of [...yesterdayEvents, ...todayEvents]) {
+    const comp = event.competitions?.[0];
+    if (!comp?.status?.type?.completed) continue;
 
-      const homeScore = Number(home.score ?? "0");
-      const awayScore = Number(away.score ?? "0");
-      if (isNaN(homeScore) || isNaN(awayScore)) continue;
+    const home = comp.competitors?.find(c => c.homeAway === "home");
+    const away = comp.competitors?.find(c => c.homeAway === "away");
+    if (!home || !away) continue;
 
-      const gameDate = event.date.slice(0, 10);
-      const game = findGameByTeams("NBA", home.team.abbreviation, away.team.abbreviation, gameDate);
-      if (!game) continue;
+    const homeScore = Number(home.score ?? "0");
+    const awayScore = Number(away.score ?? "0");
+    if (isNaN(homeScore) || isNaN(awayScore)) continue;
 
-      results.push({ game_id: game.id, home_score: homeScore, away_score: awayScore });
-    }
+    const gameDate = event.date.slice(0, 10);
+    const game = findGameByTeams("NBA", home.team.abbreviation, away.team.abbreviation, gameDate);
+    if (!game || seen.has(game.id)) continue;
 
-    return results;
-  } catch (err: any) {
-    console.error("[espn-nba] Final scores error:", err.message);
-    return [];
+    seen.add(game.id);
+    results.push({ game_id: game.id, home_score: homeScore, away_score: awayScore });
   }
+
+  return results;
 }

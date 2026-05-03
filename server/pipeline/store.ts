@@ -190,7 +190,7 @@ export function upsertGame(g: Omit<Game, "created_at" | "updated_at"> & Partial<
       open_spread,open_total,source_game_id,created_at,updated_at)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
-      status=excluded.status,
+      status=CASE WHEN status='final' THEN 'final' ELSE excluded.status END,
       spread_line=excluded.spread_line,
       spread_team=excluded.spread_team,
       total_line=excluded.total_line,
