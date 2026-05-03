@@ -19,6 +19,9 @@ import { storage } from "./storage";
 import { sendEmail } from "./email";
 
 const BASE_URL = process.env.BASE_URL ?? "https://edgesetter.net";
+// API health checks use localhost so they hit the actual Express routes regardless
+// of how the public domain is hosted (e.g. edgesetter.net is a SPA CDN, not a proxy).
+const SELF_URL = `http://localhost:${process.env.PORT ?? 5000}`;
 const ALERT_TO  = process.env.ALERT_EMAIL ?? "ddcolletti@gmail.com";
 const FETCH_TIMEOUT_MS = 8000;
 
@@ -79,7 +82,7 @@ function agentLog(summary: string, error?: string) {
 // ─── Individual checks ─────────────────────────────────────────────────────────
 
 async function checkRoute(name: string, path: string): Promise<CheckResult> {
-  const r = await fetchWithTimeout(`${BASE_URL}${path}`);
+  const r = await fetchWithTimeout(`${SELF_URL}${path}`);
   if (r.status >= 500) {
     return { name, status: "critical", detail: `HTTP ${r.status} — server error`, latency_ms: r.latency_ms };
   }
@@ -93,7 +96,7 @@ async function checkRoute(name: string, path: string): Promise<CheckResult> {
 }
 
 async function checkSignalsApi(): Promise<{ check: CheckResult; signalCount: number }> {
-  const r = await fetchWithTimeout(`${BASE_URL}/api/v2/signals?limit=50`);
+  const r = await fetchWithTimeout(`${SELF_URL}/api/v2/signals?limit=50`);
   if (!r.ok) {
     return {
       check: { name: "API /api/v2/signals", status: "critical", detail: `HTTP ${r.status}`, latency_ms: r.latency_ms },
@@ -113,7 +116,7 @@ async function checkSignalsApi(): Promise<{ check: CheckResult; signalCount: num
 }
 
 async function checkHomepageContent(): Promise<CheckResult> {
-  const r = await fetchWithTimeout(`${BASE_URL}/`);
+  const r = await fetchWithTimeout(`${SELF_URL}/`);
   if (!r.ok) {
     return { name: "Homepage HTML", status: "critical", detail: `HTTP ${r.status}`, latency_ms: r.latency_ms };
   }
