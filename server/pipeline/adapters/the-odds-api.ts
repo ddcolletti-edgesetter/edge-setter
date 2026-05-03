@@ -58,8 +58,7 @@ interface OddsAPIOutcome {
 
 export async function fetchOdds(league: League): Promise<OddsAPIGame[]> {
   if (!API_KEY) {
-    console.warn("[odds-api] THE_ODDS_API_KEY not set — skipping live fetch");
-    return [];
+    throw new Error("THE_ODDS_API_KEY is not set — odds fetch skipped");
   }
 
   const sportKey = SPORT_KEYS[league];

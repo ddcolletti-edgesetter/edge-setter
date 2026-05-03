@@ -21,7 +21,22 @@ import { ingestCFBInjuries } from "./adapters/espn-cfb";
 import { processRawEvents } from "./processor";
 import { autoSettleFinishedGames } from "./settlement";
 import { dispatchSignalAlerts } from "../alerts";
-import { recordPipelineHealth } from "../storage";
+import { recordPipelineHealth, storage } from "../storage";
+
+function logIngestion(stage: string, inputRef: string, outputRef: string, summary: string, error?: string) {
+  try {
+    storage.logAgentAction({
+      id: crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+      agent_name: `Ingestion/${stage}`,
+      input_ref: inputRef,
+      output_ref: outputRef,
+      decision_summary: summary,
+      error_state: error ?? null,
+      warning_state: null,
+    });
+  } catch { /* never let logging break the pipeline */ }
+}
 
 let _running = false;
 
@@ -72,46 +87,91 @@ export async function runIngestionCycle(): Promise<{
 
   _running = true;
   const start = Date.now();
+  const runId = crypto.randomUUID();
+
+  logIngestion("Start", runId, runId, `Cycle started — NBA+MLB odds, NBA injuries, MLB schedule/txns/pitchers`);
 
   try {
     // ── 1. Odds (line data) ────────────────────────────────
     const nflSeason = isNFLSeason();
     const cfbSeason = isCFBSeason();
 
+    const oddsErrors: string[] = [];
     const [nbaOdds, mlbOdds, nflOdds, cfbOdds] = await Promise.all([
-      ingestOdds("NBA").catch(e => { console.error("[ingestion] NBA odds error:", e.message); return { games: 0, events: 0 }; }),
-      ingestOdds("MLB").catch(e => { console.error("[ingestion] MLB odds error:", e.message); return { games: 0, events: 0 }; }),
+      ingestOdds("NBA").catch(e => { const msg = e.message; console.error("[ingestion] NBA odds error:", msg); oddsErrors.push(`NBA odds: ${msg}`); return { games: 0, events: 0 }; }),
+      ingestOdds("MLB").catch(e => { const msg = e.message; console.error("[ingestion] MLB odds error:", msg); oddsErrors.push(`MLB odds: ${msg}`); return { games: 0, events: 0 }; }),
       nflSeason
-        ? ingestOdds("NFL").catch(e => { console.error("[ingestion] NFL odds error:", e.message); return { games: 0, events: 0 }; })
+        ? ingestOdds("NFL").catch(e => { const msg = e.message; console.error("[ingestion] NFL odds error:", msg); oddsErrors.push(`NFL odds: ${msg}`); return { games: 0, events: 0 }; })
         : Promise.resolve(null),
       cfbSeason
-        ? ingestOdds("CFB").catch(e => { console.error("[ingestion] CFB odds error:", e.message); return { games: 0, events: 0 }; })
+        ? ingestOdds("CFB").catch(e => { const msg = e.message; console.error("[ingestion] CFB odds error:", msg); oddsErrors.push(`CFB odds: ${msg}`); return { games: 0, events: 0 }; })
         : Promise.resolve(null),
     ]);
 
+    logIngestion(
+      "Odds",
+      runId,
+      "the-odds-api",
+      `NBA: ${nbaOdds.games}g/${nbaOdds.events}e · MLB: ${mlbOdds.games}g/${mlbOdds.events}e · NFL: ${nflOdds?.games ?? "off-season"}g · CFB: ${cfbOdds?.games ?? "off-season"}g`,
+      oddsErrors.length ? oddsErrors.join("; ") : undefined,
+    );
+
     // ── 2. NBA injuries ────────────────────────────────────
+    let nbaInjError: string | undefined;
     const nba_injuries = await ingestNBAInjuries().catch(e => {
+      nbaInjError = e.message;
       console.error("[ingestion] NBA injuries error:", e.message);
       return { created: 0, skipped: 0 };
     });
 
+    logIngestion(
+      "NBAInjuries",
+      runId,
+      "balldontlie",
+      `created: ${nba_injuries.created} · skipped: ${nba_injuries.skipped}`,
+      nbaInjError,
+    );
+
     // ── 3. MLB schedule + transactions + pitchers ──────────
+    const mlbErrors: string[] = [];
     const [mlb_schedule, mlb_transactions, mlb_pitchers] = await Promise.all([
-      ingestMLBSchedule().catch(e => { console.error("[ingestion] MLB schedule error:", e.message); return { games: 0 }; }),
-      ingestMLBTransactions().catch(e => { console.error("[ingestion] MLB txns error:", e.message); return { created: 0 }; }),
-      ingestProbablePitchers().catch(e => { console.error("[ingestion] MLB pitchers error:", e.message); return { created: 0 }; }),
+      ingestMLBSchedule().catch(e => { const msg = e.message; console.error("[ingestion] MLB schedule error:", msg); mlbErrors.push(`schedule: ${msg}`); return { games: 0 }; }),
+      ingestMLBTransactions().catch(e => { const msg = e.message; console.error("[ingestion] MLB txns error:", msg); mlbErrors.push(`txns: ${msg}`); return { created: 0 }; }),
+      ingestProbablePitchers().catch(e => { const msg = e.message; console.error("[ingestion] MLB pitchers error:", msg); mlbErrors.push(`pitchers: ${msg}`); return { created: 0 }; }),
     ]);
 
+    logIngestion(
+      "MLB",
+      runId,
+      "mlb-statsapi",
+      `games: ${mlb_schedule.games} · transactions: ${mlb_transactions.created} · probable pitchers: ${mlb_pitchers.created}`,
+      mlbErrors.length ? mlbErrors.join("; ") : undefined,
+    );
+
     // ── 4. NFL + CFB injuries (season-gated) ──────────────
+    let nflInjError: string | undefined;
     const nfl_injuries = nflSeason
-      ? await ingestNFLInjuries().catch(e => { console.error("[ingestion] NFL injuries error:", e.message); return { created: 0, skipped: 0 }; })
+      ? await ingestNFLInjuries().catch(e => { nflInjError = e.message; console.error("[ingestion] NFL injuries error:", e.message); return { created: 0, skipped: 0 }; })
       : null;
+    let cfbInjError: string | undefined;
     const cfb_injuries = cfbSeason
-      ? await ingestCFBInjuries().catch(e => { console.error("[ingestion] CFB injuries error:", e.message); return { created: 0, skipped: 0 }; })
+      ? await ingestCFBInjuries().catch(e => { cfbInjError = e.message; console.error("[ingestion] CFB injuries error:", e.message); return { created: 0, skipped: 0 }; })
       : null;
 
+    if (nflSeason || cfbSeason) {
+      logIngestion(
+        "NFLCFBInjuries",
+        runId,
+        "espn",
+        `NFL: ${nfl_injuries ? `${nfl_injuries.created} created / ${nfl_injuries.skipped} skipped` : "off-season"} · CFB: ${cfb_injuries ? `${cfb_injuries.created} created / ${cfb_injuries.skipped} skipped` : "off-season"}`,
+        [nflInjError, cfbInjError].filter(Boolean).join("; ") || undefined,
+      );
+    }
+
     // ── 5. Process all new RawEvents ───────────────────────
+    let processorError: string | undefined;
     const processed = await processRawEvents().catch(e => {
+      processorError = e.message;
       console.error("[ingestion] Processor error:", e.message);
       return { processed: 0, errors: 0 };
     });
@@ -143,13 +203,20 @@ export async function runIngestionCycle(): Promise<{
     });
 
     const elapsed = Date.now() - start;
-    console.log(
-      `[ingestion] Cycle complete in ${elapsed}ms — ` +
-      `NBA odds: ${nbaOdds.games}g/${nbaOdds.events}e, MLB odds: ${mlbOdds.games}g/${mlbOdds.events}e, ` +
-      `NFL odds: ${nflOdds?.games ?? "-"}g, CFB odds: ${cfbOdds?.games ?? "-"}g, ` +
-      `NBA inj: ${nba_injuries.created}, NFL inj: ${nfl_injuries?.created ?? "-"}, ` +
-      `MLB txn: ${mlb_transactions.created}, MLB SP: ${mlb_pitchers.created}, ` +
-      `processed: ${processed.processed}`
+    const summary =
+      `${elapsed}ms — ` +
+      `NBA odds: ${nbaOdds.games}g/${nbaOdds.events}e · MLB odds: ${mlbOdds.games}g/${mlbOdds.events}e · ` +
+      `NBA inj: ${nba_injuries.created} · MLB txn: ${mlb_transactions.created} · MLB SP: ${mlb_pitchers.created} · ` +
+      `processed: ${processed.processed} · alerts: ${alertResult.dispatched} · settled: ${settlement.signals_settled}`;
+
+    console.log(`[ingestion] Cycle complete in ${summary}`);
+
+    logIngestion(
+      "Complete",
+      runId,
+      runId,
+      summary,
+      processed.errors > 0 ? `Processor reported ${processed.errors} error(s)` : undefined,
     );
 
     recordPipelineHealth("ingestion", processed.errors > 0 ? "warning" : "ok", {
@@ -174,6 +241,12 @@ export async function runIngestionCycle(): Promise<{
       cfb_injuries,
       processed,
     };
+  } catch (e: any) {
+    const elapsed = Date.now() - start;
+    const msg = e?.message ?? String(e);
+    console.error("[ingestion] Cycle failed:", msg);
+    logIngestion("Failed", runId, runId, `Cycle failed after ${elapsed}ms`, msg);
+    throw e;
   } finally {
     _running = false;
   }
@@ -198,9 +271,12 @@ export function startIngestionScheduler() {
       const hourUTC = new Date().getUTCHours();
       const isActiveHours = hourUTC >= 12 || hourUTC <= 6;
       if (isActiveHours) {
-        await runIngestionCycle().catch(e => console.error("[ingestion] Scheduled cycle error:", e.message));
+        await runIngestionCycle().catch(e => {
+          console.error("[ingestion] Scheduled cycle error:", e.message);
+        });
       } else {
         console.log("[ingestion] Off-hours — skipping cycle");
+        logIngestion("Skipped", "scheduler", "scheduler", `Off-hours at ${hourUTC}:00 UTC — cycle skipped`);
       }
     }, ODDS_INTERVAL_MS);
 

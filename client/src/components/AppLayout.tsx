@@ -78,10 +78,9 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
       {/* ── Sidebar ── */}
       <aside
         className={`
-          fixed inset-y-0 left-0 z-50 flex flex-col
-          transform transition-transform duration-200
-          md:static md:translate-x-0
-          ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+          fixed inset-y-0 left-0 z-50 flex-col
+          md:static md:translate-x-0 md:flex
+          ${mobileOpen ? "flex" : "hidden"}
         `}
         style={{
           width: 224,
