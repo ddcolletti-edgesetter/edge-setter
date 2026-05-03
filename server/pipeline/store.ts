@@ -458,6 +458,23 @@ export function getLiveSignal(id: string): LiveSignal | null {
   return row ? deserializeLiveSignal(row) : null;
 }
 
+export function findExistingSignal(opts: {
+  league: string;
+  player?: string | null;
+  signal_type?: string | null;
+}): LiveSignal | null {
+  if (!opts.player && !opts.signal_type) return null;
+  const db = getPipelineDb();
+  const conds = ["league=?"];
+  const params: unknown[] = [opts.league];
+  if (opts.player) { conds.push("player=?"); params.push(opts.player); }
+  if (opts.signal_type) { conds.push("signal_type=?"); params.push(opts.signal_type); }
+  const row = db.prepare(
+    `SELECT * FROM live_signals WHERE ${conds.join(" AND ")} ORDER BY created_at DESC LIMIT 1`
+  ).get(...params);
+  return row ? deserializeLiveSignal(row as any) : null;
+}
+
 function deserializeLiveSignal(row: any): LiveSignal {
   return {
     ...row,

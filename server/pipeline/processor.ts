@@ -18,7 +18,7 @@
 import { randomUUID } from "crypto";
 import {
   getUnprocessedRawEvents, markRawEventProcessed,
-  upsertLiveSignal, getLiveSignal,
+  upsertLiveSignal, getLiveSignal, findExistingSignal,
 } from "./store";
 import { scoreSignal } from "./scorer";
 import type { RawEvent, LiveSignal, League, SignalType, LineMovement } from "./types";
@@ -273,7 +273,9 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         { name: raw.source_id, type: raw.source_type },
       ];
 
-      const signalId = p.signal_id ?? randomUUID(); // allow idempotent upsert
+      const signalId = p.signal_id
+        ?? findExistingSignal({ league, player: raw.player ?? null, signal_type: fields.signal_type ?? null })?.id
+        ?? randomUUID();
 
       // Merge into LiveSignal
       const signal: LiveSignal = {
@@ -341,7 +343,9 @@ export async function processOne(raw: RawEvent): Promise<LiveSignal | null> {
     const sources = (p.sources as Array<{ name: string; type: string }> | undefined) ?? [
       { name: raw.source_id, type: raw.source_type },
     ];
-    const signalId = p.signal_id ?? randomUUID();
+    const signalId = p.signal_id
+      ?? findExistingSignal({ league, player: raw.player ?? null, signal_type: fields.signal_type ?? null })?.id
+      ?? randomUUID();
 
     const signal: LiveSignal = {
       id: signalId,

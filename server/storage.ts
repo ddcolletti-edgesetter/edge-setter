@@ -453,7 +453,7 @@ export class SqliteStorage implements IStorage {
     const rows = db.select().from(source_scores)
       .orderBy(desc(source_scores.overall_accuracy))
       .all();
-    return rows.map(r => {
+    const enriched = rows.map(r => {
       const src = this.getSource(r.source_id ?? "");
       return {
         ...r,
@@ -463,6 +463,13 @@ export class SqliteStorage implements IStorage {
         source_url: src?.url ?? null,
       };
     });
+    // Deduplicate by source_name — rows are already ordered desc by accuracy,
+    // so the first occurrence per name is the highest-accuracy entry.
+    const seen = new Map<string, typeof enriched[0]>();
+    for (const row of enriched) {
+      if (!seen.has(row.source_name)) seen.set(row.source_name, row);
+    }
+    return [...seen.values()];
   }
   getSourceScore(source_id: string): SourceScore | undefined {
     return db.select().from(source_scores).where(eq(source_scores.source_id, source_id)).get();

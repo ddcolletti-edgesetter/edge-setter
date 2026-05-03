@@ -351,6 +351,12 @@ function MLBBoardInner() {
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
         .mlb-sig-row:hover { background: rgba(74,168,200,0.04) !important; }
+        @media (max-width: 768px) {
+          .board-subnav { display: none !important; }
+          .board-main-wrap { flex-direction: column !important; }
+          .mlb-grid-wrap { grid-template-columns: 1fr !important; }
+          .board-signal-table { overflow-x: auto !important; }
+        }
       `}</style>
       <div className="board-main-wrap" style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
 
@@ -556,7 +562,7 @@ function MLBBoardInner() {
           />
 
           {/* 2-col layout */}
-          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 280px" }} className="mlb-grid mlb-grid-wrap">
+          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 280px" }} className="mlb-grid mlb-grid-wrap board-signal-table">
 
             {/* Signal list */}
             <div style={{ borderRight: `1px solid ${TH.border}`, overflowY: "auto" }}>

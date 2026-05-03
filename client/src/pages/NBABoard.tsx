@@ -463,6 +463,11 @@ function NBABoardInner() {
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         .sig-row:hover { background: rgba(202,168,90,0.04) !important; }
         .sig-row:hover .sig-headline { color: #F3EFE6 !important; }
+        @media (max-width: 768px) {
+          .board-subnav { display: none !important; }
+          .board-main-wrap { flex-direction: column !important; }
+          .board-signal-table { overflow-x: auto !important; }
+        }
       `}</style>
 
       <div className="board-main-wrap" style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
@@ -697,7 +702,7 @@ function NBABoardInner() {
           />
 
           {/* ── Signal table ── */}
-          <div style={{ flex: 1, overflowY: "auto" }}>
+          <div className="board-signal-table" style={{ flex: 1, overflowY: "auto" }}>
             {/* Header */}
             <div style={{
               display: "grid",
