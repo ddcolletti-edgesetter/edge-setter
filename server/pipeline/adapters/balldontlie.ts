@@ -40,19 +40,17 @@ interface BDLPlayer {
 /* ─── Fetch all active injuries ──────────────────────────── */
 
 export async function fetchNBAInjuries(): Promise<BDLInjury[]> {
-  try {
-    const headers: Record<string, string> = API_KEY ? { Authorization: API_KEY } : {};
-    const resp = await fetch(`${BASE_URL}/player_injuries?per_page=100`, { headers });
-    if (!resp.ok) {
-      console.error(`[balldontlie] HTTP ${resp.status} fetching injuries`);
-      return [];
-    }
-    const data = await resp.json() as { data: BDLInjury[] };
-    return data.data ?? [];
-  } catch (err: any) {
-    console.error("[balldontlie] Fetch error:", err.message);
-    return [];
+  if (!API_KEY) {
+    throw new Error("BALLDONTLIE_API_KEY is not set — NBA injuries fetch skipped");
   }
+  const resp = await fetch(`${BASE_URL}/player_injuries?per_page=100`, {
+    headers: { Authorization: `Bearer ${API_KEY}` },
+  });
+  if (!resp.ok) {
+    throw new Error(`HTTP ${resp.status} from BallDontLie /player_injuries`);
+  }
+  const data = await resp.json() as { data: BDLInjury[] };
+  return data.data ?? [];
 }
 
 /* ─── Normalize BDL status → our designation ─────────────── */
@@ -154,7 +152,7 @@ export async function fetchNBAFinalScores(): Promise<Array<{
   away_score: number;
 }>> {
   try {
-    const headers: Record<string, string> = API_KEY ? { Authorization: API_KEY } : {};
+    const headers: Record<string, string> = API_KEY ? { Authorization: `Bearer ${API_KEY}` } : {};
     // Fetch last 2 days to catch late-finishing games
     const today = new Date().toISOString().slice(0, 10);
     const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
