@@ -383,6 +383,8 @@ export interface IStorage {
   getDigestSubscribers(): DigestSubscriber[];
   unsubscribeDigest(token: string): boolean;
   digestEmailExists(email: string): boolean;
+  // Signals (admin)
+  deleteSignal(id: string): boolean;
 }
 
 // ─── Implementation ────────────────────────────────────────────────────────────
@@ -570,6 +572,10 @@ export class SqliteStorage implements IStorage {
   }
   updateSignal(id: string, data: Partial<InsertSignal>): Signal | undefined {
     return db.update(signals).set({ ...data, updated_at: now() }).where(eq(signals.id, id)).returning().get();
+  }
+  deleteSignal(id: string): boolean {
+    const result = db.delete(signals).where(eq(signals.id, id)).returning().get();
+    return !!result;
   }
   signalExists(): boolean {
     const row = db.select().from(signals).get();

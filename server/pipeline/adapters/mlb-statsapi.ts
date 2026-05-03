@@ -126,16 +126,23 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
   const txns = await fetchMLBTransactions(1);
   let created = 0;
 
-  // Only care about IL placements and activations
+  // SC = Status Change (IL placements + activations), CU = Recalled (IL activation),
+  // DES = Designated for Assignment. MLB does not use "IL", "ACT", or "DFA" as typeCodes.
   const relevant = txns.filter(t =>
-    t.typeCode === "IL" || t.typeCode === "ACT" || t.typeCode === "DFA"
+    (t.typeCode === "SC" && t.description.toLowerCase().includes("injured list")) ||
+    t.typeCode === "CU" ||
+    t.typeCode === "DES"
   );
 
   for (const tx of relevant) {
-    const isActivation = tx.typeCode === "ACT";
-    const team = (tx.toTeam ?? tx.team)?.abbreviation ?? "UNK";
+    const isActivation =
+      tx.typeCode === "CU" ||
+      (tx.typeCode === "SC" && tx.description.toLowerCase().includes("activated"));
+    const team = (tx.toTeam ?? tx.fromTeam ?? tx.team)?.abbreviation ?? "UNK";
+    const desc = tx.description.toLowerCase();
     const designation = isActivation ? undefined
-      : tx.description.toLowerCase().includes("60-day") ? "IL-60"
+      : desc.includes("60-day") ? "IL-60"
+      : desc.includes("15-day") ? "IL-15"
       : "IL-10";
 
     insertRawEvent({

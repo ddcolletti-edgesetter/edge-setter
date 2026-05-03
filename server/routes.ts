@@ -257,6 +257,17 @@ export function registerRoutes(httpServer: Server, app: Express) {
     return res.json(sig);
   });
 
+  app.delete("/api/admin/signals/:id", (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const auth = req.headers.authorization ?? "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    if (token !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    const exists = storage.getSignal(req.params.id);
+    if (!exists) return res.status(404).json({ error: "Signal not found" });
+    storage.deleteSignal(req.params.id);
+    return res.json({ deleted: true, id: req.params.id });
+  });
+
   // ─── MVP: Event Log ────────────────────────────────────────────────────────────
   app.post("/api/events/log", (req, res) => {
     const { event_name, email, user_id, metadata } = req.body;
