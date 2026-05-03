@@ -8,9 +8,9 @@
  *  - ProNavButton: top-right header button (free → opens modal, Pro → ✓ PRO)
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Lock, Zap, X, CheckCircle2, TrendingUp, AlertCircle, BarChart2 } from "lucide-react";
+import { Lock, Zap, X, CheckCircle2, TrendingUp, AlertCircle, BarChart2, LogIn, LogOut, User, ChevronDown } from "lucide-react";
 import { useSignalGate, type ModalTrigger } from "../context/SignalGate";
 import { useAuth } from "../context/AuthContext";
 
@@ -586,6 +586,225 @@ export function ProBoardBanner({ freeCount, totalCount, sport = "generic", darkM
       }}>
         Unlock Pro
       </span>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────
+   NavLoginButton — top-bar login/account button for all layouts
+   Not logged in: "Sign In" → inline email dropdown
+   Logged in:     abbreviated email + dropdown with Sign Out
+──────────────────────────────────────────────────────────────── */
+export function NavLoginButton() {
+  const { email, isPro, login, logout, authLoading } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [inputEmail, setInputEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  async function handleLogin() {
+    if (!inputEmail || loading) return;
+    setLoading(true);
+    setError("");
+    const err = await login(inputEmail);
+    setLoading(false);
+    if (err) {
+      setError(err);
+    } else {
+      setOpen(false);
+      setInputEmail("");
+    }
+  }
+
+  if (authLoading) return null;
+
+  if (email) {
+    const abbrev = email.length > 22 ? email.slice(0, 19) + "…" : email;
+    return (
+      <div ref={ref} style={{ position: "relative" }}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{
+            display: "flex", alignItems: "center", gap: 5,
+            minHeight: 44, padding: "0 12px", borderRadius: 4,
+            border: `1px solid rgba(202,168,90,0.22)`,
+            background: "transparent",
+            color: isPro ? T.green : T.textMuted,
+            cursor: "pointer",
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.05em",
+            transition: "background 0.12s, border-color 0.12s",
+          }}
+          onMouseEnter={e => {
+            const b = e.currentTarget as HTMLButtonElement;
+            b.style.background = "rgba(202,168,90,0.06)";
+            b.style.borderColor = "rgba(202,168,90,0.35)";
+          }}
+          onMouseLeave={e => {
+            const b = e.currentTarget as HTMLButtonElement;
+            b.style.background = "transparent";
+            b.style.borderColor = "rgba(202,168,90,0.22)";
+          }}
+        >
+          <User size={12} />
+          <span className="hidden sm:inline" style={{ maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{abbrev}</span>
+          <ChevronDown size={11} />
+        </button>
+        {open && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 4px)", right: 0,
+            background: T.surface2, border: `1px solid rgba(202,168,90,0.2)`,
+            borderRadius: 4, minWidth: 200, overflow: "hidden", zIndex: 200,
+            boxShadow: "0 6px 24px rgba(0,0,0,0.55)",
+          }}>
+            <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(202,168,90,0.1)` }}>
+              <div style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 10, fontWeight: 700, color: T.textFaint,
+                letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 4,
+              }}>Signed in as</div>
+              <div style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 13, color: T.textMuted, wordBreak: "break-all",
+              }}>{email}</div>
+            </div>
+            <button
+              onClick={() => { logout(); setOpen(false); }}
+              style={{
+                display: "flex", alignItems: "center", gap: 8,
+                width: "100%", padding: "11px 14px",
+                background: "none", border: "none",
+                color: T.textFaint, cursor: "pointer",
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+                transition: "background 0.1s, color 0.1s",
+                textAlign: "left",
+              }}
+              onMouseEnter={e => {
+                const b = e.currentTarget as HTMLButtonElement;
+                b.style.background = "rgba(217,75,75,0.08)";
+                b.style.color = T.danger;
+              }}
+              onMouseLeave={e => {
+                const b = e.currentTarget as HTMLButtonElement;
+                b.style.background = "none";
+                b.style.color = T.textFaint;
+              }}
+            >
+              <LogOut size={12} />
+              Sign Out
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: "flex", alignItems: "center", gap: 6,
+          minHeight: 44, padding: "0 14px", borderRadius: 4,
+          border: `1px solid rgba(202,168,90,0.3)`,
+          background: open ? "rgba(202,168,90,0.06)" : "transparent",
+          color: T.gold,
+          cursor: "pointer",
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: 14, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+          transition: "background 0.12s, border-color 0.12s",
+        }}
+        onMouseEnter={e => {
+          const b = e.currentTarget as HTMLButtonElement;
+          b.style.background = "rgba(202,168,90,0.08)";
+          b.style.borderColor = "rgba(202,168,90,0.5)";
+        }}
+        onMouseLeave={e => {
+          const b = e.currentTarget as HTMLButtonElement;
+          b.style.background = open ? "rgba(202,168,90,0.06)" : "transparent";
+          b.style.borderColor = "rgba(202,168,90,0.3)";
+        }}
+      >
+        <LogIn size={13} />
+        <span className="hidden sm:inline">Sign In</span>
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 4px)", right: 0,
+          background: T.surface2, border: `1px solid rgba(202,168,90,0.25)`,
+          borderRadius: 4, padding: 16, zIndex: 200, width: 290,
+          boxShadow: "0 6px 24px rgba(0,0,0,0.55)",
+        }}>
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 11, fontWeight: 700, color: T.textFaint,
+            letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 10,
+          }}>
+            Activate Pro Access
+          </div>
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr auto", gap: 0,
+            border: `1px solid ${T.gold}44`, borderRadius: 3, overflow: "hidden",
+          }}>
+            <input
+              type="email"
+              placeholder="your@email.com"
+              value={inputEmail}
+              autoFocus
+              onChange={e => { setInputEmail(e.target.value); setError(""); }}
+              onKeyDown={e => e.key === "Enter" && handleLogin()}
+              style={{
+                background: T.bg, border: "none",
+                borderRight: `1px solid ${T.gold}33`,
+                color: T.text, fontSize: 14, padding: "10px 12px",
+                outline: "none", fontFamily: "inherit", minWidth: 0,
+              }}
+            />
+            <button
+              onClick={handleLogin}
+              disabled={loading || !inputEmail}
+              style={{
+                padding: "10px 14px",
+                background: loading || !inputEmail ? T.goldDim : T.gold,
+                color: T.bg, border: "none",
+                cursor: loading || !inputEmail ? "default" : "pointer",
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 12, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {loading ? "…" : "Go"}
+            </button>
+          </div>
+          {error && (
+            <div style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 12, color: T.danger, marginTop: 8, lineHeight: 1.4,
+            }}>
+              {error}
+            </div>
+          )}
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 11, color: T.textFaint, marginTop: 10, lineHeight: 1.4,
+          }}>
+            Enter the email used for your Pro subscription.
+          </div>
+        </div>
+      )}
     </div>
   );
 }

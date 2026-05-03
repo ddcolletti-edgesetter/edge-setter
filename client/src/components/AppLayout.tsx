@@ -7,6 +7,7 @@ import {
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { NavLoginButton } from "./ProGate";
 
 /* ── Public nav (shown to all users) ── */
 const publicNavItems = [
@@ -416,6 +417,9 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
 
           {/* Right actions */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+            {/* Login / account */}
+            <NavLoginButton />
+
             {/* Dark mode badge — always dark, no toggle */}
             <div
               data-testid="dark-mode-indicator"
