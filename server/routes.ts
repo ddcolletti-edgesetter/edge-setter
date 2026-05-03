@@ -1151,5 +1151,29 @@ export function registerRoutes(httpServer: Server, app: Express) {
     return res.json({ success: true });
   });
 
+  // POST /api/admin/seed-social-posts
+  // Backfills social_posts from distribution_drafts rows that are already status="posted".
+  // Safe to run multiple times — INSERT OR IGNORE means no duplicates.
+  app.post("/api/admin/seed-social-posts", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const drafts = (storage as any).getDistributionDrafts({ status: "posted" }) as Array<{
+        signal_id: string; channel: string; posted_at: string | null;
+      }>;
+      const platforms = new Set(["x", "discord", "telegram"]);
+      let seeded = 0;
+      let skipped = 0;
+      for (const d of drafts) {
+        if (!platforms.has(d.channel) || !d.signal_id) { skipped++; continue; }
+        if ((storage as any).hasSocialPost(d.signal_id, d.channel)) { skipped++; continue; }
+        (storage as any).recordSocialPost(d.signal_id, d.channel);
+        seeded++;
+      }
+      res.json({ ok: true, seeded, skipped, total: drafts.length });
+    } catch (e: any) {
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   return httpServer;
 }
