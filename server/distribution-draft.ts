@@ -319,7 +319,9 @@ export async function runDistributionDraft(
         const score = sig.confidence_score ?? 0;
 
         if (channel === "x" && score >= 95) {
-          if (!canAutoPost()) {
+          if ((storage as any).hasSocialPost(sig.id, "x")) {
+            logLines.push(`[AutoPost/X] Signal ${sig.id} already posted — skipping`);
+          } else if (!canAutoPost()) {
             logLines.push(`[AutoPost/X] Signal ${sig.id} score=${score} qualifies but Twitter credentials not configured`);
           } else {
             logLines.push(`[AutoPost/X] Signal ${sig.id} score=${score} — attempting post`);
@@ -331,6 +333,7 @@ export async function runDistributionDraft(
                   posted_at: new Date().toISOString(),
                   notes: notes + ` | Auto-posted at ${new Date().toISOString()}.`,
                 });
+                (storage as any).recordSocialPost(sig.id, "x");
                 logLines.push(`[AutoPost/X] Posted tweet ${tweet.id} → ${tweet.url}`);
                 agentLog("AutoPost", sig.id, draft.id,
                   `Auto-posted tweet ${tweet.id} for signal ${sig.id} (score=${score})`);
@@ -345,7 +348,9 @@ export async function runDistributionDraft(
         }
 
         if (channel === "discord" && score >= 95) {
-          if (!canPostDiscord()) {
+          if ((storage as any).hasSocialPost(sig.id, "discord")) {
+            logLines.push(`[AutoPost/Discord] Signal ${sig.id} already posted — skipping`);
+          } else if (!canPostDiscord()) {
             logLines.push(`[AutoPost/Discord] Signal ${sig.id} score=${score} qualifies but DISCORD_WEBHOOK_URL not configured`);
           } else {
             logLines.push(`[AutoPost/Discord] Signal ${sig.id} score=${score} — attempting post`);
@@ -356,6 +361,7 @@ export async function runDistributionDraft(
                   status: "posted", posted_at: new Date().toISOString(),
                   notes: notes + ` | Auto-posted to Discord at ${new Date().toISOString()}.`,
                 });
+                (storage as any).recordSocialPost(sig.id, "discord");
                 logLines.push(`[AutoPost/Discord] Posted successfully`);
                 agentLog("AutoPost", sig.id, draft.id,
                   `Auto-posted to Discord for signal ${sig.id} (score=${score})`);
@@ -370,7 +376,9 @@ export async function runDistributionDraft(
         }
 
         if (channel === "telegram" && score >= 95) {
-          if (!canPostTelegram()) {
+          if ((storage as any).hasSocialPost(sig.id, "telegram")) {
+            logLines.push(`[AutoPost/Telegram] Signal ${sig.id} already posted — skipping`);
+          } else if (!canPostTelegram()) {
             logLines.push(`[AutoPost/Telegram] Signal ${sig.id} score=${score} qualifies but TELEGRAM_BOT_TOKEN/CHAT_ID not configured`);
           } else {
             logLines.push(`[AutoPost/Telegram] Signal ${sig.id} score=${score} — attempting post`);
@@ -381,6 +389,7 @@ export async function runDistributionDraft(
                   status: "posted", posted_at: new Date().toISOString(),
                   notes: notes + ` | Auto-posted to Telegram at ${new Date().toISOString()}.`,
                 });
+                (storage as any).recordSocialPost(sig.id, "telegram");
                 logLines.push(`[AutoPost/Telegram] Posted successfully`);
                 agentLog("AutoPost", sig.id, draft.id,
                   `Auto-posted to Telegram for signal ${sig.id} (score=${score})`);

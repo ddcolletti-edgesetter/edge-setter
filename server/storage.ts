@@ -292,6 +292,14 @@ sqlite.exec(`
     auth TEXT NOT NULL,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS social_posts (
+    id TEXT PRIMARY KEY,
+    signal_id TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    posted_at TEXT NOT NULL,
+    UNIQUE(signal_id, platform)
+  );
 `);
 
 // Migration: add tweet columns to distribution_drafts if missing.
@@ -744,6 +752,21 @@ export class SqliteStorage implements IStorage {
     sets.push(`updated_at=?`); vals.push(ts);
     sqlite.prepare(`UPDATE distribution_drafts SET ${sets.join(',')} WHERE id=?`).run(...vals, id);
     return this.getDistributionDraft(id);
+  }
+
+  // ─── Social Posts ─────────────────────────────────────────────────────────
+
+  hasSocialPost(signal_id: string, platform: string): boolean {
+    const row = sqlite.prepare(
+      "SELECT 1 FROM social_posts WHERE signal_id=? AND platform=?"
+    ).get(signal_id, platform);
+    return !!row;
+  }
+
+  recordSocialPost(signal_id: string, platform: string): void {
+    sqlite.prepare(
+      "INSERT OR IGNORE INTO social_posts (id, signal_id, platform, posted_at) VALUES (?, ?, ?, ?)"
+    ).run(crypto.randomUUID(), signal_id, platform, new Date().toISOString());
   }
 
   // ─── Daily Ops Summary ────────────────────────────────────────────────────
