@@ -268,6 +268,33 @@ export function registerRoutes(httpServer: Server, app: Express) {
     return res.json({ deleted: true, id: req.params.id });
   });
 
+  app.post("/api/admin/make-pro", (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const auth = req.headers.authorization ?? "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    if (token !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+
+    const { email } = req.body ?? {};
+    if (!email) return res.status(400).json({ error: "email is required" });
+
+    const user = storage.upsertUser({ email, plan: "pro", access_status: "active" });
+
+    // Seed default alert preferences if none exist so alerts fire immediately
+    const existing = getAlertPreferences(email);
+    if (!existing) {
+      upsertAlertPreferences({
+        email,
+        leagues:        ["NBA", "MLB"],
+        signal_types:   [],
+        min_confidence: 60,
+        channels:       ["email"],
+        is_active:      true,
+      });
+    }
+
+    return res.json({ success: true, email, plan: user.plan, access_status: user.access_status });
+  });
+
   // ─── MVP: Event Log ────────────────────────────────────────────────────────────
   app.post("/api/events/log", (req, res) => {
     const { event_name, email, user_id, metadata } = req.body;
