@@ -182,6 +182,29 @@ function handleTransaction(raw: RawEvent): Partial<LiveSignal> {
   };
 }
 
+/* ─── Handler: odds_open ────────────────────────────────── */
+
+function handleOddsOpen(raw: RawEvent): Partial<LiveSignal> {
+  const p = raw.payload as any;
+  const spread: number | null = p.open_spread ?? null;
+  const total: number | null  = p.open_total  ?? null;
+  const spreadStr = spread !== null ? `${spread > 0 ? "+" : ""}${spread}` : "N/A";
+  const totalStr  = total  !== null ? String(total)  : "N/A";
+  return {
+    signal_type: "line_move",
+    headline: `${p.matchup ?? raw.team ?? "Game"}: Opening line ${spreadStr} | O/U ${totalStr}`,
+    body: `Opening spread: ${spreadStr}. Total: ${totalStr}. Market baseline established — monitor for sharp movement.`,
+    action_note: "Opening line only. No edge yet — watch for moves from this number.",
+    why_it_matters: "Opening lines set the market baseline. Sharp movement away from open signals professional action.",
+    line_movement: spread !== null ? { open: spread, current: spread, delta: 0, direction: "flat" } : null,
+    betting_relevance: true,
+    fantasy_relevance: false,
+    confidence: 52,
+    verdict: "review",
+    confirmation_strength: "Developing",
+  };
+}
+
 /* ─── Handler: manual ───────────────────────────────────── */
 
 function handleManual(raw: RawEvent): Partial<LiveSignal> {
@@ -215,6 +238,7 @@ function routeEventToFields(raw: RawEvent): Partial<LiveSignal> {
     case "weather_update": return handleWeather(raw);
     case "scheme_note":    return handleSchemeNote(raw);
     case "transaction":    return handleTransaction(raw);
+    case "odds_open":      return handleOddsOpen(raw);
     case "manual":         return handleManual(raw);
     default:               return handleManual(raw);
   }
@@ -276,7 +300,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       ];
 
       const signalId = p.signal_id
-        ?? findExistingSignal({ league, player: raw.player ?? null, signal_type: fields.signal_type ?? null })?.id
+        ?? findExistingSignal({ league, game_id: raw.game_id ?? null, player: raw.player ?? null, signal_type: fields.signal_type ?? null })?.id
         ?? randomUUID();
 
       // Merge into LiveSignal
@@ -346,7 +370,7 @@ export async function processOne(raw: RawEvent): Promise<LiveSignal | null> {
       { name: raw.source_id, type: raw.source_type },
     ];
     const signalId = p.signal_id
-      ?? findExistingSignal({ league, player: raw.player ?? null, signal_type: fields.signal_type ?? null })?.id
+      ?? findExistingSignal({ league, game_id: raw.game_id ?? null, player: raw.player ?? null, signal_type: fields.signal_type ?? null })?.id
       ?? randomUUID();
 
     const signal: LiveSignal = {

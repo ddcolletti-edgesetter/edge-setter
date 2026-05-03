@@ -139,11 +139,10 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
     });
     gamesUpserted++;
 
-    // Detect line move
+    // Detect line move — spread
     if (existing && spreadLine !== null && existing.spread_line !== null) {
       const delta = Math.abs(spreadLine - existing.spread_line);
       if (delta >= 0.5) {
-        // Create a line_move RawEvent
         insertRawEvent({
           source_id: "the_odds_api",
           source_type: "api",
@@ -156,6 +155,7 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
             open_line: existing.open_spread,
             current_line: spreadLine,
             line_delta: delta,
+            market: "spread",
             sharp_money: false,
             matchup: `${shortCode(ag.away_team)} @ ${shortCode(ag.home_team)}`,
             game_time: ag.commence_time,
@@ -167,9 +167,43 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
           },
         });
         eventsCreated++;
-        console.log(`[odds-api] Line move detected: ${league} ${shortCode(ag.away_team)}@${shortCode(ag.home_team)} spread ${existing.spread_line} → ${spreadLine} (Δ${delta})`);
+        console.log(`[odds-api] Spread move: ${league} ${shortCode(ag.away_team)}@${shortCode(ag.home_team)} ${existing.spread_line} → ${spreadLine} (Δ${delta})`);
       }
-    } else if (!existing && spreadLine !== null) {
+    }
+
+    // Detect line move — total
+    if (existing && totalLine !== null && existing.total_line !== null) {
+      const totalDelta = Math.abs(totalLine - existing.total_line);
+      if (totalDelta >= 0.5) {
+        insertRawEvent({
+          source_id: "the_odds_api",
+          source_type: "api",
+          league,
+          game_id: gameId,
+          team: shortCode(ag.home_team),
+          player: null,
+          event_type: "line_move",
+          payload: {
+            open_line: existing.open_total,
+            current_line: totalLine,
+            line_delta: totalDelta,
+            market: "total",
+            sharp_money: false,
+            matchup: `${shortCode(ag.away_team)} @ ${shortCode(ag.home_team)}`,
+            game_time: ag.commence_time,
+            source_types: ["sportsbook"],
+            source_labels: [bm.title],
+            source_count: ag.bookmakers.length,
+            bookmaker: bm.key,
+            sources: [{ name: bm.title, type: "sportsbook" }],
+          },
+        });
+        eventsCreated++;
+        console.log(`[odds-api] Total move: ${league} ${shortCode(ag.away_team)}@${shortCode(ag.home_team)} O/U ${existing.total_line} → ${totalLine} (Δ${totalDelta})`);
+      }
+    }
+
+    if (!existing && spreadLine !== null) {
       // First time seeing this game — create odds_open event
       insertRawEvent({
         source_id: "the_odds_api",

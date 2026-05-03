@@ -404,6 +404,7 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       trust_label=excluded.trust_label,
       score_explanation=excluded.score_explanation,
       breakdown=excluded.breakdown,
+      headline=excluded.headline,
       body=excluded.body,
       action_note=excluded.action_note,
       why_it_matters=excluded.why_it_matters,
@@ -417,6 +418,7 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       source_count=excluded.source_count,
       sources=excluded.sources,
       raw_event_ids=excluded.raw_event_ids,
+      signal_time=excluded.signal_time,
       updated_at=excluded.updated_at
   `).run(
     s.id, s.league, s.game_id, s.signal_type, s.headline, s.body,
@@ -460,6 +462,7 @@ export function getLiveSignal(id: string): LiveSignal | null {
 
 export function findExistingSignal(opts: {
   league: string;
+  game_id?: string | null;
   player?: string | null;
   signal_type?: string | null;
 }): LiveSignal | null {
@@ -467,6 +470,9 @@ export function findExistingSignal(opts: {
   const db = getPipelineDb();
   const conds = ["league=?"];
   const params: unknown[] = [opts.league];
+  // When game_id is present, scope the match to that game so signals from
+  // different games (or different days) never collapse onto the same record.
+  if (opts.game_id) { conds.push("game_id=?"); params.push(opts.game_id); }
   if (opts.player) { conds.push("player=?"); params.push(opts.player); }
   if (opts.signal_type) { conds.push("signal_type=?"); params.push(opts.signal_type); }
   const row = db.prepare(

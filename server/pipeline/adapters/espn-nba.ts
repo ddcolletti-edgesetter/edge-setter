@@ -24,8 +24,16 @@ interface ESPNInjuryEntry {
   longComment?: string;
 }
 
-interface ESPNInjuryResponse {
+// ESPN groups player injuries by team at the top level
+interface ESPNTeamGroup {
+  id?: string;
+  abbreviation?: string;
+  displayName?: string;
   injuries?: ESPNInjuryEntry[];
+}
+
+interface ESPNInjuryResponse {
+  injuries?: ESPNTeamGroup[];
 }
 
 interface ESPNCompetitor {
@@ -69,7 +77,14 @@ export async function fetchNBAInjuries(): Promise<ESPNInjuryEntry[]> {
       return [];
     }
     const data = await resp.json() as ESPNInjuryResponse;
-    return data.injuries ?? [];
+    // Response is grouped by team: { injuries: [{ abbreviation, displayName, injuries: [...players] }] }
+    // Flatten into individual player entries, attaching team info from the outer group.
+    return (data.injuries ?? []).flatMap(team =>
+      (team.injuries ?? []).map(entry => ({
+        ...entry,
+        team: { abbreviation: team.abbreviation ?? team.displayName, displayName: team.displayName },
+      }))
+    );
   } catch (err: any) {
     console.error("[espn-nba] Injury fetch error:", err.message);
     return [];
