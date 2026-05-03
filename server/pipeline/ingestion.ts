@@ -14,7 +14,7 @@
  */
 
 import { ingestOdds } from "./adapters/the-odds-api";
-import { ingestNBAInjuries } from "./adapters/balldontlie";
+import { ingestNBAInjuries } from "./adapters/espn-nba";
 import { ingestMLBSchedule, ingestMLBTransactions, ingestProbablePitchers } from "./adapters/mlb-statsapi";
 import { ingestNFLInjuries } from "./adapters/espn-nfl";
 import { ingestCFBInjuries } from "./adapters/espn-cfb";

@@ -41,7 +41,7 @@ import {
   linkOutcomeToSignal,
 } from "./store";
 import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
-import { fetchNBAFinalScores } from "./adapters/balldontlie";
+import { fetchNBAFinalScores } from "./adapters/espn-nba";
 import { fetchNFLFinalScores } from "./adapters/espn-nfl";
 import { fetchCFBFinalScores } from "./adapters/espn-cfb";
 import type { LiveSignal, Game } from "./types";
