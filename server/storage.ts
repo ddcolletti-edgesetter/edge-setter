@@ -574,6 +574,10 @@ export class SqliteStorage implements IStorage {
     return db.update(signals).set({ ...data, updated_at: now() }).where(eq(signals.id, id)).returning().get();
   }
   deleteSignal(id: string): boolean {
+    sqlite.prepare(`DELETE FROM source_notes WHERE signal_id = ?`).run(id);
+    sqlite.prepare(`DELETE FROM signal_ops_queue WHERE signal_id = ?`).run(id);
+    sqlite.prepare(`DELETE FROM distribution_drafts WHERE signal_id = ?`).run(id);
+    sqlite.prepare(`DELETE FROM social_posts WHERE signal_id = ?`).run(id);
     const result = db.delete(signals).where(eq(signals.id, id)).returning().get();
     return !!result;
   }
