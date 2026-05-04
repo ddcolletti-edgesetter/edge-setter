@@ -269,7 +269,7 @@ export function startIngestionScheduler() {
     setInterval(async () => {
       // Only run during active hours (7am–1am ET = 12:00–06:00 UTC)
       const hourUTC = new Date().getUTCHours();
-      const isActiveHours = hourUTC >= 12 || hourUTC <= 6;
+      const isActiveHours = hourUTC >= 12 || hourUTC < 7;
       if (isActiveHours) {
         await runIngestionCycle().catch(e => {
           console.error("[ingestion] Scheduled cycle error:", e.message);
