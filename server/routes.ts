@@ -151,6 +151,16 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json(scores);
   });
 
+  // ─── Admin DB Debug ───────────────────────────────────────────────────────────
+  app.get("/api/admin/debug-db", (_req, res) => {
+    const pdb = getPipelineDb();
+    const count = (pdb.prepare("SELECT COUNT(*) as n FROM live_signals").get() as any)?.n ?? 0;
+    const sample = pdb.prepare("SELECT id, league, player, signal_type, created_at FROM live_signals ORDER BY created_at DESC LIMIT 10").all();
+    const rawCount = (pdb.prepare("SELECT COUNT(*) as n FROM raw_events").get() as any)?.n ?? 0;
+    const rawUnprocessed = (pdb.prepare("SELECT COUNT(*) as n FROM raw_events WHERE processed=0").get() as any)?.n ?? 0;
+    return res.json({ live_signals_count: count, raw_events_count: rawCount, raw_unprocessed: rawUnprocessed, sample });
+  });
+
   // ─── Admin Review Queue ───────────────────────────────────────────────────────
   app.get("/api/admin/review", (_req, res) => {
     const queue = storage.getReviewQueue();
