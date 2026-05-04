@@ -37,7 +37,11 @@ const DB_PATH = path.join(resolveDataDir(), "pipeline.db");
 let _db: Database.Database | null = null;
 
 export function getPipelineDb(): Database.Database {
-  if (_db) return _db;
+  if (_db && fs.existsSync(DB_PATH)) return _db;
+  if (_db) {
+    try { _db.close(); } catch { /* already closed */ }
+    _db = null;
+  }
   _db = new Database(DB_PATH);
   _db.pragma("journal_mode = WAL");
   initSchema(_db);
