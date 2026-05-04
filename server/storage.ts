@@ -477,7 +477,8 @@ export class SqliteStorage implements IStorage {
     // so the first occurrence per name is the highest-accuracy entry.
     const seen = new Map<string, typeof enriched[0]>();
     for (const row of enriched) {
-      if (!seen.has(row.source_name)) seen.set(row.source_name, row);
+      const key = row.source_name.toLowerCase().replace(/[-_\s]+/g, " ").trim();
+if (!seen.has(key)) seen.set(key, row);
     }
     return [...seen.values()];
   }
