@@ -79,27 +79,27 @@ export function registerPipelineRoutes(app: Express) {
     const { league, since, band, type } = req.query as Record<string, string | undefined>;
     const limit = Math.min(Number(req.query.limit ?? 50), 200);
 
-    let signals = getLiveSignals({
-      league: league as League | undefined,
-      since,
-      limit: Math.min(limit * 3, 600), // fetch more, filter below
-    });
+    const pdb = getPipelineDb();
+    const conds: string[] = [];
+    const params: unknown[] = [];
+    if (league) { conds.push("league=?"); params.push(league); }
+    if (since)  { conds.push("created_at>=?"); params.push(since); }
+    if (band)   { conds.push("score_band=?"); params.push(band); }
+    if (type)   { conds.push("signal_type=?"); params.push(type); }
+    const where = conds.length ? "WHERE " + conds.join(" AND ") : "";
+    const rows = pdb.prepare(
+      `SELECT * FROM live_signals ${where} ORDER BY created_at DESC LIMIT ?`
+    ).all(...params, limit) as any[];
 
-    if (band) signals = signals.filter(s => s.score_band === band);
-    if (type) signals = signals.filter(s => s.signal_type === type);
-
-    // Sort by time-decayed score: score / (1 + age_hours * 0.1)
-    // Halves effective score after ~10h so stale high-scorers don't pin the feed.
-    const nowMs = Date.now();
-    signals = signals
-      .sort((a, b) => {
-        const ageA = (nowMs - new Date(a.updated_at ?? a.created_at).getTime()) / 3_600_000;
-        const ageB = (nowMs - new Date(b.updated_at ?? b.created_at).getTime()) / 3_600_000;
-        const effA = a.score / (1 + ageA * 0.1);
-        const effB = b.score / (1 + ageB * 0.1);
-        return effB - effA;
-      })
-      .slice(0, limit);
+    const signals = rows.map(row => ({
+      ...row,
+      sources: JSON.parse(row.sources ?? "[]"),
+      line_movement: row.line_movement ? JSON.parse(row.line_movement) : null,
+      breakdown: JSON.parse(row.breakdown ?? "{}"),
+      raw_event_ids: JSON.parse(row.raw_event_ids ?? "[]"),
+      betting_relevance: row.betting_relevance === 1,
+      fantasy_relevance: row.fantasy_relevance === 1,
+    }));
 
     res.json({ count: signals.length, signals });
   });

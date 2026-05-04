@@ -7,7 +7,7 @@
  * Mirrors espn-nfl.ts — same ESPN API shape, different sport path.
  */
 
-import { insertRawEvent, getRawEvents, findGameByTeams } from "../store";
+import { insertRawEvent, findGameByTeams, getPipelineDb } from "../store";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 
@@ -98,12 +98,10 @@ export async function ingestNBAInjuries(): Promise<{ created: number; skipped: n
   let created = 0;
   let skipped = 0;
 
-  const recentEvents = getRawEvents({ league: "NBA", processed: false, limit: 500 });
-  const existingKeys = new Set(
-    recentEvents
-      .filter(e => e.event_type === "injury_update")
-      .map(e => `${e.player}_${(e.payload as any).designation}`)
-  );
+  const existingRows = getPipelineDb()
+    .prepare("SELECT player, injury_designation FROM live_signals WHERE league='NBA' AND signal_type='injury_update'")
+    .all() as Array<{ player: string; injury_designation: string | null }>;
+  const existingKeys = new Set(existingRows.map(r => `${r.player}_${r.injury_designation ?? ""}`));
 
   for (const inj of injuries) {
     const playerName = inj.athlete?.displayName;
