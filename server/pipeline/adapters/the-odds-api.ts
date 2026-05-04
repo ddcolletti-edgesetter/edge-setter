@@ -140,9 +140,13 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
     gamesUpserted++;
 
     // Detect line move — spread
-    if (existing && spreadLine !== null && existing.spread_line !== null) {
-      const delta = Math.abs(spreadLine - existing.spread_line);
-      if (delta >= 0.5) {
+    // Trigger: line changed this cycle AND cumulative move from open >= 0.5.
+    // Comparing to spread_line (previous cycle) misses gradual moves that never
+    // jump 0.5 in a single 15-min window but accumulate to a meaningful shift.
+    if (existing && spreadLine !== null && existing.spread_line !== null && spreadLine !== existing.spread_line) {
+      const openSpread = existing.open_spread ?? existing.spread_line;
+      const deltaFromOpen = Math.abs(spreadLine - openSpread);
+      if (deltaFromOpen >= 0.5) {
         insertRawEvent({
           source_id: "the_odds_api",
           source_type: "api",
@@ -152,9 +156,9 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
           player: null,
           event_type: "line_move",
           payload: {
-            open_line: existing.open_spread,
+            open_line: openSpread,
             current_line: spreadLine,
-            line_delta: delta,
+            line_delta: deltaFromOpen,
             market: "spread",
             sharp_money: false,
             matchup: `${shortCode(ag.away_team)} @ ${shortCode(ag.home_team)}`,
@@ -167,14 +171,15 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
           },
         });
         eventsCreated++;
-        console.log(`[odds-api] Spread move: ${league} ${shortCode(ag.away_team)}@${shortCode(ag.home_team)} ${existing.spread_line} → ${spreadLine} (Δ${delta})`);
+        console.log(`[odds-api] Spread move: ${league} ${shortCode(ag.away_team)}@${shortCode(ag.home_team)} open ${openSpread} → ${spreadLine} (Δ${deltaFromOpen} from open, prev ${existing.spread_line})`);
       }
     }
 
     // Detect line move — total
-    if (existing && totalLine !== null && existing.total_line !== null) {
-      const totalDelta = Math.abs(totalLine - existing.total_line);
-      if (totalDelta >= 0.5) {
+    if (existing && totalLine !== null && existing.total_line !== null && totalLine !== existing.total_line) {
+      const openTotal = existing.open_total ?? existing.total_line;
+      const totalDeltaFromOpen = Math.abs(totalLine - openTotal);
+      if (totalDeltaFromOpen >= 0.5) {
         insertRawEvent({
           source_id: "the_odds_api",
           source_type: "api",
@@ -184,9 +189,9 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
           player: null,
           event_type: "line_move",
           payload: {
-            open_line: existing.open_total,
+            open_line: openTotal,
             current_line: totalLine,
-            line_delta: totalDelta,
+            line_delta: totalDeltaFromOpen,
             market: "total",
             sharp_money: false,
             matchup: `${shortCode(ag.away_team)} @ ${shortCode(ag.home_team)}`,
@@ -199,7 +204,7 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
           },
         });
         eventsCreated++;
-        console.log(`[odds-api] Total move: ${league} ${shortCode(ag.away_team)}@${shortCode(ag.home_team)} O/U ${existing.total_line} → ${totalLine} (Δ${totalDelta})`);
+        console.log(`[odds-api] Total move: ${league} ${shortCode(ag.away_team)}@${shortCode(ag.home_team)} open O/U ${openTotal} → ${totalLine} (Δ${totalDeltaFromOpen} from open)`);
       }
     }
 
