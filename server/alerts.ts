@@ -69,6 +69,8 @@ function ensureAlertedAt(db: ReturnType<typeof getPipelineDb>) {
 
 /* ─── Main dispatch ───────────────────────────────────────── */
 
+const MAX_EMAILS_PER_CYCLE = 10;
+
 export async function dispatchSignalAlerts(): Promise<{
   dispatched: number;
   users_notified: number;
@@ -107,6 +109,7 @@ export async function dispatchSignalAlerts(): Promise<{
   }
 
   let dispatched = 0;
+  let emailsSentThisCycle = 0;
   const notifiedEmails = new Set<string>();
 
   for (const raw of rawSignals) {
@@ -129,9 +132,15 @@ export async function dispatchSignalAlerts(): Promise<{
       if (signal.score < user.min_confidence)                 continue;
 
       if (user.channels.includes("email")) {
-        await sendSignalAlert(user.email, signal).catch(e =>
-          console.warn(`[alerts] Email failed for ${user.email}:`, e.message)
-        );
+        if (emailsSentThisCycle >= MAX_EMAILS_PER_CYCLE) {
+          console.warn(`[alerts] Email cap reached (${MAX_EMAILS_PER_CYCLE}/cycle) — skipping remaining`);
+        } else {
+          const sent = await sendSignalAlert(user.email, signal).catch(e => {
+            console.warn(`[alerts] Email failed for ${user.email}:`, e.message);
+            return false;
+          });
+          if (sent) emailsSentThisCycle++;
+        }
       }
 
       if (user.channels.includes("push")) {

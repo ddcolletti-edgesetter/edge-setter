@@ -36,6 +36,8 @@ import {
   updateGameFinal,
   getUnsettledSignalsForGame,
   getSettleable,
+  getUnsettledSignalsWithoutGameId,
+  findNextFinalGameForTeam,
   getCompletedUnfinalGames,
   createOutcome,
   linkOutcomeToSignal,
@@ -334,6 +336,51 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
     const result = settleGame(game.id, game.home_score, game.away_score);
     if (result.settled > 0 || result.skipped > 0) gamesSettled++;
     signalsSettled += result.settled;
+  }
+
+  // ── Second pass: settle signals that have no game_id ───
+  // NBA injuries, MLB transactions, etc. are ingested without a game_id.
+  // Match each signal to the next final game for its team after it was created.
+  const nullGameSignals = getUnsettledSignalsWithoutGameId();
+  for (const raw of nullGameSignals) {
+    const signal = deserializeSignal(raw);
+    if (!signal.team) continue;
+
+    const game = findNextFinalGameForTeam(signal.league, signal.team, signal.created_at);
+    if (!game) continue;
+    if (game.home_score == null || game.away_score == null) continue;
+
+    try {
+      const result = settleSignal(
+        signal,
+        { ...game, home_score: game.home_score, away_score: game.away_score },
+        game.home_score,
+        game.away_score,
+      );
+
+      const outcome = createOutcome({
+        signal_id: signal.id,
+        game_id: game.id,
+        market: result.market,
+        home_score: game.home_score,
+        away_score: game.away_score,
+        line_at_signal: result.lineAtSignal,
+        closing_line: result.closingLine,
+        actual_result: result.actualResult,
+        hit: result.hit,
+        clv: result.clv,
+        recorded_at: new Date().toISOString(),
+      });
+
+      linkOutcomeToSignal(signal.id, outcome.id);
+
+      if (result.hit !== null) {
+        signalsSettled++;
+        gamesSettled++;
+      }
+    } catch (err: any) {
+      console.error(`[settlement] Error settling null-game signal ${signal.id}:`, err.message);
+    }
   }
 
   // ── Recompute accuracy stats ────────────────────────────

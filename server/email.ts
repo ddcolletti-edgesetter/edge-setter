@@ -15,11 +15,15 @@ interface SendEmailOptions {
   html: string;
 }
 
+// Rate-limit guard: after a 429/403, skip all sends until this timestamp
+let _rateLimitedUntil = 0;
+
 export async function sendEmail(opts: SendEmailOptions): Promise<boolean> {
   if (!RESEND_API_KEY) {
     console.log(`[email] RESEND_API_KEY not set — would send to ${opts.to}: ${opts.subject}`);
     return true;
   }
+  if (Date.now() < _rateLimitedUntil) return false;
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -35,8 +39,22 @@ export async function sendEmail(opts: SendEmailOptions): Promise<boolean> {
       }),
     });
     if (!res.ok) {
-      const err = await res.text();
-      console.error("[email] Resend error:", err);
+      const bodyText = await res.text();
+      if (res.status === 429 || res.status === 403) {
+        let errorName = "";
+        try { errorName = JSON.parse(bodyText)?.name ?? ""; } catch { /**/ }
+        if (errorName === "daily_quota_exceeded") {
+          // Daily quota resets at midnight UTC — back off 4 hours to avoid hammering
+          _rateLimitedUntil = Date.now() + 4 * 60 * 60 * 1000;
+          console.warn("[email] Resend daily quota exceeded — skipping sends for 4h");
+        } else {
+          // rate_limit_exceeded or other 429/403 — short cooldown
+          _rateLimitedUntil = Date.now() + 60_000;
+          console.warn(`[email] Resend ${res.status} (${errorName || "rate_limit"}) — skipping sends for 60s`);
+        }
+      } else {
+        console.error("[email] Resend error:", bodyText);
+      }
       return false;
     }
     return true;

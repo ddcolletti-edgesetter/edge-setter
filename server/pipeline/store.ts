@@ -269,7 +269,7 @@ export function linkOutcomeToSignal(signalId: string, outcomeId: string): void {
     .run(outcomeId, signalId);
 }
 
-/** All games that have final scores but still have unsettled signals. */
+/** All games that have final scores but still have unsettled signals (game_id-linked). */
 export function getSettleable(): any[] {
   return getPipelineDb().prepare(`
     SELECT DISTINCT g.id, g.league, g.home_team, g.away_team,
@@ -282,6 +282,49 @@ export function getSettleable(): any[] {
       AND s.betting_relevance = 1
       AND s.outcome_id IS NULL
   `).all();
+}
+
+/**
+ * Signals with no game_id that are still betting-relevant and unsettled.
+ * These are settled by matching team + next final game after signal creation.
+ */
+export function getUnsettledSignalsWithoutGameId(): any[] {
+  return getPipelineDb().prepare(`
+    SELECT * FROM live_signals
+    WHERE game_id IS NULL
+      AND betting_relevance = 1
+      AND outcome_id IS NULL
+      AND team IS NOT NULL
+    ORDER BY created_at ASC
+    LIMIT 500
+  `).all();
+}
+
+/**
+ * Find the first final game for a team (home or away) after a given timestamp.
+ * Uses broad LIKE matching to handle abbreviation format differences.
+ */
+export function findNextFinalGameForTeam(
+  league: string,
+  team: string,
+  afterTimestamp: string,
+): any | null {
+  const db = getPipelineDb();
+  const t = team.toUpperCase();
+  return db.prepare(`
+    SELECT * FROM games
+    WHERE league = ?
+      AND status = 'final'
+      AND home_score IS NOT NULL
+      AND away_score IS NOT NULL
+      AND game_time > ?
+      AND (
+        UPPER(home_team) = ? OR UPPER(away_team) = ?
+        OR UPPER(home_team) LIKE ? OR UPPER(away_team) LIKE ?
+      )
+    ORDER BY game_time ASC
+    LIMIT 1
+  `).get(league, afterTimestamp, t, t, `%${t}%`, `%${t}%`) ?? null;
 }
 
 /**
