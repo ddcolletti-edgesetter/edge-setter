@@ -7,26 +7,20 @@ import { Trophy, Clock, TrendingDown } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
-/* ─── Analytics-aligned palette ────────────────────────────────── */
 const C = {
-  /* Shell surfaces — matches global dark shell tokens */
   bgBase:       "hsl(22 10%  9%)",
   panelBase:    "#111317",
   panelLift:    "#16191E",
   panelElev:    "#1B1F25",
-  /* Text on dark */
   ivoryPrimary: "#F3EFE6",
   ivorySecond:  "#B7AFA0",
   ivoryMuted:   "#7E776A",
   ivorySub:     "hsl(25  9% 37%)",
-  /* Borders */
   borderSub:    "rgba(202,168,90,0.12)",
   borderMid:    "hsl(22 10% 22%)",
-  /* Analytics accuracy accents */
-  anaCyan:      "hsl(194 56% 58%)",   /* ≥85% accuracy — confirmed/trust */
-  anaAmber:     "hsl(42  61% 57%)",   /* ≥70% accuracy — caution */
-  anaAmberDim:  "hsl(42  40% 42%)",   /* amber-gold for kickers/labels */
-  /* Parchment band tokens (header band) */
+  anaCyan:      "hsl(194 56% 58%)",
+  anaAmber:     "hsl(42  61% 57%)",
+  anaAmberDim:  "hsl(42  40% 42%)",
   parchmentBg:  "hsl(38 34% 88%)",
   parchmentSoft:"hsl(38 30% 83%)",
   parchmentText:"hsl(22 12% 10%)",
@@ -34,15 +28,14 @@ const C = {
   parchmentBdr: "hsl(38 20% 70%)",
 };
 
-/* Tier badge — analytics accent classes from index.css */
 function TierBadge({ tier }: { tier: string | null }) {
   const t = tier ?? "tier3";
   const num = t.replace("tier", "");
-  const label = t === "tier1" ? "Official / T1"
-    : t === "tier2" ? "High Trust"
-    : t === "tier3" ? "Trusted"
-    : t === "tier4" ? "Commentary"
-    : "Low";
+  const label = t === "tier1" ? "TIER 1"
+    : t === "tier2" ? "TIER 2"
+    : t === "tier3" ? "TIER 3"
+    : t === "tier4" ? "TIER 4"
+    : "TIER 5";
   const cls = `tier-${num}`;
   return (
     <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${cls}`}>
@@ -51,85 +44,32 @@ function TierBadge({ tier }: { tier: string | null }) {
   );
 }
 
-/* Source-type badge — distinguishes analytics services from beat reporters */
-function SourceTypeBadge({ sourceType, sourceName }: { sourceType?: string | null; sourceName?: string }) {
-  if (sourceType === "analytics") {
-    return (
-      <span
-        style={{
-          display: "inline-flex", alignItems: "center", gap: 4,
-          padding: "2px 7px", borderRadius: 3,
-          border: "1px solid rgba(202,168,90,0.30)",
-          background: "rgba(202,168,90,0.08)",
-          fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
-          textTransform: "uppercase", color: "#CAA85A",
-          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          whiteSpace: "nowrap",
-        }}
-      >
-        Analytics
-      </span>
-    );
-  }
-  if (sourceType === "analyst") {
-    return (
-      <span
-        style={{
-          display: "inline-flex", alignItems: "center",
-          padding: "2px 7px", borderRadius: 3,
-          border: "1px solid rgba(56,170,203,0.25)",
-          background: "rgba(56,170,203,0.07)",
-          fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
-          textTransform: "uppercase", color: "#38AACB",
-          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          whiteSpace: "nowrap",
-        }}
-      >
-        Analyst
-      </span>
-    );
-  }
-  if (sourceType === "scouting") {
-    return (
-      <span
-        style={{
-          display: "inline-flex", alignItems: "center",
-          padding: "2px 7px", borderRadius: 3,
-          border: "1px solid rgba(61,174,114,0.28)",
-          background: "rgba(61,174,114,0.08)",
-          fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
-          textTransform: "uppercase", color: "#3DAE72",
-          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          whiteSpace: "nowrap",
-        }}
-      >
-        Scouting
-      </span>
-    );
-  }
-  if (sourceType === "college_analyst") {
-    return (
-      <span
-        style={{
-          display: "inline-flex", alignItems: "center",
-          padding: "2px 7px", borderRadius: 3,
-          border: "1px solid rgba(167,120,220,0.28)",
-          background: "rgba(167,120,220,0.08)",
-          fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
-          textTransform: "uppercase", color: "#A778DC",
-          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          whiteSpace: "nowrap",
-        }}
-      >
-        College
-      </span>
-    );
-  }
-  return null;
+function SourceTypeBadge({ sourceType }: { sourceType?: string | null }) {
+  const configs: Record<string, { border: string; bg: string; color: string; label: string }> = {
+    analytics:      { border: "rgba(202,168,90,0.30)",  bg: "rgba(202,168,90,0.08)",  color: "#CAA85A", label: "Analytics" },
+    analyst:        { border: "rgba(56,170,203,0.25)",  bg: "rgba(56,170,203,0.07)",  color: "#38AACB", label: "Analyst" },
+    scouting:       { border: "rgba(61,174,114,0.28)",  bg: "rgba(61,174,114,0.08)",  color: "#3DAE72", label: "Scouting" },
+    college_analyst:{ border: "rgba(167,120,220,0.28)", bg: "rgba(167,120,220,0.08)", color: "#A778DC", label: "College" },
+  };
+  const cfg = configs[sourceType ?? ""];
+  if (!cfg) return null;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center",
+      padding: "2px 7px", borderRadius: 3,
+      border: `1px solid ${cfg.border}`, background: cfg.bg,
+      fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+      textTransform: "uppercase" as const, color: cfg.color,
+      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+      whiteSpace: "nowrap" as const,
+    }}>
+      {cfg.label}
+    </span>
+  );
 }
 
-/* ─── Source type filter chip config ──────────────────────────── */
 type FilterChip = "all" | "insider" | "analytics" | "scouting" | "college";
+type LeagueTab = "ALL" | "NBA" | "MLB" | "NFL" | "CFB";
 
 const FILTER_CHIPS: { id: FilterChip; label: string; types: string[] }[] = [
   { id: "all",       label: "All",       types: [] },
@@ -139,19 +79,96 @@ const FILTER_CHIPS: { id: FilterChip; label: string; types: string[] }[] = [
   { id: "college",   label: "College",   types: ["college_analyst"] },
 ];
 
+const LEAGUE_TABS: LeagueTab[] = ["ALL", "NBA", "MLB", "NFL", "CFB"];
+
+// Map source names to their league(s) so we can filter client-side.
+// This is the reliable approach since source_scores rows don't carry a league field.
+const SOURCE_LEAGUE_MAP: Record<string, LeagueTab[]> = {
+  // NBA
+  "ESPN NBA":               ["NBA"],
+  "The Athletic NBA":       ["NBA"],
+  "NBA Beat Writers (General)": ["NBA"],
+  "NBA Official":           ["NBA"],
+  "Reddit r/nba":           ["NBA"],
+  "Shams Charania":         ["NBA"],
+  "Bleacher Report NBA":    ["NBA"],
+  "Adrian Wojnarowski":     ["NBA"],
+  // MLB
+  "ESPN MLB":               ["MLB"],
+  "The Athletic MLB":       ["MLB"],
+  "MLB Beat Writers (General)": ["MLB"],
+  "MLB Official":           ["MLB"],
+  "Reddit r/baseball":      ["MLB"],
+  "Jon Heyman":             ["MLB"],
+  "Ken Rosenthal":          ["MLB"],
+  "Baseball Reference":     ["MLB"],
+  "Bob Nightengale":        ["MLB"],
+  "FanGraphs":              ["MLB"],
+  "Mark Feinsand":          ["MLB"],
+  "Rotowire MLB":           ["MLB"],
+  // NFL
+  "Adam Schefter":          ["NFL"],
+  "Ian Rapoport":           ["NFL"],
+  "Tom Pelissero":          ["NFL"],
+  "Jeremy Fowler":          ["NFL"],
+  "Jay Glazer":             ["NFL"],
+  "The Athletic NFL":       ["NFL"],
+  "NFL Official":           ["NFL"],
+  "Reddit r/nfl":           ["NFL"],
+  "Pro Football Focus":     ["NFL"],
+  "ProFootballTalk":        ["NFL"],
+  "OverTheCap":             ["NFL"],
+  "Landry Football":        ["NFL"],
+  // CFB
+  "Phil Steele":            ["CFB"],
+  "Bleacher Report":        ["CFB", "NFL", "NBA", "MLB"],
+  "Field Yates":            ["NFL"],
+};
+
+function getSourceLeagues(sourceName: string): LeagueTab[] {
+  return SOURCE_LEAGUE_MAP[sourceName] ?? ["NFL", "NBA", "MLB", "CFB"]; // unknown = show in all
+}
+
 export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
   const [activeFilter, setActiveFilter] = useState<FilterChip>("all");
+  const [activeLeague, setActiveLeague] = useState<LeagueTab>("ALL");
 
-  const { data: scores, isLoading } = useQuery({
+  const { data: rawScores, isLoading } = useQuery({
     queryKey: ["/api/leaderboard"],
     queryFn: () => apiRequest("GET", "/api/leaderboard").then(r => r.json()),
     refetchInterval: 60000,
   });
 
-  const chip = FILTER_CHIPS.find(c => c.id === activeFilter)!;
-  const filteredScores = (!scores || chip.types.length === 0)
+  // FIX 1: Deduplicate by source_id — keep highest overall_accuracy per source.
+  // The API can return multiple source_scores rows for the same source_id
+  // (one per league or per update cycle). We want exactly one row per source.
+  const scores: any[] = (() => {
+    if (!rawScores) return [];
+    const seen = new Map<string, any>();
+    for (const row of rawScores) {
+      const key = row.source_id ?? row.source_name ?? row.id;
+      if (!key) continue;
+      const existing = seen.get(key);
+      if (!existing || parseFloat(row.overall_accuracy ?? 0) > parseFloat(existing.overall_accuracy ?? 0)) {
+        seen.set(key, row);
+      }
+    }
+    return [...seen.values()];
+  })();
+
+  // FIX 2: League filter — client-side using SOURCE_LEAGUE_MAP
+  const leagueFiltered = activeLeague === "ALL"
     ? scores
-    : scores.filter((s: any) => chip.types.includes(s.source_type ?? ""));
+    : scores.filter((s: any) => {
+        const leagues = getSourceLeagues(s.source_name ?? "");
+        return leagues.includes(activeLeague);
+      });
+
+  // Source-type filter
+  const chip = FILTER_CHIPS.find(c => c.id === activeFilter)!;
+  const filteredScores = chip.types.length === 0
+    ? leagueFiltered
+    : leagueFiltered.filter((s: any) => chip.types.includes(s.source_type ?? ""));
 
   return (
     <AppLayout theme={theme} toggleTheme={toggleTheme}>
@@ -178,21 +195,39 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
             </div>
           </div>
 
-          {/* Briefing rule */}
           <hr className="briefing-rule mb-5" />
+
+          {/* League tabs */}
+          <div className="flex gap-1 mb-4" data-testid="league-tabs">
+            {LEAGUE_TABS.map(league => {
+              const active = activeLeague === league;
+              return (
+                <button
+                  key={league}
+                  onClick={() => setActiveLeague(league)}
+                  style={{
+                    padding: "5px 14px", borderRadius: 3,
+                    border: active ? "1px solid rgba(202,168,90,0.50)" : `1px solid ${C.borderMid}`,
+                    background: active ? "rgba(202,168,90,0.12)" : "transparent",
+                    color: active ? "#CAA85A" : C.ivoryMuted,
+                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                    fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+                    textTransform: "uppercase" as const,
+                    cursor: "pointer", transition: "all 0.12s",
+                  }}
+                >
+                  {league}
+                </button>
+              );
+            })}
+          </div>
 
           {/* Tier legend */}
           <div
             className="flex flex-wrap gap-4 mb-5 py-2.5"
             style={{ borderTop: `1px solid ${C.borderSub}`, borderBottom: `1px solid ${C.borderSub}` }}
-            data-testid="tier-legend"
           >
-            {[
-              { tier: "tier1" },
-              { tier: "tier2" },
-              { tier: "tier3" },
-              { tier: "tier4" },
-            ].map(({ tier }) => (
+            {["tier1","tier2","tier3","tier4"].map(tier => (
               <div key={tier} className="flex items-center gap-1.5">
                 <TierBadge tier={tier} />
               </div>
@@ -200,13 +235,9 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
           </div>
 
           {/* Source-type filter chips */}
-          <div
-            className="flex flex-wrap gap-2 mb-5"
-            data-testid="source-filter-chips"
-          >
+          <div className="flex flex-wrap gap-2 mb-5">
             {FILTER_CHIPS.map(c => {
               const active = activeFilter === c.id;
-              /* Active chip style per type */
               const activeStyles: Record<FilterChip, { border: string; bg: string; color: string }> = {
                 all:       { border: "rgba(202,168,90,0.50)",  bg: "rgba(202,168,90,0.14)",  color: "#CAA85A" },
                 insider:   { border: "rgba(56,170,203,0.45)",  bg: "rgba(56,170,203,0.10)",  color: "#38AACB" },
@@ -219,7 +250,6 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
                 <button
                   key={c.id}
                   onClick={() => setActiveFilter(c.id)}
-                  data-testid={`filter-chip-${c.id}`}
                   style={{
                     display: "inline-flex", alignItems: "center",
                     padding: "5px 13px", borderRadius: 3,
@@ -228,15 +258,8 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
                     color: active ? s!.color : C.ivoryMuted,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    cursor: "pointer",
-                    transition: "all 0.12s",
-                  }}
-                  onMouseEnter={e => {
-                    if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = C.borderSub;
-                  }}
-                  onMouseLeave={e => {
-                    if (!active) (e.currentTarget as HTMLButtonElement).style.borderColor = C.borderMid;
+                    textTransform: "uppercase" as const,
+                    cursor: "pointer", transition: "all 0.12s",
                   }}
                 >
                   {c.label}
@@ -246,113 +269,68 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
           </div>
 
           {isLoading && (
-            <div className="space-y-2" data-testid="skeleton-leaderboard">
-              {[1, 2, 3, 4, 5].map(i => (
-                <div
-                  key={i}
-                  className="h-12 rounded animate-pulse"
-                  style={{ background: C.panelLift, border: `1px solid ${C.borderSub}` }}
-                />
+            <div className="space-y-2">
+              {[1,2,3,4,5].map(i => (
+                <div key={i} className="h-12 rounded animate-pulse"
+                  style={{ background: C.panelLift, border: `1px solid ${C.borderSub}` }} />
               ))}
             </div>
           )}
 
           {!isLoading && (!filteredScores || filteredScores.length === 0) && (
-            <div
-              className="text-center py-14 rounded"
-              style={{ border: `1px solid ${C.borderMid}`, background: C.panelBase }}
-              data-testid="empty-leaderboard"
-            >
+            <div className="text-center py-14 rounded"
+              style={{ border: `1px solid ${C.borderMid}`, background: C.panelBase }}>
               <p className="text-sm" style={{ color: C.ivoryMuted }}>
-                {activeFilter === "all" ? "No source scores yet" : `No ${FILTER_CHIPS.find(c => c.id === activeFilter)!.label} sources tracked yet`}
+                No sources found for {activeLeague === "ALL" ? "current filter" : activeLeague}
               </p>
             </div>
           )}
 
           {!isLoading && filteredScores && filteredScores.length > 0 && (
-            <div
-              className="rounded overflow-hidden"
-              style={{ border: `1px solid ${C.borderMid}` }}
-              data-testid="leaderboard-table"
-            >
-              {/* Parchment header band — premium editorial contrast surface */}
-              <div
-                className="overflow-x-auto"
-                style={{ background: C.panelBase }}
-              >
+            <div className="rounded overflow-hidden" style={{ border: `1px solid ${C.borderMid}` }}>
+              <div className="overflow-x-auto" style={{ background: C.panelBase }}>
                 <table className="w-full text-base">
                   <thead>
-                    <tr style={{
-                      background: C.parchmentSoft,
-                      borderBottom: `1px solid ${C.parchmentBdr}`,
-                    }}>
+                    <tr style={{ background: C.parchmentSoft, borderBottom: `1px solid ${C.parchmentBdr}` }}>
                       <th className="text-left px-4 py-3 w-8">
-                        <span
-                          className="text-[12px] font-bold uppercase tracking-widest"
-                          style={{ color: C.parchmentMid }}
-                        >#</span>
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>#</span>
                       </th>
                       <th className="text-left px-4 py-3">
-                        <span
-                          className="text-[12px] font-bold uppercase tracking-widest"
-                          style={{ color: C.parchmentMid }}
-                        >Source</span>
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Source</span>
                       </th>
                       <th className="text-left px-4 py-3 hidden sm:table-cell">
-                        <span
-                          className="text-[12px] font-bold uppercase tracking-widest"
-                          style={{ color: C.parchmentMid }}
-                        >Tier</span>
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Tier</span>
                       </th>
                       <th className="text-right px-4 py-3">
-                        <span
-                          className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest"
-                          style={{ color: C.parchmentMid }}
-                        >
+                        <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
                           <Trophy size={11} />Accuracy
                         </span>
                       </th>
                       <th className="text-right px-4 py-3 hidden md:table-cell">
-                        <span
-                          className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest"
-                          style={{ color: C.parchmentMid }}
-                        >
+                        <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
                           <Clock size={11} />Lead Time
                         </span>
                       </th>
                       <th className="text-right px-4 py-3 hidden lg:table-cell">
-                        <span
-                          className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest"
-                          style={{ color: C.parchmentMid }}
-                        >
+                        <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
                           <TrendingDown size={11} />False+
                         </span>
                       </th>
                       <th className="text-right px-4 py-3 hidden md:table-cell">
-                        <span
-                          className="text-[12px] font-bold uppercase tracking-widest"
-                          style={{ color: C.parchmentMid }}
-                        >Injury Acc.</span>
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Injury Acc.</span>
                       </th>
                       <th className="text-right px-4 py-3 hidden lg:table-cell">
-                        <span
-                          className="text-[12px] font-bold uppercase tracking-widest"
-                          style={{ color: C.parchmentMid }}
-                        >Draft Acc.</span>
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Draft Acc.</span>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredScores.map((s: any, i: number) => {
                       const acc = parseFloat(s.overall_accuracy ?? "0");
-                      /* Analytics accuracy tiers: cyan ≥85%, amber ≥70%, muted below */
-                      const accColor =
-                        acc >= 85 ? C.anaCyan :
-                        acc >= 70 ? C.anaAmber :
-                        C.ivoryMuted;
+                      const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
                       return (
                         <tr
-                          key={s.id}
+                          key={s.source_id ?? s.id ?? i}
                           className="transition-colors"
                           style={{ borderBottom: `1px solid ${C.borderSub}` }}
                           onMouseEnter={e => (e.currentTarget.style.background = C.panelLift)}
@@ -362,8 +340,10 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
                           <td className="px-4 py-3 text-sm font-bold tabular-nums" style={{ color: C.ivorySub }}>{i + 1}</td>
                           <td className="px-4 py-3" style={{ minWidth: 0 }}>
                             <div className="flex flex-col sm:flex-row sm:items-center" style={{ gap: 4, minWidth: 0 }}>
-                              <p className="font-semibold text-base" style={{ color: C.ivoryPrimary, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{s.source_name}</p>
-                              <SourceTypeBadge sourceType={s.source_type} sourceName={s.source_name} />
+                              <p className="font-semibold text-base" style={{ color: C.ivoryPrimary, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                                {s.source_name}
+                              </p>
+                              <SourceTypeBadge sourceType={s.source_type} />
                             </div>
                             {s.source_type === "analytics" && (
                               <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>Grading · analytics service</p>
