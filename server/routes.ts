@@ -16,6 +16,41 @@ import express from "express";
 import { syncToSupabase } from "./supabase-sync";
 import { isProUser } from "@shared/pro-utils";
 import { getPipelineDb } from "./pipeline/store";
+import type { LiveSignal } from "./pipeline/types";
+
+function mapLiveSignalToFrontend(s: LiveSignal) {
+  return {
+    id: s.id,
+    league: s.league,
+    signal_type: s.signal_type,
+    title: s.headline,
+    headline: s.headline,
+    summary: s.body,
+    action_takeaway: s.action_note,
+    player_name: s.player,
+    team: s.team,
+    matchup: s.matchup,
+    verdict: s.verdict,
+    confidence_score: s.confidence,
+    is_public: true,
+    is_featured: false,
+    score: s.score,
+    score_band: s.score_band,
+    urgency_label: s.urgency_label,
+    why_it_matters: s.why_it_matters,
+    body: s.body,
+    action_note: s.action_note,
+    sources: s.sources,
+    source_count: s.source_count,
+    confirmation_strength: s.confirmation_strength,
+    line_movement: s.line_movement,
+    injury_designation: s.injury_designation,
+    lineup_status: s.lineup_status,
+    betting_relevance: s.betting_relevance,
+    fantasy_relevance: s.fantasy_relevance,
+    created_at: s.created_at,
+  };
+}
 
 export function registerRoutes(httpServer: Server, app: Express) {
   // ─── Seed demo data on startup (non-blocking) ─────────────────────────────────
@@ -87,60 +122,21 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ─── Signal Feed ──────────────────────────────────────────────────────────────
   app.get("/api/signal", (req, res) => {
-    const { league, topic, verdict } = req.query as Record<string, string>;
-    // Primary: verdict-join feed (agent-sourced signals)
-    const feed = storage.getSignalFeed({ league, topic, verdict });
-
-    // Helper: map Signal rows to SignalFeedItem shape
-    // Map signal_type to a friendly source label for the feed card
-    const signalTypeToSource = (st: string | null): string => {
-      if (!st) return "Edge Setter Intel";
-      const lower = st.toLowerCase();
-      if (lower.includes("pff")) return "Pro Football Focus";
-      if (lower.includes("scouting evaluation") || lower.includes("landry")) return "Landry Football";
-      if (lower.includes("college production") || lower.includes("college ranking") || lower.includes("steele")) return "Phil Steele";
-      return st;
-    };
-
-    const mapSig = (s: any) => ({
-      id: s.id,
-      player: s.player_name ?? null,
-      team: s.team ?? null,
-      league: "NFL",
-      topic: s.topic ?? null,
-      normalized_claim: s.summary ?? s.title,
-      verdict: s.verdict ?? "review",
-      confidence_score: String(s.confidence_score ?? 0),
-      needs_human_review: 0,
-      urgency_score: null,
-      impact_score: null,
-      source_name: signalTypeToSource(s.signal_type),
-      trust_tier: "A",
-      rationale: s.action_takeaway ?? null,
-      event_id: null,
-      claim_id: null,
-      created_at: s.published_at ?? s.created_at,
-    });
-
-    if (topic) {
-      // Topic-filtered: if join feed has results for this topic, use it;
-      // otherwise fall back to seeded signals table
-      const topicFeed = feed.filter(f => (f as any).topic === topic);
-      if (topicFeed.length > 0) return res.json(topicFeed);
-      let sigs = storage.getSignals(true).filter(s => (s as any).topic === topic);
-      if (verdict) sigs = sigs.filter(s => s.verdict === verdict);
-      return res.json(sigs.map(mapSig));
-    }
-
-    // No topic filter: merge join feed + seeded signals (deduplicated by id)
-    const seededSigs = storage.getSignals(true);
-    let seededMapped = seededSigs.map(mapSig);
-    if (verdict) seededMapped = seededMapped.filter(s => s.verdict === verdict);
-    const feedIds = new Set(feed.map(f => f.id));
-    const merged = [...feed, ...seededMapped.filter(s => !feedIds.has(s.id))];
-    // Sort by created_at desc
-    merged.sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
-    return res.json(merged.slice(0, 100));
+    const { league } = req.query as Record<string, string>;
+    const pdb = getPipelineDb();
+    const sql = league
+      ? `SELECT * FROM live_signals WHERE league=? ORDER BY created_at DESC LIMIT 100`
+      : `SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100`;
+    const rows: any[] = league ? pdb.prepare(sql).all(league) : pdb.prepare(sql).all();
+    return res.json(rows.map(row => mapLiveSignalToFrontend({
+      ...row,
+      sources: JSON.parse(row.sources ?? "[]"),
+      line_movement: row.line_movement ? JSON.parse(row.line_movement) : null,
+      breakdown: JSON.parse(row.breakdown ?? "{}"),
+      raw_event_ids: JSON.parse(row.raw_event_ids ?? "[]"),
+      betting_relevance: row.betting_relevance === 1,
+      fantasy_relevance: row.fantasy_relevance === 1,
+    })));
   });
 
   // ─── Sources ─────────────────────────────────────────────────────────────────
@@ -255,8 +251,22 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
 
   // ─── MVP: Signals ─────────────────────────────────────────────────────────────
-  app.get("/api/signals", (_req, res) => {
-    res.json(storage.getSignals(true));
+  app.get("/api/signals", (req, res) => {
+    const { league } = req.query as Record<string, string>;
+    const pdb = getPipelineDb();
+    const sql = league
+      ? `SELECT * FROM live_signals WHERE league=? ORDER BY created_at DESC LIMIT 100`
+      : `SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100`;
+    const rows: any[] = league ? pdb.prepare(sql).all(league) : pdb.prepare(sql).all();
+    return res.json(rows.map(row => mapLiveSignalToFrontend({
+      ...row,
+      sources: JSON.parse(row.sources ?? "[]"),
+      line_movement: row.line_movement ? JSON.parse(row.line_movement) : null,
+      breakdown: JSON.parse(row.breakdown ?? "{}"),
+      raw_event_ids: JSON.parse(row.raw_event_ids ?? "[]"),
+      betting_relevance: row.betting_relevance === 1,
+      fantasy_relevance: row.fantasy_relevance === 1,
+    })));
   });
   app.get("/api/signals/all", (_req, res) => {
     res.json(storage.getSignals(false));
