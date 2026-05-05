@@ -161,6 +161,16 @@ export function registerRoutes(httpServer: Server, app: Express) {
     return res.json({ live_signals_count: count, raw_events_count: rawCount, raw_unprocessed: rawUnprocessed, sample });
   });
 
+  // ─── Admin: Deduplicate source_scores ────────────────────────────────────────
+  app.post("/api/admin/source-scores/dedup", (req, res) => {
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    const auth = req.headers.authorization ?? "";
+    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+    if (token !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    const result = storage.cleanSourceScoreDuplicates();
+    return res.json(result);
+  });
+
   // ─── Admin Review Queue ───────────────────────────────────────────────────────
   app.get("/api/admin/review", (_req, res) => {
     const queue = storage.getReviewQueue();

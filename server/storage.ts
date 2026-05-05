@@ -473,12 +473,14 @@ export class SqliteStorage implements IStorage {
         source_url: src?.url ?? null,
       };
     });
-    // Deduplicate by source_name — rows are already ordered desc by accuracy,
-    // so the first occurrence per name is the highest-accuracy entry.
+    // Deduplicate by source_id (canonical key), falling back to normalized name for
+    // rows whose source record is missing (source_id null or not found → name="Unknown").
+    // Rows are already ordered desc by accuracy so the first occurrence per key wins.
     const seen = new Map<string, typeof enriched[0]>();
     for (const row of enriched) {
-      const key = row.source_name.toLowerCase().replace(/[-_\s]+/g, " ").trim();
-if (!seen.has(key)) seen.set(key, row);
+      const key = row.source_id
+        ?? row.source_name.toLowerCase().replace(/[-_\s]+/g, " ").trim();
+      if (!seen.has(key)) seen.set(key, row);
     }
     return [...seen.values()];
   }
@@ -495,6 +497,34 @@ if (!seen.has(key)) seen.set(key, row);
     }
     const row = { ...data, id: uuid(), updated_at: now() };
     return db.insert(source_scores).values(row).returning().get();
+  }
+
+  cleanSourceScoreDuplicates(): { duplicateSourceIds: any[]; deletedRows: number; finalCount: number } {
+    const dupRows = sqlite.prepare(`
+      SELECT source_id, COUNT(*) as cnt
+      FROM source_scores
+      GROUP BY source_id
+      HAVING COUNT(*) > 1
+    `).all() as any[];
+
+    const deleteResult = sqlite.prepare(`
+      DELETE FROM source_scores WHERE id IN (
+        SELECT id FROM (
+          SELECT id, ROW_NUMBER() OVER (
+            PARTITION BY source_id ORDER BY overall_accuracy DESC, updated_at DESC
+          ) as rn
+          FROM source_scores
+        ) WHERE rn > 1
+      )
+    `).run();
+
+    const finalResult = sqlite.prepare(`SELECT COUNT(*) as cnt FROM source_scores`).get() as any;
+
+    return {
+      duplicateSourceIds: dupRows,
+      deletedRows: deleteResult.changes,
+      finalCount: finalResult?.cnt ?? 0,
+    };
   }
 
   getAlerts(): Alert[] {
