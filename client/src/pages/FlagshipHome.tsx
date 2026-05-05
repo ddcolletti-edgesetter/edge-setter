@@ -2,6 +2,13 @@
  * Edge Setter — Flagship Homepage
  * Root route (/#/) premium sports intelligence command center.
  * NBA-first, multi-sport, visually driven.
+ *
+ * Session 19 visual fixes:
+ * - Text contrast: body copy, signal ticker, panel text → TH.text not TH.textMuted
+ * - Signal ticker rows: brighter border + background
+ * - Sport-specific backgrounds on panel cards (court lines, diamond, field stripes)
+ * - Hero section basketball court texture overlay
+ * - Board cards: signal count made large + prominent
  */
 
 import { useLocation } from "wouter";
@@ -25,7 +32,7 @@ const SPORT_STATUS = [
 /* ── Featured NBA signal for hero ── */
 const HERO_SIGNAL = NBA_SIGNALS.find(s => s.confidence >= 84) ?? NBA_SIGNALS[0];
 
-/* ── Top 3 signals for the signal ticker ── */
+/* ── Top signals for the ticker ── */
 const TOP_SIGNALS = NBA_SIGNALS.slice(0, 5);
 
 /* ── MLB games for strip ── */
@@ -40,6 +47,7 @@ const FEATURE_PANELS = [
   {
     title: "NBA Intelligence Board",
     subtitle: "Playoffs live",
+    sport: "NBA",
     body: "Real-time injury reports, line movement, rotation notes, and matchup edges. 12 signals updated continuously.",
     cta: "Open NBA Board",
     href: "/v2/nba",
@@ -52,6 +60,7 @@ const FEATURE_PANELS = [
   {
     title: "Tools Hub",
     subtitle: "Research suite",
+    sport: "TOOLS",
     body: "Lineup optimizer, matchup breakdown, line-shopping alerts, and public vs. sharp money tracker.",
     cta: "Open Tools",
     href: "/v2/tools",
@@ -64,6 +73,7 @@ const FEATURE_PANELS = [
   {
     title: "MLB Board",
     subtitle: "Regular season",
+    sport: "MLB",
     body: "Pitcher alerts, lineup movement, team trends, and sharp line tracking across all 30 teams.",
     cta: "Open MLB Board",
     href: "/v2/mlb",
@@ -74,6 +84,46 @@ const FEATURE_PANELS = [
     icon: <TrendingUp size={14} />,
   },
 ] as const;
+
+/* ── Sport-specific background patterns for panel cards ── */
+function getSportBgStyle(sport: string, primaryColor: string): React.CSSProperties {
+  const base = `linear-gradient(135deg, ${primaryColor}CC, ${primaryColor}44)`;
+  if (sport === "NBA") {
+    return {
+      background: base,
+      backgroundImage: [
+        base,
+        // Court lines — horizontal
+        "repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(255,255,255,0.045) 18px, rgba(255,255,255,0.045) 19px)",
+        // Court lines — vertical
+        "repeating-linear-gradient(90deg, transparent, transparent 18px, rgba(255,255,255,0.045) 18px, rgba(255,255,255,0.045) 19px)",
+      ].join(", "),
+    };
+  }
+  if (sport === "MLB") {
+    return {
+      background: base,
+      backgroundImage: [
+        // Outfield arc glow from bottom center
+        `radial-gradient(ellipse 90% 80% at 50% 115%, rgba(180,140,60,0.28) 0%, transparent 58%)`,
+        // Dirt infield diamond hint
+        `radial-gradient(ellipse 50% 60% at 50% 80%, rgba(180,120,40,0.18) 0%, transparent 50%)`,
+        base,
+      ].join(", "),
+    };
+  }
+  if (sport === "NFL" || sport === "CFB") {
+    return {
+      background: base,
+      backgroundImage: [
+        base,
+        // Yard lines
+        "repeating-linear-gradient(90deg, transparent, transparent 22px, rgba(255,255,255,0.04) 22px, rgba(255,255,255,0.04) 23px)",
+      ].join(", "),
+    };
+  }
+  return { background: base };
+}
 
 /* ═══════════════════════════════════════════════════
    Main Component
@@ -178,7 +228,7 @@ export default function FlagshipHome() {
           ))}
         </div>
 
-        {/* Sport status pills — real clickable buttons */}
+        {/* Sport status pills */}
         <div className="flag-sport-pills" style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
           {SPORT_STATUS.map(s => {
             const disabled = s.status === "OFFSEASON" || s.status === "COMING SOON";
@@ -239,7 +289,7 @@ export default function FlagshipHome() {
         @keyframes tickerScroll { 0%{transform:translateX(0);} 100%{transform:translateX(-50%);} }
         .flag-btn:hover { opacity: 0.88; transform: translateY(-1px); }
         .panel-card:hover { border-color: rgba(202,168,90,0.3) !important; transform: translateY(-2px); }
-        .sig-ticker:hover { background: rgba(202,168,90,0.04) !important; }
+        .sig-ticker:hover { background: rgba(202,168,90,0.07) !important; border-color: rgba(202,168,90,0.25) !important; }
         /* Mobile responsive */
         @media (max-width: 768px) {
           .flag-nav { padding: 0 16px !important; gap: 12px !important; height: 52px !important; }
@@ -265,7 +315,7 @@ export default function FlagshipHome() {
       `}</style>
 
       {/* ══════════════════════════════════
-          HERO SECTION — full-width command center
+          HERO SECTION
       ══════════════════════════════════ */}
       <section style={{
         position: "relative", overflow: "hidden",
@@ -277,6 +327,18 @@ export default function FlagshipHome() {
         <div style={{
           position: "absolute", inset: 0, opacity: 0.04,
           backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(202,168,90,0.6) 39px, rgba(202,168,90,0.6) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(202,168,90,0.6) 39px, rgba(202,168,90,0.6) 40px)`,
+        }} />
+
+        {/* Basketball court lines — subtle, hero-specific */}
+        <div style={{
+          position: "absolute", inset: 0, opacity: 0.055,
+          backgroundImage: [
+            // Center circle suggestion
+            `radial-gradient(ellipse 200px 200px at 72% 50%, transparent 68px, rgba(202,168,90,0.7) 70px, transparent 72px)`,
+            // Key lines
+            `linear-gradient(90deg, transparent 62%, rgba(202,168,90,0.5) 62%, rgba(202,168,90,0.5) 62.15%, transparent 62.15%)`,
+            `linear-gradient(90deg, transparent 62%, transparent 62%, rgba(202,168,90,0.3) 62%, rgba(202,168,90,0.3) 80%, transparent 80%)`,
+          ].join(", "),
         }} />
 
         {/* Radial glow — team color */}
@@ -332,9 +394,10 @@ export default function FlagshipHome() {
               <span style={{ color: T.gold }}>Before the Market Moves</span>
             </h1>
 
+            {/* FIX 1: was TH.textMuted — now TH.text for readable contrast */}
             <p className="flag-hero-body" style={{
-              fontSize: 18, color: TH.textMuted, lineHeight: 1.65,
-              margin: "0 0 28px", maxWidth: 520,
+              fontSize: 18, color: TH.text, lineHeight: 1.65,
+              margin: "0 0 28px", maxWidth: 520, opacity: 0.78,
             }}>
               Real-time injury reports, sharp money tracking, rotation notes, and matchup edges — across NBA, MLB, NFL, and CFB. Built for bettors and fantasy players who want the edge first.
             </p>
@@ -408,15 +471,17 @@ export default function FlagshipHome() {
                       onClick={() => navigate("/v2/nba")}
                       style={{
                         display: "flex", alignItems: "center", gap: 10,
-                        padding: "7px 12px", borderRadius: 3,
-                        background: "rgba(255,255,255,0.02)",
-                        border: `1px solid ${TH.border}`,
-                        cursor: "pointer", transition: "background 0.1s",
+                        padding: "8px 12px", borderRadius: 3,
+                        // FIX 3: was rgba(255,255,255,0.02) — now visible surface
+                        background: "rgba(255,255,255,0.05)",
+                        border: `1px solid rgba(202,168,90,0.15)`,
+                        cursor: "pointer", transition: "background 0.1s, border-color 0.1s",
                       }}
                     >
                       {sig.player && <PlayerHeadshot name={sig.player} team={sig.team} size={22} shape="circle" />}
                       {!sig.player && <TeamLogoImg abbr={sig.team} size={22} />}
-                      <div style={{ flex: 1, fontSize: 15, color: TH.textMuted, lineHeight: 1.4 }}>
+                      {/* FIX 2: was TH.textMuted — now TH.text + fontWeight 500 */}
+                      <div style={{ flex: 1, fontSize: 15, color: TH.text, lineHeight: 1.4, fontWeight: 500 }}>
                         {sig.headline.slice(0, 72)}{sig.headline.length > 72 ? "…" : ""}
                       </div>
                       <TypeChip type={sig.type} />
@@ -434,7 +499,6 @@ export default function FlagshipHome() {
 
           {/* ── Right: Featured Edge card ── */}
           <div className="flag-hero-right" style={{ animation: "heroFadeUp 0.7s ease 0.12s both" }}>
-            {/* Hero player visual — marquee matchup */}
             <div style={{
               background: TH.surface1,
               border: `1px solid rgba(202,168,90,0.25)`,
@@ -448,7 +512,6 @@ export default function FlagshipHome() {
                 borderBottom: `1px solid ${TH.border}`,
                 display: "flex", alignItems: "center", gap: 10, position: "relative",
               }}>
-                {/* BG glow */}
                 <div style={{
                   position: "absolute", inset: 0,
                   background: `radial-gradient(ellipse at 80% 50%, ${oppColors.primary}33, transparent 60%)`,
@@ -489,9 +552,8 @@ export default function FlagshipHome() {
                 </div>
               </div>
 
-              {/* Player headshot + signal */}
+              {/* Signal content */}
               <div style={{ padding: "16px" }}>
-                {/* Featured signal content */}
                 <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
                   {HERO_SIGNAL.player && (
                     <PlayerHeadshot
@@ -519,7 +581,6 @@ export default function FlagshipHome() {
                   </div>
                 </div>
 
-                {/* Headline */}
                 <div style={{
                   fontFamily: "'Playfair Display', Georgia, serif",
                   fontSize: 14, fontWeight: 700, color: TH.text, lineHeight: 1.4, marginBottom: 10,
@@ -527,7 +588,6 @@ export default function FlagshipHome() {
                   {HERO_SIGNAL.headline}
                 </div>
 
-                {/* Takeaway box */}
                 <div style={{
                   background: "rgba(202,168,90,0.06)", border: "1px solid rgba(202,168,90,0.2)",
                   borderRadius: 4, padding: "10px 12px", marginBottom: 12,
@@ -542,7 +602,6 @@ export default function FlagshipHome() {
                   </div>
                 </div>
 
-                {/* Confidence bar */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
                   <ConfidenceBar value={HERO_SIGNAL.confidence} width="100%" height={5} />
                   <span style={{
@@ -552,7 +611,6 @@ export default function FlagshipHome() {
                   }}>{HERO_SIGNAL.confidence}%</span>
                 </div>
 
-                {/* CTA */}
                 <button
                   onClick={() => navigate("/v2/nba")}
                   style={{
@@ -626,11 +684,9 @@ export default function FlagshipHome() {
       </section>
 
       {/* ══════════════════════════════════
-          FEATURED NBA EDGE — full marquee
+          FEATURED NBA EDGE
       ══════════════════════════════════ */}
-      <section style={{
-        borderBottom: `1px solid ${TH.border}`,
-      }}>
+      <section style={{ borderBottom: `1px solid ${TH.border}` }}>
         <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 40px" }}>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -731,7 +787,7 @@ export default function FlagshipHome() {
       </section>
 
       {/* ══════════════════════════════════
-          FEATURE PANELS — 3-col
+          FEATURE PANELS — 3-col with sport backgrounds
       ══════════════════════════════════ */}
       <section style={{ borderBottom: `1px solid ${TH.border}` }}>
         <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "48px 40px" }}>
@@ -755,6 +811,7 @@ export default function FlagshipHome() {
           }}>
             {FEATURE_PANELS.map(panel => {
               const teamColor = getTeamColors(panel.teams[0]);
+              const sportBg = getSportBgStyle(panel.sport, teamColor.primary);
               return (
                 <div
                   key={panel.title}
@@ -766,12 +823,12 @@ export default function FlagshipHome() {
                     cursor: "pointer", transition: "border-color 0.15s, transform 0.15s",
                   }}
                 >
-                  {/* Visual header — team logos + player */}
+                  {/* Visual header — sport-specific background texture */}
                   <div style={{
                     height: 120, position: "relative", overflow: "hidden",
-                    background: `linear-gradient(135deg, ${teamColor.primary}CC, ${teamColor.primary}44)`,
+                    ...sportBg,
                   }}>
-                    {/* Background glow */}
+                    {/* Secondary team color glow */}
                     <div style={{
                       position: "absolute", inset: 0,
                       background: `radial-gradient(ellipse at 80% 50%, ${teamColor.secondary}22, transparent 60%)`,
@@ -785,7 +842,7 @@ export default function FlagshipHome() {
                         <TeamLogoImg key={tm} abbr={tm} size={32} />
                       ))}
                     </div>
-                    {/* Player headshot — right side */}
+                    {/* Player headshot */}
                     <div style={{ position: "absolute", bottom: 0, right: 16 }}>
                       <PlayerHeadshot
                         name={panel.player}
@@ -818,9 +875,10 @@ export default function FlagshipHome() {
                       fontSize: 19, fontWeight: 700, color: TH.text,
                       marginBottom: 8, lineHeight: 1.3,
                     }}>{panel.title}</div>
+                    {/* FIX 4: was TH.textMuted — now TH.text with opacity for readable contrast */}
                     <div style={{
-                      fontSize: 15, color: TH.textMuted, lineHeight: 1.6,
-                      marginBottom: 16,
+                      fontSize: 15, color: TH.text, lineHeight: 1.6,
+                      marginBottom: 16, opacity: 0.78,
                     }}>{panel.body}</div>
                     <div style={{
                       display: "flex", alignItems: "center", gap: 5,
@@ -863,7 +921,7 @@ export default function FlagshipHome() {
             }}>
               Full Archive. All Sports. Real-Time Alerts.
             </h2>
-            <p style={{ fontSize: 16, color: TH.textMuted, lineHeight: 1.65, margin: 0, maxWidth: 560 }}>
+            <p style={{ fontSize: 16, color: TH.text, lineHeight: 1.65, margin: 0, maxWidth: 560, opacity: 0.75 }}>
               Unlock the complete signal archive, pro-only alerts, early access to NFL and CFB boards, and multi-sport intelligence across every game.
             </p>
             <div style={{ display: "flex", gap: 24, marginTop: 20 }}>
