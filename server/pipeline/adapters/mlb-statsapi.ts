@@ -10,7 +10,7 @@
  *   - IL transactions → transaction RawEvents
  */
 
-import { insertRawEvent, upsertGame, getGame, getRawEvents, getPipelineDb } from "../store";
+import { insertRawEvent, upsertGame, getGame, findGameByTeams, getRawEvents, getPipelineDb } from "../store";
 
 const BASE_URL = "https://statsapi.mlb.com/api/v1";
 
@@ -52,16 +52,45 @@ interface MLBRosterPlayer {
 
 /* ─── Fetch today's schedule ─────────────────────────────── */
 
-export async function fetchMLBSchedule(): Promise<MLBGame[]> {
+export async function fetchMLBFinalScores(): Promise<Array<{
+  game_id: string;
+  home_score: number;
+  away_score: number;
+}>> {
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const url = `${BASE_URL}/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
+    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+    const url = `${BASE_URL}/schedule?sportId=1&startDate=${yesterday}&endDate=${today}&hydrate=linescore,team`;
     const resp = await fetch(url);
-    if (!resp.ok) { console.error(`[mlb-statsapi] HTTP ${resp.status} schedule`); return []; }
+    if (!resp.ok) { console.error(`[mlb-statsapi] HTTP ${resp.status} final scores`); return []; }
     const data = await resp.json() as MLBScheduleResponse;
-    return data.dates.flatMap(d => d.games ?? []);
+    const results: Array<{ game_id: string; home_score: number; away_score: number }> = [];
+
+    for (const date of data.dates) {
+      for (const g of date.games) {
+        const raw = g as any;
+        if (raw.status?.abstractGameState !== "Final") continue;
+        const homeRuns = raw.linescore?.teams?.home?.runs;
+        const awayRuns = raw.linescore?.teams?.away?.runs;
+        if (homeRuns == null || awayRuns == null) continue;
+
+        const canonicalId = `mlb_${raw.gamePk}`;
+        const gameDate = g.gameDate.slice(0, 10);
+
+        const game = getGame(canonicalId)
+          ?? findGameByTeams("MLB", g.teams.home.team.abbreviation, g.teams.away.team.abbreviation, gameDate);
+        if (!game) continue;
+
+        results.push({
+          game_id: game.id,
+          home_score: Number(homeRuns),
+          away_score: Number(awayRuns),
+        });
+      }
+    }
+    return results;
   } catch (err: any) {
-    console.error("[mlb-statsapi] Schedule fetch error:", err.message);
+    console.error("[mlb-statsapi] Final scores error:", err.message);
     return [];
   }
 }
