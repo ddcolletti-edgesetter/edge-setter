@@ -52,6 +52,19 @@ interface MLBRosterPlayer {
 
 /* ─── Fetch today's schedule ─────────────────────────────── */
 
+export async function fetchMLBSchedule(): Promise<MLBGame[]> {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const url = `${BASE_URL}/schedule?sportId=1&date=${today}&hydrate=linescore,team`;
+    const resp = await fetch(url);
+    if (!resp.ok) { console.error(`[mlb-statsapi] HTTP ${resp.status} schedule`); return []; }
+    const data = await resp.json() as MLBScheduleResponse;
+    return data.dates.flatMap(d => d.games ?? []);
+  } catch (err: any) {
+    console.error("[mlb-statsapi] Schedule fetch error:", err.message);
+    return [];
+  }
+}
 export async function fetchMLBFinalScores(): Promise<Array<{
   game_id: string;
   home_score: number;
