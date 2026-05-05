@@ -506,12 +506,18 @@ export function syncAccuracyToStorageDb(): void {
   const db = getPipelineDb();
 
   try {
+    // Aggregate across all leagues per source so each source is upserted exactly once.
+    // The prior query returned one row per (source, league); later leagues overwrote
+    // earlier ones, leaving sources at the hit_rate of their lowest-signal league.
     const perSourceRows = db.prepare(`
-      SELECT source_id, source_name, league, hit_rate, avg_clv,
-             total_signals, wins, losses
+      SELECT source_id, source_name,
+             SUM(wins)          AS wins,
+             SUM(losses)        AS losses,
+             SUM(total_signals) AS total_signals
       FROM pipeline_source_accuracy
       WHERE source_id IS NOT NULL
         AND total_signals > 0
+      GROUP BY source_id
       ORDER BY total_signals DESC
     `).all() as any[];
 
@@ -519,25 +525,20 @@ export function syncAccuracyToStorageDb(): void {
 
     for (const row of perSourceRows) {
       try {
-        // Find matching source in storage.db by name (case-insensitive) or source_id
-        let src = storage.getSource(row.source_id);
-        if (!src) {
-          // Try name match as fallback (handles ID format mismatches)
-          const allSrcs = storage.getSources();
-          src = allSrcs.find(s =>
-            s.name.toLowerCase().trim() === (row.source_name ?? "").toLowerCase().trim()
-          );
-        }
-        if (!src) continue; // source not in storage.db — skip
+        const wins    = row.wins   ?? 0;
+        const losses  = row.losses ?? 0;
+        const total   = wins + losses;
+        const hitRate = total > 0 ? wins / total : null;
 
         storage.upsertSourceScore({
-          source_id:          src.id,
-          overall_accuracy:   row.hit_rate   != null ? Math.round(row.hit_rate   * 100) : 0,
-          draft_accuracy:     row.hit_rate   != null ? Math.round(row.hit_rate   * 100) : 0,
-          average_lead_time_minutes: 0,  // not yet computed — preserved as 0
-          injury_accuracy:    0,
-          portal_accuracy:    0,
-          false_positive_rate: 0,
+          source_id:                 row.source_id,
+          source_name:               row.source_name ?? undefined,
+          overall_accuracy:          hitRate != null ? Math.round(hitRate * 100) : 0,
+          draft_accuracy:            hitRate != null ? Math.round(hitRate * 100) : 0,
+          average_lead_time_minutes: 0,
+          injury_accuracy:           0,
+          portal_accuracy:           0,
+          false_positive_rate:       0,
         });
         synced++;
       } catch (err: any) {

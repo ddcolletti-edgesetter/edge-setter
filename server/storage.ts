@@ -314,6 +314,19 @@ sqlite.exec(`
   }
 })();
 
+// Migration: add source_name to source_scores if missing.
+(function migrateSourceScoreName() {
+  try {
+    const cols = (sqlite.prepare("PRAGMA table_info(source_scores)").all() as any[]).map((c: any) => c.name);
+    if (!cols.includes("source_name")) {
+      sqlite.exec("ALTER TABLE source_scores ADD COLUMN source_name TEXT;");
+      console.log("[db] migrated: source_scores.source_name added");
+    }
+  } catch (e: any) {
+    console.warn("[db] source_scores source_name migration skipped:", e.message);
+  }
+})();
+
 // Sprint 10 migration: add beta_until to users if it doesn't exist yet.
 // SQLite does not support IF NOT EXISTS on ALTER TABLE, so we check PRAGMA.
 // This is safe to run on every startup.
@@ -463,16 +476,13 @@ export class SqliteStorage implements IStorage {
     const rows = db.select().from(source_scores)
       .orderBy(desc(source_scores.overall_accuracy))
       .all();
-    const enriched = rows.map(r => {
-      const src = this.getSource(r.source_id ?? "");
-      return {
-        ...r,
-        source_name: src?.name ?? "Unknown",
-        trust_tier: src?.trust_tier ?? null,
-        source_type: src?.source_type ?? null,
-        source_url: src?.url ?? null,
-      };
-    });
+    const enriched = rows.map(r => ({
+      ...r,
+      source_name: r.source_name ?? "Unknown",
+      trust_tier:  null,
+      source_type: null,
+      source_url:  null,
+    }));
     // Deduplicate by source_id (canonical key), falling back to normalized name for
     // rows whose source record is missing (source_id null or not found → name="Unknown").
     // Rows are already ordered desc by accuracy so the first occurrence per key wins.

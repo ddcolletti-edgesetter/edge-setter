@@ -91,6 +91,7 @@ export type Verdict = typeof verdicts.$inferSelect;
 export const source_scores = sqliteTable("source_scores", {
   id: text("id").primaryKey(),
   source_id: text("source_id").references(() => sources.id),
+  source_name: text("source_name"),
   overall_accuracy: numeric("overall_accuracy").default("0"),
   average_lead_time_minutes: numeric("average_lead_time_minutes").default("0"),
   draft_accuracy: numeric("draft_accuracy").default("0"),
