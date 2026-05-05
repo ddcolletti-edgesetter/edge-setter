@@ -300,39 +300,3 @@ export async function ingestProbablePitchers(): Promise<{ created: number }> {
   return { created };
 }
 
-/* ─── Fetch final scores for recently completed games ────── */
-
-export async function fetchMLBFinalScores(): Promise<Array<{
-  game_id: string;
-  home_score: number;
-  away_score: number;
-}>> {
-  try {
-    // Include yesterday + today to catch late-finishing games
-    const today = new Date().toISOString().slice(0, 10);
-    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    const url = `${BASE_URL}/schedule?sportId=1&startDate=${yesterday}&endDate=${today}&hydrate=linescore`;
-    const resp = await fetch(url);
-    if (!resp.ok) { console.error(`[mlb-statsapi] HTTP ${resp.status} final scores`); return []; }
-    const data = await resp.json() as MLBScheduleResponse;
-    const results: Array<{ game_id: string; home_score: number; away_score: number }> = [];
-    for (const date of data.dates) {
-      for (const g of date.games) {
-        const raw = g as any;
-        if (raw.status?.abstractGameState !== "Final") continue;
-        const homeRuns = raw.linescore?.teams?.home?.runs;
-        const awayRuns = raw.linescore?.teams?.away?.runs;
-        if (homeRuns == null || awayRuns == null) continue;
-        results.push({
-          game_id: `mlb_${raw.gamePk}`,
-          home_score: Number(homeRuns),
-          away_score: Number(awayRuns),
-        });
-      }
-    }
-    return results;
-  } catch (err: any) {
-    console.error("[mlb-statsapi] Final scores error:", err.message);
-    return [];
-  }
-}
