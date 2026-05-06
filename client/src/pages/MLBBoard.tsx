@@ -1,8 +1,6 @@
-import { useState, useMemo } from "react";
-import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
+import { useState } from "react";
+import V2Shell, { SportBadge } from "../components/V2Shell";
 import { MLB_SIGNALS, type V2Signal } from "../data/v2MockData";
-import { useMLBSignals } from "../hooks/useSignals";
-import { scoreAndRankSignals, selectFeaturedEdge, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
   PlayerHeadshot, TeamLogoImg,
   MatchupCard, IntelCard,
@@ -10,11 +8,6 @@ import {
   T, VERDICT_COLORS, getTeamColors,
 } from "../components/v2/SportVisuals";
 import { ChevronRight, X, Filter } from "lucide-react";
-import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
-import { ProRowOverlay, ProBoardBanner, ProActionGate } from "../components/ProGate";
-import OutcomePanel from "../components/OutcomePanel";
-import TrackRecordStrip from "../components/TrackRecordStrip";
-import SignalImpactPanel from "../components/signals/SignalImpactPanel";
 
 const MLB_FILTERS = ["Today", "Pitchers", "Lineup", "Props", "Trends", "Line Moves"] as const;
 type MLBFilter = typeof MLB_FILTERS[number];
@@ -67,22 +60,12 @@ const TEAM_TRENDS = [
 
 /* ── MLB detail panel ── */
 function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
-  const darkMode = useShellTheme();
-  const TH = {
-    surface1:  darkMode ? T.surface1  : "#FFFFFF",
-    surface2:  darkMode ? T.surface2  : "#F5F1EB",
-    goldDim:   darkMode ? T.goldDim   : "rgba(202,168,90,0.25)",
-    border:    darkMode ? T.border    : "rgba(0,0,0,0.08)",
-    text:      darkMode ? T.text      : "#1A1712",
-    textMuted: darkMode ? T.textMuted : "#3D3830",
-    textFaint: darkMode ? T.textFaint : "#7A7368",
-  };
   const teamColors = getTeamColors(sig.team);
-  const vColor = VERDICT_COLORS[sig.verdict] ?? TH.textFaint;
+  const vColor = VERDICT_COLORS[sig.verdict] ?? T.textFaint;
 
   return (
     <div style={{
-      width: "100%", maxWidth: 340, background: TH.surface1, borderLeft: `1px solid rgba(74,168,200,0.22)`,
+      width: 340, background: T.surface1, borderLeft: `1px solid rgba(74,168,200,0.22)`,
       flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "auto",
       position: "relative",
     }}>
@@ -90,7 +73,7 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
       <button onClick={onClose} style={{
         position: "absolute", top: 12, right: 12, zIndex: 10,
         background: "rgba(0,0,0,0.5)", border: "none", borderRadius: "50%",
-        color: TH.textMuted, cursor: "pointer", width: 26, height: 26,
+        color: T.textMuted, cursor: "pointer", width: 26, height: 26,
         display: "flex", alignItems: "center", justifyContent: "center",
       }}><X size={12} /></button>
 
@@ -99,7 +82,7 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
         position: "relative", overflow: "hidden",
         background: `linear-gradient(150deg, ${teamColors.primary}EE 0%, ${teamColors.primary}55 60%, transparent 100%)`,
         padding: "18px 16px 14px",
-        borderBottom: `1px solid ${TH.border}`,
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
         minHeight: 90,
       }}>
         <div style={{
@@ -121,13 +104,13 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
             </div>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: TH.text, lineHeight: 1.2, marginBottom: 4 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.2, marginBottom: 4 }}>
               {sig.player ?? `${sig.team}${sig.opponent ? ` @ ${sig.opponent}` : ""}`}
             </div>
             {sig.player && (
               <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 4 }}>
                 <TeamLogoImg abbr={sig.team} size={14} />
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: TH.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>
                   {sig.team}{sig.opponent ? ` vs ${sig.opponent}` : ""}
                 </span>
               </div>
@@ -138,62 +121,17 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
       </div>
 
       {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", background: TH.surface2, borderBottom: `1px solid ${TH.border}` }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", background: T.surface2, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
         {[
           { label: "Verdict", value: sig.verdict.toUpperCase(), color: vColor },
-          { label: "Confidence", value: `${sig.confidence}%`, color: sig.confidence >= 80 ? T.gold : TH.text },
+          { label: "Confidence", value: `${sig.confidence}%`, color: sig.confidence >= 80 ? T.gold : T.text },
         ].map((s, i) => (
-          <div key={s.label} style={{ padding: "9px 0", textAlign: "center", borderRight: i === 0 ? `1px solid ${TH.border}` : "none" }}>
+          <div key={s.label} style={{ padding: "9px 0", textAlign: "center", borderRight: i === 0 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
             <div style={{ fontSize: 14, fontWeight: 800, color: s.color, fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
       </div>
-
-      {/* Score strip */}
-      {(() => {
-        const sc: SignalScore | undefined = (sig as any)._score;
-        const URGENCY_COLORS: Record<UrgencyLabel, string> = { LIVE: T.danger, URGENT: T.orange, WATCH: T.gold, NOTE: TH.textFaint };
-        if (!sc) return null;
-        return (
-          <>
-            <div style={{ background: darkMode ? "rgba(74,168,200,0.04)" : "rgba(74,168,200,0.06)", borderBottom: `1px solid ${TH.border}`, padding: "7px 14px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
-                <span style={{ fontSize: 17, fontWeight: 800, color: T.cyan, fontVariantNumeric: "tabular-nums" }}>{sc.totalScore}</span>
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint }}>/100</span>
-              </div>
-              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: URGENCY_COLORS[sc.urgencyLabel], background: `${URGENCY_COLORS[sc.urgencyLabel]}18`, borderRadius: 3, padding: "1px 7px" }}>{sc.urgencyLabel}</span>
-              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, color: sc.trustLabel === "Consensus" ? T.green : sc.trustLabel === "Corroborated" ? T.gold : TH.textFaint, background: "rgba(255,255,255,0.04)", borderRadius: 3, padding: "1px 7px" }}>{sc.trustLabel}</span>
-              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: TH.textFaint, flex: 1 }}>Top: {sc.topFactors.join(", ")}</span>
-            </div>
-            <div style={{ padding: "5px 14px 0", display: "flex", gap: 8 }}>
-              {[
-                { k: "Conf", v: sc.breakdown.confidenceScore },
-                { k: "Src",  v: sc.breakdown.sourceQualityScore },
-                { k: "Fresh",v: sc.breakdown.recencyScore },
-                { k: "Mkt",  v: sc.breakdown.marketImpactScore },
-                { k: "Rel",  v: sc.breakdown.relevanceScore },
-                { k: "Ctx",  v: sc.breakdown.contextScore },
-              ].map(f => (
-                <div key={f.k} style={{ textAlign: "center" }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: TH.textMuted, fontVariantNumeric: "tabular-nums" }}>{f.v.toFixed(1)}</div>
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: TH.textFaint, letterSpacing: "0.1em" }}>{f.k}</div>
-                </div>
-              ))}
-            </div>
-            {/* Why-this-score explanation */}
-            {sc.scoreExplanation && (
-              <div style={{ padding: "6px 14px", borderTop: `1px solid ${TH.border}` }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Why This Score</div>
-                <div style={{ fontSize: 12, color: TH.textMuted, lineHeight: 1.5 }}>{sc.scoreExplanation}</div>
-                {sc.urgencyReason && (
-                  <div style={{ fontSize: 11, color: TH.textFaint, marginTop: 3, fontStyle: "italic" }}>Urgency: {sc.urgencyReason}</div>
-                )}
-              </div>
-            )}
-          </>
-        );
-      })()}
 
       {/* Conf bar */}
       <div style={{ padding: "8px 14px 0" }}>
@@ -205,323 +143,151 @@ function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }
         <div style={{ display: "flex", gap: 5, marginBottom: 10, flexWrap: "wrap" }}>
           <TypeChip type={sig.type} />
         </div>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: TH.text, lineHeight: 1.4, marginBottom: 10 }}>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>
           {sig.headline}
         </div>
         <div style={{ marginBottom: 10 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 4 }}>Signal Detail</div>
-          <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 4 }}>Signal Detail</div>
+          <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
         </div>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 4 }}>Why It Matters</div>
-          <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.65 }}>{sig.why_it_matters}</div>
+        <div style={{ background: "rgba(74,168,200,0.07)", border: `1px solid rgba(74,168,200,0.22)`, borderRadius: 4, padding: "10px 12px" }}>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
+            ⚡ Takeaway
+          </div>
+          <div style={{ fontSize: 13, color: T.text, lineHeight: 1.55, fontWeight: 500 }}>{sig.action_takeaway}</div>
         </div>
-
-        <SignalImpactPanel signal={sig} darkMode={darkMode} />
-
-        <ProActionGate sport="MLB" actionText={sig.action_takeaway} darkMode={darkMode}>
-          <div style={{ background: "rgba(74,168,200,0.07)", border: `1px solid rgba(74,168,200,0.22)`, borderRadius: 4, padding: "10px 12px" }}>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
-              ⚡ Takeaway
-            </div>
-            <div style={{ fontSize: 14, color: TH.text, lineHeight: 1.55, fontWeight: 500 }}>{sig.action_takeaway}</div>
-          </div>
-        </ProActionGate>
-
-        {/* Outcome + CLV */}
-        {(sig as any)._live && <OutcomePanel signalId={sig.id} darkMode={darkMode} />}
-
-        {/* ── Source metadata ── */}
-        {(sig.sourceLabels?.length || sig.confirmationStrength) && (
-          <div style={{ background: `${TH.border}`, borderRadius: 4, padding: "10px 12px", marginTop: 10 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 6 }}>Source Coverage</div>
-            {sig.sourceLabels && sig.sourceLabels.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: sig.confirmationStrength ? 6 : 0 }}>
-                {sig.sourceLabels.map(label => (
-                  <span key={label} style={{ fontSize: 11, color: TH.textMuted, background: darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)", borderRadius: 3, padding: "2px 7px", fontWeight: 500 }}>{label}</span>
-                ))}
-              </div>
-            )}
-            {sig.confirmationStrength && (
-              <div style={{ fontSize: 11, color: sig.confirmationStrength === "consensus" ? T.green : sig.confirmationStrength === "corroborated" ? T.gold : TH.textFaint, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", marginTop: 2 }}>
-                {sig.confirmationStrength === "consensus" ? "✓ Consensus" : sig.confirmationStrength === "corroborated" ? "◎ Corroborated" : "△ Single source"}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── MLB-specific intel ── */}
-        {(sig.pitcherMatchup || sig.lineupStatus || sig.weatherNote || sig.matchupEdge) && (
-          <div style={{ marginTop: 10 }}>
-            {sig.pitcherMatchup && (
-              <div style={{ marginBottom: 7 }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Pitcher Matchup</div>
-                <div style={{ fontSize: 13, color: TH.textMuted }}>{sig.pitcherMatchup}</div>
-              </div>
-            )}
-            {sig.lineupStatus && (
-              <div style={{ marginBottom: 7 }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Lineup Status</div>
-                <div style={{ fontSize: 13, color: TH.textMuted }}>{sig.lineupStatus}</div>
-              </div>
-            )}
-            {sig.weatherNote && (
-              <div style={{ marginBottom: 7 }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.cyan, marginBottom: 3 }}>Weather Note</div>
-                <div style={{ fontSize: 13, color: TH.textMuted }}>{sig.weatherNote}</div>
-              </div>
-            )}
-            {sig.matchupEdge && (
-              <div>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Matchup Edge</div>
-                <div style={{ fontSize: 13, color: TH.textMuted }}>{sig.matchupEdge}</div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── Line movement ── */}
-        {sig.lineMovement && (
-          <div style={{ background: "rgba(76,175,130,0.07)", border: "1px solid rgba(76,175,130,0.18)", borderRadius: 4, padding: "10px 12px", marginTop: 10 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 6 }}>Line Movement</div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <span style={{ fontSize: 13, color: TH.textMuted }}><span style={{ color: TH.textFaint }}>Open:</span> {sig.lineMovement.open}</span>
-              <span style={{ color: TH.textFaint }}>→</span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: T.green }}>{sig.lineMovement.current}</span>
-            </div>
-            {sig.lineMovement.note && <div style={{ fontSize: 11, color: TH.textFaint, marginTop: 5 }}>{sig.lineMovement.note}</div>}
-          </div>
-        )}
-
-        {/* ── Relevance flags ── */}
-        {(sig.bettingRelevance || sig.fantasyRelevance) && (
-          <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-            {sig.bettingRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.gold, background: "rgba(202,168,90,0.12)", borderRadius: 3, padding: "2px 8px" }}>Betting Signal</span>}
-            {sig.fantasyRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.cyan, background: "rgba(74,168,200,0.12)", borderRadius: 3, padding: "2px 8px" }}>Fantasy Impact</span>}
-          </div>
-        )}
       </div>
     </div>
   );
 }
 
 export default function MLBBoard() {
-  return <V2Shell boardsMode><MLBBoardInner /></V2Shell>;
-}
-
-function MLBBoardInner() {
-  const darkMode = useShellTheme();
-  const { rowIsFree } = useSignalGate();
-  // Theme-aware token overrides
-  const TH = {
-    bg:        darkMode ? T.bg        : "#F0ECE4",
-    surface1:  darkMode ? T.surface1  : "#FFFFFF",
-    surface2:  darkMode ? T.surface2  : "#F5F1EB",
-    surface3:  darkMode ? T.surface3  : "#EDE9E2",
-    goldDim:   darkMode ? T.goldDim   : "rgba(202,168,90,0.25)",
-    border:    darkMode ? T.border    : "rgba(0,0,0,0.08)",
-    text:      darkMode ? T.text      : "#1A1712",
-    textMuted: darkMode ? T.textMuted : "#3D3830",   // MLB: stronger contrast in light mode
-    textFaint: darkMode ? T.textFaint : "#7A7368",
-  };
-
   const [activeFilter, setActiveFilter] = useState<MLBFilter>("Today");
   const [selected, setSelected] = useState<V2Signal | null>(null);
-  const [gameFilter, setGameFilter] = useState<string | null>(null);
 
-  // Live signals — falls back to mocks if API unavailable
-  const { signals: liveSignals, isLive, error: liveError } = useMLBSignals(MLB_SIGNALS);
-
-  const rankedSignals = useMemo(() => {
-    const src = (liveSignals as V2Signal[]).map(s => ({ ...s, sport: "MLB" as const }));
-    return src.some(s => (s as any)._score)
-      ? [...src].sort((a, b) => ((b as any)._score?.totalScore ?? 0) - ((a as any)._score?.totalScore ?? 0))
-      : scoreAndRankSignals(src);
-  }, [liveSignals]);
-
-  const featured = rankedSignals[0] ?? null;
-
-  const filtered = rankedSignals.filter(s =>
-    matchFilter(s, activeFilter) &&
-    (gameFilter === null || s.team === gameFilter || s.opponent === gameFilter || s.tags.includes(gameFilter))
-  );
+  const filtered = MLB_SIGNALS.filter(s => matchFilter(s, activeFilter));
 
   return (
-    <>
+    <V2Shell boardsMode>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
         .mlb-sig-row:hover { background: rgba(74,168,200,0.04) !important; }
-        @media (max-width: 768px) {
-          .board-subnav { display: none !important; }
-          .board-main-wrap { flex-direction: column !important; }
-          .mlb-grid-wrap { grid-template-columns: 1fr !important; }
-          .board-signal-table { overflow-x: auto !important; }
-        }
       `}</style>
-      <div className="board-main-wrap" style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
+      <div style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
 
         {/* ─── Board subnav ─── */}
-        <aside className="board-subnav" style={{
-          width: 190, background: TH.surface1, borderRight: `1px solid rgba(74,168,200,0.15)`,
+        <aside style={{
+          width: 190, background: T.surface1, borderRight: `1px solid rgba(74,168,200,0.15)`,
           flexShrink: 0, padding: "16px 10px", overflowY: "auto",
         }}>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-            color: TH.textFaint, padding: "0 8px", marginBottom: 10,
+            color: T.textFaint, padding: "0 8px", marginBottom: 10,
           }}>MLB Board</div>
 
-          {([
-            { label: "Signal Stream",   filter: "Today" as MLBFilter },
-            { label: "Games Today",     filter: "Today" as MLBFilter },
-            { label: "Pitcher News",    filter: "Pitchers" as MLBFilter },
-            { label: "Lineup Movement", filter: "Lineup" as MLBFilter },
-            { label: "Team Trends",     filter: "Trends" as MLBFilter },
-            { label: "Line Movement",   filter: "Line Moves" as MLBFilter },
-          ] as { label: string; filter: MLBFilter }[]).map(({ label, filter }) => {
-            // "Signal Stream" is always active when filter is Today; "Games Today" also maps to Today
-            const isStream = label === "Signal Stream";
-            const isActive = isStream
-              ? activeFilter === "Today"
-              : activeFilter === filter && !(isStream);
-            const reallyActive = activeFilter === filter && (label !== "Games Today" || activeFilter === "Today");
-            // For "Signal Stream" and "Games Today" both mapping to Today, highlight Signal Stream for Today
-            const highlighted = label === "Signal Stream"
-              ? activeFilter === "Today"
-              : label === "Games Today"
-                ? false  // Games Today never shows as active — it’s an alias, de-emphasised
-                : activeFilter === filter;
-            return (
-              <button
-                key={label}
-                onClick={() => { setActiveFilter(filter); setSelected(null); }}
-                aria-pressed={highlighted}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", marginBottom: 1,
-                  borderRadius: 3,
-                  background: highlighted ? "rgba(74,168,200,0.06)" : "transparent",
-                  color: highlighted ? T.cyan : TH.textMuted, cursor: "pointer",
-                  transition: "background 0.12s, color 0.12s",
-                  width: "100%", textAlign: "left", border: "none",
-                  borderLeft: `2px solid ${highlighted ? T.cyan : "transparent"}`,
-                }}
-                onMouseEnter={e => { if (!highlighted) { const el = e.currentTarget as HTMLButtonElement; el.style.background = "rgba(74,168,200,0.04)"; el.style.color = TH.text; } }}
-                onMouseLeave={e => { if (!highlighted) { const el = e.currentTarget as HTMLButtonElement; el.style.background = "transparent"; el.style.color = TH.textMuted; } }}
-              >
-                <ChevronRight size={10} style={{ opacity: highlighted ? 1 : 0.4, flexShrink: 0 }} />
-                <span style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
-                }}>{label}</span>
-              </button>
-            );
-          })}
+          {["Signal Stream", "Games Today", "Pitcher News", "Lineup Movement", "Team Trends", "Line Movement"].map((label, i) => (
+            <div key={label} style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", marginBottom: 1,
+              borderRadius: 3,
+              borderLeft: `2px solid ${i === 0 ? T.cyan : "transparent"}`,
+              background: i === 0 ? "rgba(74,168,200,0.06)" : "transparent",
+              color: i === 0 ? T.cyan : T.textMuted, cursor: "pointer",
+              transition: "background 0.12s, color 0.12s",
+            }}
+              onMouseEnter={e => { if (i !== 0) { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(74,168,200,0.03)"; el.style.color = T.text; } }}
+              onMouseLeave={e => { if (i !== 0) { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; el.style.color = T.textMuted; } }}
+            >
+              <ChevronRight size={10} style={{ opacity: i === 0 ? 1 : 0.4 }} />
+              <span style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
+              }}>{label}</span>
+            </div>
+          ))}
 
           <div style={{ margin: "16px 0 10px", borderTop: `1px solid rgba(74,168,200,0.15)` }} />
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-            color: TH.textFaint, padding: "0 8px", marginBottom: 8,
+            color: T.textFaint, padding: "0 8px", marginBottom: 8,
           }}>Teams</div>
-          {["NYY", "LAD", "ATL", "BAL", "CHC", "HOU"].map(tm => {
-            const isActive = gameFilter === tm;
-            return (
-              <button
-                key={tm}
-                className="team-btn-mob"
-                onClick={() => setGameFilter(gf => gf === tm ? null : tm)}
-                aria-label={`Filter signals for ${tm}`}
-                aria-pressed={isActive}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 3,
-                  width: "100%", cursor: "pointer",
-                  background: isActive ? "rgba(74,168,200,0.08)" : "transparent",
-                  border: `1px solid ${isActive ? "rgba(74,168,200,0.28)" : "transparent"}`,
-                  transition: "background 0.1s, border-color 0.1s",
-                }}
-                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "rgba(74,168,200,0.04)"; }}
-                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-              >
-                <TeamLogoImg abbr={tm} size={22} />
-                <span style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 14, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
-                  color: isActive ? T.cyan : TH.textMuted,
-                }}>{tm}</span>
-              </button>
-            );
-          })}
+          {["NYY", "LAD", "ATL", "BAL", "CHC", "HOU"].map(tm => (
+            <div key={tm} style={{
+              display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 3, cursor: "pointer",
+            }}
+              onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(74,168,200,0.04)"; }}
+              onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; }}
+            >
+              <TeamLogoImg abbr={tm} size={22} />
+              <span style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: T.textMuted,
+              }}>{tm}</span>
+            </div>
+          ))}
         </aside>
 
         {/* ─── Main canvas ─── */}
-        <div className="board-main-col" style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
 
           {/* Header */}
           <div style={{
-            padding: "12px 20px", borderBottom: `1px solid ${TH.border}`,
-            display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: TH.surface1,
+            padding: "12px 20px", borderBottom: `1px solid rgba(255,255,255,0.06)`,
+            display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: T.surface1,
           }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 700, color: TH.text }}>
+                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 700, color: T.text }}>
                   MLB Intelligence Board
                 </span>
                 <SportBadge status="ACTIVE" />
               </div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, color: TH.textFaint, letterSpacing: "0.04em",
-              }}>{isLive ? "Live" : "Cached"} · {rankedSignals.length} signals · Updated continuously</div>
+                fontSize: 12, color: T.textFaint, letterSpacing: "0.06em",
+              }}>Regular season · {MLB_SIGNALS.length} signals · Updated continuously</div>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
               {[
-                { label: "Signals", value: rankedSignals.length, color: TH.text },
-                { label: "Confirmed", value: rankedSignals.filter(s => s.verdict === "confirmed").length, color: T.green },
+                { label: "Signals", value: MLB_SIGNALS.length, color: T.text },
+                { label: "Confirmed", value: MLB_SIGNALS.filter(s => s.verdict === "confirmed").length, color: T.green },
               ].map(stat => (
                 <div key={stat.label} style={{
                   textAlign: "center", padding: "6px 14px",
-                  background: TH.surface2, border: `1px solid ${TH.border}`, borderRadius: 3,
+                  background: T.surface2, border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 3,
                 }}>
                   <div style={{ fontSize: 17, fontWeight: 700, color: stat.color }}>{stat.value}</div>
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: TH.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>{stat.label}</div>
+                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>{stat.label}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <TrackRecordStrip league="MLB" darkMode={darkMode} />
-
           {/* Games strip — MatchupCards */}
-          <div style={{ padding: "12px 20px 14px", borderBottom: `1px solid ${TH.border}`, flexShrink: 0, overflowX: "auto" }}>
+          <div style={{ padding: "12px 20px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, flexShrink: 0, overflowX: "auto" }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
-              color: TH.textFaint, marginBottom: 10,
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
+              color: T.textFaint, marginBottom: 10,
               display: "flex", alignItems: "center", gap: 6,
             }}>
               <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
               Today's Games
             </div>
-            <div className="board-slate-strip" style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12 }}>
               {TONIGHT_GAMES.map(game => (
-                <div key={game.id} className="board-slate-card" style={{ width: 232, flexShrink: 0 }}>
+                <div key={game.id} style={{ width: 232, flexShrink: 0 }}>
                   <MatchupCard
                     away={game.away} home={game.home}
                     time={game.time} spread={game.spread} total={game.total}
                     accentColor={T.cyan}
-                    signalCount={rankedSignals.filter(s =>
+                    signalCount={MLB_SIGNALS.filter(s =>
                       s.team === game.away || s.team === game.home ||
                       s.opponent === game.away || s.opponent === game.home
                     ).length}
-                    onClick={() => setGameFilter(gf => gf === game.away || gf === game.home ? null : game.away)}
                   />
-                  {(gameFilter === game.away || gameFilter === game.home) && (
-                    <div style={{ marginTop: 5, padding: "3px 8px", background: "rgba(74,168,200,0.08)", borderRadius: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.cyan, fontWeight: 700 }}>Filtering: {game.away} @ {game.home}</span>
-                      <button onClick={() => setGameFilter(null)} style={{ background: "none", border: "none", color: TH.textFaint, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button>
-                    </div>
-                  )}
-                  {game.note && !(gameFilter === game.away || gameFilter === game.home) && (
+                  {game.note && (
                     <div style={{ marginTop: 5, padding: "3px 8px", background: "rgba(74,168,200,0.07)", borderRadius: 2, border: "1px solid rgba(74,168,200,0.12)" }}>
                       <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.cyan, fontWeight: 700, letterSpacing: "0.04em" }}>⚡ {game.note}</span>
                     </div>
@@ -533,79 +299,68 @@ function MLBBoardInner() {
 
           {/* Filters */}
           <div style={{
-            padding: "10px 20px", borderBottom: `1px solid ${TH.border}`,
+            padding: "10px 20px", borderBottom: `1px solid rgba(255,255,255,0.06)`,
             display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap", alignItems: "center",
           }}>
-            <Filter size={11} style={{ color: TH.textFaint, marginRight: 4 }} />
+            <Filter size={11} style={{ color: T.textFaint, marginRight: 4 }} />
             {MLB_FILTERS.map(f => {
               const isActive = f === activeFilter;
               return (
-                <button key={f} className="filter-chip" onClick={() => setActiveFilter(f)} style={{
-                  padding: "6px 13px", borderRadius: 2,
+                <button key={f} onClick={() => setActiveFilter(f)} style={{
+                  padding: "5px 12px", borderRadius: 2,
                   border: `1px solid ${isActive ? T.cyan : "rgba(255,255,255,0.1)"}`,
                   background: isActive ? "rgba(74,168,200,0.08)" : "transparent",
-                  color: isActive ? T.cyan : TH.textMuted,
+                  color: isActive ? T.cyan : T.textMuted,
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
+                  fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
                   cursor: "pointer", transition: "all 0.12s",
                 }}>{f}</button>
               );
             })}
           </div>
 
-          {/* Pro banner — locked signal count */}
-          <ProBoardBanner
-            freeCount={FREE_LIMIT}
-            totalCount={filtered.length}
-            sport="MLB"
-            darkMode={darkMode}
-          />
-
           {/* 2-col layout */}
-          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 280px" }} className="mlb-grid mlb-grid-wrap board-signal-table">
+          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 280px" }} className="mlb-grid">
 
             {/* Signal list */}
-            <div style={{ borderRight: `1px solid ${TH.border}`, overflowY: "auto" }}>
+            <div style={{ borderRight: `1px solid rgba(255,255,255,0.06)`, overflowY: "auto" }}>
               {/* Table header */}
               <div style={{
                 display: "grid", gridTemplateColumns: "48px 100px 1fr 68px 68px",
-                padding: "6px 20px", background: TH.surface2,
-                borderBottom: `1px solid ${TH.border}`,
+                padding: "6px 20px", background: T.surface2,
+                borderBottom: `1px solid rgba(255,255,255,0.06)`, position: "sticky", top: 0, zIndex: 5,
               }}>
                 {["", "Type", "Signal", "Verdict", "Conf"].map(h => (
                   <div key={h} style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint,
+                    fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint,
                   }}>{h}</div>
                 ))}
               </div>
 
-              {filtered.map((sig, idx) => {
+              {filtered.map(sig => {
                 const isSelected = selected?.id === sig.id;
-                const isFree = rowIsFree(idx);
                 const typeColor = {
                   injury: T.danger, line_move: T.green, matchup_edge: T.gold,
                   prop: T.orange, trend: T.cyan, lineup: T.cyan,
-                }[(sig as any).type] ?? TH.textFaint;
+                }[sig.type] ?? T.textFaint;
 
                 return (
                   <div
                     key={sig.id}
-                    className="mlb-sig-row sig-row-tap"
+                    className="mlb-sig-row"
                     data-testid={`mlb-signal-${sig.id}`}
-                    onClick={() => isFree ? setSelected(isSelected ? null : sig) : undefined}
+                    onClick={() => setSelected(isSelected ? null : sig)}
                     style={{
-                      position: "relative",
                       display: "grid", gridTemplateColumns: "48px 100px 1fr 68px 68px",
                       padding: "10px 20px",
-                      borderBottom: `1px solid ${TH.border}`,
+                      borderBottom: `1px solid rgba(255,255,255,0.04)`,
                       borderLeft: `3px solid ${isSelected ? T.cyan : typeColor + "44"}`,
                       background: isSelected ? "rgba(74,168,200,0.05)" : "transparent",
-                      cursor: isFree ? "pointer" : "default", alignItems: "center",
+                      cursor: "pointer", alignItems: "center",
                       transition: "background 0.1s",
                     }}
                   >
-                    {!isFree && <ProRowOverlay sport="MLB" />}
                     {/* Logo / headshot */}
                     {sig.player ? (
                       <PlayerHeadshot name={sig.player} team={sig.team} size={28} shape="circle" />
@@ -618,10 +373,10 @@ function MLBBoardInner() {
 
                     {/* Signal */}
                     <div style={{ paddingRight: 12 }}>
-                      <div style={{ fontSize: 15, color: TH.text, fontWeight: 500, lineHeight: 1.4, marginBottom: 3 }}>
+                      <div style={{ fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 2 }}>
                         {sig.headline}
                       </div>
-                      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: TH.textFaint, lineHeight: 1.45 }}>
+                      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.4 }}>
                         {sig.action_takeaway.slice(0, 75)}…
                       </div>
                     </div>
@@ -631,7 +386,7 @@ function MLBBoardInner() {
 
                     {/* Conf */}
                     <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : TH.textMuted, marginBottom: 3, fontVariantNumeric: "tabular-nums" }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : T.textMuted, marginBottom: 3, fontVariantNumeric: "tabular-nums" }}>
                         {sig.confidence}%
                       </div>
                       <ConfidenceBar value={sig.confidence} width={50} height={3} />
@@ -641,8 +396,8 @@ function MLBBoardInner() {
               })}
 
               <div style={{ margin: "16px 20px", padding: "10px 14px", background: "rgba(74,168,200,0.04)", border: `1px solid rgba(74,168,200,0.1)`, borderRadius: 4 }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: TH.textFaint }}>
-                  {isLive ? <><strong style={{ color: T.green }}>LIVE DATA</strong> · {rankedSignals.length} signals from pipeline · Last fetch: just now</> : <><strong style={{ color: T.cyan }}>CACHED DATA</strong> · {rankedSignals.length} signals · {liveError ?? "API not returning data — showing mock fallback"}</>}
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>
+                  <strong style={{ color: T.cyan }}>STUB DATA</strong> · {MLB_SIGNALS.length} realistic placeholder signals.
                 </div>
               </div>
             </div>
@@ -651,7 +406,7 @@ function MLBBoardInner() {
             <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
 
               {/* ─ Pitcher Alerts — upgraded with larger headshots + status color bands ─ */}
-              <div style={{ background: TH.surface1, border: `1px solid ${TH.border}`, borderRadius: 5, overflow: "hidden" }}>
+              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
                 <div style={{ padding: "10px 14px", background: "rgba(217,138,66,0.06)", borderBottom: `1px solid rgba(217,138,66,0.15)`, display: "flex", gap: 7, alignItems: "center" }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.orange, display: "inline-block", boxShadow: `0 0 6px ${T.orange}` }} />
                   <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.orange }}>
@@ -691,9 +446,9 @@ function MLBBoardInner() {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
                           <TeamLogoImg abbr={p.team} size={14} />
-                          <span style={{ fontSize: 14, fontWeight: 600, color: TH.text }}>{p.name}</span>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</span>
                         </div>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: TH.textFaint, letterSpacing: "0.02em" }}>{p.note}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.02em" }}>{p.note}</div>
                       </div>
 
                       {/* Status badge */}
@@ -709,34 +464,34 @@ function MLBBoardInner() {
               </div>
 
               {/* ─ Lineup Movement — upgraded with player context ─ */}
-              <div style={{ background: TH.surface1, border: `1px solid ${TH.border}`, borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${TH.border}`, display: "flex", gap: 7, alignItems: "center" }}>
+              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, display: "flex", gap: 7, alignItems: "center" }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
                     Lineup Movement
                   </span>
                 </div>
                 <div>
                   {LINEUP_NOTES.map(note => (
-                    <div key={note.team} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 12px", borderBottom: `1px solid ${TH.border}` }}>
+                    <div key={note.team} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
                       <TeamLogoImg abbr={note.team} size={28} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, color: TH.textMuted, letterSpacing: "0.02em" }}>{note.note}</div>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: TH.textFaint, marginTop: 1 }}>{note.player}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, color: T.textMuted, letterSpacing: "0.02em" }}>{note.note}</div>
+                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, marginTop: 1 }}>{note.player}</div>
                       </div>
                     </div>
                   ))}
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: TH.textFaint, padding: "8px 12px", letterSpacing: "0.02em" }}>
+                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, padding: "8px 12px", letterSpacing: "0.03em" }}>
                     Lineups confirm ~3h before first pitch
                   </div>
                 </div>
               </div>
 
               {/* ─ Team Trends — upgraded with larger logos + directional styling ─ */}
-              <div style={{ background: TH.surface1, border: `1px solid ${TH.border}`, borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid ${TH.border}`, display: "flex", gap: 7, alignItems: "center" }}>
+              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
+                <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, display: "flex", gap: 7, alignItems: "center" }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.gold, display: "inline-block" }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: TH.textFaint }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
                     Team Trends
                   </span>
                 </div>
@@ -744,11 +499,11 @@ function MLBBoardInner() {
                   {TEAM_TRENDS.map(trend => (
                     <div key={trend.team} style={{
                       display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
-                      borderBottom: `1px solid ${TH.border}`,
+                      borderBottom: `1px solid rgba(255,255,255,0.04)`,
                       background: `${trend.color}05`,
                     }}>
                       <TeamLogoImg abbr={trend.team} size={28} />
-                      <div style={{ flex: 1, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: TH.textMuted, letterSpacing: "0.02em" }}>{trend.trend}</div>
+                      <div style={{ flex: 1, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textMuted, letterSpacing: "0.02em" }}>{trend.trend}</div>
                       <span style={{
                         fontSize: 14, fontWeight: 700, color: trend.color,
                         background: `${trend.color}15`, padding: "2px 6px", borderRadius: 2,
@@ -763,15 +518,10 @@ function MLBBoardInner() {
 
         {/* Detail panel */}
         {selected && (
-          <div className="board-detail-rail" style={{ position: "relative" }}>
-            <MLBDetailPanel sig={selected} onClose={() => setSelected(null)} />
-          </div>
+          <MLBDetailPanel sig={selected} onClose={() => setSelected(null)} />
         )}
       </div>
-      <style>{`
-        .mlb-grid { }
-        @media (max-width: 900px) { .mlb-grid { grid-template-columns: 1fr !important; } }
-      `}</style>
-    </>
+      <style>{`.mlb-grid { } @media (max-width: 900px) { .mlb-grid { grid-template-columns: 1fr !important; } }`}</style>
+    </V2Shell>
   );
 }

@@ -56,34 +56,6 @@ export const TEAM_COLORS: Record<string, { primary: string; secondary: string }>
   CHC: { primary: "#0E3386", secondary: "#CC3433" },
   HOU: { primary: "#002D62", secondary: "#EB6E1F" },
   NYM: { primary: "#002D72", secondary: "#FF5910" },
-  // NFL
-  KC:  { primary: "#E31837", secondary: "#FFB612" },
-  SF:  { primary: "#AA0000", secondary: "#B3995D" },
-  BUF: { primary: "#00338D", secondary: "#C60C30" },
-  // PHI already exists (NBA 76ers) — NFL Eagles same abbr, use existing entry
-  // DAL already exists (NBA Mavericks) — keep as-is, both are blue variants
-  BAL_NFL: { primary: "#241773", secondary: "#9E7C0C" }, // key unused (BAL=MLB Orioles)
-  MIA_NFL: { primary: "#008E97", secondary: "#FC4C02" }, // key unused (MIA=NBA Heat)
-  DET: { primary: "#0076B6", secondary: "#B0B7BC" },
-  GB:  { primary: "#203731", secondary: "#FFB612" },
-  LAR: { primary: "#003594", secondary: "#FFA300" },
-  CIN: { primary: "#FB4F14", secondary: "#000000" },
-  NE:  { primary: "#002244", secondary: "#C60C30" },
-  NYG: { primary: "#0B2265", secondary: "#A71930" },
-  LV:  { primary: "#000000", secondary: "#A5ACAF" },
-  // CFB
-  BAMA: { primary: "#9E1B32", secondary: "#FFFFFF" },
-  UGA:  { primary: "#BA0C2F", secondary: "#000000" },
-  OHIO: { primary: "#BB0000", secondary: "#666666" },
-  MICH: { primary: "#00274C", secondary: "#FFCB05" },
-  TX:   { primary: "#BF5700", secondary: "#FFFFFF" },
-  LSU:  { primary: "#461D7C", secondary: "#FDD023" },
-  USC:  { primary: "#990000", secondary: "#FFC72C" },
-  ND:   { primary: "#0C2340", secondary: "#C99700" },
-  FSU:  { primary: "#782F40", secondary: "#CEB888" },
-  CLEM: { primary: "#F66733", secondary: "#522D80" },
-  UNC:  { primary: "#7BAFD4", secondary: "#13294B" },
-  PENN: { primary: "#041E42", secondary: "#FFFFFF" },
   // Fallback
   DEFAULT: { primary: "#2A2D34", secondary: "#CAA85A" },
 };
