@@ -1,11 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import AppLayout from "../components/AppLayout";
-import { type Theme } from "../App";
 import { Trophy, Clock, TrendingDown } from "lucide-react";
-
-interface Props { theme: Theme; toggleTheme: () => void; }
 
 const C = {
   bgBase:       "hsl(22 10%  9%)",
@@ -81,8 +77,6 @@ const FILTER_CHIPS: { id: FilterChip; label: string; types: string[] }[] = [
 
 const LEAGUE_TABS: LeagueTab[] = ["ALL", "NBA", "MLB", "NFL", "CFB"];
 
-// Map source names to their league(s) so we can filter client-side.
-// This is the reliable approach since source_scores rows don't carry a league field.
 const SOURCE_LEAGUE_MAP: Record<string, LeagueTab[]> = {
   // NBA
   "ESPN NBA":               ["NBA"],
@@ -126,10 +120,10 @@ const SOURCE_LEAGUE_MAP: Record<string, LeagueTab[]> = {
 };
 
 function getSourceLeagues(sourceName: string): LeagueTab[] {
-  return SOURCE_LEAGUE_MAP[sourceName] ?? ["NFL", "NBA", "MLB", "CFB"]; // unknown = show in all
+  return SOURCE_LEAGUE_MAP[sourceName] ?? ["NFL", "NBA", "MLB", "CFB"];
 }
 
-export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
+export default function SourceLeaderboard() {
   const [activeFilter, setActiveFilter] = useState<FilterChip>("all");
   const [activeLeague, setActiveLeague] = useState<LeagueTab>("ALL");
 
@@ -139,9 +133,6 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
     refetchInterval: 60000,
   });
 
-  // FIX 1: Deduplicate by source_id — keep highest overall_accuracy per source.
-  // The API can return multiple source_scores rows for the same source_id
-  // (one per league or per update cycle). We want exactly one row per source.
   const scores: any[] = (() => {
     if (!rawScores) return [];
     const seen = new Map<string, any>();
@@ -156,7 +147,6 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
     return [...seen.values()];
   })();
 
-  // FIX 2: League filter — client-side using SOURCE_LEAGUE_MAP
   const leagueFiltered = activeLeague === "ALL"
     ? scores
     : scores.filter((s: any) => {
@@ -164,227 +154,224 @@ export default function SourceLeaderboard({ theme, toggleTheme }: Props) {
         return leagues.includes(activeLeague);
       });
 
-  // Source-type filter
   const chip = FILTER_CHIPS.find(c => c.id === activeFilter)!;
   const filteredScores = chip.types.length === 0
     ? leagueFiltered
     : leagueFiltered.filter((s: any) => chip.types.includes(s.source_type ?? ""));
 
   return (
-    <AppLayout theme={theme} toggleTheme={toggleTheme}>
-      <div
-        className="min-h-full p-4 sm:p-6"
-        data-testid="leaderboard-page"
-        style={{ background: C.bgBase }}
-      >
-        <div className="max-w-7xl mx-auto">
+    <div
+      className="min-h-full p-4 sm:p-6"
+      data-testid="leaderboard-page"
+      style={{ background: C.bgBase }}
+    >
+      <div className="max-w-7xl mx-auto">
 
-          {/* Header */}
-          <div className="flex items-start justify-between gap-4 mb-5">
-            <div>
-              <div className="section-kicker mb-1">
-                <span className="data-label" style={{ color: C.anaAmberDim }}>Source Intelligence</span>
-              </div>
-              <h1
-                className="text-xl font-bold tracking-tight mt-3"
-                style={{ fontFamily: "'Playfair Display', Georgia, serif", letterSpacing: "-0.02em", color: C.ivoryPrimary }}
-              >
-                Source Leaderboard
-              </h1>
-              <p className="text-[11px] mt-0.5" style={{ color: C.ivoryMuted }}>Trust scoring across all tracked sources</p>
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <div className="section-kicker mb-1">
+              <span className="data-label" style={{ color: C.anaAmberDim }}>Source Intelligence</span>
             </div>
+            <h1
+              className="text-xl font-bold tracking-tight mt-3"
+              style={{ fontFamily: "'Playfair Display', Georgia, serif", letterSpacing: "-0.02em", color: C.ivoryPrimary }}
+            >
+              Source Leaderboard
+            </h1>
+            <p className="text-[11px] mt-0.5" style={{ color: C.ivoryMuted }}>Trust scoring across all tracked sources</p>
           </div>
+        </div>
 
-          <hr className="briefing-rule mb-5" />
+        <hr className="briefing-rule mb-5" />
 
-          {/* League tabs */}
-          <div className="flex gap-1 mb-4" data-testid="league-tabs">
-            {LEAGUE_TABS.map(league => {
-              const active = activeLeague === league;
-              return (
-                <button
-                  key={league}
-                  onClick={() => setActiveLeague(league)}
-                  style={{
-                    padding: "5px 14px", borderRadius: 3,
-                    border: active ? "1px solid rgba(202,168,90,0.50)" : `1px solid ${C.borderMid}`,
-                    background: active ? "rgba(202,168,90,0.12)" : "transparent",
-                    color: active ? "#CAA85A" : C.ivoryMuted,
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
-                    textTransform: "uppercase" as const,
-                    cursor: "pointer", transition: "all 0.12s",
-                  }}
-                >
-                  {league}
-                </button>
-              );
-            })}
-          </div>
+        {/* League tabs */}
+        <div className="flex gap-1 mb-4" data-testid="league-tabs">
+          {LEAGUE_TABS.map(league => {
+            const active = activeLeague === league;
+            return (
+              <button
+                key={league}
+                onClick={() => setActiveLeague(league)}
+                style={{
+                  padding: "5px 14px", borderRadius: 3,
+                  border: active ? "1px solid rgba(202,168,90,0.50)" : `1px solid ${C.borderMid}`,
+                  background: active ? "rgba(202,168,90,0.12)" : "transparent",
+                  color: active ? "#CAA85A" : C.ivoryMuted,
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
+                  textTransform: "uppercase" as const,
+                  cursor: "pointer", transition: "all 0.12s",
+                }}
+              >
+                {league}
+              </button>
+            );
+          })}
+        </div>
 
-          {/* Tier legend */}
-          <div
-            className="flex flex-wrap gap-4 mb-5 py-2.5"
-            style={{ borderTop: `1px solid ${C.borderSub}`, borderBottom: `1px solid ${C.borderSub}` }}
-          >
-            {["tier1","tier2","tier3","tier4"].map(tier => (
-              <div key={tier} className="flex items-center gap-1.5">
-                <TierBadge tier={tier} />
-              </div>
+        {/* Tier legend */}
+        <div
+          className="flex flex-wrap gap-4 mb-5 py-2.5"
+          style={{ borderTop: `1px solid ${C.borderSub}`, borderBottom: `1px solid ${C.borderSub}` }}
+        >
+          {["tier1","tier2","tier3","tier4"].map(tier => (
+            <div key={tier} className="flex items-center gap-1.5">
+              <TierBadge tier={tier} />
+            </div>
+          ))}
+        </div>
+
+        {/* Source-type filter chips */}
+        <div className="flex flex-wrap gap-2 mb-5">
+          {FILTER_CHIPS.map(c => {
+            const active = activeFilter === c.id;
+            const activeStyles: Record<FilterChip, { border: string; bg: string; color: string }> = {
+              all:       { border: "rgba(202,168,90,0.50)",  bg: "rgba(202,168,90,0.14)",  color: "#CAA85A" },
+              insider:   { border: "rgba(56,170,203,0.45)",  bg: "rgba(56,170,203,0.10)",  color: "#38AACB" },
+              analytics: { border: "rgba(202,168,90,0.45)",  bg: "rgba(202,168,90,0.12)",  color: "#CAA85A" },
+              scouting:  { border: "rgba(61,174,114,0.45)",  bg: "rgba(61,174,114,0.10)",  color: "#3DAE72" },
+              college:   { border: "rgba(167,120,220,0.45)", bg: "rgba(167,120,220,0.10)", color: "#A778DC" },
+            };
+            const s = active ? activeStyles[c.id] : null;
+            return (
+              <button
+                key={c.id}
+                onClick={() => setActiveFilter(c.id)}
+                style={{
+                  display: "inline-flex", alignItems: "center",
+                  padding: "5px 13px", borderRadius: 3,
+                  border: active ? `1px solid ${s!.border}` : `1px solid ${C.borderMid}`,
+                  background: active ? s!.bg : "transparent",
+                  color: active ? s!.color : C.ivoryMuted,
+                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
+                  textTransform: "uppercase" as const,
+                  cursor: "pointer", transition: "all 0.12s",
+                }}
+              >
+                {c.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {isLoading && (
+          <div className="space-y-2">
+            {[1,2,3,4,5].map(i => (
+              <div key={i} className="h-12 rounded animate-pulse"
+                style={{ background: C.panelLift, border: `1px solid ${C.borderSub}` }} />
             ))}
           </div>
+        )}
 
-          {/* Source-type filter chips */}
-          <div className="flex flex-wrap gap-2 mb-5">
-            {FILTER_CHIPS.map(c => {
-              const active = activeFilter === c.id;
-              const activeStyles: Record<FilterChip, { border: string; bg: string; color: string }> = {
-                all:       { border: "rgba(202,168,90,0.50)",  bg: "rgba(202,168,90,0.14)",  color: "#CAA85A" },
-                insider:   { border: "rgba(56,170,203,0.45)",  bg: "rgba(56,170,203,0.10)",  color: "#38AACB" },
-                analytics: { border: "rgba(202,168,90,0.45)",  bg: "rgba(202,168,90,0.12)",  color: "#CAA85A" },
-                scouting:  { border: "rgba(61,174,114,0.45)",  bg: "rgba(61,174,114,0.10)",  color: "#3DAE72" },
-                college:   { border: "rgba(167,120,220,0.45)", bg: "rgba(167,120,220,0.10)", color: "#A778DC" },
-              };
-              const s = active ? activeStyles[c.id] : null;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveFilter(c.id)}
-                  style={{
-                    display: "inline-flex", alignItems: "center",
-                    padding: "5px 13px", borderRadius: 3,
-                    border: active ? `1px solid ${s!.border}` : `1px solid ${C.borderMid}`,
-                    background: active ? s!.bg : "transparent",
-                    color: active ? s!.color : C.ivoryMuted,
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
-                    textTransform: "uppercase" as const,
-                    cursor: "pointer", transition: "all 0.12s",
-                  }}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
+        {!isLoading && (!filteredScores || filteredScores.length === 0) && (
+          <div className="text-center py-14 rounded"
+            style={{ border: `1px solid ${C.borderMid}`, background: C.panelBase }}>
+            <p className="text-sm" style={{ color: C.ivoryMuted }}>
+              No sources found for {activeLeague === "ALL" ? "current filter" : activeLeague}
+            </p>
           </div>
+        )}
 
-          {isLoading && (
-            <div className="space-y-2">
-              {[1,2,3,4,5].map(i => (
-                <div key={i} className="h-12 rounded animate-pulse"
-                  style={{ background: C.panelLift, border: `1px solid ${C.borderSub}` }} />
-              ))}
+        {!isLoading && filteredScores && filteredScores.length > 0 && (
+          <div className="rounded overflow-hidden" style={{ border: `1px solid ${C.borderMid}` }}>
+            <div className="overflow-x-auto" style={{ background: C.panelBase }}>
+              <table className="w-full text-base">
+                <thead>
+                  <tr style={{ background: C.parchmentSoft, borderBottom: `1px solid ${C.parchmentBdr}` }}>
+                    <th className="text-left px-4 py-3 w-8">
+                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>#</span>
+                    </th>
+                    <th className="text-left px-4 py-3">
+                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Source</span>
+                    </th>
+                    <th className="text-left px-4 py-3 hidden sm:table-cell">
+                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Tier</span>
+                    </th>
+                    <th className="text-right px-4 py-3">
+                      <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
+                        <Trophy size={11} />Accuracy
+                      </span>
+                    </th>
+                    <th className="text-right px-4 py-3 hidden md:table-cell">
+                      <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
+                        <Clock size={11} />Lead Time
+                      </span>
+                    </th>
+                    <th className="text-right px-4 py-3 hidden lg:table-cell">
+                      <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
+                        <TrendingDown size={11} />False+
+                      </span>
+                    </th>
+                    <th className="text-right px-4 py-3 hidden md:table-cell">
+                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Injury Acc.</span>
+                    </th>
+                    <th className="text-right px-4 py-3 hidden lg:table-cell">
+                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Draft Acc.</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredScores.map((s: any, i: number) => {
+                    const acc = parseFloat(s.overall_accuracy ?? "0");
+                    const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
+                    return (
+                      <tr
+                        key={s.source_id ?? s.id ?? i}
+                        className="transition-colors"
+                        style={{ borderBottom: `1px solid ${C.borderSub}` }}
+                        onMouseEnter={e => (e.currentTarget.style.background = C.panelLift)}
+                        onMouseLeave={e => (e.currentTarget.style.background = "")}
+                        data-testid={`leaderboard-row-${s.source_id}`}
+                      >
+                        <td className="px-4 py-3 text-sm font-bold tabular-nums" style={{ color: C.ivorySub }}>{i + 1}</td>
+                        <td className="px-4 py-3" style={{ minWidth: 0 }}>
+                          <div className="flex flex-col sm:flex-row sm:items-center" style={{ gap: 4, minWidth: 0 }}>
+                            <p className="font-semibold text-base" style={{ color: C.ivoryPrimary, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
+                              {s.source_name}
+                            </p>
+                            <SourceTypeBadge sourceType={s.source_type} />
+                          </div>
+                          {s.source_type === "analytics" && (
+                            <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>Grading · analytics service</p>
+                          )}
+                          {s.source_type === "scouting" && (
+                            <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>Team fit · player evaluation · personnel</p>
+                          )}
+                          {s.source_type === "college_analyst" && (
+                            <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>College production · draft prospect context</p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell">
+                          <TierBadge tier={s.trust_tier ?? null} />
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <span className="stat-num-display text-base font-bold" style={{ color: accColor }}>
+                            {acc.toFixed(1)}%
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
+                          {parseFloat(s.average_lead_time_minutes ?? "0").toFixed(0)}m
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
+                          {parseFloat(s.false_positive_rate ?? "0").toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
+                          {parseFloat(s.injury_accuracy ?? "0").toFixed(1)}%
+                        </td>
+                        <td className="px-4 py-3 text-right text-sm tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
+                          {parseFloat(s.draft_accuracy ?? "0").toFixed(1)}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
-
-          {!isLoading && (!filteredScores || filteredScores.length === 0) && (
-            <div className="text-center py-14 rounded"
-              style={{ border: `1px solid ${C.borderMid}`, background: C.panelBase }}>
-              <p className="text-sm" style={{ color: C.ivoryMuted }}>
-                No sources found for {activeLeague === "ALL" ? "current filter" : activeLeague}
-              </p>
-            </div>
-          )}
-
-          {!isLoading && filteredScores && filteredScores.length > 0 && (
-            <div className="rounded overflow-hidden" style={{ border: `1px solid ${C.borderMid}` }}>
-              <div className="overflow-x-auto" style={{ background: C.panelBase }}>
-                <table className="w-full text-base">
-                  <thead>
-                    <tr style={{ background: C.parchmentSoft, borderBottom: `1px solid ${C.parchmentBdr}` }}>
-                      <th className="text-left px-4 py-3 w-8">
-                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>#</span>
-                      </th>
-                      <th className="text-left px-4 py-3">
-                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Source</span>
-                      </th>
-                      <th className="text-left px-4 py-3 hidden sm:table-cell">
-                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Tier</span>
-                      </th>
-                      <th className="text-right px-4 py-3">
-                        <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
-                          <Trophy size={11} />Accuracy
-                        </span>
-                      </th>
-                      <th className="text-right px-4 py-3 hidden md:table-cell">
-                        <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
-                          <Clock size={11} />Lead Time
-                        </span>
-                      </th>
-                      <th className="text-right px-4 py-3 hidden lg:table-cell">
-                        <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
-                          <TrendingDown size={11} />False+
-                        </span>
-                      </th>
-                      <th className="text-right px-4 py-3 hidden md:table-cell">
-                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Injury Acc.</span>
-                      </th>
-                      <th className="text-right px-4 py-3 hidden lg:table-cell">
-                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Draft Acc.</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredScores.map((s: any, i: number) => {
-                      const acc = parseFloat(s.overall_accuracy ?? "0");
-                      const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
-                      return (
-                        <tr
-                          key={s.source_id ?? s.id ?? i}
-                          className="transition-colors"
-                          style={{ borderBottom: `1px solid ${C.borderSub}` }}
-                          onMouseEnter={e => (e.currentTarget.style.background = C.panelLift)}
-                          onMouseLeave={e => (e.currentTarget.style.background = "")}
-                          data-testid={`leaderboard-row-${s.source_id}`}
-                        >
-                          <td className="px-4 py-3 text-sm font-bold tabular-nums" style={{ color: C.ivorySub }}>{i + 1}</td>
-                          <td className="px-4 py-3" style={{ minWidth: 0 }}>
-                            <div className="flex flex-col sm:flex-row sm:items-center" style={{ gap: 4, minWidth: 0 }}>
-                              <p className="font-semibold text-base" style={{ color: C.ivoryPrimary, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                                {s.source_name}
-                              </p>
-                              <SourceTypeBadge sourceType={s.source_type} />
-                            </div>
-                            {s.source_type === "analytics" && (
-                              <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>Grading · analytics service</p>
-                            )}
-                            {s.source_type === "scouting" && (
-                              <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>Team fit · player evaluation · personnel</p>
-                            )}
-                            {s.source_type === "college_analyst" && (
-                              <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>College production · draft prospect context</p>
-                            )}
-                          </td>
-                          <td className="px-4 py-3 hidden sm:table-cell">
-                            <TierBadge tier={s.trust_tier ?? null} />
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <span className="stat-num-display text-base font-bold" style={{ color: accColor }}>
-                              {acc.toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
-                            {parseFloat(s.average_lead_time_minutes ?? "0").toFixed(0)}m
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
-                            {parseFloat(s.false_positive_rate ?? "0").toFixed(1)}%
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
-                            {parseFloat(s.injury_accuracy ?? "0").toFixed(1)}%
-                          </td>
-                          <td className="px-4 py-3 text-right text-sm tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
-                            {parseFloat(s.draft_accuracy ?? "0").toFixed(1)}%
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    </AppLayout>
+    </div>
   );
 }
