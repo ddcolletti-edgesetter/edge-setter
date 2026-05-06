@@ -78,7 +78,7 @@ function App() {
           <Route path="/v2/cfb" component={CFBBoard} />
           <Route path="/v2/tools" component={ToolsHub} />
           <Route path="/v2/my-edge" component={MyEdge} />
-          <Route path="/v2/sources" component={V2Sources} />
+          <Route path="/v2/sources" component={() => <SourceLeaderboard theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/v2/alerts" component={AlertSettingsPage} />
           <Route path="/admin/ops" component={() => <AdminGate><OpsBoard /></AdminGate>} />
           <Route component={NotFound} />
