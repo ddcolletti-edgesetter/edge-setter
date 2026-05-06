@@ -374,6 +374,6 @@ export default function SourceLeaderboard() {
         )}
       </div>
     </div>
-    </V2Shell>
+    </V2Shell boardsMode>
   );
 }
