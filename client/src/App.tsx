@@ -55,7 +55,7 @@ function App() {
       <ProModal />
       <Router hook={useHashLocation}>
         <Switch>
-          <Route path="/" component={FlagshipHome} />
+          <Route path="/" component={NBABoard} />
           <Route path="/dashboard" component={() => <Dashboard theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/admin" component={() => <AdminGate><AdminReview theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/leaderboard" component={() => <SourceLeaderboard theme={theme} toggleTheme={toggleTheme} />} />
