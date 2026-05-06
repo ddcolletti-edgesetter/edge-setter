@@ -3,7 +3,7 @@ import App from "./App";
 import "./index.css";
 
 if (!window.location.hash) {
-  window.location.hash = "#/";
+  window.location.hash = "#/v2/nba";
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
