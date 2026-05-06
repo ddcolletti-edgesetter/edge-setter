@@ -124,6 +124,10 @@ function getSourceLeagues(sourceName: string): LeagueTab[] {
 }
 
 export default function SourceLeaderboard() {
+  return <V2Shell boardsMode><SourceLeaderboardInner /></V2Shell>;
+}
+
+function SourceLeaderboardInner() {
   const [activeFilter, setActiveFilter] = useState<FilterChip>("all");
   const [activeLeague, setActiveLeague] = useState<LeagueTab>("ALL");
 
@@ -317,8 +321,7 @@ export default function SourceLeaderboard() {
                     const acc = parseFloat(s.overall_accuracy ?? "0");
                     const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
                     return (
-    			<V2Shell>
-    			<div
+                      <tr
                         key={s.source_id ?? s.id ?? i}
                         className="transition-colors"
                         style={{ borderBottom: `1px solid ${C.borderSub}` }}
@@ -374,6 +377,5 @@ export default function SourceLeaderboard() {
         )}
       </div>
     </div>
-    </V2Shell boardsMode>
   );
 }
