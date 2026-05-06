@@ -58,7 +58,7 @@ function App() {
           <Route path="/" component={NBABoard} />
           <Route path="/dashboard" component={() => <Dashboard theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/admin" component={() => <AdminGate><AdminReview theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
-          <Route path="/leaderboard" component={() => <SourceLeaderboard theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/leaderboard" component={SourceLeaderboard} />
           <Route path="/draft" component={() => <DraftBoard theme={theme} toggleTheme={toggleTheme} />} />
           <Route path="/alerts" component={() => <AdminGate><AlertsPage theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/logs" component={() => <AdminGate><AgentLogs theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
@@ -78,7 +78,7 @@ function App() {
           <Route path="/v2/cfb" component={CFBBoard} />
           <Route path="/v2/tools" component={ToolsHub} />
           <Route path="/v2/my-edge" component={MyEdge} />
-          <Route path="/v2/sources" component={() => <SourceLeaderboard theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/v2/sources" component={SourceLeaderboard} />
           <Route path="/v2/alerts" component={AlertSettingsPage} />
           <Route path="/admin/ops" component={() => <AdminGate><OpsBoard /></AdminGate>} />
           <Route component={NotFound} />
