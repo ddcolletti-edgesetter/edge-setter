@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Trophy, Clock, TrendingDown } from "lucide-react";
-
+import V2Shell from "../components/V2Shell";
 const C = {
   bgBase:       "hsl(22 10%  9%)",
   panelBase:    "#111317",
@@ -317,7 +317,8 @@ export default function SourceLeaderboard() {
                     const acc = parseFloat(s.overall_accuracy ?? "0");
                     const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
                     return (
-                      <tr
+    			<V2Shell>
+    			<div
                         key={s.source_id ?? s.id ?? i}
                         className="transition-colors"
                         style={{ borderBottom: `1px solid ${C.borderSub}` }}
@@ -373,5 +374,6 @@ export default function SourceLeaderboard() {
         )}
       </div>
     </div>
+    </V2Shell>
   );
 }
