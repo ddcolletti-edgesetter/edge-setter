@@ -66,18 +66,41 @@ const NBA_TEAMS = [
   "MIL", "PHX", "DAL", "CLE", "SAC", "PHI", "ATL", "CHI",
 ];
 
-// ─── Mock Tonight's Games (falls back to this if no game data from API) ────────
-
-const MOCK_GAMES = [
-  { id: "g1", away: "LAL", home: "GSW", time: "7:30 PM ET", status: "LIVE", awayScore: 87, homeScore: 91, period: "Q3 8:22", spread: "GSW -3.5", total: "O/U 228.5", series: "LAL leads 3-2 · G6" },
-  { id: "g2", away: "MIA", home: "BOS", time: "8:00 PM ET", status: "LIVE", awayScore: 74, homeScore: 81, period: "Q3 2:14", spread: "BOS -5.5", total: "O/U 212.5", series: "BOS leads 3-1 · G5" },
-  { id: "g3", away: "MIN", home: "DEN", time: "9:30 PM ET", status: "PRE",  awayScore: null, homeScore: null, period: null, spread: "DEN -2", total: "O/U 222", series: "Tied 2-2 · G5" },
-  { id: "g4", away: "OKC", home: "DAL", time: "9:30 PM ET", status: "PRE",  awayScore: null, homeScore: null, period: null, spread: "OKC -4", total: "O/U 219", series: "OKC leads 2-1 · G4" },
-];
-
 // ─── Tonight's Games Bar ──────────────────────────────────────────────────────
 
+interface GameData {
+  id: string;
+  away: string; home: string;
+  time: string; status: "LIVE" | "FINAL" | "PRE";
+  awayScore: number | null; homeScore: number | null;
+  period: string | null;
+  spread: string; total: string;
+  series: string | null;
+}
+
 function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string | null; onSelectTeam: (t: string) => void }) {
+  const [games, setGames]         = useState<GameData[]>([]);
+  const [gsLoading, setGsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/nba/scoreboard");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (!cancelled) setGames(data.games ?? []);
+      } catch {
+        if (!cancelled) setGames([]);
+      } finally {
+        if (!cancelled) setGsLoading(false);
+      }
+    };
+    load();
+    const iv = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, []);
+
   return (
     <div style={{
       padding: "10px 20px 12px",
@@ -88,89 +111,110 @@ function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string | nu
       {/* Section label */}
       <div style={{
         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-        fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
+        fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
         color: T.textFaint, marginBottom: 8, display: "flex", alignItems: "center", gap: 6,
       }}>
-        <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "gsPulse 2s ease-in-out infinite" }} />
+        {games.some(g => g.status === "LIVE") && (
+          <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "gsPulse 2s ease-in-out infinite" }} />
+        )}
         Tonight's NBA Slate
-        <span style={{ color: T.gold, marginLeft: 2 }}>· Playoffs</span>
+        {games.some(g => g.series) && <span style={{ color: T.gold, marginLeft: 2 }}>· Playoffs</span>}
       </div>
 
-      <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2 }}>
-        {MOCK_GAMES.map(game => {
-          const isLive = game.status === "LIVE";
-          const isHighlighted = teamFilter === game.away || teamFilter === game.home;
+      {/* Loading */}
+      {gsLoading && (
+        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, letterSpacing: "0.1em" }}>
+          Loading games…
+        </div>
+      )}
 
-          return (
-            <div
-              key={game.id}
-              onClick={() => onSelectTeam(isHighlighted ? "" : game.away)}
-              style={{
-                flexShrink: 0, width: 220,
-                background: isHighlighted ? "rgba(202,168,90,0.1)" : T.surface2,
-                border: `1px solid ${isHighlighted ? T.gold : isLive ? "rgba(76,175,130,0.35)" : "rgba(255,255,255,0.07)"}`,
-                borderRadius: 5, padding: "10px 12px", cursor: "pointer",
-                transition: "all 0.12s",
-                position: "relative", overflow: "hidden",
-              }}
-            >
-              {/* Live indicator stripe */}
-              {isLive && (
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.green}, ${T.green}44)` }} />
-              )}
+      {/* Empty state */}
+      {!gsLoading && games.length === 0 && (
+        <div style={{
+          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+          fontSize: 12, color: T.textFaint, letterSpacing: "0.1em",
+          padding: "6px 0",
+        }}>
+          No NBA games scheduled today
+        </div>
+      )}
 
-              {/* Status badge */}
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-                  color: isLive ? T.green : T.textFaint,
-                  display: "flex", alignItems: "center", gap: 4,
-                }}>
-                  {isLive && <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "gsPulse 1.5s ease-in-out infinite" }} />}
-                  {isLive ? game.period : game.time}
-                </span>
-                <span style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 9, color: T.textFaint, letterSpacing: "0.08em",
-                }}>{game.series}</span>
-              </div>
+      {/* Games */}
+      {!gsLoading && games.length > 0 && (
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2 }}>
+          {games.map(game => {
+            const isLive        = game.status === "LIVE";
+            const isFinal       = game.status === "FINAL";
+            const isHighlighted = teamFilter === game.away || teamFilter === game.home;
 
-              {/* Teams + scores */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {[
-                  { abbr: game.away, score: game.awayScore, label: "Away" },
-                  { abbr: game.home, score: game.homeScore, label: "Home" },
-                ].map(team => (
-                  <div key={team.abbr} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <TeamLogoImg abbr={team.abbr} size={20} />
-                    <span style={{
-                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 13, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase",
-                      color: T.text, flex: 1,
-                    }}>{team.abbr}</span>
-                    {isLive && team.score !== null && (
+            return (
+              <div
+                key={game.id}
+                onClick={() => onSelectTeam(isHighlighted ? "" : game.away)}
+                style={{
+                  flexShrink: 0, width: 220,
+                  background: isHighlighted ? "rgba(202,168,90,0.1)" : "rgba(20,24,30,0.85)",
+                  border: `1px solid ${isHighlighted ? T.gold : isLive ? "rgba(76,175,130,0.35)" : "rgba(255,255,255,0.07)"}`,
+                  borderRadius: 5, padding: "10px 12px", cursor: "pointer",
+                  transition: "all 0.12s",
+                  position: "relative", overflow: "hidden",
+                }}
+              >
+                {isLive && (
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.green}, ${T.green}44)` }} />
+                )}
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{
+                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                    fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                    color: isLive ? T.green : isFinal ? T.textFaint : T.textMuted,
+                    display: "flex", alignItems: "center", gap: 4,
+                  }}>
+                    {isLive && <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "gsPulse 1.5s ease-in-out infinite" }} />}
+                    {isLive ? (game.period ?? "Live") : isFinal ? "Final" : game.time}
+                  </span>
+                  {game.series && (
+                    <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.06em", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {game.series}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {[
+                    { abbr: game.away, score: game.awayScore },
+                    { abbr: game.home, score: game.homeScore },
+                  ].map(team => (
+                    <div key={team.abbr} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <TeamLogoImg abbr={team.abbr} size={20} />
                       <span style={{
-                        fontSize: 16, fontWeight: 700, color: T.text,
-                        fontVariantNumeric: "tabular-nums", minWidth: 28, textAlign: "right",
-                      }}>{team.score}</span>
-                    )}
-                  </div>
-                ))}
-              </div>
+                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                        fontSize: 15, fontWeight: 800, letterSpacing: "0.08em",
+                        color: T.text, flex: 1,
+                      }}>{team.abbr}</span>
+                      {(isLive || isFinal) && team.score !== null && (
+                        <span style={{
+                          fontSize: 20, fontWeight: 700, color: T.text,
+                          fontVariantNumeric: "tabular-nums", minWidth: 28, textAlign: "right",
+                        }}>{team.score}</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
 
-              {/* Spread / total */}
-              <div style={{
-                marginTop: 8, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.06)",
-                display: "flex", gap: 10,
-              }}>
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{game.spread}</span>
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{game.total}</span>
+                <div style={{
+                  marginTop: 8, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.06)",
+                  display: "flex", gap: 10,
+                }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>{game.spread}</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>{game.total}</span>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
       <style>{`@keyframes gsPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
     </div>
   );
@@ -207,17 +251,17 @@ function InjuryPanel({ signals }: { signals: LiveSignal[] }) {
             }}>
               <TeamLogoImg abbr={sig.team ?? "NBA"} size={18} />
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 600, color: T.text, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.text, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {sig.player_name ?? sig.headline.slice(0, 30)}
                 </div>
                 <div style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 10, color: statusColor(designation), letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 1,
+                  fontSize: 11, color: statusColor(designation), letterSpacing: "0.06em", textTransform: "uppercase", marginTop: 1,
                 }}>{designation}</div>
               </div>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 10, color: T.textFaint,
+                fontSize: 11, color: T.textFaint,
               }}>{sig.team}</div>
             </div>
           );
@@ -246,13 +290,13 @@ function LineupPanel({ signals }: { signals: LiveSignal[] }) {
               width: 6, height: 6, borderRadius: "50%", background: T.cyan, marginTop: 4, flexShrink: 0,
             }} />
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: T.text, lineHeight: 1.35, fontWeight: 500 }}>
+              <div style={{ fontSize: 13, color: T.text, lineHeight: 1.35, fontWeight: 500 }}>
                 {sig.headline.slice(0, 55)}{sig.headline.length > 55 ? "…" : ""}
               </div>
               {sig.team && (
                 <div style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 10, color: T.textFaint, marginTop: 2,
+                  fontSize: 11, color: T.textFaint, marginTop: 2,
                 }}>{sig.team}{sig.lineup_status ? ` · ${sig.lineup_status}` : ""}</div>
               )}
             </div>
@@ -279,7 +323,7 @@ function TrendsPanel({ signals }: { signals: LiveSignal[] }) {
             <div key={sig.id} style={{
               padding: "9px 14px", borderBottom: "1px solid rgba(255,255,255,0.04)",
             }}>
-              <div style={{ fontSize: 12, color: T.text, lineHeight: 1.35, fontWeight: 500, marginBottom: 4 }}>
+              <div style={{ fontSize: 13, color: T.text, lineHeight: 1.35, fontWeight: 500, marginBottom: 4 }}>
                 {sig.headline.slice(0, 60)}{sig.headline.length > 60 ? "…" : ""}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -287,7 +331,7 @@ function TrendsPanel({ signals }: { signals: LiveSignal[] }) {
                 <ConfidenceBar value={conf} width={60} height={3} />
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 10, color: conf >= 80 ? T.gold : T.textFaint,
+                  fontSize: 11, color: conf >= 80 ? T.gold : T.textFaint,
                   fontVariantNumeric: "tabular-nums",
                 }}>{conf}%</span>
               </div>
@@ -303,9 +347,9 @@ function RightSidebar({ signals }: { signals: LiveSignal[] }) {
   const [openPanel, setOpenPanel] = useState<"injuries" | "lineup" | "trends">("injuries");
 
   const panels = [
-    { key: "injuries" as const, label: "Injury Report", icon: <AlertCircle size={11} />, color: T.danger, count: signals.filter(s => s.signal_type === "injury" || s.injury_designation).length },
-    { key: "lineup"   as const, label: "Lineup Movement", icon: <Users size={11} />, color: T.cyan, count: signals.filter(s => s.signal_type === "rotation" || s.lineup_status).length },
-    { key: "trends"   as const, label: "Team Trends", icon: <BarChart2 size={11} />, color: T.green, count: signals.filter(s => s.signal_type === "trend" || s.signal_type === "matchup_edge").length },
+    { key: "injuries" as const, label: "Injury Report",    icon: <AlertCircle size={11} />, color: T.danger, count: signals.filter(s => s.signal_type === "injury" || s.injury_designation).length },
+    { key: "lineup"   as const, label: "Lineup Movement",  icon: <Users size={11} />,        color: T.cyan,   count: signals.filter(s => s.signal_type === "rotation" || s.lineup_status).length },
+    { key: "trends"   as const, label: "Team Trends",      icon: <BarChart2 size={11} />,    color: T.green,  count: signals.filter(s => s.signal_type === "trend" || s.signal_type === "matchup_edge").length },
   ];
 
   return (
@@ -331,13 +375,13 @@ function RightSidebar({ signals }: { signals: LiveSignal[] }) {
             <span style={{ color: panel.color, display: "flex" }}>{panel.icon}</span>
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
               color: openPanel === panel.key ? T.text : T.textMuted, flex: 1,
             }}>{panel.label}</span>
             {panel.count > 0 && (
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 10, fontWeight: 700, color: panel.color,
+                fontSize: 11, fontWeight: 700, color: panel.color,
                 background: `${panel.color}18`, padding: "1px 6px", borderRadius: 2,
               }}>{panel.count}</span>
             )}
@@ -365,17 +409,17 @@ function RightSidebar({ signals }: { signals: LiveSignal[] }) {
           background: "rgba(202,168,90,0.05)", border: "1px solid rgba(202,168,90,0.2)",
           borderRadius: 4, padding: "12px 10px",
         }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold, marginBottom: 5 }}>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold, marginBottom: 5 }}>
             ⚡ Pro Only
           </div>
-          <div style={{ fontSize: 11, color: T.textFaint, lineHeight: 1.5, marginBottom: 8 }}>
+          <div style={{ fontSize: 12, color: T.textFaint, lineHeight: 1.5, marginBottom: 8 }}>
             Real-time alerts, full signal archive & source confidence scores.
           </div>
           <a href="/#/pro" style={{
             display: "block", textAlign: "center",
             background: T.gold, color: T.bg,
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+            fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
             padding: "7px 0", borderRadius: 3, textDecoration: "none",
           }}>Unlock Pro — $19/mo</a>
         </div>
@@ -410,7 +454,7 @@ function ProGateBand() {
             <Lock size={16} style={{ color: T.gold }} />
           </div>
           <div>
-            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>
+            <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: T.text, marginBottom: 2 }}>
               90 signals locked
             </div>
             <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, letterSpacing: "0.06em" }}>
@@ -474,7 +518,7 @@ function SignalRow({ sig, idx, isSelected, onClick }: {
       }}
     >
       {/* Index */}
-      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, fontVariantNumeric: "tabular-nums" }}>
+      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, fontVariantNumeric: "tabular-nums" }}>
         {idx + 1}
       </div>
 
@@ -485,10 +529,10 @@ function SignalRow({ sig, idx, isSelected, onClick }: {
 
       {/* Headline + sub */}
       <div style={{ paddingRight: 14 }}>
-        <div className="sig-headline" style={{ fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 3 }}>
+        <div className="sig-headline" style={{ fontSize: 14, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 3 }}>
           {sig.headline ?? sig.title}
         </div>
-        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.4 }}>
+        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, lineHeight: 1.4 }}>
           {(sig.action_takeaway ?? sig.action_note ?? sig.summary ?? "").slice(0, 70)}{(sig.action_takeaway ?? sig.action_note ?? sig.summary ?? "").length > 70 ? "…" : ""}
         </div>
       </div>
@@ -498,12 +542,12 @@ function SignalRow({ sig, idx, isSelected, onClick }: {
         {sig.team && <TeamLogoImg abbr={sig.team} size={24} />}
         <div>
           {sig.player_name && (
-            <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, lineHeight: 1.3 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: T.textMuted, lineHeight: 1.3 }}>
               {sig.player_name.split(" ").pop()}
             </div>
           )}
           {sig.team && (
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.06em" }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.06em" }}>
               {sig.team}
             </div>
           )}
@@ -522,7 +566,7 @@ function SignalRow({ sig, idx, isSelected, onClick }: {
       </div>
 
       {/* Time */}
-      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>
+      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>
         {timeAgo(sig.created_at)}
       </div>
     </div>
@@ -564,7 +608,7 @@ function DetailPanel({ sig, onClose }: { sig: LiveSignal; onClose: () => void })
         <div style={{ display: "flex", alignItems: "center", gap: 10, position: "relative", zIndex: 2 }}>
           <TeamLogoImg abbr={team} size={42} />
           <div>
-            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.3, marginBottom: 5 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.3, marginBottom: 5 }}>
               {sig.player_name ? sig.player_name : team}
             </div>
             <VerdictBadge verdict={verdict as any} />
@@ -580,8 +624,8 @@ function DetailPanel({ sig, onClose }: { sig: LiveSignal; onClose: () => void })
           { label: "Sources",    value: String(sig.source_count ?? sig.sources?.length ?? "—") },
         ].map((s, i) => (
           <div key={s.label} style={{ padding: "9px 0", textAlign: "center", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: s.color ?? T.text, fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>{s.label}</div>
+            <div style={{ fontSize: 15, fontWeight: 800, color: s.color ?? T.text, fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 1 }}>{s.label}</div>
           </div>
         ))}
       </div>
@@ -589,27 +633,27 @@ function DetailPanel({ sig, onClose }: { sig: LiveSignal; onClose: () => void })
 
       {/* Body */}
       <div style={{ padding: "14px 16px", flex: 1 }}>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>
+        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>
           {sig.headline ?? sig.title}
         </div>
 
         {(sig.body ?? sig.summary) && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Detail</div>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Detail</div>
             <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.65 }}>{sig.body ?? sig.summary}</div>
           </div>
         )}
 
         {sig.why_it_matters && (
           <div style={{ marginBottom: 12 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Why It Matters</div>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 5 }}>Why It Matters</div>
             <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.65 }}>{sig.why_it_matters}</div>
           </div>
         )}
 
         {(sig.action_takeaway ?? sig.action_note) && (
           <div style={{ background: "rgba(202,168,90,0.07)", border: "1px solid rgba(202,168,90,0.22)", borderRadius: 4, padding: "11px 13px" }}>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold, marginBottom: 5 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold, marginBottom: 5 }}>
               ⚡ Action Takeaway
             </div>
             <div style={{ fontSize: 13, color: T.text, lineHeight: 1.65, fontWeight: 500 }}>{sig.action_takeaway ?? sig.action_note}</div>
@@ -618,7 +662,7 @@ function DetailPanel({ sig, onClose }: { sig: LiveSignal; onClose: () => void })
 
         {sig.injury_designation && (
           <div style={{ marginTop: 10, padding: "8px 12px", background: "rgba(217,75,75,0.08)", border: "1px solid rgba(217,75,75,0.25)", borderRadius: 3 }}>
-            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: T.danger }}>
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: T.danger }}>
               Status: {sig.injury_designation}
             </span>
           </div>
@@ -633,13 +677,13 @@ function DetailPanel({ sig, onClose }: { sig: LiveSignal; onClose: () => void })
 const FREE_SIGNAL_LIMIT = 8;
 
 export default function NBABoard() {
-  const [signals, setSignals]         = useState<LiveSignal[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState<string | null>(null);
-  const [activeTab, setActiveTab]     = useState<TabKey>("TODAY");
-  const [teamFilter, setTeamFilter]   = useState<string>("");
-  const [selected, setSelected]       = useState<LiveSignal | null>(null);
-  const [isProUser]                   = useState(false); // TODO: wire to auth
+  const [signals, setSignals]       = useState<LiveSignal[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [activeTab, setActiveTab]   = useState<TabKey>("TODAY");
+  const [teamFilter, setTeamFilter] = useState<string>("");
+  const [selected, setSelected]     = useState<LiveSignal | null>(null);
+  const [isProUser]                 = useState(false); // TODO: wire to auth
 
   // ── Fetch live signals ─────────────────────────────────────────────────────
   const fetchSignals = useCallback(async () => {
@@ -658,7 +702,7 @@ export default function NBABoard() {
 
   useEffect(() => {
     fetchSignals();
-    const interval = setInterval(fetchSignals, 60_000); // refresh every minute
+    const interval = setInterval(fetchSignals, 60_000);
     return () => clearInterval(interval);
   }, [fetchSignals]);
 
@@ -673,15 +717,15 @@ export default function NBABoard() {
   const featured       = signals.find(s => (s.confidence_score ?? 0) >= 80) ?? signals[0];
 
   // ── Stats ──────────────────────────────────────────────────────────────────
-  const confirmedCount  = signals.filter(s => s.verdict === "confirmed").length;
-  const highConfCount   = signals.filter(s => (s.confidence_score ?? 0) >= 80).length;
+  const confirmedCount = signals.filter(s => s.verdict === "confirmed").length;
+  const highConfCount  = signals.filter(s => (s.confidence_score ?? 0) >= 80).length;
 
   return (
     <V2Shell boardsMode>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         .sig-row:hover { background: rgba(202,168,90,0.04) !important; }
-        .sig-row:hover .sig-headline { color: #F3EFE6 !important; }
+        .sig-row:hover .sig-headline { color: #F0E6CC !important; }
         .tab-btn:hover { background: rgba(202,168,90,0.05) !important; }
         .team-pill:hover { background: rgba(202,168,90,0.08) !important; border-color: rgba(202,168,90,0.35) !important; }
       `}</style>
@@ -693,17 +737,17 @@ export default function NBABoard() {
           width: 180, background: T.surface1, borderRight: `1px solid ${T.goldDim}`,
           flexShrink: 0, padding: "14px 8px", overflowY: "auto",
         }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.textFaint, padding: "0 8px", marginBottom: 10 }}>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.textFaint, padding: "0 8px", marginBottom: 10 }}>
             NBA Board
           </div>
 
           {/* Sub-nav items */}
           {[
-            { label: "Signal Stream", icon: <Zap size={11} />, active: true },
-            { label: "Tonight's Slate", icon: <Activity size={11} />, active: false },
+            { label: "Signal Stream",     icon: <Zap size={11} />,       active: true },
+            { label: "Tonight's Slate",   icon: <Activity size={11} />,  active: false },
             { label: "Injury Volatility", icon: <AlertCircle size={11} />, active: false },
-            { label: "Line Movement", icon: <ArrowUpDown size={11} />, active: false },
-            { label: "Matchup Edges", icon: <BarChart2 size={11} />, active: false },
+            { label: "Line Movement",     icon: <ArrowUpDown size={11} />, active: false },
+            { label: "Matchup Edges",     icon: <BarChart2 size={11} />, active: false },
           ].map(({ label, icon, active }) => (
             <div key={label} style={{
               display: "flex", alignItems: "center", gap: 7, padding: "7px 9px", marginBottom: 1,
@@ -712,14 +756,14 @@ export default function NBABoard() {
               color: active ? T.gold : T.textMuted, cursor: "pointer",
             }}>
               <span style={{ opacity: active ? 1 : 0.4, display: "flex" }}>{icon}</span>
-              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</span>
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</span>
             </div>
           ))}
 
           <div style={{ margin: "14px 0 10px", borderTop: `1px solid ${T.goldDim}` }} />
 
           {/* Team filter pills */}
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.textFaint, padding: "0 8px", marginBottom: 8 }}>
+          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.textFaint, padding: "0 8px", marginBottom: 8 }}>
             Teams
           </div>
           {teamFilter && (
@@ -732,11 +776,11 @@ export default function NBABoard() {
               }}
             >
               <X size={9} style={{ color: T.textFaint }} />
-              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase" }}>Clear filter</span>
+              <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, color: T.textFaint, letterSpacing: "0.08em", textTransform: "uppercase" }}>Clear filter</span>
             </div>
           )}
           {NBA_TEAMS.map(tm => {
-            const isActive = teamFilter === tm;
+            const isActive   = teamFilter === tm;
             const hasSignals = signals.some(s => s.team === tm);
             return (
               <div
@@ -752,7 +796,7 @@ export default function NBABoard() {
                 }}
               >
                 <TeamLogoImg abbr={tm} size={20} />
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: isActive ? T.gold : T.textMuted, flex: 1 }}>{tm}</span>
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: isActive ? T.gold : T.textMuted, flex: 1 }}>{tm}</span>
                 {hasSignals && <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} />}
               </div>
             );
@@ -770,20 +814,20 @@ export default function NBABoard() {
           }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 700, color: T.text }}>
+                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: T.text }}>
                   NBA Intelligence Board
                 </span>
                 <SportBadge status="LIVE" />
               </div>
-              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.06em" }}>
+              <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, letterSpacing: "0.06em" }}>
                 {loading ? "Loading signals…" : error ? `Live signals unavailable — ${error}` : `${signals.length} signals · Updated continuously`}
               </div>
             </div>
             <div style={{ marginLeft: "auto", display: "flex", gap: 7 }}>
               {[
-                { label: "Total",     value: signals.length,  color: T.text },
-                { label: "Confirmed", value: confirmedCount,  color: T.green },
-                { label: "High Conf", value: highConfCount,   color: T.gold },
+                { label: "Total",     value: signals.length, color: T.text },
+                { label: "Confirmed", value: confirmedCount, color: T.green },
+                { label: "High Conf", value: highConfCount,  color: T.gold },
               ].map(stat => (
                 <div key={stat.label} style={{
                   textAlign: "center", padding: "5px 12px",
@@ -792,7 +836,7 @@ export default function NBABoard() {
                   <div style={{ fontSize: 16, fontWeight: 700, color: stat.color, fontVariantNumeric: "tabular-nums" }}>
                     {loading ? "—" : stat.value}
                   </div>
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>{stat.label}</div>
+                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase" }}>{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -804,7 +848,23 @@ export default function NBABoard() {
           {/* Featured signal */}
           {featured && !loading && (
             <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
-              <FeaturedEdgeCard signal={featured as any} sport="NBA" />
+              <FeaturedEdgeCard
+                sport="NBA"
+                signal={{
+                  headline:        featured.headline ?? featured.title ?? "Signal",
+                  detail:          featured.body ?? featured.summary ?? featured.why_it_matters ?? "—",
+                  action_takeaway: featured.action_takeaway ?? featured.action_note ?? "Monitor this situation.",
+                  verdict:         featured.verdict ?? "unverified",
+                  confidence:      featured.confidence_score ?? 70,
+                  sources:         featured.source_count ?? featured.sources?.length ?? 1,
+                  type:            featured.signal_type ?? "news",
+                  player:          featured.player_name,
+                  team:            featured.team ?? "NBA",
+                  opponent:        undefined,
+                  timestamp:       new Date(featured.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  tags:            [featured.team ?? "NBA", featured.signal_type ?? "intel"].filter(Boolean),
+                }}
+              />
             </div>
           )}
 
@@ -816,7 +876,7 @@ export default function NBABoard() {
           }}>
             {TABS.map(tab => {
               const isActive = activeTab === tab.key;
-              const count = filterByTab(signals, tab.key).length;
+              const count    = filterByTab(signals, tab.key).length;
               return (
                 <button
                   key={tab.key}
@@ -838,7 +898,7 @@ export default function NBABoard() {
                   {tab.label}
                   {count > 0 && (
                     <span style={{
-                      fontSize: 10, color: isActive ? T.gold : T.textFaint,
+                      fontSize: 11, color: isActive ? T.gold : T.textFaint,
                       background: isActive ? "rgba(202,168,90,0.15)" : "rgba(255,255,255,0.06)",
                       padding: "1px 5px", borderRadius: 2,
                       fontVariantNumeric: "tabular-nums",
@@ -852,7 +912,7 @@ export default function NBABoard() {
               <div style={{
                 marginLeft: "auto", display: "flex", alignItems: "center", gap: 6, paddingBottom: 6,
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, color: T.gold, letterSpacing: "0.1em",
+                fontSize: 13, fontWeight: 700, color: T.gold, letterSpacing: "0.1em",
               }}>
                 <Filter size={10} />
                 {teamFilter}
@@ -875,7 +935,7 @@ export default function NBABoard() {
               {["#", "Type", "Signal", "Player", "Verdict", "Conf", "Time"].map(h => (
                 <div key={h} style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 9, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint,
+                  fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint,
                 }}>{h}</div>
               ))}
             </div>
@@ -892,10 +952,10 @@ export default function NBABoard() {
             {/* Error state */}
             {!loading && error && (
               <div style={{ padding: "20px", margin: "16px 20px", background: "rgba(217,75,75,0.06)", border: "1px solid rgba(217,75,75,0.2)", borderRadius: 4 }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.danger }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: T.danger }}>
                   <strong>Signal feed unavailable</strong> — {error}
                 </div>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, marginTop: 4 }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint, marginTop: 4 }}>
                   pipeline.db may be empty. Check that the ingestion cycle has run at least once.
                 </div>
               </div>
@@ -924,7 +984,6 @@ export default function NBABoard() {
             {/* Pro gate — blur band + CTA */}
             {!isProUser && lockedCount > 0 && (
               <div style={{ position: "relative" }}>
-                {/* Blurred preview rows */}
                 <div style={{ filter: "blur(3px)", pointerEvents: "none", userSelect: "none" }}>
                   {filtered.slice(FREE_SIGNAL_LIMIT, FREE_SIGNAL_LIMIT + 3).map((sig, idx) => (
                     <SignalRow
@@ -943,7 +1002,7 @@ export default function NBABoard() {
             {/* Footer note when all signals visible */}
             {(isProUser || lockedCount === 0) && filtered.length > 0 && (
               <div style={{ margin: "12px 20px", padding: "8px 12px", background: "rgba(202,168,90,0.03)", border: "1px solid rgba(202,168,90,0.08)", borderRadius: 3 }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>
+                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint }}>
                   {filtered.length} signals displayed · Refreshes every 60s · Click any row to expand
                 </div>
               </div>
