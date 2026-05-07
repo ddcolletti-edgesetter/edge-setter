@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { Server } from "http";
-import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress } from "./storage";
+import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress, getVerifiedCountBySource } from "./storage";
 import { runFullBackfill } from "./pipeline/backfill";
 import { insertWaitlistSchema } from "@shared/schema";
 import { sendDailyDigest } from "./email";
@@ -149,7 +149,12 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // ─── Source Leaderboard ───────────────────────────────────────────────────────
   app.get("/api/leaderboard", (_req, res) => {
     const scores = storage.getSourceScores();
-    res.json(scores);
+    const verifiedMap = getVerifiedCountBySource();
+    const result = scores.map(s => ({
+      ...s,
+      verified_count: verifiedMap.get(s.source_name) ?? 0,
+    }));
+    res.json(result);
   });
 
   // ─── Admin DB Debug ───────────────────────────────────────────────────────────

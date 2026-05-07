@@ -505,13 +505,14 @@ export class SqliteStorage implements IStorage {
       .returning().get();
   }
 
-  getSourceScores(): (SourceScore & { source_name: string; trust_tier: string | null; source_type: string | null; source_url: string | null })[] {
+  getSourceScores(): (SourceScore & { source_name: string; trust_tier: string | null; source_type: string | null; source_url: string | null; reliability_score: string | null })[] {
     const rows = sqlite.prepare(`
       SELECT ss.*,
              COALESCE(ss.source_name, s.name) AS source_name,
-             s.trust_tier  AS trust_tier,
-             s.source_type AS source_type,
-             s.url         AS source_url
+             s.trust_tier        AS trust_tier,
+             s.source_type       AS source_type,
+             s.url               AS source_url,
+             s.reliability_score AS reliability_score
       FROM source_scores ss
       LEFT JOIN sources s ON ss.source_id = s.id
       ORDER BY ss.overall_accuracy DESC
@@ -1101,6 +1102,16 @@ export function getSettledOutcomesForAccuracy(): Array<{
     FROM settled_outcomes
     WHERE hit IS NOT NULL
   `).all() as any[];
+}
+
+export function getVerifiedCountBySource(): Map<string, number> {
+  const rows = sqlite.prepare(`
+    SELECT json_extract(src.value, '$.name') AS src_name, COUNT(*) AS cnt
+    FROM settled_outcomes, json_each(sources) AS src
+    WHERE hit IS NOT NULL
+    GROUP BY json_extract(src.value, '$.name')
+  `).all() as any[];
+  return new Map(rows.map(r => [r.src_name as string, r.cnt as number]));
 }
 
 /* ─── Backfill Progress (persistent — survives restarts) ──────────────────── */
