@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useAuth } from "../context/AuthContext";
 import V2Shell, { SportBadge } from "../components/V2Shell";
 import {
   PlayerHeadshot, TeamLogoImg,
@@ -77,7 +78,72 @@ const MOCK_GAMES = [
 
 // ─── Tonight's Games Bar ──────────────────────────────────────────────────────
 
-function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string | null; onSelectTeam: (t: string) => void }) {
+interface LiveGame {
+  id: string;
+  date: string;
+  statusType: string;
+  completed: boolean;
+  clock: string;
+  period: number;
+  away: { abbr: string; score: string; winner: boolean; records?: string | null };
+  home: { abbr: string; score: string; winner: boolean; records?: string | null };
+  spread: string | null;
+  broadcast: string | null;
+}
+
+function TonightGamesBar({ teamFilter, onSelectTeam, liveGames }: {
+  teamFilter: string | null;
+  onSelectTeam: (t: string) => void;
+  liveGames: LiveGame[];
+}) {
+  function fmtTime(iso: string): string {
+    try {
+      return new Date(iso).toLocaleTimeString("en-US", {
+        hour: "numeric", minute: "2-digit", timeZone: "America/New_York",
+      }) + " ET";
+    } catch { return "TBD"; }
+  }
+
+  // Normalise: prefer live ESPN games, fall back to MOCK_GAMES
+  const usingLive = liveGames.length > 0;
+
+  const cards = usingLive
+    ? liveGames.map(g => {
+        const isLive  = g.statusType === "STATUS_IN_PROGRESS";
+        const isFinal = g.statusType === "STATUS_FINAL" || g.completed;
+        const statusLabel = isLive ? `Q${g.period} ${g.clock}`
+          : isFinal ? "Final"
+          : fmtTime(g.date);
+        return {
+          id:       g.id,
+          away:     g.away.abbr,
+          home:     g.home.abbr,
+          isLive,
+          isFinal,
+          statusLabel,
+          awayScore: isLive || isFinal ? g.away.score : null,
+          homeScore: isLive || isFinal ? g.home.score : null,
+          spread:   g.spread,
+          series:   null as string | null,
+          total:    null as string | null,
+          broadcast: g.broadcast,
+        };
+      })
+    : MOCK_GAMES.map(g => ({
+        id:       g.id,
+        away:     g.away,
+        home:     g.home,
+        isLive:   g.status === "LIVE",
+        isFinal:  false,
+        statusLabel: g.status === "LIVE" ? g.period : g.time,
+        awayScore: g.status === "LIVE" ? String(g.awayScore ?? "") : null,
+        homeScore: g.status === "LIVE" ? String(g.homeScore ?? "") : null,
+        spread:   g.spread,
+        series:   g.series as string | null,
+        total:    g.total as string | null,
+        broadcast: null as string | null,
+      }));
+
   return (
     <div style={{
       padding: "10px 20px 12px",
@@ -93,12 +159,13 @@ function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string | nu
       }}>
         <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "gsPulse 2s ease-in-out infinite" }} />
         Tonight's NBA Slate
-        <span style={{ color: T.gold, marginLeft: 2 }}>· Playoffs</span>
+        <span style={{ color: usingLive ? T.green : T.gold, marginLeft: 2 }}>
+          {usingLive ? "· Live from ESPN" : "· Playoffs"}
+        </span>
       </div>
 
       <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2 }}>
-        {MOCK_GAMES.map(game => {
-          const isLive = game.status === "LIVE";
+        {cards.map(game => {
           const isHighlighted = teamFilter === game.away || teamFilter === game.home;
 
           return (
@@ -108,14 +175,14 @@ function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string | nu
               style={{
                 flexShrink: 0, width: 220,
                 background: isHighlighted ? "rgba(202,168,90,0.1)" : T.surface2,
-                border: `1px solid ${isHighlighted ? T.gold : isLive ? "rgba(76,175,130,0.35)" : "rgba(255,255,255,0.07)"}`,
+                border: `1px solid ${isHighlighted ? T.gold : game.isLive ? "rgba(76,175,130,0.35)" : "rgba(255,255,255,0.07)"}`,
                 borderRadius: 5, padding: "10px 12px", cursor: "pointer",
                 transition: "all 0.12s",
                 position: "relative", overflow: "hidden",
               }}
             >
               {/* Live indicator stripe */}
-              {isLive && (
+              {game.isLive && (
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.green}, ${T.green}44)` }} />
               )}
 
@@ -124,23 +191,24 @@ function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string | nu
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-                  color: isLive ? T.green : T.textFaint,
+                  color: game.isLive ? T.green : game.isFinal ? T.textFaint : T.textFaint,
                   display: "flex", alignItems: "center", gap: 4,
                 }}>
-                  {isLive && <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "gsPulse 1.5s ease-in-out infinite" }} />}
-                  {isLive ? game.period : game.time}
+                  {game.isLive && <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "gsPulse 1.5s ease-in-out infinite" }} />}
+                  {game.statusLabel}
                 </span>
-                <span style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 9, color: T.textFaint, letterSpacing: "0.08em",
-                }}>{game.series}</span>
+                {(game.series || game.broadcast) && (
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.08em" }}>
+                    {game.series ?? game.broadcast}
+                  </span>
+                )}
               </div>
 
               {/* Teams + scores */}
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {[
-                  { abbr: game.away, score: game.awayScore, label: "Away" },
-                  { abbr: game.home, score: game.homeScore, label: "Home" },
+                  { abbr: game.away, score: game.awayScore },
+                  { abbr: game.home, score: game.homeScore },
                 ].map(team => (
                   <div key={team.abbr} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <TeamLogoImg abbr={team.abbr} size={20} />
@@ -149,7 +217,7 @@ function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string | nu
                       fontSize: 13, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase",
                       color: T.text, flex: 1,
                     }}>{team.abbr}</span>
-                    {isLive && team.score !== null && (
+                    {(game.isLive || game.isFinal) && team.score !== null && (
                       <span style={{
                         fontSize: 16, fontWeight: 700, color: T.text,
                         fontVariantNumeric: "tabular-nums", minWidth: 28, textAlign: "right",
@@ -160,13 +228,15 @@ function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string | nu
               </div>
 
               {/* Spread / total */}
-              <div style={{
-                marginTop: 8, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.06)",
-                display: "flex", gap: 10,
-              }}>
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{game.spread}</span>
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{game.total}</span>
-              </div>
+              {(game.spread || game.total) && (
+                <div style={{
+                  marginTop: 8, paddingTop: 7, borderTop: "1px solid rgba(255,255,255,0.06)",
+                  display: "flex", gap: 10,
+                }}>
+                  {game.spread && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{game.spread}</span>}
+                  {game.total  && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint }}>{game.total}</span>}
+                </div>
+              )}
             </div>
           );
         })}
@@ -633,13 +703,16 @@ function DetailPanel({ sig, onClose }: { sig: LiveSignal; onClose: () => void })
 const FREE_SIGNAL_LIMIT = 8;
 
 export default function NBABoard() {
+  const { isPro }                     = useAuth();
   const [signals, setSignals]         = useState<LiveSignal[]>([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [activeTab, setActiveTab]     = useState<TabKey>("TODAY");
   const [teamFilter, setTeamFilter]   = useState<string>("");
   const [selected, setSelected]       = useState<LiveSignal | null>(null);
-  const [isProUser]                   = useState(false); // TODO: wire to auth
+  const [liveGames, setLiveGames]     = useState<LiveGame[]>([]);
+
+  const isProUser = isPro;
 
   // ── Fetch live signals ─────────────────────────────────────────────────────
   const fetchSignals = useCallback(async () => {
@@ -656,11 +729,23 @@ export default function NBABoard() {
     }
   }, []);
 
+  // ── Fetch live scoreboard ─────────────────────────────────────────────────
+  const fetchScoreboard = useCallback(async () => {
+    try {
+      const res = await fetch("/api/nba/scoreboard");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data.games)) setLiveGames(data.games);
+    } catch { /* silently fail — mock data is the fallback */ }
+  }, []);
+
   useEffect(() => {
     fetchSignals();
-    const interval = setInterval(fetchSignals, 60_000); // refresh every minute
-    return () => clearInterval(interval);
-  }, [fetchSignals]);
+    fetchScoreboard();
+    const sigInterval   = setInterval(fetchSignals,   60_000);
+    const scoreInterval = setInterval(fetchScoreboard, 60_000);
+    return () => { clearInterval(sigInterval); clearInterval(scoreInterval); };
+  }, [fetchSignals, fetchScoreboard]);
 
   // ── Filter pipeline ────────────────────────────────────────────────────────
   let filtered = filterByTab(signals, activeTab);
@@ -799,7 +884,7 @@ export default function NBABoard() {
           </div>
 
           {/* Tonight's Games bar */}
-          <TonightGamesBar teamFilter={teamFilter} onSelectTeam={setTeamFilter} />
+          <TonightGamesBar teamFilter={teamFilter} onSelectTeam={setTeamFilter} liveGames={liveGames} />
 
           {/* Featured signal */}
           {featured && !loading && (
