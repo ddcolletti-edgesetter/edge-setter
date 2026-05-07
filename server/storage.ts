@@ -518,6 +518,11 @@ export class SqliteStorage implements IStorage {
     return db.select().from(source_scores).where(eq(source_scores.source_id, source_id)).get();
   }
   upsertSourceScore(data: InsertSourceScore): SourceScore {
+    if (data.source_id) {
+      sqlite.prepare(
+        `INSERT OR IGNORE INTO sources (id, name, source_type, created_at) VALUES (?, ?, 'auto', ?)`
+      ).run(data.source_id, data.source_name ?? data.source_id, now());
+    }
     const existing = this.getSourceScore(data.source_id ?? "");
     if (existing) {
       return db.update(source_scores)
