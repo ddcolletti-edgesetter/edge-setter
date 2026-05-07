@@ -19,8 +19,11 @@ import type { Game, RawEvent, LiveSignal, Outcome } from "./types";
 
 /* ─── DB setup ─────────────────────────────────────────── */
 
-function resolveDataDir(): string {
-  for (const dir of [process.env.DATA_DIR, "/tmp", "."]) {
+function resolvePipelineDataDir(): string {
+  // pipeline.db is intentionally ephemeral — it holds live_signals and raw_events
+  // which are rebuilt each ingestion cycle.  Keeping it in /tmp avoids unbounded
+  // growth on the persistent disk.  Use PIPELINE_DATA_DIR only for local dev.
+  for (const dir of [process.env.PIPELINE_DATA_DIR, "/tmp", "."]) {
     if (!dir) continue;
     try {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
@@ -33,7 +36,7 @@ function resolveDataDir(): string {
   return ".";
 }
 
-const DB_PATH = path.join(resolveDataDir(), "pipeline.db");
+const DB_PATH = path.join(resolvePipelineDataDir(), "pipeline.db");
 let _db: Database.Database | null = null;
 
 export function getPipelineDb(): Database.Database {

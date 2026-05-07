@@ -18,7 +18,7 @@
 import { randomUUID } from "crypto";
 import {
   getUnprocessedRawEvents, markRawEventProcessed,
-  upsertLiveSignal, getLiveSignal, findExistingSignal,
+  upsertLiveSignal, getLiveSignal,
 } from "./store";
 import { scoreSignal } from "./scorer";
 import type { RawEvent, LiveSignal, League, SignalType, LineMovement } from "./types";
@@ -295,13 +295,11 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       const scoreResult = scoreSignal(scoreInputs, p.game_time ?? undefined);
 
       // Derive sources array
-      const sources = (p.sources as Array<{ name: string; type: string }> | undefined) ?? [
-        { name: raw.source_id, type: raw.source_type },
+      const sources = (p.sources as Array<{ id?: string; name: string; type: string }> | undefined) ?? [
+        { id: raw.source_id, name: raw.source_id, type: raw.source_type },
       ];
 
-      const signalId = p.signal_id
-        ?? findExistingSignal({ league, game_id: raw.game_id ?? null, player: raw.player ?? null, signal_type: fields.signal_type ?? null })?.id
-        ?? randomUUID();
+      const signalId = p.signal_id ?? randomUUID();
 
       // Merge into LiveSignal
       const signal: LiveSignal = {
@@ -369,9 +367,7 @@ export async function processOne(raw: RawEvent): Promise<LiveSignal | null> {
     const sources = (p.sources as Array<{ name: string; type: string }> | undefined) ?? [
       { name: raw.source_id, type: raw.source_type },
     ];
-    const signalId = p.signal_id
-      ?? findExistingSignal({ league, game_id: raw.game_id ?? null, player: raw.player ?? null, signal_type: fields.signal_type ?? null })?.id
-      ?? randomUUID();
+    const signalId = p.signal_id ?? randomUUID();
 
     const signal: LiveSignal = {
       id: signalId,
