@@ -16,6 +16,13 @@ import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import type { Game, RawEvent, LiveSignal, Outcome } from "./types";
+import {
+  markBackfillPhase as _markBackfillPhase,
+  getBackfillPhase as _getBackfillPhase,
+  getAllBackfillProgress as _getAllBackfillProgress,
+  resetBackfillPhases as _resetBackfillPhases,
+  type BackfillPhase,
+} from "../storage";
 
 /* ─── DB setup ─────────────────────────────────────────── */
 
@@ -580,18 +587,7 @@ export function getOutcomes(signal_id?: string): Outcome[] {
 
 /* ─── Backfill progress CRUD ─────────────────────────────── */
 
-export interface BackfillPhase {
-  id: string;
-  league: string;
-  season: string;
-  phase: string;
-  status: "pending" | "running" | "done" | "error";
-  records_inserted: number;
-  error: string | null;
-  started_at: string | null;
-  completed_at: string | null;
-  created_at: string;
-}
+export type { BackfillPhase } from "../storage";
 
 export function markBackfillPhase(
   league: string,
@@ -600,41 +596,19 @@ export function markBackfillPhase(
   status: "running" | "done" | "error",
   meta?: { records?: number; error?: string },
 ): void {
-  const db = getPipelineDb();
-  const id = `${league}|${season}|${phase}`;
-  const now = new Date().toISOString();
-  db.prepare(`
-    INSERT INTO backfill_progress (id,league,season,phase,status,records_inserted,error,started_at,completed_at,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(id) DO UPDATE SET
-      status=excluded.status,
-      records_inserted=CASE WHEN excluded.records_inserted > 0 THEN excluded.records_inserted ELSE records_inserted END,
-      error=excluded.error,
-      started_at=CASE WHEN excluded.status='running' THEN excluded.started_at ELSE started_at END,
-      completed_at=CASE WHEN excluded.status IN ('done','error') THEN excluded.completed_at ELSE NULL END
-  `).run(
-    id, league, season, phase, status,
-    meta?.records ?? 0, meta?.error ?? null,
-    status === "running" ? now : null,
-    status === "done" || status === "error" ? now : null,
-    now,
-  );
+  _markBackfillPhase(league, season, phase, status, meta);
 }
 
 export function getBackfillPhase(league: string, season: string, phase: string): BackfillPhase | null {
-  const db = getPipelineDb();
-  const id = `${league}|${season}|${phase}`;
-  return (db.prepare("SELECT * FROM backfill_progress WHERE id=?").get(id) as BackfillPhase) ?? null;
+  return _getBackfillPhase(league, season, phase);
 }
 
 export function getAllBackfillProgress(): BackfillPhase[] {
-  const db = getPipelineDb();
-  return db.prepare("SELECT * FROM backfill_progress ORDER BY created_at DESC").all() as BackfillPhase[];
+  return _getAllBackfillProgress();
 }
 
 export function resetBackfillPhases(league: string): void {
-  const db = getPipelineDb();
-  db.prepare("DELETE FROM backfill_progress WHERE league=?").run(league);
+  _resetBackfillPhases(league);
 }
 
 /* ─── Calibration weight CRUD ────────────────────────────── */

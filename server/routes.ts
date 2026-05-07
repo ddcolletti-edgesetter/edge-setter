@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { Server } from "http";
-import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth } from "./storage";
+import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress } from "./storage";
+import { runFullBackfill } from "./pipeline/backfill";
 import { insertWaitlistSchema } from "@shared/schema";
 import { sendDailyDigest } from "./email";
 import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
@@ -1243,6 +1244,29 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
     deletePushSubscription(endpoint);
     return res.json({ success: true });
+  });
+
+  // ─── Historical Backfill ──────────────────────────────────────────────────────
+
+  // POST /api/pipeline/backfill — kick off historical backfill (runs in background)
+  app.post("/api/pipeline/backfill", (req, res) => {
+    const { password, ...options } = req.body ?? {};
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    res.json({ accepted: true, message: "Backfill started in background — poll /api/pipeline/backfill-status" });
+    runFullBackfill(options).then(summary => {
+      console.log("[backfill] Complete:", JSON.stringify(summary));
+    }).catch(err => {
+      console.error("[backfill] Fatal error:", err.message);
+    });
+  });
+
+  // GET /api/pipeline/backfill-status — show progress phases from persistent storage.db
+  app.get("/api/pipeline/backfill-status", (req, res) => {
+    const pw = (req.query.password as string) ?? (req.headers.authorization ?? "").replace("Bearer ", "");
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+    if (pw !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    return res.json({ phases: getAllBackfillProgress() });
   });
 
   // POST /api/admin/seed-social-posts

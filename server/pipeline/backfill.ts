@@ -23,7 +23,7 @@ import { backfillCFBSeason } from "./adapters/espn-cfb-historical";
 import { backfillNBASeason } from "./adapters/balldontlie-historical";
 import { backfillMLBSeason } from "./adapters/mlb-statsapi-historical";
 import { processRawEvents } from "./processor";
-import { settleGame, computeSourceAccuracy } from "./settlement";
+import { settleGame, computeSourceAccuracy, syncAccuracyToStorageDb } from "./settlement";
 import { getSettleable, getAllBackfillProgress, resetBackfillPhases } from "./store";
 import type { BackfillPhase } from "./store";
 
@@ -181,8 +181,9 @@ export async function runFullBackfill(options: BackfillOptions = {}): Promise<Ba
   if (!options.skipSettlement) {
     try {
       computeSourceAccuracy();
+      syncAccuracyToStorageDb();
       accuracyRecomputed = true;
-      console.log("[backfill] Accuracy ledger recomputed");
+      console.log("[backfill] Accuracy ledger recomputed and synced to storage.db");
     } catch (err: any) {
       const msg = `computeSourceAccuracy: ${err.message}`;
       console.error(`[backfill] Error — ${msg}`);

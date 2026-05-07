@@ -320,6 +320,19 @@ sqlite.exec(`
     recorded_at TEXT NOT NULL,
     created_at  TEXT DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS backfill_progress (
+    id               TEXT PRIMARY KEY,
+    league           TEXT NOT NULL,
+    season           TEXT NOT NULL,
+    phase            TEXT NOT NULL,
+    status           TEXT NOT NULL DEFAULT 'pending',
+    records_inserted INTEGER DEFAULT 0,
+    error            TEXT,
+    started_at       TEXT,
+    completed_at     TEXT,
+    created_at       TEXT NOT NULL
+  );
 `);
 
 // Migration: add tweet columns to distribution_drafts if missing.
@@ -1088,5 +1101,61 @@ export function getSettledOutcomesForAccuracy(): Array<{
     FROM settled_outcomes
     WHERE hit IS NOT NULL
   `).all() as any[];
+}
+
+/* ─── Backfill Progress (persistent — survives restarts) ──────────────────── */
+
+export interface BackfillPhase {
+  id:               string;
+  league:           string;
+  season:           string;
+  phase:            string;
+  status:           "pending" | "running" | "done" | "error";
+  records_inserted: number | null;
+  error:            string | null;
+  started_at:       string | null;
+  completed_at:     string | null;
+  created_at:       string;
+}
+
+export function markBackfillPhase(
+  league: string,
+  season: string,
+  phase: string,
+  status: "running" | "done" | "error",
+  meta?: { records?: number; error?: string },
+): void {
+  const id = `${league}|${season}|${phase}`;
+  const ts = new Date().toISOString();
+  sqlite.prepare(`
+    INSERT INTO backfill_progress (id,league,season,phase,status,records_inserted,error,started_at,completed_at,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET
+      status=excluded.status,
+      records_inserted=CASE WHEN excluded.records_inserted > 0 THEN excluded.records_inserted ELSE records_inserted END,
+      error=excluded.error,
+      started_at=CASE WHEN excluded.started_at IS NOT NULL THEN excluded.started_at ELSE started_at END,
+      completed_at=excluded.completed_at
+  `).run(
+    id, league, season, phase, status,
+    meta?.records ?? 0,
+    meta?.error ?? null,
+    status === "running" ? ts : null,
+    status === "done" || status === "error" ? ts : null,
+    ts,
+  );
+}
+
+export function getBackfillPhase(league: string, season: string, phase: string): BackfillPhase | null {
+  const id = `${league}|${season}|${phase}`;
+  return (sqlite.prepare("SELECT * FROM backfill_progress WHERE id=?").get(id) as BackfillPhase) ?? null;
+}
+
+export function getAllBackfillProgress(): BackfillPhase[] {
+  return sqlite.prepare("SELECT * FROM backfill_progress ORDER BY created_at DESC").all() as BackfillPhase[];
+}
+
+export function resetBackfillPhases(league: string): void {
+  sqlite.prepare("DELETE FROM backfill_progress WHERE league=?").run(league);
 }
 
