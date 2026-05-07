@@ -300,6 +300,26 @@ sqlite.exec(`
     posted_at TEXT NOT NULL,
     UNIQUE(signal_id, platform)
   );
+
+  CREATE TABLE IF NOT EXISTS settled_outcomes (
+    id          TEXT PRIMARY KEY,
+    signal_id   TEXT NOT NULL UNIQUE,
+    game_id     TEXT,
+    league      TEXT NOT NULL DEFAULT '',
+    signal_type TEXT NOT NULL DEFAULT '',
+    sources     TEXT NOT NULL DEFAULT '[]',
+    team        TEXT,
+    market      TEXT NOT NULL DEFAULT 'spread',
+    home_score  INTEGER,
+    away_score  INTEGER,
+    line_at_signal REAL,
+    closing_line   REAL,
+    actual_result  REAL,
+    hit         INTEGER,
+    clv         REAL,
+    recorded_at TEXT NOT NULL,
+    created_at  TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migration: add tweet columns to distribution_drafts if missing.
@@ -1014,5 +1034,56 @@ export function upsertPushSubscription(data: PushSubscriptionRow): void {
 
 export function deletePushSubscription(endpoint: string): void {
   sqlite.prepare(`DELETE FROM push_subscriptions WHERE endpoint = ?`).run(endpoint);
+}
+
+/* ─── Settled Outcomes (persistent accuracy source) ──────────────────────── */
+
+export function insertSettledOutcome(data: {
+  signal_id:      string;
+  game_id:        string | null;
+  league:         string;
+  signal_type:    string;
+  sources:        string; // JSON array
+  team:           string | null;
+  market:         string;
+  home_score:     number | null;
+  away_score:     number | null;
+  line_at_signal: number | null;
+  closing_line:   number | null;
+  actual_result:  number | null;
+  hit:            boolean | null;
+  clv:            number | null;
+  recorded_at:    string;
+}): void {
+  sqlite.prepare(`
+    INSERT OR IGNORE INTO settled_outcomes
+      (id, signal_id, game_id, league, signal_type, sources, team, market,
+       home_score, away_score, line_at_signal, closing_line, actual_result,
+       hit, clv, recorded_at, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    crypto.randomUUID(),
+    data.signal_id, data.game_id,
+    data.league, data.signal_type, data.sources, data.team, data.market,
+    data.home_score, data.away_score, data.line_at_signal, data.closing_line,
+    data.actual_result,
+    data.hit === null ? null : (data.hit ? 1 : 0),
+    data.clv, data.recorded_at, new Date().toISOString(),
+  );
+}
+
+export function getSettledOutcomesForAccuracy(): Array<{
+  signal_id:   string;
+  league:      string;
+  signal_type: string;
+  sources:     string;
+  hit:         number | null;
+  clv:         number | null;
+}> {
+  return sqlite.prepare(`
+    SELECT signal_id, league, signal_type, sources, hit, clv
+    FROM settled_outcomes
+    WHERE hit IS NOT NULL
+  `).all() as any[];
 }
 

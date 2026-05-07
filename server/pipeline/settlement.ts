@@ -26,7 +26,7 @@ import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
 import { fetchNBAFinalScores } from "./adapters/espn-nba";
 import { fetchNFLFinalScores } from "./adapters/espn-nfl";
 import { fetchCFBFinalScores } from "./adapters/espn-cfb";
-import { storage } from "../storage";
+import { storage, insertSettledOutcome, getSettledOutcomesForAccuracy } from "../storage";
 import type { LiveSignal, Game } from "./types";
 
 /* ─── Schema for source accuracy table ─────────────────── */
@@ -236,6 +236,24 @@ export function settleGame(
 
       linkOutcomeToSignal(signal.id, outcome.id);
 
+      insertSettledOutcome({
+        signal_id:      signal.id,
+        game_id:        gameId,
+        league:         signal.league,
+        signal_type:    signal.signal_type,
+        sources:        JSON.stringify(signal.sources),
+        team:           signal.team ?? null,
+        market:         result.market,
+        home_score:     homeScore,
+        away_score:     awayScore,
+        line_at_signal: result.lineAtSignal,
+        closing_line:   result.closingLine,
+        actual_result:  result.actualResult,
+        hit:            result.hit,
+        clv:            result.clv,
+        recorded_at:    new Date().toISOString(),
+      });
+
       if (result.hit !== null) {
         settled++;
       } else {
@@ -324,6 +342,24 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
       });
 
       linkOutcomeToSignal(signal.id, outcome.id);
+
+      insertSettledOutcome({
+        signal_id:      signal.id,
+        game_id:        game.id,
+        league:         signal.league,
+        signal_type:    signal.signal_type,
+        sources:        JSON.stringify(signal.sources),
+        team:           signal.team ?? null,
+        market:         result.market,
+        home_score:     game.home_score,
+        away_score:     game.away_score,
+        line_at_signal: result.lineAtSignal,
+        closing_line:   result.closingLine,
+        actual_result:  result.actualResult,
+        hit:            result.hit,
+        clv:            result.clv,
+        recorded_at:    new Date().toISOString(),
+      });
 
       if (result.hit !== null) {
         signalsSettled++;
@@ -503,36 +539,48 @@ function upsertAccuracy(
  * since the leaderboard is keyed on source records in storage.db.
  */
 export function syncAccuracyToStorageDb(): void {
-  const db = getPipelineDb();
-
   try {
-    // Aggregate across all leagues per source so each source is upserted exactly once.
-    // The prior query returned one row per (source, league); later leagues overwrote
-    // earlier ones, leaving sources at the hit_rate of their lowest-signal league.
-    const perSourceRows = db.prepare(`
-      SELECT source_id, source_name,
-             SUM(wins)          AS wins,
-             SUM(losses)        AS losses,
-             SUM(total_signals) AS total_signals
-      FROM pipeline_source_accuracy
-      WHERE source_id IS NOT NULL
-        AND total_signals > 0
-      GROUP BY source_id
-      ORDER BY total_signals DESC
-    `).all() as any[];
+    // Read from persistent settled_outcomes (not ephemeral pipeline.db)
+    const rows = getSettledOutcomesForAccuracy();
+
+    // Tally per source_id across all leagues — same logic as computeSourceAccuracy Pass 3
+    const sourceTally = new Map<string, {
+      source_id:   string;
+      source_name: string;
+      wins:        number;
+      losses:      number;
+      clv_sum:     number;
+      clv_count:   number;
+    }>();
+
+    for (const row of rows) {
+      let srcs: any[] = [];
+      try { srcs = JSON.parse(row.sources ?? "[]"); } catch { continue; }
+
+      for (const src of srcs) {
+        const sourceId   = typeof src === "string" ? src : (src.id ?? src.source_id ?? src.name ?? src);
+        const sourceName = typeof src === "string" ? src : (src.name ?? src.source_name ?? sourceId);
+        if (!sourceId) continue;
+
+        if (!sourceTally.has(sourceId)) {
+          sourceTally.set(sourceId, { source_id: sourceId, source_name: sourceName, wins: 0, losses: 0, clv_sum: 0, clv_count: 0 });
+        }
+        const t = sourceTally.get(sourceId)!;
+        if (row.hit === 1) t.wins++;
+        else if (row.hit === 0) t.losses++;
+        if (row.clv != null) { t.clv_sum += row.clv; t.clv_count++; }
+      }
+    }
 
     let synced = 0;
-
-    for (const row of perSourceRows) {
+    for (const t of sourceTally.values()) {
       try {
-        const wins    = row.wins   ?? 0;
-        const losses  = row.losses ?? 0;
-        const total   = wins + losses;
-        const hitRate = total > 0 ? wins / total : null;
+        const total   = t.wins + t.losses;
+        const hitRate = total > 0 ? t.wins / total : null;
 
         storage.upsertSourceScore({
-          source_id:                 row.source_id,
-          source_name:               row.source_name ?? undefined,
+          source_id:                 t.source_id,
+          source_name:               t.source_name,
           overall_accuracy:          hitRate != null ? Math.round(hitRate * 100) : 0,
           draft_accuracy:            hitRate != null ? Math.round(hitRate * 100) : 0,
           average_lead_time_minutes: 0,
@@ -542,12 +590,12 @@ export function syncAccuracyToStorageDb(): void {
         });
         synced++;
       } catch (err: any) {
-        console.warn(`[settlement] syncAccuracyToStorageDb: failed for source ${row.source_id}:`, err.message);
+        console.warn(`[settlement] syncAccuracyToStorageDb: failed for source ${t.source_id}:`, err.message);
       }
     }
 
     if (synced > 0) {
-      console.log(`[settlement] Synced ${synced} source accuracy scores → storage.db`);
+      console.log(`[settlement] Synced ${synced} source accuracy scores → storage.db (from settled_outcomes)`);
     }
   } catch (err: any) {
     console.error("[settlement] syncAccuracyToStorageDb failed:", err.message);
