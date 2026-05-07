@@ -493,24 +493,22 @@ export class SqliteStorage implements IStorage {
   }
 
   getSourceScores(): (SourceScore & { source_name: string; trust_tier: string | null; source_type: string | null; source_url: string | null })[] {
-    const rows = db.select().from(source_scores)
-      .orderBy(desc(source_scores.overall_accuracy))
-      .all();
-    const enriched = rows.map(r => ({
-      ...r,
-      source_name: r.source_name ?? "Unknown",
-      trust_tier:  null,
-      source_type: null,
-      source_url:  null,
-    }));
-    // Deduplicate by source_id (canonical key), falling back to normalized name for
-    // rows whose source record is missing (source_id null or not found → name="Unknown").
-    // Rows are already ordered desc by accuracy so the first occurrence per key wins.
-    const seen = new Map<string, typeof enriched[0]>();
-    for (const row of enriched) {
-      const key = row.source_id
-        ?? row.source_name.toLowerCase().replace(/[-_\s]+/g, " ").trim();
-      if (!seen.has(key)) seen.set(key, row);
+    const rows = sqlite.prepare(`
+      SELECT ss.*,
+             COALESCE(ss.source_name, s.name) AS source_name,
+             s.trust_tier  AS trust_tier,
+             s.source_type AS source_type,
+             s.url         AS source_url
+      FROM source_scores ss
+      LEFT JOIN sources s ON ss.source_id = s.id
+      ORDER BY ss.overall_accuracy DESC
+    `).all() as any[];
+    const seen = new Map<string, any>();
+    for (const row of rows) {
+      const name = row.source_name ?? "Unknown";
+      const key  = row.source_id
+        ?? name.toLowerCase().replace(/[-_\s]+/g, " ").trim();
+      if (!seen.has(key)) seen.set(key, { ...row, source_name: name });
     }
     return [...seen.values()];
   }
