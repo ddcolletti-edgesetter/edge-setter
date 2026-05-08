@@ -1,14 +1,8 @@
 /**
  * Edge Setter — Flagship Homepage
- * Root route (/#/) premium sports intelligence command center.
- * NBA-first, multi-sport, visually driven.
- *
- * Session 19 visual fixes:
- * - Text contrast: body copy, signal ticker, panel text → TH.text not TH.textMuted
- * - Signal ticker rows: brighter border + background
- * - Sport-specific backgrounds on panel cards (court lines, diamond, field stripes)
- * - Hero section basketball court texture overlay
- * - Board cards: signal count made large + prominent
+ * LFL-blend theme: four-sport chalk field background,
+ * warm near-black, luxury gold, film grain (via V2Shell).
+ * Structure preserved from Render v2 + energy from Manus lost version.
  */
 
 import { useLocation } from "wouter";
@@ -21,41 +15,36 @@ import {
 import { NBA_SIGNALS, NBA_TONIGHT, type V2Signal } from "../data/v2MockData";
 import { Zap, ArrowRight, TrendingUp, Shield, BarChart3, ChevronRight } from "lucide-react";
 
-/* ── Sport status pills ── */
+/* ── Sport status config ── */
 const SPORT_STATUS = [
-  { label: "NBA", status: "LIVE",        color: "#CAA85A", dot: "#4CAF82" },
-  { label: "MLB", status: "ACTIVE",      color: "#4AA8C8", dot: "#4AA8C8" },
-  { label: "NFL", status: "OFFSEASON",   color: "#7E776A", dot: "#7E776A" },
-  { label: "CFB", status: "COMING SOON", color: "#7E776A", dot: "#7E776A" },
+  { label: "NBA", status: "LIVE",        color: "#C4A24A", dot: "#3EBA6A", href: "/v2/nba" },
+  { label: "MLB", status: "ACTIVE",      color: "#4AA8C8", dot: "#4AA8C8", href: "/v2/mlb" },
+  { label: "NFL", status: "ACTIVE",      color: "#3EBA6A", dot: "#3EBA6A", href: "/v2/nfl" },
+  { label: "CFB", status: "ACTIVE",      color: "#9966CC", dot: "#9966CC", href: "/v2/cfb" },
 ] as const;
 
-/* ── Featured NBA signal for hero ── */
 const HERO_SIGNAL = NBA_SIGNALS.find(s => s.confidence >= 84) ?? NBA_SIGNALS[0];
+const TOP_SIGNALS = NBA_SIGNALS.slice(0, 4);
 
-/* ── Top signals for the ticker ── */
-const TOP_SIGNALS = NBA_SIGNALS.slice(0, 5);
-
-/* ── MLB games for strip ── */
 const MLB_GAMES = [
   { id: "m1", away: "HOU", home: "NYY", time: "1:05 PM ET",  spread: "NYY -115", total: "8" },
   { id: "m2", away: "LAD", home: "ATL", time: "4:10 PM ET",  spread: "ATL -108", total: "8.5" },
   { id: "m3", away: "CHC", home: "NYM", time: "7:10 PM ET",  spread: "NYM -112", total: "8" },
 ];
 
-/* ── Feature panels ── */
 const FEATURE_PANELS = [
   {
     title: "NBA Intelligence Board",
     subtitle: "Playoffs live",
     sport: "NBA",
-    body: "Real-time injury reports, line movement, rotation notes, and matchup edges. 12 signals updated continuously.",
+    body: "Real-time injury reports, line movement, rotation notes, and matchup edges — updated every 15 minutes.",
     cta: "Open NBA Board",
     href: "/v2/nba",
-    accent: T.gold,
+    accent: "#C4A24A",
     teams: ["LAL", "BOS", "DEN"],
     player: "Luka Dončić",
     playerTeam: "DAL",
-    icon: <Zap size={14} />,
+    icon: <Zap size={13} />,
   },
   {
     title: "Tools Hub",
@@ -64,11 +53,11 @@ const FEATURE_PANELS = [
     body: "Lineup optimizer, matchup breakdown, line-shopping alerts, and public vs. sharp money tracker.",
     cta: "Open Tools",
     href: "/v2/tools",
-    accent: T.cyan,
+    accent: "#4AA8C8",
     teams: ["GSW", "MIA", "OKC"],
     player: "Nikola Jokic",
     playerTeam: "DEN",
-    icon: <BarChart3 size={14} />,
+    icon: <BarChart3 size={13} />,
   },
   {
     title: "MLB Board",
@@ -77,69 +66,97 @@ const FEATURE_PANELS = [
     body: "Pitcher alerts, lineup movement, team trends, and sharp line tracking across all 30 teams.",
     cta: "Open MLB Board",
     href: "/v2/mlb",
-    accent: T.cyan,
+    accent: "#4AA8C8",
     teams: ["NYY", "LAD", "ATL"],
     player: "Gerrit Cole",
     playerTeam: "NYY",
-    icon: <TrendingUp size={14} />,
+    icon: <TrendingUp size={13} />,
   },
 ] as const;
 
-/* ── Sport-specific background patterns for panel cards ── */
-function getSportBgStyle(sport: string, primaryColor: string): React.CSSProperties {
-  const base = `linear-gradient(135deg, ${primaryColor}CC, ${primaryColor}44)`;
-  if (sport === "NBA") {
-    return {
-      background: base,
-      backgroundImage: [
-        base,
-        // Court lines — horizontal
-        "repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(255,255,255,0.045) 18px, rgba(255,255,255,0.045) 19px)",
-        // Court lines — vertical
-        "repeating-linear-gradient(90deg, transparent, transparent 18px, rgba(255,255,255,0.045) 18px, rgba(255,255,255,0.045) 19px)",
-      ].join(", "),
-    };
-  }
-  if (sport === "MLB") {
-    return {
-      background: base,
-      backgroundImage: [
-        // Outfield arc glow from bottom center
-        `radial-gradient(ellipse 90% 80% at 50% 115%, rgba(180,140,60,0.28) 0%, transparent 58%)`,
-        // Dirt infield diamond hint
-        `radial-gradient(ellipse 50% 60% at 50% 80%, rgba(180,120,40,0.18) 0%, transparent 50%)`,
-        base,
-      ].join(", "),
-    };
-  }
-  if (sport === "NFL" || sport === "CFB") {
-    return {
-      background: base,
-      backgroundImage: [
-        base,
-        // Yard lines
-        "repeating-linear-gradient(90deg, transparent, transparent 22px, rgba(255,255,255,0.04) 22px, rgba(255,255,255,0.04) 23px)",
-      ].join(", "),
-    };
-  }
-  return { background: base };
+/* ─────────────────────────────────────────────
+   FOUR-QUADRANT CHALK BACKGROUND
+   Basketball court (NW), Baseball diamond (NE),
+   Football field (SW), CFB field (SE).
+   Each SVG is positioned as a background layer,
+   unified by a radial vignette + film grain
+   from V2Shell's global CSS.
+─────────────────────────────────────────────── */
+function HomepageChalkBg() {
+  return (
+    <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
+
+      {/* NW — Basketball court */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, width: "58%", height: "58%",
+        opacity: 0.048,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 380'%3E%3Crect fill='none' stroke='%23EDE5D4' stroke-width='2' stroke-dasharray='5,5' x='20' y='20' width='460' height='340' rx='4'/%3E%3Cellipse fill='none' stroke='%23EDE5D4' stroke-width='1.5' stroke-dasharray='4,6' cx='250' cy='190' rx='85' ry='85'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.5' stroke-dasharray='4,5' x1='250' y1='20' x2='250' y2='360'/%3E%3Crect fill='none' stroke='%23EDE5D4' stroke-width='1.5' stroke-dasharray='4,5' x='20' y='120' width='120' height='140'/%3E%3Crect fill='none' stroke='%23EDE5D4' stroke-width='1.5' stroke-dasharray='4,5' x='360' y='120' width='120' height='140'/%3E%3Cellipse fill='none' stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='3,6' cx='250' cy='190' rx='22' ry='22'/%3E%3Crect fill='none' stroke='%23EDE5D4' stroke-width='1' stroke-dasharray='3,5' x='20' y='155' width='44' height='70' rx='2'/%3E%3Crect fill='none' stroke='%23EDE5D4' stroke-width='1' stroke-dasharray='3,5' x='436' y='155' width='44' height='70' rx='2'/%3E%3C/svg%3E")`,
+        backgroundSize: "cover",
+      }} />
+
+      {/* NE — Baseball diamond */}
+      <div style={{
+        position: "absolute", top: 0, right: 0, width: "58%", height: "58%",
+        opacity: 0.04,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 500 440'%3E%3Cellipse fill='none' stroke='%23EDE5D4' stroke-width='1.8' stroke-dasharray='5,5' cx='250' cy='300' rx='210' ry='170'/%3E%3Cpolygon fill='none' stroke='%23EDE5D4' stroke-width='2' stroke-dasharray='5,4' points='250,80 420,250 250,420 80,250'/%3E%3Ccircle fill='%23EDE5D4' r='8' cx='250' cy='80' opacity='0.55'/%3E%3Ccircle fill='%23EDE5D4' r='8' cx='420' cy='250' opacity='0.55'/%3E%3Ccircle fill='%23EDE5D4' r='8' cx='250' cy='420' opacity='0.55'/%3E%3Ccircle fill='%23EDE5D4' r='8' cx='80' cy='250' opacity='0.55'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,4' x1='250' y1='420' x2='170' y2='500'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,4' x1='250' y1='420' x2='330' y2='500'/%3E%3Cellipse fill='none' stroke='%23EDE5D4' stroke-width='1' stroke-dasharray='3,6' cx='250' cy='420' rx='30' ry='15'/%3E%3C/svg%3E")`,
+        backgroundSize: "cover",
+      }} />
+
+      {/* SW — Football field */}
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, width: "58%", height: "50%",
+        opacity: 0.035,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 660 320'%3E%3Crect fill='none' stroke='%23EDE5D4' stroke-width='2' stroke-dasharray='5,5' x='20' y='20' width='620' height='280'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='81' y1='20' x2='81' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='143' y1='20' x2='143' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='205' y1='20' x2='205' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='267' y1='20' x2='267' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.8' stroke-dasharray='6,4' x1='330' y1='20' x2='330' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='393' y1='20' x2='393' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='455' y1='20' x2='455' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='517' y1='20' x2='517' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='579' y1='20' x2='579' y2='300'/%3E%3C/svg%3E")`,
+        backgroundSize: "cover",
+      }} />
+
+      {/* SE — CFB field with C watermark */}
+      <div style={{
+        position: "absolute", bottom: 0, right: 0, width: "58%", height: "50%",
+        opacity: 0.03,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 660 320'%3E%3Crect fill='none' stroke='%23EDE5D4' stroke-width='2' stroke-dasharray='5,5' x='20' y='20' width='620' height='280'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='81' y1='20' x2='81' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='205' y1='20' x2='205' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.8' stroke-dasharray='6,4' x1='330' y1='20' x2='330' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='455' y1='20' x2='455' y2='300'/%3E%3Cline stroke='%23EDE5D4' stroke-width='1.2' stroke-dasharray='4,5' x1='579' y1='20' x2='579' y2='300'/%3E%3Ctext x='330' y='180' text-anchor='middle' font-family='serif' font-size='140' fill='%23EDE5D4' opacity='0.4' font-weight='bold'%3EC%3C/text%3E%3C/svg%3E")`,
+        backgroundSize: "cover",
+      }} />
+
+      {/* Radial vignette — pulls all four into center darkness */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `
+          radial-gradient(ellipse 65% 55% at 50% 50%, transparent 15%, rgba(12,11,9,0.72) 65%, rgba(12,11,9,0.97) 100%),
+          radial-gradient(ellipse 35% 35% at 50% 50%, rgba(196,162,74,0.03) 0%, transparent 70%)
+        `,
+      }} />
+
+      {/* Hairline gold cross — very subtle quadrant dividers */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `
+          linear-gradient(90deg, transparent 49%, rgba(196,162,74,0.05) 49.5%, rgba(196,162,74,0.05) 50.5%, transparent 51%),
+          linear-gradient(180deg, transparent 49%, rgba(196,162,74,0.05) 49.5%, rgba(196,162,74,0.05) 50.5%, transparent 51%)
+        `,
+      }} />
+    </div>
+  );
 }
 
-/* ═══════════════════════════════════════════════════
+/* ═══════════════════════════════════════════════
    Main Component
-═══════════════════════════════════════════════════ */
+═══════════════════════════════════════════════ */
 export default function FlagshipHome() {
   const [, navigate] = useLocation();
   const darkMode = useShellTheme();
+
   const TH = {
-    bg:        darkMode ? T.bg        : "#F0ECE4",
-    surface1:  darkMode ? T.surface1  : "#FFFFFF",
-    surface2:  darkMode ? T.surface2  : "#F5F1EB",
-    goldDim:   darkMode ? T.goldDim   : "rgba(202,168,90,0.25)",
-    text:      darkMode ? T.text      : "#1A1712",
-    textMuted: darkMode ? T.textMuted : "#4A443C",
-    textFaint: darkMode ? T.textFaint : "#8C8277",
-    border:    darkMode ? T.border    : "rgba(0,0,0,0.1)",
+    bg:        darkMode ? "#0C0B09"   : "#F2EDE4",
+    surface1:  darkMode ? "#131110"   : "#FDFAF5",
+    surface2:  darkMode ? "#1A1714"   : "#F5F0E8",
+    goldDim:   darkMode ? "rgba(196,162,74,0.14)" : "rgba(196,162,74,0.22)",
+    text:      darkMode ? "#EDE5D4"   : "#1A1610",
+    textMuted: darkMode ? "#8A7A62"   : "#5A4E3C",
+    textFaint: darkMode ? "#4A4235"   : "#8C7A62",
+    border:    darkMode ? "rgba(196,162,74,0.12)" : "rgba(0,0,0,0.08)",
+    gold:      "#C4A24A",
+    goldBright:"#E0BB6A",
   };
 
   const heroColors = getTeamColors(HERO_SIGNAL.team);
@@ -151,168 +168,99 @@ export default function FlagshipHome() {
       minHeight: "100vh",
       background: TH.bg,
       color: TH.text,
-      fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
+      fontFamily: "'Barlow', 'Barlow Condensed', sans-serif",
       overflowX: "hidden",
+      position: "relative",
     }}>
 
-      {/* ══════════════════════════════════
-          TOP NAV BAR
-      ══════════════════════════════════ */}
-      <nav className="flag-nav" style={{
-        position: "sticky", top: 0, zIndex: 100,
-        background: "rgba(10,11,13,0.96)",
-        backdropFilter: "blur(12px)",
-        borderBottom: `1px solid rgba(202,168,90,0.15)`,
-        display: "flex", alignItems: "center",
-        padding: "0 32px", height: 52,
-        gap: 32,
-      }}>
-        {/* Brand */}
-        <div
-          onClick={() => navigate("/")}
-          style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}
-        >
-          <div style={{
-            width: 28, height: 28, borderRadius: 6,
-            background: `linear-gradient(145deg, ${T.gold}, #8B6B2A)`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: `0 2px 8px rgba(202,168,90,0.4)`,
-          }}>
-            <Zap size={14} style={{ color: "#000" }} />
-          </div>
-          <div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 16, fontWeight: 800, letterSpacing: "0.08em",
-              textTransform: "uppercase", color: TH.text, lineHeight: 1,
-            }}>Edge Setter</div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.18em",
-              textTransform: "uppercase", color: TH.textFaint, lineHeight: 1, marginTop: 1,
-            }}>Multi-Sport Intel</div>
-          </div>
-        </div>
-
-        {/* Nav links */}
-        <div className="flag-nav-links" style={{ display: "flex", gap: 4, marginLeft: 8 }}>
-          {[
-            { label: "NBA Board", href: "/v2/nba", hot: true },
-            { label: "MLB Board", href: "/v2/mlb" },
-            { label: "Tools",     href: "/v2/tools" },
-            { label: "My Edge",   href: "/v2/my-edge" },
-          ].map(link => (
-            <button
-              key={link.label}
-              onClick={() => navigate(link.href)}
-              style={{
-                padding: "6px 12px", borderRadius: 3, border: "none",
-                background: link.hot ? "rgba(202,168,90,0.1)" : "transparent",
-                color: link.hot ? T.gold : TH.textMuted,
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 14, fontWeight: 700, letterSpacing: "0.1em",
-                textTransform: "uppercase", cursor: "pointer",
-                transition: "color 0.12s, background 0.12s",
-              }}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.color = T.gold;
-                el.style.background = "rgba(202,168,90,0.08)";
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLButtonElement;
-                el.style.color = link.hot ? T.gold : TH.textMuted;
-                el.style.background = link.hot ? "rgba(202,168,90,0.1)" : "transparent";
-              }}
-            >{link.label}</button>
-          ))}
-        </div>
-
-        {/* Sport status pills */}
-        <div className="flag-sport-pills" style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
-          {SPORT_STATUS.map(s => {
-            const disabled = s.status === "OFFSEASON" || s.status === "COMING SOON";
-            const href = s.label === "NBA" ? "/v2/nba" : s.label === "MLB" ? "/v2/mlb" : null;
-            return (
-              <button
-                key={s.label}
-                className="flag-sport-pill"
-                onClick={() => href && navigate(href)}
-                disabled={disabled}
-                aria-label={`${s.label} — ${s.status}`}
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 5,
-                  padding: "4px 10px", borderRadius: 4,
-                  background: `${s.dot}12`, border: `1px solid ${s.dot}${disabled ? "20" : "38"}`,
-                  cursor: disabled ? "default" : "pointer",
-                  opacity: disabled ? 0.6 : 1,
-                  transition: "filter 0.12s, transform 0.1s",
-                }}
-                onMouseEnter={e => { if (!disabled) { (e.currentTarget as HTMLButtonElement).style.filter = "brightness(1.22)"; (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-1px)"; } }}
-                onMouseLeave={e => { if (!disabled) { (e.currentTarget as HTMLButtonElement).style.filter = ""; (e.currentTarget as HTMLButtonElement).style.transform = ""; } }}
-              >
-                <span style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: s.dot,
-                  boxShadow: s.status === "LIVE" ? `0 0 7px ${s.dot}` : "none",
-                  display: "inline-block",
-                  animation: s.status === "LIVE" ? "navPulse 2s ease-in-out infinite" : "none",
-                }} />
-                <span style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 13, fontWeight: 700, letterSpacing: "0.12em",
-                  textTransform: "uppercase", color: s.color,
-                }}>{s.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Pro CTA */}
-        <button
-          className="flag-pro-btn"
-          onClick={() => navigate("/pro")}
-          style={{
-            padding: "7px 16px", borderRadius: 3,
-            background: `linear-gradient(135deg, ${T.gold}, #8B6B2A)`,
-            border: "none", color: "#000",
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 13, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase",
-            cursor: "pointer",
-          }}
-        >Pro — $19/mo</button>
-      </nav>
-
       <style>{`
-        @keyframes navPulse { 0%,100%{opacity:1;} 50%{opacity:0.35;} }
-        @keyframes heroFadeUp { from{opacity:0;transform:translateY(16px);} to{opacity:1;transform:translateY(0);} }
-        @keyframes tickerScroll { 0%{transform:translateX(0);} 100%{transform:translateX(-50%);} }
+        @keyframes navPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        @keyframes heroFadeUp { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes tickerScroll { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
         .flag-btn:hover { opacity: 0.88; transform: translateY(-1px); }
-        .panel-card:hover { border-color: rgba(202,168,90,0.3) !important; transform: translateY(-2px); }
-        .sig-ticker:hover { background: rgba(202,168,90,0.07) !important; border-color: rgba(202,168,90,0.25) !important; }
-        /* Mobile responsive */
+        .panel-card:hover { border-color: rgba(196,162,74,0.32) !important; transform: translateY(-2px); }
+        .sig-ticker:hover { background: rgba(196,162,74,0.07) !important; border-color: rgba(196,162,74,0.28) !important; }
         @media (max-width: 768px) {
-          .flag-nav { padding: 0 16px !important; gap: 12px !important; height: 52px !important; }
-          .flag-nav-links { display: none !important; }
-          .flag-sport-pills { gap: 4px !important; }
-          .flag-sport-pill { padding: 4px 6px !important; font-size: 11px !important; }
-          .flag-pro-btn { padding: 6px 10px !important; font-size: 11px !important; }
           .flag-hero-grid { grid-template-columns: 1fr !important; gap: 24px !important; padding: 32px 20px 28px !important; }
           .flag-hero-right { display: none !important; }
-          .flag-hero-h1 { font-size: clamp(26px, 7vw, 40px) !important; }
-          .flag-hero-body { font-size: 16px !important; }
-          .flag-hero-ctarow { flex-wrap: wrap !important; gap: 10px !important; }
-          .flag-cta-btn { padding: 11px 18px !important; font-size: 14px !important; min-height: 44px !important; }
-          .flag-slate-strip { gap: 10px !important; }
-          .flag-game-card { width: 200px !important; }
+          .flag-hero-h1 { font-size: clamp(28px, 8vw, 44px) !important; }
           .flag-panel-grid { grid-template-columns: 1fr !important; }
-          .flag-section-pad { padding: 20px 20px !important; }
-          .flag-ticker-row { padding: 8px 12px !important; min-height: 52px !important; }
-          .flag-pro-band { grid-template-columns: 1fr !important; }
-          .flag-footer { flex-direction: column !important; gap: 16px !important; align-items: flex-start !important; }
-          .flag-sport-pill:disabled { display: none !important; }
+          .flag-section-pad { padding: 20px !important; }
         }
       `}</style>
+
+      {/* ── Four-quadrant chalk bg ── */}
+      <HomepageChalkBg />
+
+      {/* ══════════════════════════════════
+          LIVE SIGNAL TICKER STRIP
+          (Manus version had this — keeping it,
+          moved to top for immediate energy)
+      ══════════════════════════════════ */}
+      <div style={{
+        position: "relative", zIndex: 5,
+        background: "rgba(10,9,7,0.94)",
+        borderBottom: `1px solid ${TH.goldDim}`,
+        overflow: "hidden",
+        display: "flex", alignItems: "center",
+        height: 36,
+      }}>
+        {/* Label */}
+        <div style={{
+          flexShrink: 0,
+          display: "flex", alignItems: "center", gap: 6,
+          padding: "0 14px",
+          borderRight: `1px solid ${TH.goldDim}`,
+          height: "100%",
+        }}>
+          <span style={{
+            width: 5, height: 5, borderRadius: "50%", background: TH.gold,
+            display: "inline-block", animation: "navPulse 2s ease-in-out infinite",
+          }} />
+          <span style={{
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontSize: 9, fontWeight: 700, letterSpacing: "2px",
+            color: TH.gold, textTransform: "uppercase",
+          }}>Live Signals</span>
+        </div>
+
+        {/* Scrolling ticker */}
+        <div style={{ overflow: "hidden", flex: 1 }}>
+          <div style={{
+            display: "flex", gap: 40,
+            animation: "tickerScroll 30s linear infinite",
+            whiteSpace: "nowrap", paddingLeft: 20,
+          }}>
+            {[...TOP_SIGNALS, ...TOP_SIGNALS].map((sig, i) => (
+              <span
+                key={i}
+                style={{
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontSize: 12, color: TH.textMuted,
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                }}
+              >
+                <span style={{ width: 4, height: 4, borderRadius: "50%", background: TH.gold, display: "inline-block" }} />
+                <span style={{ fontWeight: 600, color: TH.text }}>{sig.player ?? sig.team}</span>
+                {" — "}
+                {sig.headline.slice(0, 60)}{sig.headline.length > 60 ? "…" : ""}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Agent status */}
+        <div style={{
+          flexShrink: 0, padding: "0 14px",
+          borderLeft: `1px solid ${TH.goldDim}`,
+          display: "flex", alignItems: "center", gap: 5, height: "100%",
+        }}>
+          <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#3EBA6A", display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite" }} />
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: "#3EBA6A", textTransform: "uppercase" }}>
+            Agents Running — NBA &amp; MLB Live
+          </span>
+        </div>
+      </div>
 
       {/* ══════════════════════════════════
           HERO SECTION
@@ -320,309 +268,241 @@ export default function FlagshipHome() {
       <section style={{
         position: "relative", overflow: "hidden",
         minHeight: 520,
-        background: `linear-gradient(160deg, ${heroColors.primary}28 0%, ${TH.bg} 45%, ${oppColors.primary}18 100%)`,
         borderBottom: `1px solid ${TH.border}`,
+        zIndex: 2,
       }}>
-        {/* Background grid texture */}
+        {/* Subtle team-color radial behind hero content */}
         <div style={{
-          position: "absolute", inset: 0, opacity: 0.04,
-          backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(202,168,90,0.6) 39px, rgba(202,168,90,0.6) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(202,168,90,0.6) 39px, rgba(202,168,90,0.6) 40px)`,
-        }} />
-
-        {/* Basketball court lines — subtle, hero-specific */}
-        <div style={{
-          position: "absolute", inset: 0, opacity: 0.055,
-          backgroundImage: [
-            // Center circle suggestion
-            `radial-gradient(ellipse 200px 200px at 72% 50%, transparent 68px, rgba(202,168,90,0.7) 70px, transparent 72px)`,
-            // Key lines
-            `linear-gradient(90deg, transparent 62%, rgba(202,168,90,0.5) 62%, rgba(202,168,90,0.5) 62.15%, transparent 62.15%)`,
-            `linear-gradient(90deg, transparent 62%, transparent 62%, rgba(202,168,90,0.3) 62%, rgba(202,168,90,0.3) 80%, transparent 80%)`,
-          ].join(", "),
-        }} />
-
-        {/* Radial glow — team color */}
-        <div style={{
-          position: "absolute", inset: 0,
-          background: `radial-gradient(ellipse 60% 80% at 75% 50%, ${heroColors.primary}22, transparent 65%)`,
+          position: "absolute", inset: 0, pointerEvents: "none",
+          background: `radial-gradient(ellipse 55% 70% at 72% 50%, ${heroColors.primary}1A, transparent 65%)`,
         }} />
 
         <div className="flag-hero-grid" style={{
-          maxWidth: 1280, margin: "0 auto", padding: "60px 40px 48px",
-          display: "grid", gridTemplateColumns: "1fr 380px",
+          maxWidth: 1280, margin: "0 auto", padding: "56px 40px 48px",
+          display: "grid", gridTemplateColumns: "1fr 360px",
           gap: 48, alignItems: "center", position: "relative", zIndex: 2,
         }}>
 
-          {/* ── Left: headline + signal module ── */}
-          <div className="flag-hero-left" style={{ animation: "heroFadeUp 0.6s ease both" }}>
+          {/* ── Left: hero copy + signal list ── */}
+          <div style={{ animation: "heroFadeUp 0.55s ease both" }}>
 
             {/* Eyebrow */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18 }}>
               <div style={{
-                display: "flex", alignItems: "center", gap: 5,
-                padding: "4px 10px", borderRadius: 20,
-                background: "rgba(76,175,130,0.12)", border: "1px solid rgba(76,175,130,0.3)",
+                display: "inline-flex", alignItems: "center", gap: 6,
+                padding: "4px 10px", borderRadius: 2,
+                background: "rgba(62,186,106,0.1)", border: "1px solid rgba(62,186,106,0.28)",
               }}>
-                <span style={{
-                  width: 6, height: 6, borderRadius: "50%", background: T.green,
-                  display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite",
-                  boxShadow: `0 0 8px ${T.green}`,
-                }} />
-                <span style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 12, fontWeight: 700, letterSpacing: "0.18em",
-                  textTransform: "uppercase", color: T.green,
-                }}>NBA Playoffs Live</span>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#3EBA6A", display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite", boxShadow: "0 0 6px #3EBA6A" }} />
+                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#3EBA6A" }}>
+                  NBA Playoffs Live
+                </span>
               </div>
-              <div style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, color: TH.textFaint, letterSpacing: "0.1em",
-              }}>
-                {NBA_SIGNALS.length} signals · Updated continuously
-              </div>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: TH.textFaint, letterSpacing: "0.08em" }}>
+                {NBA_SIGNALS.length} signals · Updated every 15 min
+              </span>
             </div>
 
-            {/* Main headline */}
+            {/* Main headline — Bebas for impact */}
             <h1 className="flag-hero-h1" style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: "clamp(32px, 4vw, 52px)",
-              fontWeight: 800, lineHeight: 1.1,
-              color: TH.text, margin: "0 0 12px",
-              letterSpacing: "-0.02em",
+              fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif",
+              fontSize: "clamp(38px, 5vw, 62px)",
+              fontWeight: 400, lineHeight: 0.95,
+              color: TH.text, margin: "0 0 16px",
+              letterSpacing: "2px",
             }}>
-              Sports Intelligence<br />
-              <span style={{ color: T.gold }}>Before the Market Moves</span>
+              THE MULTI-SPORT<br />
+              <span style={{ color: TH.gold }}>INTELLIGENCE</span><br />
+              TERMINAL
             </h1>
 
-            {/* FIX 1: was TH.textMuted — now TH.text for readable contrast */}
-            <p className="flag-hero-body" style={{
-              fontSize: 18, color: TH.text, lineHeight: 1.65,
-              margin: "0 0 28px", maxWidth: 520, opacity: 0.78,
+            <p style={{
+              fontFamily: "'Barlow', sans-serif",
+              fontSize: 16, color: TH.text, lineHeight: 1.65,
+              margin: "0 0 28px", maxWidth: 500, opacity: 0.72,
+              fontStyle: "italic", fontWeight: 300,
             }}>
-              Real-time injury reports, sharp money tracking, rotation notes, and matchup edges — across NBA, MLB, NFL, and CFB. Built for bettors and fantasy players who want the edge first.
+              Injury signals, lineup changes, line moves, and scheme intel — verified by a Yuma-style consensus engine before the market moves.
             </p>
 
             {/* CTAs */}
-            <div className="flag-hero-ctarow" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 32 }}>
               <button
-                className="flag-btn flag-cta-btn"
+                className="flag-btn"
                 onClick={() => navigate("/v2/nba")}
                 style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "12px 24px", borderRadius: 4,
-                  background: `linear-gradient(135deg, ${T.gold}, #8B6B2A)`,
-                  border: "none", color: "#000",
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 15, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase",
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "11px 22px", borderRadius: 2,
+                  background: `linear-gradient(135deg, ${TH.gold}, #8A6A28)`,
+                  border: "none", color: "#0C0B09",
+                  fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif",
+                  fontSize: 16, letterSpacing: "2px",
                   cursor: "pointer", transition: "opacity 0.15s, transform 0.15s",
-                  boxShadow: `0 4px 20px rgba(202,168,90,0.35)`,
                 }}
               >
-                <Zap size={14} /> NBA Board <ArrowRight size={13} />
+                <Zap size={13} /> NBA BOARD
               </button>
               <button
-                className="flag-btn flag-cta-btn"
+                className="flag-btn"
                 onClick={() => navigate("/v2/mlb")}
                 style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "12px 24px", borderRadius: 4,
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "11px 22px", borderRadius: 2,
                   background: "rgba(74,168,200,0.1)",
-                  border: `1px solid rgba(74,168,200,0.35)`,
-                  color: T.cyan,
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 15, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase",
+                  border: "1px solid rgba(74,168,200,0.32)",
+                  color: "#4AA8C8",
+                  fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif",
+                  fontSize: 16, letterSpacing: "2px",
                   cursor: "pointer", transition: "opacity 0.15s, transform 0.15s",
                 }}
               >
-                MLB Board <ArrowRight size={13} />
+                MLB BOARD
               </button>
               <button
-                className="flag-btn flag-cta-btn"
-                onClick={() => navigate("/v2/tools")}
+                className="flag-btn"
+                onClick={() => navigate("/accuracy")}
                 style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "12px 24px", borderRadius: 4,
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  padding: "11px 22px", borderRadius: 2,
                   background: "transparent",
-                  border: `1px solid rgba(255,255,255,0.12)`,
+                  border: `1px solid ${TH.goldDim}`,
                   color: TH.textMuted,
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 15, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                  fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif",
+                  fontSize: 16, letterSpacing: "2px",
                   cursor: "pointer", transition: "opacity 0.15s, transform 0.15s",
                 }}
               >
-                Tools Hub
+                ACCURACY LEDGER
               </button>
             </div>
 
-            {/* Live signal ticker */}
-            <div style={{ marginTop: 32 }}>
-              <div style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 13, fontWeight: 700, letterSpacing: "0.18em",
-                textTransform: "uppercase", color: TH.textFaint, marginBottom: 8,
-              }}>Latest NBA Signals</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {TOP_SIGNALS.slice(0, 4).map(sig => {
-                  const vc = VERDICT_COLORS[sig.verdict] ?? TH.textFaint;
-                  return (
-                    <div
-                      key={sig.id}
-                      className="sig-ticker flag-ticker-row"
-                      onClick={() => navigate("/v2/nba")}
-                      style={{
-                        display: "flex", alignItems: "center", gap: 10,
-                        padding: "8px 12px", borderRadius: 3,
-                        // FIX 3: was rgba(255,255,255,0.02) — now visible surface
-                        background: "rgba(255,255,255,0.05)",
-                        border: `1px solid rgba(202,168,90,0.15)`,
-                        cursor: "pointer", transition: "background 0.1s, border-color 0.1s",
-                      }}
-                    >
-                      {sig.player && <PlayerHeadshot name={sig.player} team={sig.team} size={22} shape="circle" />}
-                      {!sig.player && <TeamLogoImg abbr={sig.team} size={22} />}
-                      {/* FIX 2: was TH.textMuted — now TH.text + fontWeight 500 */}
-                      <div style={{ flex: 1, fontSize: 15, color: TH.text, lineHeight: 1.4, fontWeight: 500 }}>
-                        {sig.headline.slice(0, 72)}{sig.headline.length > 72 ? "…" : ""}
-                      </div>
-                      <TypeChip type={sig.type} />
-                      <span style={{
-                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 14, fontWeight: 700, color: vc,
-                        letterSpacing: "0.1em", textTransform: "uppercase", flexShrink: 0,
-                      }}>{sig.confidence}%</span>
-                    </div>
-                  );
-                })}
-              </div>
+            {/* Sport status pills */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {SPORT_STATUS.map(s => (
+                <button
+                  key={s.label}
+                  onClick={() => navigate(s.href)}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6,
+                    padding: "5px 12px", borderRadius: 2,
+                    background: TH.surface2,
+                    border: `1px solid rgba(196,162,74,0.16)`,
+                    borderLeft: `2px solid ${s.dot}`,
+                    cursor: "pointer",
+                    fontFamily: "'Barlow Condensed', sans-serif",
+                    fontSize: 11, fontWeight: 700, letterSpacing: "1px",
+                    color: TH.textMuted,
+                    transition: "border-color 0.1s",
+                  }}
+                >
+                  <span style={{ fontWeight: 800, color: s.color }}>{s.label}</span>
+                  <span style={{
+                    fontSize: 8, fontWeight: 700, letterSpacing: "1.5px",
+                    background: s.status === "LIVE" ? "rgba(62,186,106,0.12)" : "rgba(74,66,53,0.2)",
+                    color: s.status === "LIVE" ? "#3EBA6A" : TH.textFaint,
+                    padding: "2px 5px", borderRadius: 1,
+                    textTransform: "uppercase",
+                  }}>{s.status}</span>
+                </button>
+              ))}
             </div>
           </div>
 
           {/* ── Right: Featured Edge card ── */}
-          <div className="flag-hero-right" style={{ animation: "heroFadeUp 0.7s ease 0.12s both" }}>
+          <div className="flag-hero-right" style={{ animation: "heroFadeUp 0.65s ease 0.1s both" }}>
             <div style={{
               background: TH.surface1,
-              border: `1px solid rgba(202,168,90,0.25)`,
-              borderRadius: 6, overflow: "hidden",
-              boxShadow: "0 8px 48px rgba(0,0,0,0.55)",
+              border: `1px solid rgba(196,162,74,0.28)`,
+              borderRadius: 3, overflow: "hidden",
+              boxShadow: "0 8px 48px rgba(0,0,0,0.6)",
             }}>
-              {/* Matchup header */}
+              {/* Team-color banner header — THE key feature from Manus */}
               <div style={{
                 padding: "14px 16px 12px",
-                background: `linear-gradient(135deg, ${heroColors.primary}CC, ${heroColors.primary}44)`,
+                background: `linear-gradient(140deg, ${heroColors.primary}E0 0%, ${heroColors.primary}50 55%, transparent 100%)`,
                 borderBottom: `1px solid ${TH.border}`,
-                display: "flex", alignItems: "center", gap: 10, position: "relative",
+                display: "flex", alignItems: "center", gap: 10,
+                position: "relative", overflow: "hidden",
               }}>
+                {/* Opposing team color bleed from right */}
                 <div style={{
                   position: "absolute", inset: 0,
-                  background: `radial-gradient(ellipse at 80% 50%, ${oppColors.primary}33, transparent 60%)`,
+                  background: `radial-gradient(ellipse at 90% 50%, ${oppColors.primary}30, transparent 55%)`,
                 }} />
+                {/* Gold top stripe */}
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${TH.gold}, ${TH.gold}44)` }} />
+
                 <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", gap: 10, flex: 1 }}>
-                  <TeamLogoPair
-                    away={HERO_SIGNAL.team}
-                    home={HERO_SIGNAL.opponent ?? HERO_SIGNAL.team}
-                    size={36}
-                    useImg
-                  />
+                  <TeamLogoPair away={HERO_SIGNAL.team} home={HERO_SIGNAL.opponent ?? HERO_SIGNAL.team} size={34} useImg />
                   <div>
-                    <div style={{
-                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 14, fontWeight: 700, color: TH.text, letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                    }}>
-                      {HERO_SIGNAL.team} {HERO_SIGNAL.opponent ? `@ ${HERO_SIGNAL.opponent}` : ""}
+                    <div style={{ fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif", fontSize: 15, letterSpacing: "2px", color: TH.text }}>
+                      {HERO_SIGNAL.team}{HERO_SIGNAL.opponent ? ` @ ${HERO_SIGNAL.opponent}` : ""}
                     </div>
-                    <div style={{
-                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 11, color: TH.textFaint, letterSpacing: "0.08em",
-                    }}>NBA Playoffs · Tonight</div>
+                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: TH.textFaint, letterSpacing: "0.1em" }}>NBA Playoffs · Tonight</div>
                   </div>
                 </div>
                 <div style={{
-                  display: "flex", alignItems: "center", gap: 4,
-                  padding: "3px 8px", borderRadius: 20,
-                  background: "rgba(76,175,130,0.15)", border: "1px solid rgba(76,175,130,0.3)",
-                  zIndex: 2,
+                  zIndex: 2, display: "flex", alignItems: "center", gap: 4,
+                  padding: "3px 8px", borderRadius: 2,
+                  background: "rgba(62,186,106,0.14)", border: "1px solid rgba(62,186,106,0.3)",
                 }}>
-                  <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} />
-                  <span style={{
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
-                    textTransform: "uppercase", color: T.green,
-                  }}>Live</span>
+                  <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#3EBA6A", display: "inline-block" }} />
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#3EBA6A" }}>Live</span>
                 </div>
               </div>
 
               {/* Signal content */}
               <div style={{ padding: "16px" }}>
                 <div style={{ display: "flex", gap: 12, marginBottom: 14 }}>
-                  {HERO_SIGNAL.player && (
-                    <PlayerHeadshot
-                      name={HERO_SIGNAL.player}
-                      team={HERO_SIGNAL.team}
-                      size={64}
-                      shape="circle"
-                    />
-                  )}
-                  {!HERO_SIGNAL.player && (
-                    <TeamLogoPair away={HERO_SIGNAL.team} home={HERO_SIGNAL.opponent ?? HERO_SIGNAL.team} size={32} useImg />
-                  )}
+                  {HERO_SIGNAL.player && <PlayerHeadshot name={HERO_SIGNAL.player} team={HERO_SIGNAL.team} size={60} shape="circle" />}
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
                       <TypeChip type={HERO_SIGNAL.type} />
                       <VerdictBadge verdict={HERO_SIGNAL.verdict} />
                     </div>
                     {HERO_SIGNAL.player && (
-                      <div style={{
-                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 14, fontWeight: 800, color: TH.text, letterSpacing: "0.04em",
-                        textTransform: "uppercase", marginBottom: 2,
-                      }}>{HERO_SIGNAL.player}</div>
+                      <div style={{ fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif", fontSize: 14, letterSpacing: "1.5px", color: TH.text, textTransform: "uppercase" }}>
+                        {HERO_SIGNAL.player}
+                      </div>
                     )}
                   </div>
                 </div>
 
-                <div style={{
-                  fontFamily: "'Playfair Display', Georgia, serif",
-                  fontSize: 14, fontWeight: 700, color: TH.text, lineHeight: 1.4, marginBottom: 10,
-                }}>
+                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 15, fontWeight: 600, color: TH.text, lineHeight: 1.4, marginBottom: 12 }}>
                   {HERO_SIGNAL.headline}
                 </div>
 
                 <div style={{
-                  background: "rgba(202,168,90,0.06)", border: "1px solid rgba(202,168,90,0.2)",
-                  borderRadius: 4, padding: "10px 12px", marginBottom: 12,
+                  background: "rgba(196,162,74,0.06)", border: "1px solid rgba(196,162,74,0.2)",
+                  borderRadius: 2, padding: "10px 12px", marginBottom: 12,
                 }}>
-                  <div style={{
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
-                    color: T.gold, marginBottom: 5,
-                  }}>⚡ Action</div>
-                  <div style={{ fontSize: 13, color: TH.text, lineHeight: 1.6, fontWeight: 500 }}>
+                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: TH.gold, marginBottom: 5 }}>
+                    ⚡ Action
+                  </div>
+                  <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 13, color: TH.text, lineHeight: 1.6, fontWeight: 400 }}>
                     {HERO_SIGNAL.action_takeaway}
                   </div>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                  <ConfidenceBar value={HERO_SIGNAL.confidence} width="100%" height={5} />
-                  <span style={{
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 14, fontWeight: 800, color: T.gold, flexShrink: 0,
-                    fontVariantNumeric: "tabular-nums",
-                  }}>{HERO_SIGNAL.confidence}%</span>
+                  <ConfidenceBar value={HERO_SIGNAL.confidence} width="100%" height={4} />
+                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, color: TH.gold, flexShrink: 0 }}>
+                    {HERO_SIGNAL.confidence}%
+                  </span>
                 </div>
 
                 <button
                   onClick={() => navigate("/v2/nba")}
                   style={{
-                    width: "100%", padding: "10px", borderRadius: 3,
-                    background: `linear-gradient(135deg, ${T.gold}CC, #8B6B2A)`,
-                    border: "none", color: "#000",
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 13, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase",
+                    width: "100%", padding: "10px",
+                    background: `linear-gradient(135deg, ${TH.gold}, #8A6A28)`,
+                    border: "none", color: "#0C0B09", borderRadius: 2,
+                    fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif",
+                    fontSize: 14, letterSpacing: "2px",
                     cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
                   }}
                 >
-                  Full NBA Intelligence Board <ArrowRight size={12} />
+                  FULL NBA INTELLIGENCE BOARD <ArrowRight size={12} />
                 </button>
               </div>
             </div>
@@ -633,50 +513,24 @@ export default function FlagshipHome() {
       {/* ══════════════════════════════════
           TONIGHT'S NBA SLATE
       ══════════════════════════════════ */}
-      <section style={{
-        borderBottom: `1px solid ${TH.border}`,
-        background: TH.surface1,
-      }}>
-        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 40px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 13, fontWeight: 700, letterSpacing: "0.18em",
-              textTransform: "uppercase", color: TH.textFaint,
-            }}>Tonight's NBA Slate</div>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 4,
-              padding: "2px 8px", borderRadius: 20,
-              background: "rgba(76,175,130,0.1)", border: "1px solid rgba(76,175,130,0.25)",
-            }}>
-              <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block" }} />
-              <span style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
-                textTransform: "uppercase", color: T.green,
-              }}>Playoffs</span>
+      <section style={{ borderBottom: `1px solid ${TH.border}`, background: TH.surface1, position: "relative", zIndex: 2 }}>
+        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "22px 40px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: TH.textFaint }}>
+              Tonight's NBA Slate
+            </span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(62,186,106,0.08)", border: "1px solid rgba(62,186,106,0.22)" }}>
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#3EBA6A", display: "inline-block" }} />
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#3EBA6A" }}>Playoffs</span>
             </div>
-            <button
-              onClick={() => navigate("/v2/nba")}
-              style={{
-                marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
-                background: "none", border: "none", color: T.gold,
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-                cursor: "pointer",
-              }}
-            >All Signals <ChevronRight size={12} /></button>
+            <button onClick={() => navigate("/v2/nba")} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: TH.gold, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
+              All Signals <ChevronRight size={11} />
+            </button>
           </div>
-          <div className="flag-slate-strip" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 4 }}>
+          <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}>
             {NBA_TONIGHT.map(game => (
-              <div key={game.id} className="flag-game-card" style={{ width: 240, flexShrink: 0 }}>
-                <GameCard
-                  away={game.away} home={game.home}
-                  time={game.time} series={game.series}
-                  spread={game.spread} total={game.total}
-                  compact
-                  onClick={() => navigate("/v2/nba")}
-                />
+              <div key={game.id} style={{ width: 240, flexShrink: 0 }}>
+                <GameCard away={game.away} home={game.home} time={game.time} series={game.series} spread={game.spread} total={game.total} compact onClick={() => navigate("/v2/nba")} />
               </div>
             ))}
           </div>
@@ -684,209 +538,91 @@ export default function FlagshipHome() {
       </section>
 
       {/* ══════════════════════════════════
-          FEATURED NBA EDGE
+          FEATURE PANELS — board cards
+          Sport-specific backgrounds with
+          team color bleeds (Manus banner style)
       ══════════════════════════════════ */}
-      <section style={{ borderBottom: `1px solid ${TH.border}` }}>
-        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 40px" }}>
-          <div style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 13, fontWeight: 700, letterSpacing: "0.18em",
-            textTransform: "uppercase", color: TH.textFaint, marginBottom: 14,
-          }}>Featured NBA Edge</div>
-          <FeaturedEdgeCard signal={HERO_SIGNAL} sport="NBA" />
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════
-          MULTI-SPORT IDENTITY BAR
-      ══════════════════════════════════ */}
-      <section style={{
-        background: TH.surface2,
-        borderBottom: `1px solid ${TH.border}`,
-      }}>
-        <div className="flag-section-pad" style={{
-          maxWidth: 1280, margin: "0 auto", padding: "20px 40px",
-          display: "flex", alignItems: "center", gap: 0,
-        }}>
-          {SPORT_STATUS.map((s, i) => (
-            <div key={s.label} style={{
-              flex: 1, textAlign: "center", padding: "12px 8px",
-              borderRight: i < SPORT_STATUS.length - 1 ? `1px solid ${TH.border}` : "none",
-            }}>
-              <div style={{
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
-                marginBottom: 4,
-              }}>
-                <span style={{
-                  width: 6, height: 6, borderRadius: "50%", background: s.dot,
-                  display: "inline-block",
-                  boxShadow: s.status === "LIVE" || s.status === "ACTIVE" ? `0 0 6px ${s.dot}` : "none",
-                }} />
-                <span style={{
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 20, fontWeight: 800, color: s.color, letterSpacing: "0.06em",
-                }}>{s.label}</span>
-              </div>
-              <div style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.16em",
-                textTransform: "uppercase", color: TH.textFaint,
-              }}>{s.status}</div>
+      <section style={{ borderBottom: `1px solid ${TH.border}`, position: "relative", zIndex: 2 }}>
+        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "40px 40px" }}>
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 6 }}>
+              Intelligence Suite
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════
-          MLB STRIP
-      ══════════════════════════════════ */}
-      <section style={{ borderBottom: `1px solid ${TH.border}`, background: TH.surface1 }}>
-        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "24px 40px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 13, fontWeight: 700, letterSpacing: "0.18em",
-              textTransform: "uppercase", color: TH.textFaint,
-            }}>MLB Today</div>
-            <div style={{
-              display: "flex", alignItems: "center", gap: 4,
-              padding: "2px 8px", borderRadius: 20,
-              background: "rgba(74,168,200,0.08)", border: "1px solid rgba(74,168,200,0.22)",
-            }}>
-              <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
-              <span style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
-                textTransform: "uppercase", color: T.cyan,
-              }}>Active</span>
-            </div>
-            <button
-              onClick={() => navigate("/v2/mlb")}
-              style={{
-                marginLeft: "auto", display: "flex", alignItems: "center", gap: 5,
-                background: "none", border: "none", color: T.cyan,
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-                cursor: "pointer",
-              }}
-            >MLB Board <ChevronRight size={12} /></button>
-          </div>
-          <div className="flag-slate-strip" style={{ display: "flex", gap: 16, overflowX: "auto", paddingBottom: 4 }}>
-            {MLB_GAMES.map(game => (
-              <div key={game.id} className="flag-game-card" style={{ width: 220, flexShrink: 0 }}>
-                <GameCard
-                  away={game.away} home={game.home}
-                  time={game.time} spread={game.spread} total={game.total}
-                  compact
-                  onClick={() => navigate("/v2/mlb")}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════
-          FEATURE PANELS — 3-col with sport backgrounds
-      ══════════════════════════════════ */}
-      <section style={{ borderBottom: `1px solid ${TH.border}` }}>
-        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "48px 40px" }}>
-          <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 13, fontWeight: 700, letterSpacing: "0.2em",
-              textTransform: "uppercase", color: TH.textFaint, marginBottom: 10,
-            }}>Intelligence Suite</div>
-            <h2 style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: "clamp(22px, 3vw, 34px)", fontWeight: 700,
-              color: TH.text, margin: 0, letterSpacing: "-0.01em",
-            }}>
-              Everything You Need to Stay Ahead
+            <h2 style={{ fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif", fontSize: "clamp(22px, 3vw, 34px)", fontWeight: 400, letterSpacing: "2px", color: TH.text, margin: 0 }}>
+              EVERYTHING YOU NEED TO STAY AHEAD
             </h2>
           </div>
 
-          <div className="flag-panel-grid" style={{
-            display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 20,
-          }}>
+          <div className="flag-panel-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
             {FEATURE_PANELS.map(panel => {
               const teamColor = getTeamColors(panel.teams[0]);
-              const sportBg = getSportBgStyle(panel.sport, teamColor.primary);
               return (
                 <div
                   key={panel.title}
                   className="panel-card"
                   onClick={() => navigate(panel.href)}
                   style={{
-                    background: TH.surface1, borderRadius: 6, overflow: "hidden",
+                    background: TH.surface1, borderRadius: 3, overflow: "hidden",
                     border: `1px solid ${TH.border}`,
                     cursor: "pointer", transition: "border-color 0.15s, transform 0.15s",
                   }}
                 >
-                  {/* Visual header — sport-specific background texture */}
+                  {/* Team-color banner header — same pattern as Featured Edge */}
                   <div style={{
-                    height: 120, position: "relative", overflow: "hidden",
-                    ...sportBg,
+                    height: 110, position: "relative", overflow: "hidden",
+                    background: `linear-gradient(140deg, ${teamColor.primary}D0 0%, ${teamColor.primary}44 55%, ${TH.surface2} 100%)`,
                   }}>
-                    {/* Secondary team color glow */}
+                    {/* Secondary team bleed */}
+                    {panel.teams[1] && (
+                      <div style={{
+                        position: "absolute", inset: 0,
+                        background: `radial-gradient(ellipse at 85% 50%, ${getTeamColors(panel.teams[1]).primary}22, transparent 55%)`,
+                      }} />
+                    )}
+                    {/* Gold top stripe */}
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${panel.accent}, ${panel.accent}33)` }} />
+
+                    {/* Sport watermark letter */}
                     <div style={{
-                      position: "absolute", inset: 0,
-                      background: `radial-gradient(ellipse at 80% 50%, ${teamColor.secondary}22, transparent 60%)`,
-                    }} />
-                    {/* Team logos row */}
-                    <div style={{
-                      position: "absolute", bottom: 12, left: 14,
-                      display: "flex", gap: 6, alignItems: "flex-end",
-                    }}>
-                      {panel.teams.map(tm => (
-                        <TeamLogoImg key={tm} abbr={tm} size={32} />
-                      ))}
+                      position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+                      fontFamily: "'Bebas Neue', sans-serif", fontSize: 72, letterSpacing: "-2px",
+                      color: TH.text, opacity: 0.06, lineHeight: 1,
+                    }}>{panel.sport}</div>
+
+                    {/* Team logos */}
+                    <div style={{ position: "absolute", bottom: 10, left: 14, display: "flex", gap: 6, alignItems: "flex-end" }}>
+                      {panel.teams.map(tm => <TeamLogoImg key={tm} abbr={tm} size={28} />)}
                     </div>
+
                     {/* Player headshot */}
-                    <div style={{ position: "absolute", bottom: 0, right: 16 }}>
-                      <PlayerHeadshot
-                        name={panel.player}
-                        team={panel.playerTeam}
-                        size={80}
-                        shape="circle"
-                      />
+                    <div style={{ position: "absolute", bottom: 0, right: 12 }}>
+                      <PlayerHeadshot name={panel.player} team={panel.playerTeam} size={72} shape="circle" />
                     </div>
+
                     {/* Status badge */}
                     <div style={{
-                      position: "absolute", top: 12, left: 14,
-                      display: "flex", alignItems: "center", gap: 5,
-                      padding: "3px 8px", borderRadius: 20,
-                      background: `${panel.accent}18`,
-                      border: `1px solid ${panel.accent}44`,
+                      position: "absolute", top: 10, left: 14,
+                      display: "inline-flex", alignItems: "center", gap: 5,
+                      padding: "3px 8px", borderRadius: 2,
+                      background: `${panel.accent}18`, border: `1px solid ${panel.accent}44`,
                     }}>
                       <span style={{ color: panel.accent }}>{panel.icon}</span>
-                      <span style={{
-                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 12, fontWeight: 700, letterSpacing: "0.16em",
-                        textTransform: "uppercase", color: panel.accent,
-                      }}>{panel.subtitle}</span>
+                      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: panel.accent }}>
+                        {panel.subtitle}
+                      </span>
                     </div>
                   </div>
 
-                  {/* Text content */}
-                  <div style={{ padding: "16px 18px 18px" }}>
-                    <div style={{
-                      fontFamily: "'Playfair Display', Georgia, serif",
-                      fontSize: 19, fontWeight: 700, color: TH.text,
-                      marginBottom: 8, lineHeight: 1.3,
-                    }}>{panel.title}</div>
-                    {/* FIX 4: was TH.textMuted — now TH.text with opacity for readable contrast */}
-                    <div style={{
-                      fontSize: 15, color: TH.text, lineHeight: 1.6,
-                      marginBottom: 16, opacity: 0.78,
-                    }}>{panel.body}</div>
-                    <div style={{
-                      display: "flex", alignItems: "center", gap: 5,
-                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 14, fontWeight: 700, letterSpacing: "0.12em",
-                      textTransform: "uppercase", color: panel.accent,
-                    }}>
-                      {panel.cta} <ArrowRight size={12} />
+                  {/* Text */}
+                  <div style={{ padding: "14px 16px 16px" }}>
+                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 700, letterSpacing: "0.5px", color: TH.text, marginBottom: 6, lineHeight: 1.3 }}>
+                      {panel.title}
+                    </div>
+                    <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 13, color: TH.text, lineHeight: 1.6, marginBottom: 14, opacity: 0.68 }}>
+                      {panel.body}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 5, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: panel.accent }}>
+                      {panel.cta} <ArrowRight size={11} />
                     </div>
                   </div>
                 </div>
@@ -897,109 +633,83 @@ export default function FlagshipHome() {
       </section>
 
       {/* ══════════════════════════════════
-          PRO CTA BAND
+          MLB STRIP
       ══════════════════════════════════ */}
-      <section style={{
-        background: `linear-gradient(135deg, rgba(202,168,90,0.08), rgba(202,168,90,0.03))`,
-        borderBottom: `1px solid rgba(202,168,90,0.2)`,
-      }}>
-        <div className="flag-section-pad flag-pro-band" style={{
-          maxWidth: 1280, margin: "0 auto", padding: "48px 40px",
-          display: "grid", gridTemplateColumns: "1fr auto",
-          gap: 40, alignItems: "center",
-        }}>
-          <div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 13, fontWeight: 700, letterSpacing: "0.2em",
-              textTransform: "uppercase", color: T.gold, marginBottom: 10,
-            }}>Pro Intelligence</div>
-            <h2 style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: "clamp(22px, 3vw, 36px)", fontWeight: 700,
-              color: TH.text, margin: "0 0 12px", letterSpacing: "-0.01em",
-            }}>
-              Full Archive. All Sports. Real-Time Alerts.
-            </h2>
-            <p style={{ fontSize: 16, color: TH.text, lineHeight: 1.65, margin: 0, maxWidth: 560, opacity: 0.75 }}>
-              Unlock the complete signal archive, pro-only alerts, early access to NFL and CFB boards, and multi-sport intelligence across every game.
-            </p>
-            <div style={{ display: "flex", gap: 24, marginTop: 20 }}>
-              {[
-                { icon: <Shield size={13} />, label: "Full Archive" },
-                { icon: <Zap size={13} />, label: "Real-Time Alerts" },
-                { icon: <BarChart3 size={13} />, label: "All 4 Sports" },
-              ].map(f => (
-                <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ color: T.gold }}>{f.icon}</span>
-                  <span style={{
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 13, fontWeight: 700, letterSpacing: "0.1em",
-                    textTransform: "uppercase", color: TH.textMuted,
-                  }}>{f.label}</span>
-                </div>
-              ))}
+      <section style={{ borderBottom: `1px solid ${TH.border}`, background: TH.surface1, position: "relative", zIndex: 2 }}>
+        <div className="flag-section-pad" style={{ maxWidth: 1280, margin: "0 auto", padding: "22px 40px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: TH.textFaint }}>MLB Today</span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(74,168,200,0.08)", border: "1px solid rgba(74,168,200,0.2)" }}>
+              <span style={{ width: 4, height: 4, borderRadius: "50%", background: "#4AA8C8", display: "inline-block" }} />
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#4AA8C8" }}>Active</span>
             </div>
+            <button onClick={() => navigate("/v2/mlb")} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: "#4AA8C8", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
+              MLB Board <ChevronRight size={11} />
+            </button>
           </div>
-          <div style={{ textAlign: "center", flexShrink: 0 }}>
-            <div style={{
-              fontFamily: "'Playfair Display', Georgia, serif",
-              fontSize: 48, fontWeight: 800, color: T.gold, lineHeight: 1,
-              marginBottom: 4,
-            }}>$19</div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 12, fontWeight: 700, letterSpacing: "0.16em",
-              textTransform: "uppercase", color: TH.textFaint, marginBottom: 20,
-            }}>per month</div>
-            <button
-              onClick={() => navigate("/pro")}
-              style={{
-                display: "block", width: "100%",
-                padding: "14px 32px", borderRadius: 4,
-                background: `linear-gradient(135deg, ${T.gold}, #8B6B2A)`,
-                border: "none", color: "#000",
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 15, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase",
-                cursor: "pointer",
-                boxShadow: `0 4px 24px rgba(202,168,90,0.4)`,
-              }}
-            >Unlock Pro</button>
+          <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}>
+            {MLB_GAMES.map(game => (
+              <div key={game.id} style={{ width: 220, flexShrink: 0 }}>
+                <GameCard away={game.away} home={game.home} time={game.time} spread={game.spread} total={game.total} compact onClick={() => navigate("/v2/mlb")} />
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* ══════════════════════════════════
-          FOOTER
+          PRO CTA BAND
       ══════════════════════════════════ */}
-      <footer className="flag-section-pad flag-footer" style={{
-        padding: "24px 40px",
-        maxWidth: 1280, margin: "0 auto",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-      }}>
-        <div style={{
-          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          fontSize: 12, color: TH.textFaint, letterSpacing: "0.1em",
+      <section style={{ background: `linear-gradient(135deg, rgba(196,162,74,0.07), rgba(196,162,74,0.02))`, borderBottom: `1px solid rgba(196,162,74,0.2)`, position: "relative", zIndex: 2 }}>
+        <div className="flag-section-pad" style={{
+          maxWidth: 1280, margin: "0 auto", padding: "48px 40px",
+          display: "grid", gridTemplateColumns: "1fr auto",
+          gap: 40, alignItems: "center",
         }}>
-          © 2026 Edge Setter · Multi-Sport Intelligence
-        </div>
-        <div style={{ display: "flex", gap: 20 }}>
-          {[
-            { label: "NBA Board", href: "/v2/nba" },
-            { label: "MLB Board", href: "/v2/mlb" },
-            { label: "Tools", href: "/v2/tools" },
-            { label: "Pro", href: "/pro" },
-          ].map(link => (
+          <div>
+            <div style={{ fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif", fontSize: 13, letterSpacing: "3px", color: TH.gold, marginBottom: 10 }}>PRO INTELLIGENCE</div>
+            <h2 style={{ fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif", fontSize: "clamp(22px, 3vw, 38px)", fontWeight: 400, letterSpacing: "2px", color: TH.text, margin: "0 0 12px" }}>
+              FULL ARCHIVE. ALL SPORTS. REAL-TIME ALERTS.
+            </h2>
+            <p style={{ fontFamily: "'Barlow', sans-serif", fontSize: 15, color: TH.text, lineHeight: 1.65, margin: 0, maxWidth: 560, opacity: 0.7 }}>
+              Unlock the complete signal archive, pro-only alerts, early access to NFL and CFB boards, and multi-sport intelligence across every game.
+            </p>
+            <div style={{ display: "flex", gap: 22, marginTop: 20 }}>
+              {[{ icon: <Shield size={12} />, label: "Full Archive" }, { icon: <Zap size={12} />, label: "Real-Time Alerts" }, { icon: <BarChart3 size={12} />, label: "All 4 Sports" }].map(f => (
+                <div key={f.label} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ color: TH.gold }}>{f.icon}</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: TH.textMuted }}>{f.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ textAlign: "center", flexShrink: 0 }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 52, color: TH.gold, lineHeight: 1, marginBottom: 2 }}>$19</div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 18 }}>per month</div>
             <button
-              key={link.label}
-              onClick={() => navigate(link.href)}
+              onClick={() => navigate("/pro")}
               style={{
-                background: "none", border: "none",
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, color: TH.textFaint, letterSpacing: "0.1em",
-                textTransform: "uppercase", cursor: "pointer",
+                display: "block", width: "100%", padding: "13px 32px", borderRadius: 2,
+                background: `linear-gradient(135deg, ${TH.gold}, #8A6A28)`,
+                border: "none", color: "#0C0B09",
+                fontFamily: "'Bebas Neue', 'Barlow Condensed', sans-serif",
+                fontSize: 16, letterSpacing: "2.5px", cursor: "pointer",
               }}
-            >{link.label}</button>
+            >UNLOCK PRO</button>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer style={{ padding: "20px 40px", maxWidth: 1280, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", zIndex: 2 }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: TH.textFaint, letterSpacing: "0.12em" }}>
+          © 2026 Edge Setter · Intelligence Verified
+        </div>
+        <div style={{ display: "flex", gap: 18 }}>
+          {[{ label: "NBA Board", href: "/v2/nba" }, { label: "MLB Board", href: "/v2/mlb" }, { label: "Accuracy", href: "/accuracy" }, { label: "Pro", href: "/pro" }].map(link => (
+            <button key={link.label} onClick={() => navigate(link.href)} style={{ background: "none", border: "none", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: TH.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer" }}>
+              {link.label}
+            </button>
           ))}
         </div>
       </footer>
