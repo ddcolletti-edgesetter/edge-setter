@@ -325,21 +325,24 @@ function SignalRow({ sig, idx, isSelected, onClick }: { sig: LiveSignal; idx: nu
       style={{
         display: "grid",
         gridTemplateColumns: "28px 100px 1fr 110px 80px 72px 62px",
-        padding: isHigh ? "12px 20px" : "9px 20px",
+        padding: isHigh ? "14px 20px" : "9px 20px",
         borderBottom: `1px solid ${T.border}`,
-        background: isSelected ? T.goldGlow : isHigh ? "rgba(196,162,74,0.03)" : "transparent",
+        background: isSelected
+          ? `rgba(196,162,74,0.09)`
+          : isHigh
+          ? `linear-gradient(90deg, rgba(232,124,42,0.11) 0%, rgba(232,124,42,0.04) 35%, transparent 60%)`
+          : "transparent",
         cursor: "pointer", alignItems: "center",
-        // Signal hierarchy: high confidence = thick accent, rumors = very faint
-        borderLeft: `${isHigh ? 3 : 2}px solid ${isSelected ? T.gold : isRumor ? tc + "28" : tc + (isHigh ? "CC" : "55")}`,
+        borderLeft: `${isHigh ? 4 : 2}px solid ${isSelected ? T.gold : isRumor ? tc + "28" : tc + (isHigh ? "EE" : "66")}`,
         transition: "background 0.1s",
-        opacity: isRumor ? 0.72 : 1,
-        minHeight: isHigh ? 58 : 48,
+        opacity: isRumor ? 0.62 : 1,
+        minHeight: isHigh ? 64 : 48,
       }}
     >
       <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint }}>{idx + 1}</div>
       <div><TypeChip type={sig.signal_type as any} /></div>
       <div style={{ paddingRight: 12 }}>
-        <div className="sig-headline" style={{ fontSize: isHigh ? 14 : 13, color: T.text, fontWeight: isHigh ? 600 : 500, lineHeight: 1.35, marginBottom: 2 }}>
+        <div className="sig-headline" style={{ fontSize: isHigh ? 15 : 13, color: isHigh ? T.text : T.text, fontWeight: isHigh ? 700 : 500, lineHeight: 1.35, marginBottom: 2 }}>
           {sig.headline ?? sig.title}
         </div>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.4 }}>
@@ -522,9 +525,9 @@ export default function NBABoard() {
         <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden", position: "relative" }}>
 
           {/* Chalk basketball court bg */}
-          <div className="es-chalk-nba" aria-hidden="true" style={{ position: "absolute", inset: 0, opacity: 0.038, pointerEvents: "none", zIndex: 0 }} />
-          {/* NBA warm radial glow */}
-          <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1, background: `radial-gradient(ellipse 70% 60% at 50% 50%, rgba(232,124,42,0.04) 0%, transparent 65%), radial-gradient(ellipse 85% 80% at 50% 50%, transparent 30%, ${T.bg} 100%)` }} />
+          <div className="es-chalk-nba" aria-hidden="true" style={{ position: "absolute", inset: 0, opacity: 0.07, pointerEvents: "none", zIndex: 0 }} />
+          {/* NBA warm radial glow — stronger orange atmosphere */}
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1, background: `radial-gradient(ellipse 80% 65% at 50% 40%, rgba(232,124,42,0.10) 0%, rgba(232,124,42,0.03) 50%, transparent 72%), radial-gradient(ellipse 85% 80% at 50% 50%, transparent 30%, ${T.bg} 100%)` }} />
 
           <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", height: "100%" }}>
 
@@ -532,7 +535,7 @@ export default function NBABoard() {
             <div style={{ padding: "10px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: "rgba(19,17,16,0.9)" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "2px", color: T.text }}>NBA Intelligence Board</span>
+                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: "3px", color: T.text }}>NBA Intelligence Board</span>
                   <SportBadge status="LIVE" />
                 </div>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.08em" }}>
@@ -563,9 +566,9 @@ export default function NBABoard() {
                   {/* Gold top stripe */}
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.gold}, ${T.gold}33)`, zIndex: 3 }} />
                   {/* Team color — BOLD, full bleed left side */}
-                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${featColors.primary}40 0%, ${featColors.primary}18 35%, transparent 60%)`, pointerEvents: "none", zIndex: 1 }} />
+                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${featColors.primary}72 0%, ${featColors.primary}2C 40%, transparent 62%)`, pointerEvents: "none", zIndex: 1 }} />
                   {/* Opposing team bleed from right */}
-                  <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 95% 50%, ${featOppColors.primary}25, transparent 50%)`, pointerEvents: "none", zIndex: 1 }} />
+                  <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 95% 50%, ${featOppColors.primary}38, transparent 52%)`, pointerEvents: "none", zIndex: 1 }} />
                   <div style={{ position: "relative", zIndex: 2 }}>
                     <FeaturedEdgeCard
                       sport="NBA"
