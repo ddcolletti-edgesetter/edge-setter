@@ -416,3 +416,5 @@ function V2Logo() {
     </svg>
   );
 }
+
+export default V2Shell;
