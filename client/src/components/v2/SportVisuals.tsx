@@ -175,14 +175,11 @@ export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
 
 /* ─────────────────────────────────────────────
    TeamLogoImg — real logo with SVG fallback
-   Renders the ESPN CDN image if available;
-   falls back to TeamLogo SVG badge on error.
 ───────────────────────────────────────────── */
 interface TeamLogoImgProps {
   abbr: string;
   size?: number;
   shape?: "circle" | "shield" | "square";
-  /** Override the image URL (for when you have a live URL not in the static map) */
   src?: string;
 }
 
@@ -214,7 +211,6 @@ export function TeamLogoImg({ abbr, size = 32, shape = "circle", src }: TeamLogo
           display: "block",
         }}
         onError={(e) => {
-          // On load failure: hide img, show SVG fallback via parent swap
           const target = e.currentTarget as HTMLImageElement;
           const parent = target.parentElement;
           if (parent) {
@@ -337,8 +333,6 @@ export function PlayerAvatar({ name, team, position = "generic", size = 40, show
 
 /* ─────────────────────────────────────────────
    PlayerHeadshot — real ESPN headshot with fallback
-   Uses <img> from ESPN CDN; falls back to PlayerAvatar SVG on error.
-   Set `size` for the container. Image is cropped to circle/square.
 ───────────────────────────────────────────── */
 interface PlayerHeadshotProps {
   name: string;
@@ -348,7 +342,6 @@ interface PlayerHeadshotProps {
   shape?: "circle" | "square";
   showName?: boolean;
   showTeam?: boolean;
-  /** Override the headshot URL (for live wiring) */
   src?: string;
 }
 
@@ -388,7 +381,6 @@ export function PlayerHeadshot({
             display: "block",
           }}
           onError={(e) => {
-            // Swap to SVG fallback on load failure
             const img = e.currentTarget as HTMLImageElement;
             img.style.display = "none";
             const parent = img.parentElement;
@@ -508,16 +500,13 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
       onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = "rgba(202,168,90,0.4)"; el.style.transform = "translateY(-1px)"; }}
       onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = isLive ? "rgba(202,168,90,0.35)" : T.border; el.style.transform = "translateY(0)"; }}
     >
-      {/* Top gradient bar — real team colors */}
       <div style={{
         height: 3,
         background: `linear-gradient(90deg, ${awayColors.secondary}BB, ${awayColors.primary}66 40%, ${homeColors.primary}66 60%, ${homeColors.secondary}BB)`,
       }} />
 
       <div style={{ padding: compact ? "10px 12px" : "14px 16px" }}>
-        {/* Matchup row with real logos */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          {/* Away */}
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
             <TeamLogoImg abbr={away} size={compact ? 28 : 34} shape="circle" />
             <div>
@@ -532,7 +521,6 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
             </div>
           </div>
 
-          {/* VS divider */}
           <div style={{ textAlign: "center", flexShrink: 0 }}>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -546,7 +534,6 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
             )}
           </div>
 
-          {/* Home */}
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
             <div style={{ textAlign: "right" }}>
               <div style={{
@@ -562,7 +549,6 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
           </div>
         </div>
 
-        {/* Series info */}
         {series && (
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -574,7 +560,6 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
           </div>
         )}
 
-        {/* Odds row */}
         <div style={{ display: "flex", gap: 6 }}>
           {[
             { label: "Spread", val: spread, color: T.gold, bg: "rgba(202,168,90,0.06)", border: "rgba(202,168,90,0.14)" },
@@ -597,7 +582,8 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
 }
 
 /* ─────────────────────────────────────────────
-   FeaturedEdgeCard — marquee signal module with real headshot
+   FeaturedEdgeCard — marquee signal module
+   FIX: Removed Playfair Display → Barlow Condensed
 ───────────────────────────────────────────── */
 interface FeaturedEdgeProps {
   signal: {
@@ -632,18 +618,15 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
         boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
       }}
     >
-      {/* Background gradient */}
       <div style={{
         position: "absolute", inset: 0,
         background: `linear-gradient(135deg, ${teamColors.primary}22 0%, transparent 60%, ${teamColors.secondary}11 100%)`,
         pointerEvents: "none",
       }} />
 
-      {/* Top accent bar */}
       <div style={{ height: 3, background: `linear-gradient(90deg, ${accentColor}, ${accentColor}44)` }} />
 
       <div style={{ display: "flex", gap: 0 }}>
-        {/* Left — visual panel with real headshot */}
         <div style={{
           width: 130, flexShrink: 0, padding: "20px 0 20px 20px",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12,
@@ -651,16 +634,10 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
           borderRight: `1px solid rgba(255,255,255,0.06)`,
         }}>
           {signal.player ? (
-            <PlayerHeadshot
-              name={signal.player}
-              team={signal.team}
-              size={72}
-              shape="circle"
-            />
+            <PlayerHeadshot name={signal.player} team={signal.team} size={72} shape="circle" />
           ) : (
             <TeamLogoImg abbr={signal.team} size={72} shape="shield" />
           )}
-          {/* Matchup logos */}
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <TeamLogoImg abbr={signal.team} size={18} />
             {signal.opponent && (
@@ -670,7 +647,6 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
           </div>
         </div>
 
-        {/* Right — content */}
         <div style={{ flex: 1, padding: "18px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             <div style={{
@@ -682,10 +658,11 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
             <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint }}>{signal.timestamp}</span>
           </div>
 
+          {/* FIX 2: Playfair Display → Barlow Condensed */}
           <div style={{
-            fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 18, fontWeight: 700, color: T.text, lineHeight: 1.35,
-            marginBottom: 8, letterSpacing: "-0.01em",
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontSize: 20, fontWeight: 700, color: T.text, lineHeight: 1.3,
+            marginBottom: 8, letterSpacing: "0.02em",
           }}>{signal.headline}</div>
 
           <div style={{
@@ -725,17 +702,24 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
 }
 
 /* ─────────────────────────────────────────────
-   SportTypeChip — signal type colored label
+   TypeChip — signal type colored label
+   FIX 1: Added injury_update, MLB-specific types
 ───────────────────────────────────────────── */
 export const TYPE_COLORS: Record<string, { bg: string; color: string; label: string }> = {
-  injury:       { bg: "rgba(217,75,75,0.12)",   color: "#D94B4B", label: "INJURY"   },
-  line_move:    { bg: "rgba(76,175,130,0.1)",    color: "#4CAF82", label: "LINE MOVE"},
-  matchup_edge: { bg: "rgba(202,168,90,0.1)",    color: "#CAA85A", label: "MATCHUP"  },
-  rotation:     { bg: "rgba(74,168,200,0.1)",    color: "#4AA8C8", label: "ROTATION" },
-  prop:         { bg: "rgba(217,138,66,0.12)",   color: "#D98A42", label: "PROP"     },
-  news:         { bg: "rgba(183,175,160,0.1)",   color: "#B7AFA0", label: "NEWS"     },
-  trend:        { bg: "rgba(74,168,200,0.08)",   color: "#4AA8C8", label: "TREND"    },
-  lineup:       { bg: "rgba(74,168,200,0.08)",   color: "#4AA8C8", label: "LINEUP"   },
+  injury:           { bg: "rgba(217,75,75,0.14)",   color: "#D94B4B", label: "INJURY"    },
+  injury_update:    { bg: "rgba(217,75,75,0.14)",   color: "#D94B4B", label: "INJURY"    },
+  line_move:        { bg: "rgba(76,175,130,0.12)",  color: "#4CAF82", label: "LINE MOVE" },
+  matchup_edge:     { bg: "rgba(202,168,90,0.12)",  color: "#CAA85A", label: "MATCHUP"   },
+  rotation:         { bg: "rgba(74,168,200,0.12)",  color: "#4AA8C8", label: "ROTATION"  },
+  prop:             { bg: "rgba(217,138,66,0.14)",  color: "#D98A42", label: "PROP"      },
+  news:             { bg: "rgba(183,175,160,0.10)", color: "#B7AFA0", label: "NEWS"      },
+  trend:            { bg: "rgba(74,168,200,0.10)",  color: "#4AA8C8", label: "TREND"     },
+  lineup:           { bg: "rgba(74,168,200,0.10)",  color: "#4AA8C8", label: "LINEUP"    },
+  batting_order:    { bg: "rgba(74,168,200,0.10)",  color: "#4AA8C8", label: "LINEUP"    },
+  pitcher:          { bg: "rgba(58,143,224,0.12)",  color: "#3A8FE0", label: "PITCHER"   },
+  starting_pitcher: { bg: "rgba(58,143,224,0.12)",  color: "#3A8FE0", label: "PITCHER"   },
+  bullpen:          { bg: "rgba(58,143,224,0.10)",  color: "#3A8FE0", label: "BULLPEN"   },
+  weather:          { bg: "rgba(74,168,200,0.08)",  color: "#4AA8C8", label: "WEATHER"   },
 };
 
 export function TypeChip({ type }: { type: string }) {
@@ -752,9 +736,7 @@ export function TypeChip({ type }: { type: string }) {
 }
 
 /* ─────────────────────────────────────────────
-   MatchupCard — premium game card with big team logos,
-   team-color gradient header, series state, and signal count
-   Used on board slate strips as a step up from GameCard.
+   MatchupCard — premium game card
 ───────────────────────────────────────────── */
 interface MatchupCardProps {
   away: string;
@@ -762,10 +744,10 @@ interface MatchupCardProps {
   time: string;
   spread: string;
   total: string;
-  series?: string;        // "LAL leads 3-2"
+  series?: string;
   signalCount?: number;
   status?: "upcoming" | "live" | "final";
-  accentColor?: string;   // sport accent — gold=NBA, cyan=MLB
+  accentColor?: string;
   onClick?: () => void;
 }
 
@@ -793,14 +775,12 @@ export function MatchupCard({
       onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(-2px)"; el.style.boxShadow = "0 8px 28px rgba(0,0,0,0.5)"; }}
       onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(0)"; el.style.boxShadow = isLive ? `0 0 0 1px rgba(202,168,90,0.15), 0 4px 20px rgba(0,0,0,0.45)` : "0 2px 12px rgba(0,0,0,0.35)"; }}
     >
-      {/* Dual-team gradient header */}
       <div style={{
         height: 52, position: "relative", overflow: "hidden",
         background: `linear-gradient(90deg, ${awayC.primary}DD 0%, ${awayC.primary}55 45%, ${homeC.primary}55 55%, ${homeC.primary}DD 100%)`,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         padding: "0 14px",
       }}>
-        {/* Away logo + abbr */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <TeamLogoImg abbr={away} size={32} shape="circle" />
           <span style={{
@@ -810,7 +790,6 @@ export function MatchupCard({
           }}>{away}</span>
         </div>
 
-        {/* Center */}
         <div style={{ textAlign: "center" }}>
           {isLive ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
@@ -822,7 +801,6 @@ export function MatchupCard({
           )}
         </div>
 
-        {/* Home logo + abbr */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
           <TeamLogoImg abbr={home} size={32} shape="circle" />
           <span style={{
@@ -833,12 +811,9 @@ export function MatchupCard({
         </div>
       </div>
 
-      {/* Bottom color bar */}
       <div style={{ height: 2, background: `linear-gradient(90deg, ${awayC.secondary}99, ${homeC.secondary}99)` }} />
 
-      {/* Body */}
       <div style={{ padding: "10px 12px" }}>
-        {/* Series banner */}
         {series && (
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -848,7 +823,6 @@ export function MatchupCard({
           }}>{series}</div>
         )}
 
-        {/* Odds row */}
         <div style={{ display: "flex", gap: 5 }}>
           {[
             { label: "SPREAD", val: spread, color: T.gold, bg: "rgba(202,168,90,0.07)" },
@@ -866,7 +840,6 @@ export function MatchupCard({
           ))}
         </div>
 
-        {/* Signal count pill */}
         {signalCount !== undefined && signalCount > 0 && (
           <div style={{ marginTop: 7, textAlign: "center" }}>
             <span style={{
@@ -883,8 +856,7 @@ export function MatchupCard({
 
 /* ─────────────────────────────────────────────
    IntelCard — polished intelligence card panel
-   Used in right rails, detail modal, sidebar modules.
-   Supports player headshot OR team logo hero.
+   FIX 3: Removed Playfair Display → Barlow Condensed
 ───────────────────────────────────────────── */
 interface IntelCardProps {
   headline: string;
@@ -918,24 +890,20 @@ export function IntelCard({
       border: `1px solid rgba(255,255,255,0.07)`,
       boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
     }}>
-      {/* Hero band */}
       <div style={{
         position: "relative", overflow: "hidden",
         background: `linear-gradient(135deg, ${teamColors.primary}CC 0%, ${teamColors.primary}44 50%, ${oppColors ? oppColors.primary + "33" : "transparent"} 100%)`,
         padding: "16px 16px 12px",
         borderBottom: "1px solid rgba(255,255,255,0.07)",
       }}>
-        {/* Ambient glow */}
         <div style={{
           position: "absolute", inset: 0,
           background: `radial-gradient(ellipse at 85% 50%, ${teamColors.secondary}18, transparent 65%)`,
           pointerEvents: "none",
         }} />
-        {/* Accent stripe */}
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 1 }}>
-          {/* Hero visual */}
           {player ? (
             <PlayerHeadshot name={player} team={team} size={52} shape="circle" />
           ) : (
@@ -945,7 +913,6 @@ export function IntelCard({
             </div>
           )}
 
-          {/* Identity */}
           <div style={{ flex: 1, minWidth: 0 }}>
             {player ? (
               <>
@@ -964,12 +931,10 @@ export function IntelCard({
             )}
           </div>
 
-          {/* Verdict badge */}
           {verdict && <VerdictBadge verdict={verdict} />}
         </div>
       </div>
 
-      {/* Stats row */}
       {(confidence !== undefined || sources !== undefined) && (
         <div style={{ display: "grid", gridTemplateColumns: `repeat(${(confidence !== undefined ? 1 : 0) + (sources !== undefined ? 1 : 0) + (verdict ? 1 : 0)}, 1fr)`, background: T.surface2, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
           {verdict && vColor && (
@@ -993,18 +958,18 @@ export function IntelCard({
         </div>
       )}
 
-      {/* Confidence bar */}
       {confidence !== undefined && (
         <div style={{ padding: "8px 14px 0" }}>
           <ConfidenceBar value={confidence} width="100%" height={5} />
         </div>
       )}
 
-      {/* Content */}
       <div style={{ padding: "12px 14px 14px" }}>
+        {/* FIX 3: Playfair Display → Barlow Condensed */}
         <div style={{
-          fontFamily: "'Playfair Display', Georgia, serif",
-          fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10,
+          fontFamily: "'Barlow Condensed', sans-serif",
+          fontSize: 16, fontWeight: 700, color: T.text, lineHeight: 1.4,
+          marginBottom: 10, letterSpacing: "0.02em",
         }}>{headline}</div>
 
         <div style={{
@@ -1045,9 +1010,7 @@ export function IntelCard({
 }
 
 /* ─────────────────────────────────────────────
-   SignalRowVisual — compact visual identity block for signal table rows
-   Renders player headshot + last name, or dual team logos
-   for team-centric signals. Designed for 110px column.
+   SignalRowVisual — compact visual identity block
 ───────────────────────────────────────────── */
 interface SignalRowVisualProps {
   player?: string;
@@ -1073,7 +1036,6 @@ export function SignalRowVisual({ player, team, opponent, size = 28 }: SignalRow
       </div>
     );
   }
-  // Team matchup
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
       <TeamLogoImg abbr={team} size={size} />
