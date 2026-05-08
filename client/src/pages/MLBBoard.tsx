@@ -1,527 +1,694 @@
-import { useState } from "react";
-import V2Shell, { SportBadge } from "../components/V2Shell";
-import { MLB_SIGNALS, type V2Signal } from "../data/v2MockData";
+/**
+ * MLBBoard.tsx — LFL Master Design
+ * Baseball diamond chalk bg. Team-color Featured Edge banner.
+ * Signal hierarchy — high confidence pops, rumors recede.
+ * Sport temperature: cool blue / steel.
+ */
+
+import { useState, useEffect, useCallback } from "react";
+import V2Shell, { SportBadge, SPORT_THEME } from "../components/V2Shell";
 import {
   PlayerHeadshot, TeamLogoImg,
-  MatchupCard, IntelCard,
+  FeaturedEdgeCard,
   VerdictBadge, TypeChip, ConfidenceBar,
-  T, VERDICT_COLORS, getTeamColors,
+  T as _T, getTeamColors,
 } from "../components/v2/SportVisuals";
-import { ChevronRight, X, Filter } from "lucide-react";
+import {
+  ChevronRight, X, Filter, Zap, TrendingUp,
+  AlertCircle, Lock, Star, Activity, Users, BarChart2, ArrowUpDown,
+} from "lucide-react";
 
-const MLB_FILTERS = ["Today", "Pitchers", "Lineup", "Props", "Trends", "Line Moves"] as const;
-type MLBFilter = typeof MLB_FILTERS[number];
-
-function matchFilter(sig: V2Signal, filter: MLBFilter): boolean {
-  if (filter === "Today") return true;
-  if (filter === "Pitchers") return sig.tags.includes("pitcher") || ["cole","strider","yamamoto","fried"].some(n => sig.headline.toLowerCase().includes(n));
-  if (filter === "Props") return sig.type === "prop";
-  if (filter === "Trends") return sig.type === "trend";
-  if (filter === "Line Moves") return sig.type === "line_move";
-  if (filter === "Lineup") return sig.type === "lineup" || sig.type === "rotation";
-  return true;
-}
-
-// ESPN IDs for MLB pitchers (for large headshots in hero)
-const PITCHER_ESPN_IDS: Record<string, number> = {
-  "G. Cole":    32859,
-  "S. Strider": 0,  // On IL — no photo
-  "Y. Yamamoto": 4433254,
-  "M. Fried":   32694,
-  "M. Stroman": 32105,
+// LFL warm tokens + MLB blue accent
+const T = {
+  bg:           "#0C0B09",
+  surface1:     "#131110",
+  surface2:     "#1A1714",
+  surface3:     "#201D19",
+  gold:         "#C4A24A",
+  goldBright:   "#E0BB6A",
+  goldDim:      "rgba(196,162,74,0.15)",
+  goldGlow:     "rgba(196,162,74,0.07)",
+  goldStrong:   "rgba(196,162,74,0.38)",
+  text:         "#EDE5D4",
+  textMuted:    "#8A7A62",
+  textFaint:    "#4A4235",
+  green:        "#3EBA6A",
+  cyan:         "#4AA8C8",
+  orange:       "#D98A42",
+  danger:       "#D94B4B",
+  border:       "rgba(196,162,74,0.12)",
+  borderMid:    "rgba(196,162,74,0.22)",
+  borderStrong: "rgba(196,162,74,0.40)",
+  // MLB-specific cool accent
+  mlbAccent:    "#3A8FE0",
+  mlbGlow:      "rgba(58,143,224,0.15)",
+  mlbDim:       "rgba(58,143,224,0.08)",
 };
 
-const TONIGHT_GAMES = [
-  { id: "m1", away: "HOU", home: "NYY", time: "1:05 PM ET", spread: "NYY -115", total: "8",   series: undefined, note: "Cole scratched" },
-  { id: "m2", away: "LAD", home: "ATL", time: "4:10 PM ET", spread: "ATL -108", total: "8.5", series: undefined, note: "Yamamoto vs Fried" },
-  { id: "m3", away: "CHC", home: "NYM", time: "7:10 PM ET", spread: "NYM -112", total: "8",   series: undefined, note: null },
+interface LiveSignal {
+  id: string; league: string; signal_type: string; headline: string;
+  title?: string; summary?: string; body?: string;
+  action_takeaway?: string; action_note?: string;
+  player_name?: string; team?: string; matchup?: string; verdict?: string;
+  confidence_score?: number; injury_designation?: string; lineup_status?: string;
+  pitcher_status?: string; probable_pitcher?: string;
+  line_movement?: any; sources?: any[]; source_count?: number;
+  why_it_matters?: string; created_at: string;
+}
+
+const TABS = [
+  { key: "TODAY",      label: "Today",      icon: <Zap size={11} /> },
+  { key: "INJURIES",   label: "Injuries",   icon: <AlertCircle size={11} /> },
+  { key: "PITCHERS",   label: "Pitchers",   icon: <Activity size={11} /> },
+  { key: "LINEUP",     label: "Lineups",    icon: <Users size={11} /> },
+  { key: "TRENDS",     label: "Trends",     icon: <TrendingUp size={11} /> },
+  { key: "LINE_MOVES", label: "Line Moves", icon: <ArrowUpDown size={11} /> },
+] as const;
+type TabKey = typeof TABS[number]["key"];
+
+function filterByTab(signals: LiveSignal[], tab: TabKey) {
+  switch (tab) {
+    case "INJURIES":   return signals.filter(s => s.signal_type === "injury" || s.injury_designation);
+    case "PITCHERS":   return signals.filter(s => ["pitcher","starting_pitcher","bullpen"].includes(s.signal_type) || s.pitcher_status || s.probable_pitcher);
+    case "LINEUP":     return signals.filter(s => ["rotation","lineup","batting_order"].includes(s.signal_type) || s.lineup_status);
+    case "TRENDS":     return signals.filter(s => ["trend","matchup_edge","weather"].includes(s.signal_type));
+    case "LINE_MOVES": return signals.filter(s => s.signal_type === "line_move" || s.line_movement);
+    default:           return signals;
+  }
+}
+
+const MLB_TEAMS = [
+  "NYY","BOS","LAD","HOU","ATL","NYM","CHC","SFG",
+  "PHI","STL","MIL","SEA","TOR","MIN","CLE","SDP",
 ];
 
-const PITCHER_STATUS = [
-  { name: "G. Cole",    team: "NYY", status: "OUT",   color: T.danger, note: "Scratched — elbow", espnId: 32859 },
-  { name: "S. Strider", team: "ATL", status: "IL",    color: T.orange, note: "60-day IL, monitoring", espnId: 0 },
-  { name: "Y. Yamamoto",team: "LAD", status: "OK",    color: T.green,  note: "On schedule", espnId: 4433254 },
-  { name: "M. Fried",   team: "ATL", status: "OK",    color: T.green,  note: "Confirmed starter", espnId: 32694 },
-  { name: "M. Stroman", team: "NYY", status: "START", color: T.gold,   note: "Replacing Cole", espnId: 32105 },
-];
+// ─── Tonight's Games ──────────────────────────────────────────────────────────
 
-const LINEUP_NOTES = [
-  { team: "NYY", player: "Juan Soto", note: "Dropped to 5th vs LHP" },
-  { team: "LAD", player: "Freddie Freeman", note: "Returning to cleanup" },
-  { team: "ATL", player: "Marcell Ozuna", note: "Benched vs elite RHP" },
-];
+interface GameData {
+  id: string; away: string; home: string;
+  time: string; status: "LIVE" | "FINAL" | "PRE";
+  awayScore: number | null; homeScore: number | null;
+  inning: string | null; spread: string; total: string;
+  awayPitcher?: string; homePitcher?: string;
+}
 
-const TEAM_TRENDS = [
-  { team: "BAL", trend: "11-3 day games",        dir: "▲", positive: true,  color: T.green },
-  { team: "LAD", trend: "8-2 home vs RHP",        dir: "▲", positive: true,  color: T.green },
-  { team: "NYY", trend: "4-9 vs elite pitching",  dir: "▼", positive: false, color: T.danger },
-  { team: "ATL", trend: "7-1 with Fried healthy", dir: "▲", positive: true,  color: T.green },
-];
+function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string; onSelectTeam: (t: string) => void }) {
+  const [games, setGames]     = useState<GameData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-/* ── MLB detail panel ── */
-function MLBDetailPanel({ sig, onClose }: { sig: V2Signal; onClose: () => void }) {
-  const teamColors = getTeamColors(sig.team);
-  const vColor = VERDICT_COLORS[sig.verdict] ?? T.textFaint;
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/mlb/scoreboard");
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        if (!cancelled) setGames(data.games ?? []);
+      } catch { if (!cancelled) setGames([]); }
+      finally   { if (!cancelled) setLoading(false); }
+    };
+    load();
+    const iv = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, []);
 
   return (
-    <div style={{
-      width: 340, background: T.surface1, borderLeft: `1px solid rgba(74,168,200,0.22)`,
-      flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "auto",
-      position: "relative",
-    }}>
-      {/* Close */}
-      <button onClick={onClose} style={{
-        position: "absolute", top: 12, right: 12, zIndex: 10,
-        background: "rgba(0,0,0,0.5)", border: "none", borderRadius: "50%",
-        color: T.textMuted, cursor: "pointer", width: 26, height: 26,
-        display: "flex", alignItems: "center", justifyContent: "center",
-      }}><X size={12} /></button>
+    <div style={{ padding: "10px 20px 12px", borderBottom: `1px solid ${T.border}`, flexShrink: 0, background: "rgba(12,11,9,0.55)" }}>
+      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+        {games.some(g => g.status === "LIVE") && <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "esPulse 2s ease-in-out infinite", boxShadow: `0 0 5px ${T.green}` }} />}
+        Tonight's MLB Slate
+      </div>
 
-      {/* Hero band */}
-      <div style={{
-        position: "relative", overflow: "hidden",
-        background: `linear-gradient(150deg, ${teamColors.primary}EE 0%, ${teamColors.primary}55 60%, transparent 100%)`,
-        padding: "18px 16px 14px",
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
-        minHeight: 90,
-      }}>
-        <div style={{
-          position: "absolute", top: 0, left: 0, right: 0, height: 2,
-          background: `linear-gradient(90deg, ${T.cyan}, ${T.cyan}33)`,
-        }} />
-        <div style={{
-          position: "absolute", inset: 0,
-          background: `radial-gradient(ellipse at 85% 50%, ${teamColors.secondary}18, transparent 65%)`,
-          pointerEvents: "none",
-        }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 12, position: "relative", zIndex: 2 }}>
-          {sig.player ? (
-            <PlayerHeadshot name={sig.player} team={sig.team} size={48} shape="circle" />
-          ) : (
-            <div style={{ display: "flex", gap: 6 }}>
-              <TeamLogoImg abbr={sig.team} size={46} />
-              {sig.opponent && <TeamLogoImg abbr={sig.opponent} size={36} />}
+      {loading   && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint }}>Loading games…</div>}
+      {!loading && games.length === 0 && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint, padding: "4px 0" }}>No MLB games scheduled today</div>}
+
+      {!loading && games.length > 0 && (
+        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2 }}>
+          {games.map(game => {
+            const isLive  = game.status === "LIVE";
+            const isFinal = game.status === "FINAL";
+            const isHit   = teamFilter === game.away || teamFilter === game.home;
+            const awayC   = getTeamColors(game.away);
+            const homeC   = getTeamColors(game.home);
+            return (
+              <div key={game.id} onClick={() => onSelectTeam(isHit ? "" : game.away)} style={{
+                flexShrink: 0, width: 218, borderRadius: 3, padding: "9px 12px", cursor: "pointer",
+                background: isHit ? `linear-gradient(140deg, ${awayC.primary}28, ${T.surface2})` : T.surface2,
+                border: `1px solid ${isHit ? T.borderStrong : isLive ? "rgba(62,186,106,0.32)" : T.border}`,
+                transition: "all 0.12s", position: "relative", overflow: "hidden",
+              }}>
+                {isLive && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.green}, ${T.green}44)` }} />}
+                {/* MLB blue top accent on non-live */}
+                {!isLive && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, ${T.mlbAccent}55, transparent)` }} />}
+                <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `linear-gradient(135deg, ${awayC.primary}12 0%, transparent 45%, ${homeC.primary}0C 100%)` }} />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7, position: "relative" }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: isLive ? T.green : isFinal ? T.textFaint : T.mlbAccent, display: "flex", alignItems: "center", gap: 4 }}>
+                    {isLive && <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "esPulse 1.5s ease-in-out infinite" }} />}
+                    {isLive ? (game.inning ?? "Live") : isFinal ? "Final" : game.time}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, position: "relative" }}>
+                  {[{ abbr: game.away, score: game.awayScore, pitcher: game.awayPitcher }, { abbr: game.home, score: game.homeScore, pitcher: game.homePitcher }].map(tm => (
+                    <div key={tm.abbr} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                      <TeamLogoImg abbr={tm.abbr} size={18} />
+                      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: T.text, flex: 1 }}>{tm.abbr}</span>
+                      {tm.pitcher && !isLive && !isFinal && <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, color: T.textFaint, maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tm.pitcher}</span>}
+                      {(isLive || isFinal) && tm.score !== null && <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, color: T.text, minWidth: 24, textAlign: "right" }}>{tm.score}</span>}
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 6, paddingTop: 5, borderTop: `1px solid ${T.border}`, display: "flex", gap: 10, position: "relative" }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{game.spread}</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>O/U {game.total}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Right Sidebar ────────────────────────────────────────────────────────────
+
+function InjuryPanel({ signals }: { signals: LiveSignal[] }) {
+  const inj = signals.filter(s => s.signal_type === "injury" || s.injury_designation).slice(0, 9);
+  const statusColor = (d?: string) => {
+    if (!d) return T.textFaint;
+    const dl = d.toLowerCase();
+    if (dl.includes("out") || dl.includes("il")) return T.danger;
+    if (dl.includes("doubtful")) return T.orange;
+    if (dl.includes("questionable") || dl.includes("day-to-day")) return T.gold;
+    if (dl.includes("probable") || dl.includes("available")) return T.green;
+    return T.textFaint;
+  };
+  if (inj.length === 0) return <div style={{ padding: "10px 14px", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint }}>No injury signals this cycle</div>;
+  return (
+    <div>
+      {inj.map(sig => (
+        <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+          <TeamLogoImg abbr={sig.team ?? "MLB"} size={18} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.player_name ?? sig.headline.slice(0, 26)}</div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: statusColor(sig.injury_designation), letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1 }}>{sig.injury_designation ?? "Questionable"}</div>
+          </div>
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{sig.team}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PitcherPanel({ signals }: { signals: LiveSignal[] }) {
+  const ptch = signals.filter(s => ["pitcher","starting_pitcher","bullpen"].includes(s.signal_type) || s.pitcher_status || s.probable_pitcher).slice(0, 8);
+  if (ptch.length === 0) return <div style={{ padding: "10px 14px", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint }}>No pitcher signals today</div>;
+  return (
+    <div>
+      {ptch.map(sig => (
+        <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "flex-start", gap: 8 }}>
+          <div style={{ width: 5, height: 5, borderRadius: "50%", background: T.mlbAccent, marginTop: 5, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: T.text, lineHeight: 1.35, fontWeight: 500 }}>{sig.headline.slice(0, 52)}{sig.headline.length > 52 ? "…" : ""}</div>
+            {(sig.team || sig.pitcher_status) && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, marginTop: 2 }}>{sig.team}{sig.pitcher_status ? ` · ${sig.pitcher_status}` : ""}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TrendsPanel({ signals }: { signals: LiveSignal[] }) {
+  const tr = signals.filter(s => ["trend","matchup_edge","weather"].includes(s.signal_type)).slice(0, 6);
+  if (tr.length === 0) return <div style={{ padding: "10px 14px", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint }}>No trend signals this cycle</div>;
+  return (
+    <div>
+      {tr.map(sig => {
+        const conf = sig.confidence_score ?? 70;
+        return (
+          <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ fontSize: 12, color: T.text, lineHeight: 1.35, fontWeight: 500, marginBottom: 5 }}>{sig.headline.slice(0, 55)}{sig.headline.length > 55 ? "…" : ""}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {sig.team && <TeamLogoImg abbr={sig.team} size={13} />}
+              <ConfidenceBar value={conf} width={55} height={3} />
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: conf >= 80 ? T.gold : T.textFaint }}>{conf}%</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function RightSidebar({ signals }: { signals: LiveSignal[] }) {
+  const [open, setOpen] = useState<"injuries"|"pitchers"|"trends">("pitchers");
+  const panels = [
+    { key: "injuries" as const, label: "Injury Report",   icon: <AlertCircle size={11} />, color: T.danger,    count: signals.filter(s => s.signal_type === "injury" || s.injury_designation).length },
+    { key: "pitchers" as const, label: "Pitcher Updates", icon: <Activity size={11} />,    color: T.mlbAccent, count: signals.filter(s => ["pitcher","starting_pitcher","bullpen"].includes(s.signal_type) || !!s.pitcher_status).length },
+    { key: "trends"   as const, label: "Team Trends",     icon: <BarChart2 size={11} />,   color: T.green,     count: signals.filter(s => ["trend","matchup_edge","weather"].includes(s.signal_type)).length },
+  ];
+  return (
+    <div className="board-right-rail" style={{ width: 234, flexShrink: 0, background: T.surface1, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", overflowY: "auto" }}>
+      {panels.map(p => (
+        <div key={p.key} style={{ borderBottom: `1px solid ${T.border}` }}>
+          <div onClick={() => setOpen(x => x === p.key ? "pitchers" : p.key)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", cursor: "pointer", background: open === p.key ? T.goldGlow : "transparent", transition: "background 0.1s" }}>
+            <span style={{ color: p.color, display: "flex" }}>{p.icon}</span>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: open === p.key ? T.text : T.textMuted, flex: 1 }}>{p.label}</span>
+            {p.count > 0 && <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: p.color, background: `${p.color}18`, padding: "1px 5px", borderRadius: 2 }}>{p.count}</span>}
+            <ChevronRight size={10} style={{ color: T.textFaint, transform: open === p.key ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
+          </div>
+          {open === p.key && (
+            <div style={{ borderTop: `1px solid ${T.border}` }}>
+              {p.key === "injuries" && <InjuryPanel signals={signals} />}
+              {p.key === "pitchers" && <PitcherPanel signals={signals} />}
+              {p.key === "trends"   && <TrendsPanel signals={signals} />}
             </div>
           )}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, lineHeight: 1.2, marginBottom: 4 }}>
-              {sig.player ?? `${sig.team}${sig.opponent ? ` @ ${sig.opponent}` : ""}`}
-            </div>
-            {sig.player && (
-              <div style={{ display: "flex", gap: 5, alignItems: "center", marginBottom: 4 }}>
-                <TeamLogoImg abbr={sig.team} size={14} />
-                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                  {sig.team}{sig.opponent ? ` vs ${sig.opponent}` : ""}
-                </span>
-              </div>
-            )}
-            <VerdictBadge verdict={sig.verdict} />
-          </div>
         </div>
-      </div>
-
-      {/* Stats row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", background: T.surface2, borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-        {[
-          { label: "Verdict", value: sig.verdict.toUpperCase(), color: vColor },
-          { label: "Confidence", value: `${sig.confidence}%`, color: sig.confidence >= 80 ? T.gold : T.text },
-        ].map((s, i) => (
-          <div key={s.label} style={{ padding: "9px 0", textAlign: "center", borderRight: i === 0 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: s.color, fontVariantNumeric: "tabular-nums" }}>{s.value}</div>
-            <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Conf bar */}
-      <div style={{ padding: "8px 14px 0" }}>
-        <ConfidenceBar value={sig.confidence} width="100%" height={4} />
-      </div>
-
-      {/* Body */}
-      <div style={{ padding: "12px 14px", flex: 1 }}>
-        <div style={{ display: "flex", gap: 5, marginBottom: 10, flexWrap: "wrap" }}>
-          <TypeChip type={sig.type} />
-        </div>
-        <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>
-          {sig.headline}
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint, marginBottom: 4 }}>Signal Detail</div>
-          <div style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.65 }}>{sig.detail}</div>
-        </div>
-        <div style={{ background: "rgba(74,168,200,0.07)", border: `1px solid rgba(74,168,200,0.22)`, borderRadius: 4, padding: "10px 12px" }}>
-          <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.cyan, marginBottom: 5 }}>
-            ⚡ Takeaway
-          </div>
-          <div style={{ fontSize: 13, color: T.text, lineHeight: 1.55, fontWeight: 500 }}>{sig.action_takeaway}</div>
+      ))}
+      <div style={{ marginTop: "auto", padding: "12px 10px" }}>
+        <div style={{ background: T.goldGlow, border: `1px solid ${T.borderStrong}`, borderRadius: 3, padding: "12px 10px" }}>
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold, marginBottom: 5 }}>⚡ Pro Only</div>
+          <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.5, marginBottom: 8 }}>Real-time alerts, full signal archive & source confidence scores.</div>
+          <a href="/#/pro" style={{ display: "block", textAlign: "center", background: `linear-gradient(135deg, ${T.gold}, #8A6A28)`, color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "2px", padding: "7px 0", borderRadius: 2, textDecoration: "none" }}>
+            Unlock Pro — $19/mo
+          </a>
         </div>
       </div>
     </div>
   );
 }
 
-export default function MLBBoard() {
-  const [activeFilter, setActiveFilter] = useState<MLBFilter>("Today");
-  const [selected, setSelected] = useState<V2Signal | null>(null);
+// ─── Pro Gate ─────────────────────────────────────────────────────────────────
 
-  const filtered = MLB_SIGNALS.filter(s => matchFilter(s, activeFilter));
+function ProGate() {
+  return (
+    <div style={{ position: "relative", flexShrink: 0, background: `linear-gradient(to bottom, transparent, rgba(12,11,9,0.97) 38%)`, padding: "40px 20px 20px", marginTop: -40, zIndex: 10 }}>
+      <div style={{ border: `1px solid ${T.borderStrong}`, borderRadius: 3, background: "rgba(12,11,9,0.95)", padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: T.goldGlow, border: `1px solid ${T.borderStrong}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Lock size={15} style={{ color: T.gold }} />
+          </div>
+          <div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>90 signals locked</div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.06em" }}>Pro members see the full feed — injury confirmations, lineup leaks, line movement alerts</div>
+          </div>
+        </div>
+        <a href="/#/pro" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: `linear-gradient(135deg, ${T.gold} 0%, #8A6A28 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "2px", padding: "9px 18px", borderRadius: 2, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
+          <Zap size={12} /> Unlock Pro
+        </a>
+      </div>
+    </div>
+  );
+}
+
+// ─── Signal Row — confidence-based visual hierarchy ───────────────────────────
+
+function SignalRow({ sig, idx, isSelected, onClick }: { sig: LiveSignal; idx: number; isSelected: boolean; onClick: () => void }) {
+  const conf    = sig.confidence_score ?? 70;
+  const verdict = sig.verdict ?? "unverified";
+  const isHigh  = conf >= 85 && (verdict === "official" || verdict === "confirmed" || verdict === "verified");
+  const isRumor = verdict === "rumor" || conf < 60;
+
+  const typeColors: Record<string, string> = {
+    injury: T.danger, line_move: T.green, matchup_edge: T.gold,
+    pitcher: T.mlbAccent, starting_pitcher: T.mlbAccent, bullpen: T.cyan,
+    prop: T.orange, rotation: T.cyan, trend: T.cyan, lineup: T.cyan,
+    batting_order: T.mlbAccent, weather: T.textMuted, news: T.textMuted,
+  };
+  const tc = typeColors[sig.signal_type] ?? T.textFaint;
+
+  const timeAgo = (ts: string) => {
+    const diff = Date.now() - new Date(ts).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+  };
+
+  return (
+    <div
+      className="sig-row"
+      onClick={onClick}
+      style={{
+        display: "grid",
+        gridTemplateColumns: "28px 100px 1fr 110px 80px 72px 62px",
+        padding: isHigh ? "12px 20px" : "9px 20px",
+        borderBottom: `1px solid ${T.border}`,
+        background: isSelected ? T.goldGlow : isHigh ? "rgba(58,143,224,0.03)" : "transparent",
+        cursor: "pointer", alignItems: "center",
+        borderLeft: `${isHigh ? 3 : 2}px solid ${isSelected ? T.gold : isRumor ? tc + "28" : tc + (isHigh ? "CC" : "55")}`,
+        transition: "background 0.1s",
+        opacity: isRumor ? 0.72 : 1,
+        minHeight: isHigh ? 58 : 48,
+      }}
+    >
+      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint }}>{idx + 1}</div>
+      <div><TypeChip type={sig.signal_type as any} /></div>
+      <div style={{ paddingRight: 12 }}>
+        <div className="sig-headline" style={{ fontSize: isHigh ? 14 : 13, color: T.text, fontWeight: isHigh ? 600 : 500, lineHeight: 1.35, marginBottom: 2 }}>
+          {sig.headline ?? sig.title}
+        </div>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.4 }}>
+          {(sig.action_takeaway ?? sig.summary ?? "").slice(0, 66)}{(sig.action_takeaway ?? sig.summary ?? "").length > 66 ? "…" : ""}
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        {sig.team && <TeamLogoImg abbr={sig.team} size={22} />}
+        <div>
+          {sig.player_name && <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, lineHeight: 1.3 }}>{sig.player_name.split(" ").pop()}</div>}
+          {sig.team && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{sig.team}</div>}
+        </div>
+      </div>
+      <VerdictBadge verdict={verdict as any} />
+      <div>
+        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isHigh ? 16 : 14, color: conf >= 80 ? T.gold : T.textMuted, marginBottom: 2 }}>{conf}%</div>
+        <ConfidenceBar value={conf} width={44} height={3} />
+      </div>
+      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{timeAgo(sig.created_at)}</div>
+    </div>
+  );
+}
+
+// ─── Detail Panel ─────────────────────────────────────────────────────────────
+
+function DetailPanel({ sig, onClose }: { sig: LiveSignal; onClose: () => void }) {
+  const team       = sig.team ?? "MLB";
+  const teamColors = getTeamColors(team);
+  const conf       = sig.confidence_score ?? 70;
+  const verdict    = sig.verdict ?? "unverified";
+
+  return (
+    <div style={{ width: 316, background: T.surface1, borderLeft: `1px solid ${T.borderStrong}`, flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "auto", position: "relative" }}>
+      <button onClick={onClose} style={{ position: "absolute", top: 10, right: 10, zIndex: 10, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: "50%", color: T.textMuted, cursor: "pointer", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <X size={11} />
+      </button>
+
+      {/* Full-bleed team-color banner */}
+      <div style={{ position: "relative", overflow: "hidden", minHeight: 90, background: `linear-gradient(140deg, ${teamColors.primary}F0 0%, ${teamColors.primary}60 55%, ${T.surface2} 100%)`, padding: "16px 14px 12px", borderBottom: `1px solid ${T.border}` }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.gold}, ${T.gold}44)` }} />
+        {/* Baseball diamond chalk bg texture in banner */}
+        <div style={{ position: "absolute", inset: 0, opacity: 0.06 }} className="es-chalk-mlb" />
+        <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", gap: 9 }}>
+          <TeamLogoImg abbr={team} size={40} />
+          <div>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2px", color: T.text, lineHeight: 1.2 }}>{sig.player_name ? sig.player_name : team}</div>
+            <VerdictBadge verdict={verdict as any} />
+          </div>
+        </div>
+      </div>
+
+      {/* Stats strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", background: T.surface2, borderBottom: `1px solid ${T.border}` }}>
+        {[
+          { label: "Verdict",    value: verdict.toUpperCase().slice(0, 9) },
+          { label: "Confidence", value: `${conf}%`, color: conf >= 80 ? T.gold : T.text },
+          { label: "Sources",    value: String(sig.source_count ?? sig.sources?.length ?? "—") },
+        ].map((s, i) => (
+          <div key={s.label} style={{ padding: "8px 0", textAlign: "center", borderRight: i < 2 ? `1px solid ${T.border}` : "none" }}>
+            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, color: s.color ?? T.text }}>{s.value}</div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 1 }}>{s.label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ padding: "6px 14px 0" }}><ConfidenceBar value={conf} width="100%" height={3} /></div>
+
+      <div style={{ padding: "12px 14px", flex: 1 }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>{sig.headline ?? sig.title}</div>
+        {(sig.body ?? sig.summary) && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint, marginBottom: 4 }}>Detail</div>
+            <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 12, color: T.textMuted, lineHeight: 1.65 }}>{sig.body ?? sig.summary}</div>
+          </div>
+        )}
+        {(sig.action_takeaway ?? sig.action_note) && (
+          <div style={{ background: T.goldGlow, border: `1px solid rgba(196,162,74,0.22)`, borderRadius: 2, padding: "10px 12px" }}>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold, marginBottom: 4 }}>⚡ Action</div>
+            <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 12, color: T.text, lineHeight: 1.65 }}>{sig.action_takeaway ?? sig.action_note}</div>
+          </div>
+        )}
+        {sig.injury_designation && (
+          <div style={{ marginTop: 8, padding: "7px 10px", background: "rgba(217,75,75,0.07)", border: "1px solid rgba(217,75,75,0.22)", borderRadius: 2 }}>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: T.danger }}>Status: {sig.injury_designation}</span>
+          </div>
+        )}
+        {sig.pitcher_status && (
+          <div style={{ marginTop: 8, padding: "7px 10px", background: "rgba(58,143,224,0.07)", border: "1px solid rgba(58,143,224,0.22)", borderRadius: 2 }}>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: T.mlbAccent }}>Pitcher: {sig.pitcher_status}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
+
+const FREE_LIMIT = 8;
+
+export default function MLBBoard() {
+  const [signals, setSignals]       = useState<LiveSignal[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [activeTab, setActiveTab]   = useState<TabKey>("TODAY");
+  const [teamFilter, setTeamFilter] = useState("");
+  const [selected, setSelected]     = useState<LiveSignal | null>(null);
+  const [isProUser]                 = useState(false);
+
+  const fetchSignals = useCallback(async () => {
+    try {
+      const res = await fetch("/api/signals?league=MLB");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setSignals(await res.json());
+      setError(null);
+    } catch (e: any) { setError(e.message); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    fetchSignals();
+    const iv = setInterval(fetchSignals, 60_000);
+    return () => clearInterval(iv);
+  }, [fetchSignals]);
+
+  let filtered = filterByTab(signals, activeTab);
+  if (teamFilter) filtered = filtered.filter(s => s.team === teamFilter || s.matchup?.includes(teamFilter));
+
+  const visible     = isProUser ? filtered : filtered.slice(0, FREE_LIMIT);
+  const lockedCount = filtered.length - visible.length;
+  const featured    = signals.find(s => (s.confidence_score ?? 0) >= 85) ?? signals[0];
+  const featColors  = getTeamColors(featured?.team ?? "MLB");
+  const featOppColors = getTeamColors(featured?.matchup?.split("@")[1]?.trim() ?? featured?.team ?? "MLB");
+
+  const confirmedCount = signals.filter(s => s.verdict === "confirmed").length;
+  const highConfCount  = signals.filter(s => (s.confidence_score ?? 0) >= 80).length;
 
   return (
     <V2Shell boardsMode>
       <style>{`
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
-        .mlb-sig-row:hover { background: rgba(74,168,200,0.04) !important; }
+        @keyframes esPulse   { 0%,100%{opacity:1} 50%{opacity:0.22} }
+        @keyframes esShimmer { 0%{background-position:0%} 50%{background-position:100%} 100%{background-position:0%} }
+        .tab-btn:hover { background: rgba(58,143,224,0.05) !important; }
+        .team-pill:hover { background: rgba(196,162,74,0.07) !important; border-color: rgba(196,162,74,0.3) !important; }
       `}</style>
+
       <div style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
 
-        {/* ─── Board subnav ─── */}
-        <aside style={{
-          width: 190, background: T.surface1, borderRight: `1px solid rgba(74,168,200,0.15)`,
-          flexShrink: 0, padding: "16px 10px", overflowY: "auto",
-        }}>
-          <div style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-            color: T.textFaint, padding: "0 8px", marginBottom: 10,
-          }}>MLB Board</div>
+        {/* ── Left sidebar ── */}
+        <aside style={{ width: 168, background: T.surface1, borderRight: `1px solid ${T.border}`, flexShrink: 0, padding: "12px 6px", overflowY: "auto" }}>
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.24em", textTransform: "uppercase", color: T.textFaint, padding: "0 7px", marginBottom: 7 }}>MLB Board</div>
 
-          {["Signal Stream", "Games Today", "Pitcher News", "Lineup Movement", "Team Trends", "Line Movement"].map((label, i) => (
-            <div key={label} style={{
-              display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", marginBottom: 1,
-              borderRadius: 3,
-              borderLeft: `2px solid ${i === 0 ? T.cyan : "transparent"}`,
-              background: i === 0 ? "rgba(74,168,200,0.06)" : "transparent",
-              color: i === 0 ? T.cyan : T.textMuted, cursor: "pointer",
-              transition: "background 0.12s, color 0.12s",
-            }}
-              onMouseEnter={e => { if (i !== 0) { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(74,168,200,0.03)"; el.style.color = T.text; } }}
-              onMouseLeave={e => { if (i !== 0) { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; el.style.color = T.textMuted; } }}
-            >
-              <ChevronRight size={10} style={{ opacity: i === 0 ? 1 : 0.4 }} />
-              <span style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-              }}>{label}</span>
+          {[
+            { label: "Signal Stream",    icon: <Zap size={11} />,         active: true  },
+            { label: "Tonight's Slate",  icon: <Activity size={11} />,    active: false },
+            { label: "Pitcher Intel",    icon: <Activity size={11} />,    active: false },
+            { label: "Line Movement",    icon: <ArrowUpDown size={11} />, active: false },
+            { label: "Matchup Edges",    icon: <BarChart2 size={11} />,   active: false },
+          ].map(({ label, icon, active }) => (
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 7px", marginBottom: 1, borderRadius: 2, borderLeft: `2px solid ${active ? T.mlbAccent : "transparent"}`, background: active ? T.mlbDim : "transparent", color: active ? T.mlbAccent : T.textMuted, cursor: "pointer" }}>
+              <span style={{ opacity: active ? 1 : 0.4, display: "flex" }}>{icon}</span>
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</span>
             </div>
           ))}
 
-          <div style={{ margin: "16px 0 10px", borderTop: `1px solid rgba(74,168,200,0.15)` }} />
-          <div style={{
-            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase",
-            color: T.textFaint, padding: "0 8px", marginBottom: 8,
-          }}>Teams</div>
-          {["NYY", "LAD", "ATL", "BAL", "CHC", "HOU"].map(tm => (
-            <div key={tm} style={{
-              display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 3, cursor: "pointer",
-            }}
-              onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(74,168,200,0.04)"; }}
-              onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "transparent"; }}
-            >
-              <TeamLogoImg abbr={tm} size={22} />
-              <span style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: T.textMuted,
-              }}>{tm}</span>
+          <div style={{ margin: "12px 0 8px", borderTop: `1px solid ${T.border}` }} />
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.24em", textTransform: "uppercase", color: T.textFaint, padding: "0 7px", marginBottom: 6 }}>Teams</div>
+
+          {teamFilter && (
+            <div onClick={() => setTeamFilter("")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 7px", marginBottom: 5, borderRadius: 2, background: T.goldGlow, border: `1px solid ${T.borderStrong}`, cursor: "pointer" }}>
+              <X size={9} style={{ color: T.textFaint }} />
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>Clear</span>
             </div>
-          ))}
+          )}
+
+          {MLB_TEAMS.map(tm => {
+            const isActive   = teamFilter === tm;
+            const hasSignals = signals.some(s => s.team === tm);
+            return (
+              <div key={tm} className="team-pill" onClick={() => setTeamFilter(isActive ? "" : tm)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 7px", borderRadius: 2, marginBottom: 1, cursor: "pointer", background: isActive ? T.goldGlow : "transparent", border: `1px solid ${isActive ? T.borderStrong : "transparent"}`, transition: "all 0.1s" }}>
+                <TeamLogoImg abbr={tm} size={18} />
+                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: isActive ? T.gold : T.textMuted, flex: 1 }}>{tm}</span>
+                {hasSignals && <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block" }} />}
+              </div>
+            );
+          })}
         </aside>
 
-        {/* ─── Main canvas ─── */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {/* ── Main canvas ── */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden", position: "relative" }}>
 
-          {/* Header */}
-          <div style={{
-            padding: "12px 20px", borderBottom: `1px solid rgba(255,255,255,0.06)`,
-            display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: T.surface1,
-          }}>
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                <span style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 17, fontWeight: 700, color: T.text }}>
-                  MLB Intelligence Board
-                </span>
-                <SportBadge status="ACTIVE" />
+          {/* Baseball diamond chalk bg */}
+          <div className="es-chalk-mlb" aria-hidden="true" style={{ position: "absolute", inset: 0, opacity: 0.038, pointerEvents: "none", zIndex: 0 }} />
+          {/* MLB cool blue radial glow */}
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1, background: `radial-gradient(ellipse 70% 60% at 50% 50%, rgba(58,143,224,0.04) 0%, transparent 65%), radial-gradient(ellipse 85% 80% at 50% 50%, transparent 30%, ${T.bg} 100%)` }} />
+
+          <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", height: "100%" }}>
+
+            {/* Board header */}
+            <div style={{ padding: "10px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: "rgba(19,17,16,0.9)" }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
+                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "2px", color: T.text }}>MLB Intelligence Board</span>
+                  <SportBadge status="ACTIVE" />
+                </div>
+                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.08em" }}>
+                  {loading ? "Loading signals…" : error ? `Signal feed unavailable — ${error}` : `${signals.length} signals · Updated continuously`}
+                </div>
               </div>
-              <div style={{
-                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, color: T.textFaint, letterSpacing: "0.06em",
-              }}>Regular season · {MLB_SIGNALS.length} signals · Updated continuously</div>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+                {[
+                  { label: "Total",     value: signals.length,  color: T.text       },
+                  { label: "Confirmed", value: confirmedCount,  color: T.green      },
+                  { label: "High Conf", value: highConfCount,   color: T.mlbAccent  },
+                ].map(stat => (
+                  <div key={stat.label} style={{ textAlign: "center", padding: "5px 10px", background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 2 }}>
+                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, color: stat.color }}>{loading ? "—" : stat.value}</div>
+                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.14em", textTransform: "uppercase" }}>{stat.label}</div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
-              {[
-                { label: "Signals", value: MLB_SIGNALS.length, color: T.text },
-                { label: "Confirmed", value: MLB_SIGNALS.filter(s => s.verdict === "confirmed").length, color: T.green },
-              ].map(stat => (
-                <div key={stat.label} style={{
-                  textAlign: "center", padding: "6px 14px",
-                  background: T.surface2, border: `1px solid rgba(255,255,255,0.06)`, borderRadius: 3,
-                }}>
-                  <div style={{ fontSize: 17, fontWeight: 700, color: stat.color }}>{stat.value}</div>
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>{stat.label}</div>
+
+            {/* Games bar */}
+            <TonightGamesBar teamFilter={teamFilter} onSelectTeam={setTeamFilter} />
+
+            {/* Featured Edge — FULL team color bleed */}
+            {featured && !loading && (
+              <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
+                <div style={{ borderRadius: 3, overflow: "hidden", border: `1px solid ${T.borderMid}`, position: "relative" }}>
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.gold}, ${T.gold}33)`, zIndex: 3 }} />
+                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${featColors.primary}40 0%, ${featColors.primary}18 35%, transparent 60%)`, pointerEvents: "none", zIndex: 1 }} />
+                  <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 95% 50%, ${featOppColors.primary}25, transparent 50%)`, pointerEvents: "none", zIndex: 1 }} />
+                  <div style={{ position: "relative", zIndex: 2 }}>
+                    <FeaturedEdgeCard
+                      sport="MLB"
+                      signal={{
+                        headline:        featured.headline ?? featured.title ?? "Signal",
+                        detail:          featured.body ?? featured.summary ?? featured.why_it_matters ?? "—",
+                        action_takeaway: featured.action_takeaway ?? featured.action_note ?? "Monitor this situation.",
+                        verdict:         featured.verdict ?? "unverified",
+                        confidence:      featured.confidence_score ?? 70,
+                        sources:         featured.source_count ?? featured.sources?.length ?? 1,
+                        type:            featured.signal_type ?? "news",
+                        player:          featured.player_name,
+                        team:            featured.team ?? "MLB",
+                        opponent:        undefined,
+                        timestamp:       new Date(featured.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                        tags:            [featured.team ?? "MLB", featured.signal_type ?? "intel"].filter(Boolean),
+                      }}
+                    />
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )}
 
-          {/* Games strip — MatchupCards */}
-          <div style={{ padding: "12px 20px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, flexShrink: 0, overflowX: "auto" }}>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
-              color: T.textFaint, marginBottom: 10,
-              display: "flex", alignItems: "center", gap: 6,
-            }}>
-              <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
-              Today's Games
-            </div>
-            <div style={{ display: "flex", gap: 12 }}>
-              {TONIGHT_GAMES.map(game => (
-                <div key={game.id} style={{ width: 232, flexShrink: 0 }}>
-                  <MatchupCard
-                    away={game.away} home={game.home}
-                    time={game.time} spread={game.spread} total={game.total}
-                    accentColor={T.cyan}
-                    signalCount={MLB_SIGNALS.filter(s =>
-                      s.team === game.away || s.team === game.home ||
-                      s.opponent === game.away || s.opponent === game.home
-                    ).length}
-                  />
-                  {game.note && (
-                    <div style={{ marginTop: 5, padding: "3px 8px", background: "rgba(74,168,200,0.07)", borderRadius: 2, border: "1px solid rgba(74,168,200,0.12)" }}>
-                      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.cyan, fontWeight: 700, letterSpacing: "0.04em" }}>⚡ {game.note}</span>
-                    </div>
-                  )}
+            {/* Sub-nav tabs */}
+            <div style={{ display: "flex", gap: 2, padding: "10px 20px 0", borderBottom: `1px solid ${T.border}`, background: "rgba(19,17,16,0.75)", flexShrink: 0 }}>
+              {TABS.map(tab => {
+                const isActive = activeTab === tab.key;
+                const count    = filterByTab(signals, tab.key).length;
+                return (
+                  <button key={tab.key} className="tab-btn" onClick={() => setActiveTab(tab.key)} style={{
+                    display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px",
+                    borderRadius: "2px 2px 0 0", border: "none", background: "transparent",
+                    borderBottom: `2px solid ${isActive ? T.mlbAccent : "transparent"}`,
+                    color: isActive ? T.mlbAccent : T.textMuted,
+                    fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
+                    cursor: "pointer", transition: "all 0.1s", marginBottom: -1,
+                  }}>
+                    <span style={{ opacity: isActive ? 1 : 0.4 }}>{tab.icon}</span>
+                    {tab.label}
+                    {count > 0 && <span style={{ fontSize: 10, color: isActive ? T.mlbAccent : T.textFaint, background: isActive ? "rgba(58,143,224,0.12)" : "rgba(255,255,255,0.05)", padding: "1px 4px", borderRadius: 2 }}>{count}</span>}
+                  </button>
+                );
+              })}
+              {teamFilter && (
+                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, paddingBottom: 5, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, color: T.gold }}>
+                  <Filter size={10} />{teamFilter}
+                  <button onClick={() => setTeamFilter("")} style={{ background: "none", border: "none", color: T.textFaint, cursor: "pointer", padding: 0, display: "flex" }}><X size={10} /></button>
                 </div>
-              ))}
+              )}
             </div>
-          </div>
 
-          {/* Filters */}
-          <div style={{
-            padding: "10px 20px", borderBottom: `1px solid rgba(255,255,255,0.06)`,
-            display: "flex", gap: 6, flexShrink: 0, flexWrap: "wrap", alignItems: "center",
-          }}>
-            <Filter size={11} style={{ color: T.textFaint, marginRight: 4 }} />
-            {MLB_FILTERS.map(f => {
-              const isActive = f === activeFilter;
-              return (
-                <button key={f} onClick={() => setActiveFilter(f)} style={{
-                  padding: "5px 12px", borderRadius: 2,
-                  border: `1px solid ${isActive ? T.cyan : "rgba(255,255,255,0.1)"}`,
-                  background: isActive ? "rgba(74,168,200,0.08)" : "transparent",
-                  color: isActive ? T.cyan : T.textMuted,
-                  fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-                  cursor: "pointer", transition: "all 0.12s",
-                }}>{f}</button>
-              );
-            })}
-          </div>
-
-          {/* 2-col layout */}
-          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 280px" }} className="mlb-grid">
-
-            {/* Signal list */}
-            <div style={{ borderRight: `1px solid rgba(255,255,255,0.06)`, overflowY: "auto" }}>
-              {/* Table header */}
-              <div style={{
-                display: "grid", gridTemplateColumns: "48px 100px 1fr 68px 68px",
-                padding: "6px 20px", background: T.surface2,
-                borderBottom: `1px solid rgba(255,255,255,0.06)`, position: "sticky", top: 0, zIndex: 5,
-              }}>
-                {["", "Type", "Signal", "Verdict", "Conf"].map(h => (
-                  <div key={h} style={{
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint,
-                  }}>{h}</div>
+            {/* Signal feed */}
+            <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
+              {/* Column header */}
+              <div style={{ display: "grid", gridTemplateColumns: "28px 100px 1fr 110px 80px 72px 62px", padding: "5px 20px", background: "rgba(19,17,16,0.94)", borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 5 }}>
+                {["#","Type","Signal","Player","Verdict","Conf","Time"].map(h => (
+                  <div key={h} style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint }}>{h}</div>
                 ))}
               </div>
 
-              {filtered.map(sig => {
-                const isSelected = selected?.id === sig.id;
-                const typeColor = {
-                  injury: T.danger, line_move: T.green, matchup_edge: T.gold,
-                  prop: T.orange, trend: T.cyan, lineup: T.cyan,
-                }[sig.type] ?? T.textFaint;
+              {loading && <div style={{ padding: "40px 20px", textAlign: "center", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, color: T.textFaint, letterSpacing: "0.12em" }}>Loading live signals…</div>}
 
-                return (
-                  <div
-                    key={sig.id}
-                    className="mlb-sig-row"
-                    data-testid={`mlb-signal-${sig.id}`}
-                    onClick={() => setSelected(isSelected ? null : sig)}
-                    style={{
-                      display: "grid", gridTemplateColumns: "48px 100px 1fr 68px 68px",
-                      padding: "10px 20px",
-                      borderBottom: `1px solid rgba(255,255,255,0.04)`,
-                      borderLeft: `3px solid ${isSelected ? T.cyan : typeColor + "44"}`,
-                      background: isSelected ? "rgba(74,168,200,0.05)" : "transparent",
-                      cursor: "pointer", alignItems: "center",
-                      transition: "background 0.1s",
-                    }}
-                  >
-                    {/* Logo / headshot */}
-                    {sig.player ? (
-                      <PlayerHeadshot name={sig.player} team={sig.team} size={28} shape="circle" />
-                    ) : (
-                      <TeamLogoImg abbr={sig.team} size={28} />
-                    )}
+              {!loading && error && (
+                <div style={{ padding: "20px", margin: "16px 20px", background: "rgba(217,75,75,0.05)", border: "1px solid rgba(217,75,75,0.2)", borderRadius: 3 }}>
+                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, color: T.danger }}><strong>Signal feed unavailable</strong> — {error}</div>
+                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, marginTop: 4 }}>pipeline.db may be empty — check ingestion cycle logs.</div>
+                </div>
+              )}
 
-                    {/* Type */}
-                    <div><TypeChip type={sig.type} /></div>
+              {!loading && !error && filtered.length === 0 && (
+                <div style={{ padding: "40px 20px", textAlign: "center", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, color: T.textFaint }}>
+                  {teamFilter ? `No signals for ${teamFilter}` : `No ${activeTab.toLowerCase()} signals in current cycle`}
+                </div>
+              )}
 
-                    {/* Signal */}
-                    <div style={{ paddingRight: 12 }}>
-                      <div style={{ fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, marginBottom: 2 }}>
-                        {sig.headline}
-                      </div>
-                      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.4 }}>
-                        {sig.action_takeaway.slice(0, 75)}…
-                      </div>
-                    </div>
+              {visible.map((sig, idx) => (
+                <SignalRow key={sig.id} sig={sig} idx={idx} isSelected={selected?.id === sig.id} onClick={() => setSelected(selected?.id === sig.id ? null : sig)} />
+              ))}
 
-                    {/* Verdict */}
-                    <VerdictBadge verdict={sig.verdict} />
-
-                    {/* Conf */}
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: sig.confidence >= 80 ? T.gold : T.textMuted, marginBottom: 3, fontVariantNumeric: "tabular-nums" }}>
-                        {sig.confidence}%
-                      </div>
-                      <ConfidenceBar value={sig.confidence} width={50} height={3} />
-                    </div>
+              {!isProUser && lockedCount > 0 && (
+                <div style={{ position: "relative" }}>
+                  <div style={{ filter: "blur(3px)", pointerEvents: "none", userSelect: "none" }}>
+                    {filtered.slice(FREE_LIMIT, FREE_LIMIT + 3).map((sig, idx) => (
+                      <SignalRow key={sig.id + "_blur"} sig={sig} idx={FREE_LIMIT + idx} isSelected={false} onClick={() => {}} />
+                    ))}
                   </div>
-                );
-              })}
-
-              <div style={{ margin: "16px 20px", padding: "10px 14px", background: "rgba(74,168,200,0.04)", border: `1px solid rgba(74,168,200,0.1)`, borderRadius: 4 }}>
-                <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint }}>
-                  <strong style={{ color: T.cyan }}>STUB DATA</strong> · {MLB_SIGNALS.length} realistic placeholder signals.
+                  <ProGate />
                 </div>
-              </div>
-            </div>
+              )}
 
-            {/* Right modules — upgraded */}
-            <div style={{ padding: "12px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
-
-              {/* ─ Pitcher Alerts — upgraded with larger headshots + status color bands ─ */}
-              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", background: "rgba(217,138,66,0.06)", borderBottom: `1px solid rgba(217,138,66,0.15)`, display: "flex", gap: 7, alignItems: "center" }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.orange, display: "inline-block", boxShadow: `0 0 6px ${T.orange}` }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.orange }}>
-                    Pitcher Alerts
-                  </span>
+              {(isProUser || lockedCount === 0) && filtered.length > 0 && (
+                <div style={{ margin: "10px 20px", padding: "7px 12px", background: T.goldGlow, border: `1px solid ${T.border}`, borderRadius: 2 }}>
+                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint }}>{filtered.length} signals · Refreshes every 60s · Click any row to expand</div>
                 </div>
-                <div style={{ padding: "8px" }}>
-                  {PITCHER_STATUS.map(p => (
-                    <div key={p.name} style={{
-                      display: "flex", alignItems: "center", gap: 9,
-                      padding: "7px 8px", borderRadius: 4, marginBottom: 4,
-                      background: `${p.color}07`,
-                      border: `1px solid ${p.color}18`,
-                    }}>
-                      {/* Headshot — larger */}
-                      <div style={{ flexShrink: 0 }}>
-                        {p.espnId > 0 ? (
-                          <div style={{
-                            width: 38, height: 38, borderRadius: "50%", overflow: "hidden",
-                            border: `2px solid ${p.color}44`,
-                            background: `${getTeamColors(p.team).primary}44`,
-                            position: "relative", flexShrink: 0,
-                          }}>
-                            <img
-                              src={`https://a.espncdn.com/i/headshots/mlb/players/full/${p.espnId}.png`}
-                              alt={p.name}
-                              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top center" }}
-                              onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                            />
-                          </div>
-                        ) : (
-                          <PlayerHeadshot name={p.name} team={p.team} size={38} shape="circle" />
-                        )}
-                      </div>
-
-                      {/* Team logo + name */}
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 2 }}>
-                          <TeamLogoImg abbr={p.team} size={14} />
-                          <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{p.name}</span>
-                        </div>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.02em" }}>{p.note}</div>
-                      </div>
-
-                      {/* Status badge */}
-                      <span style={{
-                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",
-                        color: p.color, padding: "3px 7px", background: `${p.color}18`, borderRadius: 2,
-                        flexShrink: 0,
-                      }}>{p.status}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* ─ Lineup Movement — upgraded with player context ─ */}
-              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, display: "flex", gap: 7, alignItems: "center" }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
-                    Lineup Movement
-                  </span>
-                </div>
-                <div>
-                  {LINEUP_NOTES.map(note => (
-                    <div key={note.team} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 12px", borderBottom: `1px solid rgba(255,255,255,0.04)` }}>
-                      <TeamLogoImg abbr={note.team} size={28} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, color: T.textMuted, letterSpacing: "0.02em" }}>{note.note}</div>
-                        <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 10, color: T.textFaint, marginTop: 1 }}>{note.player}</div>
-                      </div>
-                    </div>
-                  ))}
-                  <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: T.textFaint, padding: "8px 12px", letterSpacing: "0.03em" }}>
-                    Lineups confirm ~3h before first pitch
-                  </div>
-                </div>
-              </div>
-
-              {/* ─ Team Trends — upgraded with larger logos + directional styling ─ */}
-              <div style={{ background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
-                <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(255,255,255,0.06)`, display: "flex", gap: 7, alignItems: "center" }}>
-                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.gold, display: "inline-block" }} />
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.textFaint }}>
-                    Team Trends
-                  </span>
-                </div>
-                <div>
-                  {TEAM_TRENDS.map(trend => (
-                    <div key={trend.team} style={{
-                      display: "flex", alignItems: "center", gap: 10, padding: "9px 12px",
-                      borderBottom: `1px solid rgba(255,255,255,0.04)`,
-                      background: `${trend.color}05`,
-                    }}>
-                      <TeamLogoImg abbr={trend.team} size={28} />
-                      <div style={{ flex: 1, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textMuted, letterSpacing: "0.02em" }}>{trend.trend}</div>
-                      <span style={{
-                        fontSize: 14, fontWeight: 700, color: trend.color,
-                        background: `${trend.color}15`, padding: "2px 6px", borderRadius: 2,
-                      }}>{trend.dir}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
 
+        {/* Right sidebar */}
+        <RightSidebar signals={signals} />
+
         {/* Detail panel */}
         {selected && (
-          <MLBDetailPanel sig={selected} onClose={() => setSelected(null)} />
+          <div style={{ position: "relative", zIndex: 20 }}>
+            <DetailPanel sig={selected} onClose={() => setSelected(null)} />
+          </div>
         )}
       </div>
-      <style>{`.mlb-grid { } @media (max-width: 900px) { .mlb-grid { grid-template-columns: 1fr !important; } }`}</style>
     </V2Shell>
   );
 }
