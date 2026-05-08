@@ -347,7 +347,7 @@ export function V2Shell({ children, sport }: V2ShellProps) {
           padding: "0 20px", minHeight: 56,
           background: surf1,
           borderBottom: `1px solid ${sportTheme ? sportTheme.primary + "40" : goldD}`,
-          position: "sticky", top: 0, zIndex: 30, flexShrink: 0,
+          position: "sticky", top: 0, zIndex: 30, flexShrink: 0, overflow: "hidden",
         }}>
           {/* Sport accent line — bold 3px */}
           {sportTheme && (
