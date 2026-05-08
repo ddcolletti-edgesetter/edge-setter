@@ -107,9 +107,11 @@ export default function FlagshipHome() {
       </div>
 
       {/* ══════════════════════ HERO ══════════════════════ */}
-      <section style={{ position: "relative", zIndex: 2, minHeight: 540, borderBottom: `1px solid ${T.border}`, overflow: "hidden" }}>
-        {/* Team color radial — hero atmosphere — bold, not subtle */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(ellipse 55% 75% at 75% 50%, ${heroColors.primary}30, transparent 65%), radial-gradient(ellipse 40% 50% at 20% 50%, ${heroColors.primary}12, transparent 60%)` }} />
+      <section style={{ position: "relative", zIndex: 2, minHeight: 580, borderBottom: `1px solid ${T.border}`, overflow: "hidden" }}>
+        {/* Strong sport-color atmosphere */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(ellipse 60% 80% at 72% 50%, ${heroColors.primary}38, transparent 62%), radial-gradient(ellipse 45% 55% at 18% 50%, ${heroColors.primary}18, transparent 58%)` }} />
+        {/* Gold hairline accent from left */}
+        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg, ${T.gold}, ${T.gold}22 60%, transparent)` }} />
 
         <div style={{ maxWidth: 1300, margin: "0 auto", padding: "52px 40px 44px", display: "grid", gridTemplateColumns: "1fr 360px", gap: 52, alignItems: "center", position: "relative", zIndex: 2 }}>
 
@@ -127,7 +129,7 @@ export default function FlagshipHome() {
             </div>
 
             {/* Headline — Bebas, full impact */}
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(44px, 5.5vw, 72px)", fontWeight: 400, lineHeight: 0.92, letterSpacing: "2px", color: T.text, margin: "0 0 18px" }}>
+            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(52px, 6.5vw, 84px)", fontWeight: 400, lineHeight: 0.90, letterSpacing: "2px", color: T.text, margin: "0 0 20px" }}>
               THE MULTI-SPORT<br />
               <span style={{ color: T.gold }}>INTELLIGENCE</span><br />
               TERMINAL

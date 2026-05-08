@@ -244,9 +244,9 @@ function RightSidebar({ signals }: { signals: LiveSignal[] }) {
     <div className="board-right-rail" style={{ width: 234, flexShrink: 0, background: T.surface1, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", overflowY: "auto" }}>
       {panels.map(p => (
         <div key={p.key} style={{ borderBottom: `1px solid ${T.border}` }}>
-          <div onClick={() => setOpen(x => x === p.key ? "injuries" : p.key)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 13px", cursor: "pointer", background: open === p.key ? T.goldGlow : "transparent", transition: "background 0.1s" }}>
+          <div onClick={() => setOpen(x => x === p.key ? "injuries" : p.key)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "11px 13px", cursor: "pointer", background: open === p.key ? `linear-gradient(90deg, ${p.color}12, transparent)` : "transparent", borderLeft: `3px solid ${open === p.key ? p.color : "transparent"}`, transition: "background 0.1s" }}>
             <span style={{ color: p.color, display: "flex" }}>{p.icon}</span>
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: open === p.key ? T.text : T.textMuted, flex: 1 }}>{p.label}</span>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: open === p.key ? T.text : T.textMuted, flex: 1 }}>{p.label}</span>
             {p.count > 0 && <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: p.color, background: `${p.color}18`, padding: "1px 5px", borderRadius: 2 }}>{p.count}</span>}
             <ChevronRight size={10} style={{ color: T.textFaint, transform: open === p.key ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
           </div>
@@ -471,7 +471,7 @@ export default function NBABoard() {
   const highConfCount  = signals.filter(s => (s.confidence_score ?? 0) >= 80).length;
 
   return (
-    <V2Shell boardsMode>
+    <V2Shell sport="NBA">
       <style>{`
         @keyframes esPulse   { 0%,100%{opacity:1} 50%{opacity:0.22} }
         @keyframes esShimmer { 0%{background-position:0%} 50%{background-position:100%} 100%{background-position:0%} }
@@ -559,16 +559,21 @@ export default function NBABoard() {
             {/* Games bar */}
             <TonightGamesBar teamFilter={teamFilter} onSelectTeam={setTeamFilter} />
 
-            {/* Featured Edge — FULL team color bleed, not subtle */}
+            {/* Featured Edge — COMMANDING team color bleed */}
             {featured && !loading && (
               <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
-                <div style={{ borderRadius: 3, overflow: "hidden", border: `1px solid ${T.borderMid}`, position: "relative" }}>
+                <div style={{ borderRadius: 3, overflow: "hidden", border: `1px solid ${featColors.primary}55`, position: "relative",
+                  boxShadow: `0 0 32px ${featColors.primary}22, 0 4px 24px rgba(0,0,0,0.5)` }}>
                   {/* Gold top stripe */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.gold}, ${T.gold}33)`, zIndex: 3 }} />
-                  {/* Team color — BOLD, full bleed left side */}
-                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, ${featColors.primary}72 0%, ${featColors.primary}2C 40%, transparent 62%)`, pointerEvents: "none", zIndex: 1 }} />
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.gold}, ${T.gold}33)`, zIndex: 3 }} />
+                  {/* PRIMARY team color — BOLD left bleed, unmissable */}
+                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(125deg, ${featColors.primary}90 0%, ${featColors.primary}44 30%, ${featColors.primary}18 55%, transparent 72%)`, pointerEvents: "none", zIndex: 1 }} />
+                  {/* Secondary team color accent */}
+                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(125deg, ${featColors.secondary}30 0%, transparent 40%)`, pointerEvents: "none", zIndex: 1 }} />
                   {/* Opposing team bleed from right */}
-                  <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 95% 50%, ${featOppColors.primary}38, transparent 52%)`, pointerEvents: "none", zIndex: 1 }} />
+                  <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 98% 50%, ${featOppColors.primary}44, transparent 48%)`, pointerEvents: "none", zIndex: 1 }} />
+                  {/* Chalk texture */}
+                  <div className="es-chalk-nba" style={{ position: "absolute", inset: 0, opacity: 0.04, pointerEvents: "none", zIndex: 0 }} />
                   <div style={{ position: "relative", zIndex: 2 }}>
                     <FeaturedEdgeCard
                       sport="NBA"
