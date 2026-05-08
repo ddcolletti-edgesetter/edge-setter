@@ -46,15 +46,15 @@ function ChalkBg() {
   return (
     <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
       {/* NW — Basketball court */}
-      <div style={{ position: "absolute", top: 0, left: 0, width: "56%", height: "56%", opacity: 0.05 }} className="es-chalk-nba" />
+      <div style={{ position: "absolute", top: 0, left: 0, width: "56%", height: "56%", opacity: 0.13 }} className="es-chalk-nba" />
       {/* NE — Baseball diamond */}
-      <div style={{ position: "absolute", top: 0, right: 0, width: "56%", height: "56%", opacity: 0.04 }} className="es-chalk-mlb" />
+      <div style={{ position: "absolute", top: 0, right: 0, width: "56%", height: "56%", opacity: 0.10 }} className="es-chalk-mlb" />
       {/* SW — Football field */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, width: "56%", height: "48%", opacity: 0.035 }} className="es-chalk-nfl" />
+      <div style={{ position: "absolute", bottom: 0, left: 0, width: "56%", height: "48%", opacity: 0.09 }} className="es-chalk-nfl" />
       {/* SE — CFB */}
-      <div style={{ position: "absolute", bottom: 0, right: 0, width: "56%", height: "48%", opacity: 0.028 }} className="es-chalk-cfb" />
-      {/* Radial vignette unifying all four */}
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 65% 60% at 50% 50%, transparent 10%, rgba(12,11,9,0.75) 62%, rgba(12,11,9,0.97) 100%)" }} />
+      <div style={{ position: "absolute", bottom: 0, right: 0, width: "56%", height: "48%", opacity: 0.08 }} className="es-chalk-cfb" />
+      {/* Radial vignette unifying all four — softer so chalk shows */}
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 65% 60% at 50% 50%, transparent 10%, rgba(12,11,9,0.62) 58%, rgba(12,11,9,0.90) 100%)" }} />
       {/* Hairline gold cross — barely visible quadrant hint */}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent 49.2%, rgba(196,162,74,0.055) 49.8%, rgba(196,162,74,0.055) 50.2%, transparent 50.8%), linear-gradient(180deg, transparent 49.2%, rgba(196,162,74,0.055) 49.8%, rgba(196,162,74,0.055) 50.2%, transparent 50.8%)" }} />
     </div>
@@ -108,8 +108,8 @@ export default function FlagshipHome() {
 
       {/* ══════════════════════ HERO ══════════════════════ */}
       <section style={{ position: "relative", zIndex: 2, minHeight: 540, borderBottom: `1px solid ${T.border}`, overflow: "hidden" }}>
-        {/* Team color radial — hero atmosphere */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(ellipse 50% 70% at 72% 50%, ${heroColors.primary}18, transparent 65%)` }} />
+        {/* Team color radial — hero atmosphere — bold, not subtle */}
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(ellipse 55% 75% at 75% 50%, ${heroColors.primary}30, transparent 65%), radial-gradient(ellipse 40% 50% at 20% 50%, ${heroColors.primary}12, transparent 60%)` }} />
 
         <div style={{ maxWidth: 1300, margin: "0 auto", padding: "52px 40px 44px", display: "grid", gridTemplateColumns: "1fr 360px", gap: 52, alignItems: "center", position: "relative", zIndex: 2 }}>
 
@@ -173,9 +173,9 @@ export default function FlagshipHome() {
           {/* ── Right: Featured Edge card ── */}
           <div style={{ animation: "fadeUp 0.65s ease 0.1s both" }}>
             <div style={{ background: T.surface1, border: `1px solid ${T.borderMid}`, borderRadius: 3, overflow: "hidden", boxShadow: "0 8px 56px rgba(0,0,0,0.65)" }}>
-              {/* Team-color banner — full bleed, not subtle */}
-              <div style={{ padding: "14px 16px 12px", background: `linear-gradient(140deg, ${heroColors.primary}E8 0%, ${heroColors.primary}60 50%, ${T.surface2} 100%)`, borderBottom: `1px solid ${T.border}`, position: "relative", overflow: "hidden", minHeight: 80 }}>
-                <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 95% 50%, ${oppColors.primary}35, transparent 55%)` }} />
+              {/* Team-color banner — full bleed, commanding */}
+              <div style={{ padding: "14px 16px 12px", background: `linear-gradient(140deg, ${heroColors.primary}F0 0%, ${heroColors.primary}80 45%, ${T.surface2} 100%)`, borderBottom: `1px solid ${T.border}`, position: "relative", overflow: "hidden", minHeight: 80 }}>
+                <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 95% 50%, ${oppColors.primary}48, transparent 55%)` }} />
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.gold}, ${T.gold}44)` }} />
                 <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", gap: 10 }}>
                   <TeamLogoPair away={HERO_SIGNAL.team} home={HERO_SIGNAL.opponent ?? HERO_SIGNAL.team} size={36} useImg />
@@ -286,7 +286,7 @@ export default function FlagshipHome() {
                   <div style={{ position: "absolute", bottom: 10, left: 12, fontFamily: "'Bebas Neue', sans-serif", fontSize: 26, letterSpacing: "3px", color: T.text }}>{sport.label}</div>
                 </div>
 
-                <div style={{ padding: "12px 14px 14px" }}>
+                <div style={{ padding: "12px 14px 14px", background: `linear-gradient(180deg, ${sport.color}0D 0%, transparent 60%)` }}>
                   <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 12, color: T.text, lineHeight: 1.55, marginBottom: 12, opacity: 0.68 }}>{sport.desc}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: sport.color }}>
                     Open Board <ArrowRight size={11} />
