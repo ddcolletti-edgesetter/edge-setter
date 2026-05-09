@@ -13,6 +13,7 @@ import {
   VerdictBadge, TypeChip, ConfidenceBar,
   T as _T, getTeamColors, toTeamAbbr,
 } from "../components/v2/SportVisuals";
+import { getPlayerHeadshot, getInitialsAvatar } from "../lib/espnAssets";
 import {
   ChevronRight, X, Filter, Zap, TrendingUp,
   AlertCircle, Lock, Star, Activity, Users, BarChart2, ArrowUpDown,
@@ -181,7 +182,7 @@ function InjuryPanel({ signals }: { signals: LiveSignal[] }) {
     <div>
       {inj.map(sig => (
         <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-          <TeamLogoImg abbr={sig.team ?? "NBA"} size={18} />
+          <PlayerCircle name={sig.player_name} size={32} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.player_name ?? sig.headline.slice(0, 26)}</div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: statusColor(sig.injury_designation), letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1 }}>{sig.injury_designation ?? "Questionable"}</div>
@@ -295,6 +296,36 @@ function ProGate() {
   );
 }
 
+// ─── Player Circle — headshot or colored initials fallback ───────────────────
+
+function PlayerCircle({ name, size = 36 }: { name?: string | null; size?: number }) {
+  const headshotUrl = getPlayerHeadshot(name, "nba");
+  const { initials, color } = getInitialsAvatar(name);
+  const fontSize = Math.round(size * 0.34);
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0,
+      overflow: "hidden", border: "2px solid rgba(255,255,255,0.08)",
+      background: headshotUrl ? "#111318" : color,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      {headshotUrl ? (
+        <img src={headshotUrl} alt={name ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={e => {
+            const img = e.currentTarget as HTMLImageElement;
+            img.style.display = "none";
+            const p = img.parentElement!;
+            p.style.background = color;
+            p.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${fontSize}px;color:#fff">${initials}</span>`;
+          }}
+        />
+      ) : (
+        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize, color: "#fff" }}>{initials}</span>
+      )}
+    </div>
+  );
+}
+
 // ─── Signal Row — with confidence-based visual hierarchy ─────────────────────
 
 function SignalRow({ sig, idx, isSelected, onClick }: { sig: LiveSignal; idx: number; isSelected: boolean; onClick: () => void }) {
@@ -350,9 +381,12 @@ function SignalRow({ sig, idx, isSelected, onClick }: { sig: LiveSignal; idx: nu
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        {sig.team && <TeamLogoImg abbr={sig.team} size={22} />}
-        <div>
-          {sig.player_name && <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, lineHeight: 1.3 }}>{sig.player_name.split(" ").pop()}</div>}
+        {sig.player_name
+          ? <PlayerCircle name={sig.player_name} size={34} />
+          : <TeamLogoImg abbr={sig.team ?? "NBA"} size={28} sport="nba" />
+        }
+        <div style={{ minWidth: 0 }}>
+          {sig.player_name && <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.player_name.split(" ").pop()}</div>}
           {sig.team && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{sig.team}</div>}
         </div>
       </div>

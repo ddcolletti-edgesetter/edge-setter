@@ -13,6 +13,7 @@ import {
   VerdictBadge, TypeChip, ConfidenceBar,
   T as _T, getTeamColors, toTeamAbbr,
 } from "../components/v2/SportVisuals";
+import { getPlayerHeadshot, getInitialsAvatar } from "../lib/espnAssets";
 import {
   ChevronRight, X, Filter, Zap, TrendingUp,
   AlertCircle, Lock, Star, Activity, Users, BarChart2, ArrowUpDown,
@@ -81,6 +82,36 @@ const MLB_TEAMS = [
   "NYY","BOS","LAD","HOU","ATL","NYM","CHC","SFG",
   "PHI","STL","MIL","SEA","TOR","MIN","CLE","SDP",
 ];
+
+// ─── Player Circle — headshot or colored initials fallback ───────────────────
+
+function PlayerCircle({ name, size = 36 }: { name?: string | null; size?: number }) {
+  const headshotUrl = getPlayerHeadshot(name, "mlb");
+  const { initials, color } = getInitialsAvatar(name);
+  const fontSize = Math.round(size * 0.34);
+  return (
+    <div style={{
+      width: size, height: size, borderRadius: "50%", flexShrink: 0,
+      overflow: "hidden", border: "2px solid rgba(255,255,255,0.08)",
+      background: headshotUrl ? "#111318" : color,
+      display: "flex", alignItems: "center", justifyContent: "center",
+    }}>
+      {headshotUrl ? (
+        <img src={headshotUrl} alt={name ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={e => {
+            const img = e.currentTarget as HTMLImageElement;
+            img.style.display = "none";
+            const p = img.parentElement!;
+            p.style.background = color;
+            p.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${fontSize}px;color:#fff">${initials}</span>`;
+          }}
+        />
+      ) : (
+        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize, color: "#fff" }}>{initials}</span>
+      )}
+    </div>
+  );
+}
 
 // ─── Tonight's Games ──────────────────────────────────────────────────────────
 
@@ -188,7 +219,7 @@ function InjuryPanel({ signals }: { signals: LiveSignal[] }) {
     <div>
       {inj.map(sig => (
         <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-          <TeamLogoImg abbr={sig.team ?? "MLB"} size={18} sport="mlb" />
+          <PlayerCircle name={sig.player_name} size={32} />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.player_name ?? sig.headline.slice(0, 26)}</div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: statusColor(sig.injury_designation), letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1 }}>{sig.injury_designation ?? "Questionable"}</div>
@@ -207,7 +238,7 @@ function PitcherPanel({ signals }: { signals: LiveSignal[] }) {
     <div>
       {ptch.map(sig => (
         <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "flex-start", gap: 8 }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: T.mlbAccent, marginTop: 5, flexShrink: 0 }} />
+          <PlayerCircle name={sig.player_name} size={32} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, color: T.text, lineHeight: 1.35, fontWeight: 500 }}>{sig.headline.slice(0, 52)}{sig.headline.length > 52 ? "…" : ""}</div>
             {(sig.team || sig.pitcher_status) && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, marginTop: 2 }}>{sig.team}{sig.pitcher_status ? ` · ${sig.pitcher_status}` : ""}</div>}
@@ -359,9 +390,12 @@ function SignalRow({ sig, idx, isSelected, onClick }: { sig: LiveSignal; idx: nu
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        {sig.team && <TeamLogoImg abbr={sig.team} size={22} sport="mlb" />}
-        <div>
-          {sig.player_name && <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, lineHeight: 1.3 }}>{sig.player_name.split(" ").pop()}</div>}
+        {sig.player_name
+          ? <PlayerCircle name={sig.player_name} size={34} />
+          : <TeamLogoImg abbr={sig.team ?? "MLB"} size={28} sport="mlb" />
+        }
+        <div style={{ minWidth: 0 }}>
+          {sig.player_name && <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.player_name.split(" ").pop()}</div>}
           {sig.team && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{sig.team}</div>}
         </div>
       </div>
