@@ -116,6 +116,23 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // ─── ESPN CDN Image Proxy ─────────────────────────────────────────────────────
+  app.get("/api/img-proxy", async (req, res) => {
+    const url = req.query.url as string;
+    if (!url || !url.startsWith("https://a.espncdn.com")) {
+      return res.status(400).send("Invalid URL");
+    }
+    try {
+      const response = await fetch(url);
+      const buffer = await response.arrayBuffer();
+      res.setHeader("Content-Type", response.headers.get("content-type") || "image/png");
+      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.send(Buffer.from(buffer));
+    } catch {
+      res.status(502).send("Proxy error");
+    }
+  });
+
   app.get("/api/waitlist/count", (_req, res) => {
     const list = storage.getWaitlist();
     res.json({ count: list.length });

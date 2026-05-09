@@ -5,6 +5,7 @@
  */
 
 import { useLocation } from "wouter";
+import { useState, useEffect } from "react";
 import { useShellTheme } from "../components/V2Shell";
 import {
   PlayerHeadshot, TeamLogoImg, TeamLogoPair, GameCard, FeaturedEdgeCard,
@@ -69,6 +70,14 @@ function ChalkBg() {
 export default function FlagshipHome() {
   const [, navigate] = useLocation();
   const darkMode     = useShellTheme();
+  const [liveSignals, setLiveSignals] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch("/api/v2/signals?limit=15")
+      .then(r => r.json())
+      .then(data => setLiveSignals(Array.isArray(data) ? data : data.signals ?? []))
+      .catch(() => {});
+  }, []);
 
   const heroColors = getTeamColors(HERO_SIGNAL.team);
   const oppColors  = HERO_SIGNAL.opponent ? getTeamColors(HERO_SIGNAL.opponent) : heroColors;
@@ -118,15 +127,26 @@ export default function FlagshipHome() {
           <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "2px", color: T.gold, textTransform: "uppercase" }}>Live Signals</span>
         </div>
         <div style={{ overflow: "hidden", flex: 1 }}>
-          <div style={{ display: "flex", gap: 48, animation: "tickScroll 32s linear infinite", whiteSpace: "nowrap", paddingLeft: 20 }}>
-            {[...TOP_SIGNALS, ...TOP_SIGNALS].map((sig, i) => (
-              <span key={i} style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textMuted, display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.gold, display: "inline-block" }} />
-                <span style={{ fontWeight: 700, color: T.text }}>{sig.player ?? sig.team}</span>
-                {" — "}{sig.headline.slice(0, 55)}{sig.headline.length > 55 ? "…" : ""}
-              </span>
-            ))}
-          </div>
+          {(() => {
+            const tickItems = liveSignals.length > 0 ? liveSignals : TOP_SIGNALS;
+            return (
+              <div style={{ display: "flex", gap: 48, animation: "tickScroll 32s linear infinite", whiteSpace: "nowrap", paddingLeft: 20 }}>
+                {[...tickItems, ...tickItems].map((sig: any, i) => {
+                  const name = sig.player_name ?? sig.player ?? sig.team ?? "";
+                  const headline = sig.headline ?? sig.title ?? "";
+                  const sport = sig.league ?? "NBA";
+                  const sportColor = sport === "MLB" ? "#3A8FE0" : sport === "NFL" ? "#C4301A" : sport === "CFB" ? "#8844CC" : "#E87C2A";
+                  return (
+                    <span key={i} style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textMuted, display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ padding: "1px 5px", borderRadius: 2, background: `${sportColor}22`, color: sportColor, fontWeight: 700, fontSize: 10, letterSpacing: "0.1em" }}>{sport}</span>
+                      <span style={{ fontWeight: 700, color: T.text }}>{name}</span>
+                      {" — "}{headline.slice(0, 55)}{headline.length > 55 ? "…" : ""}
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
         <div style={{ flexShrink: 0, padding: "0 14px", borderLeft: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 5, height: "100%" }}>
           <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite" }} />

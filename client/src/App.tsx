@@ -72,7 +72,7 @@ function App() {
           <Route path="/distribution-drafts" component={() => <AdminGate><DistributionDrafts theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/daily-ops" component={() => <AdminGate><DailyOps theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           {/* ── v2 multi-sport shell ── */}
-          <Route path="/v2" component={V2Home} />
+          <Route path="/v2" component={FlagshipHome} />
           <Route path="/v2/nba" component={NBABoard} />
           <Route path="/v2/mlb" component={MLBBoard} />
           <Route path="/v2/nfl" component={NFLBoard} />

@@ -150,7 +150,7 @@ function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string; onS
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, position: "relative" }}>
                   {[{ abbr: game.away, score: game.awayScore, pitcher: game.awayPitcher }, { abbr: game.home, score: game.homeScore, pitcher: game.homePitcher }].map(tm => (
                     <div key={tm.abbr} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                      <TeamLogoImg abbr={tm.abbr} size={18} />
+                      <TeamLogoImg abbr={tm.abbr} size={18} sport="mlb" />
                       <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: T.text, flex: 1 }}>{tm.abbr}</span>
                       {tm.pitcher && !isLive && !isFinal && <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, color: T.textFaint, maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tm.pitcher}</span>}
                       {(isLive || isFinal) && tm.score !== null && <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, color: T.text, minWidth: 24, textAlign: "right" }}>{tm.score}</span>}
@@ -188,7 +188,7 @@ function InjuryPanel({ signals }: { signals: LiveSignal[] }) {
     <div>
       {inj.map(sig => (
         <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-          <TeamLogoImg abbr={sig.team ?? "MLB"} size={18} />
+          <TeamLogoImg abbr={sig.team ?? "MLB"} size={18} sport="mlb" />
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.player_name ?? sig.headline.slice(0, 26)}</div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: statusColor(sig.injury_designation), letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1 }}>{sig.injury_designation ?? "Questionable"}</div>
@@ -229,7 +229,7 @@ function TrendsPanel({ signals }: { signals: LiveSignal[] }) {
           <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}` }}>
             <div style={{ fontSize: 12, color: T.text, lineHeight: 1.35, fontWeight: 500, marginBottom: 5 }}>{sig.headline.slice(0, 55)}{sig.headline.length > 55 ? "…" : ""}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {sig.team && <TeamLogoImg abbr={sig.team} size={13} />}
+              {sig.team && <TeamLogoImg abbr={sig.team} size={13} sport="mlb" />}
               <ConfidenceBar value={conf} width={55} height={3} />
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: conf >= 80 ? T.gold : T.textFaint }}>{conf}%</span>
             </div>
@@ -359,7 +359,7 @@ function SignalRow({ sig, idx, isSelected, onClick }: { sig: LiveSignal; idx: nu
         </div>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        {sig.team && <TeamLogoImg abbr={sig.team} size={22} />}
+        {sig.team && <TeamLogoImg abbr={sig.team} size={22} sport="mlb" />}
         <div>
           {sig.player_name && <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, lineHeight: 1.3 }}>{sig.player_name.split(" ").pop()}</div>}
           {sig.team && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{sig.team}</div>}
@@ -395,7 +395,7 @@ function DetailPanel({ sig, onClose }: { sig: LiveSignal; onClose: () => void })
         {/* Baseball diamond chalk bg texture in banner */}
         <div style={{ position: "absolute", inset: 0, opacity: 0.06 }} className="es-chalk-mlb" />
         <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", gap: 9 }}>
-          <TeamLogoImg abbr={team} size={40} />
+          <TeamLogoImg abbr={team} size={40} sport="mlb" />
           <div>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2px", color: T.text, lineHeight: 1.2 }}>{sig.player_name ? sig.player_name : team}</div>
             <VerdictBadge verdict={verdict as any} />
@@ -531,7 +531,7 @@ export default function MLBBoard() {
             const hasSignals = signals.some(s => s.team === tm);
             return (
               <div key={tm} className="team-pill" onClick={() => setTeamFilter(isActive ? "" : tm)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 7px", borderRadius: 2, marginBottom: 1, cursor: "pointer", background: isActive ? T.goldGlow : "transparent", border: `1px solid ${isActive ? T.borderStrong : "transparent"}`, transition: "all 0.1s" }}>
-                <TeamLogoImg abbr={tm} size={18} />
+                <TeamLogoImg abbr={tm} size={18} sport="mlb" />
                 <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: isActive ? T.gold : T.textMuted, flex: 1 }}>{tm}</span>
                 {hasSignals && <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block" }} />}
               </div>

@@ -112,37 +112,94 @@ export function getPlayerHeadshotUrl(name: string): string {
   return PLAYER_HEADSHOTS[name] ?? "";
 }
 
-export const TEAM_LOGO_URLS: Record<string, string> = {
-  LAL: "https://a.espncdn.com/i/teamlogos/nba/500/lal.png",
-  GSW: "https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
-  BOS: "https://a.espncdn.com/i/teamlogos/nba/500/bos.png",
-  MIA: "https://a.espncdn.com/i/teamlogos/nba/500/mia.png",
-  DEN: "https://a.espncdn.com/i/teamlogos/nba/500/den.png",
-  MIN: "https://a.espncdn.com/i/teamlogos/nba/500/min.png",
-  OKC: "https://a.espncdn.com/i/teamlogos/nba/500/okc.png",
-  DAL: "https://a.espncdn.com/i/teamlogos/nba/500/dal.png",
-  NYK: "https://a.espncdn.com/i/teamlogos/nba/500/ny.png",
-  PHI: "https://a.espncdn.com/i/teamlogos/nba/500/phi.png",
-  MIL: "https://a.espncdn.com/i/teamlogos/nba/500/mil.png",
-  IND: "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
-  MEM: "https://a.espncdn.com/i/teamlogos/nba/500/mem.png",
-  SAS: "https://a.espncdn.com/i/teamlogos/nba/500/sa.png",
-  CLE: "https://a.espncdn.com/i/teamlogos/nba/500/cle.png",
-  PHX: "https://a.espncdn.com/i/teamlogos/nba/500/phx.png",
+const NBA_LOGO_URLS: Record<string, string> = {
   ATL: "https://a.espncdn.com/i/teamlogos/nba/500/atl.png",
+  BOS: "https://a.espncdn.com/i/teamlogos/nba/500/bos.png",
+  BKN: "https://a.espncdn.com/i/teamlogos/nba/500/bkn.png",
+  BRK: "https://a.espncdn.com/i/teamlogos/nba/500/bkn.png",
+  CHA: "https://a.espncdn.com/i/teamlogos/nba/500/cha.png",
   CHI: "https://a.espncdn.com/i/teamlogos/nba/500/chi.png",
+  CLE: "https://a.espncdn.com/i/teamlogos/nba/500/cle.png",
+  DAL: "https://a.espncdn.com/i/teamlogos/nba/500/dal.png",
+  DEN: "https://a.espncdn.com/i/teamlogos/nba/500/den.png",
+  DET: "https://a.espncdn.com/i/teamlogos/nba/500/det.png",
+  GS:  "https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
+  GSW: "https://a.espncdn.com/i/teamlogos/nba/500/gs.png",
+  HOU: "https://a.espncdn.com/i/teamlogos/nba/500/hou.png",
+  IND: "https://a.espncdn.com/i/teamlogos/nba/500/ind.png",
+  LAC: "https://a.espncdn.com/i/teamlogos/nba/500/lac.png",
+  LAL: "https://a.espncdn.com/i/teamlogos/nba/500/lal.png",
+  MEM: "https://a.espncdn.com/i/teamlogos/nba/500/mem.png",
+  MIA: "https://a.espncdn.com/i/teamlogos/nba/500/mia.png",
+  MIL: "https://a.espncdn.com/i/teamlogos/nba/500/mil.png",
+  MIN: "https://a.espncdn.com/i/teamlogos/nba/500/min.png",
+  NO:  "https://a.espncdn.com/i/teamlogos/nba/500/no.png",
+  NOP: "https://a.espncdn.com/i/teamlogos/nba/500/no.png",
+  NY:  "https://a.espncdn.com/i/teamlogos/nba/500/ny.png",
+  NYK: "https://a.espncdn.com/i/teamlogos/nba/500/ny.png",
+  OKC: "https://a.espncdn.com/i/teamlogos/nba/500/okc.png",
+  ORL: "https://a.espncdn.com/i/teamlogos/nba/500/orl.png",
+  PHI: "https://a.espncdn.com/i/teamlogos/nba/500/phi.png",
+  PHX: "https://a.espncdn.com/i/teamlogos/nba/500/phx.png",
+  PHO: "https://a.espncdn.com/i/teamlogos/nba/500/phx.png",
+  POR: "https://a.espncdn.com/i/teamlogos/nba/500/por.png",
   SAC: "https://a.espncdn.com/i/teamlogos/nba/500/sac.png",
-  NYY: "https://a.espncdn.com/i/teamlogos/mlb/500/nyy.png",
-  LAD: "https://a.espncdn.com/i/teamlogos/mlb/500/lad.png",
-  ATL: "https://a.espncdn.com/i/teamlogos/mlb/500/atl.png",
-  BAL: "https://a.espncdn.com/i/teamlogos/mlb/500/bal.png",
-  CHC: "https://a.espncdn.com/i/teamlogos/mlb/500/chc.png",
-  HOU: "https://a.espncdn.com/i/teamlogos/mlb/500/hou.png",
-  NYM: "https://a.espncdn.com/i/teamlogos/mlb/500/nym.png",
+  SA:  "https://a.espncdn.com/i/teamlogos/nba/500/sa.png",
+  SAS: "https://a.espncdn.com/i/teamlogos/nba/500/sa.png",
+  TOR: "https://a.espncdn.com/i/teamlogos/nba/500/tor.png",
+  UTA: "https://a.espncdn.com/i/teamlogos/nba/500/utah.png",
+  WAS: "https://a.espncdn.com/i/teamlogos/nba/500/wsh.png",
+  WSH: "https://a.espncdn.com/i/teamlogos/nba/500/wsh.png",
 };
 
-export function getTeamLogoUrl(abbr: string): string {
-  return TEAM_LOGO_URLS[abbr?.toUpperCase()] ?? "";
+const MLB_LOGO_URLS: Record<string, string> = {
+  ARI: "https://a.espncdn.com/i/teamlogos/mlb/500/ari.png",
+  ATH: "https://a.espncdn.com/i/teamlogos/mlb/500/ath.png",
+  ATL: "https://a.espncdn.com/i/teamlogos/mlb/500/atl.png",
+  BAL: "https://a.espncdn.com/i/teamlogos/mlb/500/bal.png",
+  BOS: "https://a.espncdn.com/i/teamlogos/mlb/500/bos.png",
+  CHC: "https://a.espncdn.com/i/teamlogos/mlb/500/chc.png",
+  CHW: "https://a.espncdn.com/i/teamlogos/mlb/500/chw.png",
+  CWS: "https://a.espncdn.com/i/teamlogos/mlb/500/chw.png",
+  CIN: "https://a.espncdn.com/i/teamlogos/mlb/500/cin.png",
+  CLE: "https://a.espncdn.com/i/teamlogos/mlb/500/cle.png",
+  COL: "https://a.espncdn.com/i/teamlogos/mlb/500/col.png",
+  DET: "https://a.espncdn.com/i/teamlogos/mlb/500/det.png",
+  HOU: "https://a.espncdn.com/i/teamlogos/mlb/500/hou.png",
+  KC:  "https://a.espncdn.com/i/teamlogos/mlb/500/kc.png",
+  KCR: "https://a.espncdn.com/i/teamlogos/mlb/500/kc.png",
+  LAA: "https://a.espncdn.com/i/teamlogos/mlb/500/laa.png",
+  LAD: "https://a.espncdn.com/i/teamlogos/mlb/500/lad.png",
+  MIA: "https://a.espncdn.com/i/teamlogos/mlb/500/mia.png",
+  MIL: "https://a.espncdn.com/i/teamlogos/mlb/500/mil.png",
+  MIN: "https://a.espncdn.com/i/teamlogos/mlb/500/min.png",
+  NYM: "https://a.espncdn.com/i/teamlogos/mlb/500/nym.png",
+  NYY: "https://a.espncdn.com/i/teamlogos/mlb/500/nyy.png",
+  OAK: "https://a.espncdn.com/i/teamlogos/mlb/500/ath.png",
+  PHI: "https://a.espncdn.com/i/teamlogos/mlb/500/phi.png",
+  PIT: "https://a.espncdn.com/i/teamlogos/mlb/500/pit.png",
+  SD:  "https://a.espncdn.com/i/teamlogos/mlb/500/sd.png",
+  SDP: "https://a.espncdn.com/i/teamlogos/mlb/500/sd.png",
+  SF:  "https://a.espncdn.com/i/teamlogos/mlb/500/sf.png",
+  SFG: "https://a.espncdn.com/i/teamlogos/mlb/500/sf.png",
+  SEA: "https://a.espncdn.com/i/teamlogos/mlb/500/sea.png",
+  STL: "https://a.espncdn.com/i/teamlogos/mlb/500/stl.png",
+  TB:  "https://a.espncdn.com/i/teamlogos/mlb/500/tb.png",
+  TBR: "https://a.espncdn.com/i/teamlogos/mlb/500/tb.png",
+  TEX: "https://a.espncdn.com/i/teamlogos/mlb/500/tex.png",
+  TOR: "https://a.espncdn.com/i/teamlogos/mlb/500/tor.png",
+  WAS: "https://a.espncdn.com/i/teamlogos/mlb/500/wsh.png",
+  WSH: "https://a.espncdn.com/i/teamlogos/mlb/500/wsh.png",
+  WSN: "https://a.espncdn.com/i/teamlogos/mlb/500/wsh.png",
+};
+
+export const TEAM_LOGO_URLS: Record<string, string> = { ...NBA_LOGO_URLS, ...MLB_LOGO_URLS };
+
+export function getTeamLogoUrl(abbr: string, sport?: "nba" | "mlb"): string {
+  const upper = abbr?.toUpperCase();
+  if (sport === "mlb") return MLB_LOGO_URLS[upper] ?? "";
+  if (sport === "nba") return NBA_LOGO_URLS[upper] ?? "";
+  return TEAM_LOGO_URLS[upper] ?? "";
 }
 
 interface TeamLogoProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; }
@@ -156,9 +213,9 @@ export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
   );
 }
 
-interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; }
-export function TeamLogoImg({ abbr, size = 32, shape = "circle", src }: TeamLogoImgProps) {
-  const logoUrl = src ?? getTeamLogoUrl(abbr);
+interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: "nba" | "mlb"; }
+export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: TeamLogoImgProps) {
+  const logoUrl = src ?? getTeamLogoUrl(abbr, sport);
   const colors = getTeamColors(abbr);
   if (!logoUrl) return <TeamLogo abbr={abbr} size={size} shape={shape} />;
   const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "4px";
@@ -401,7 +458,7 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
           <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
             {signal.player
               ? <PlayerHeadshot name={signal.player} team={signal.team} size={64} shape="circle" />
-              : <TeamLogoImg abbr={signal.team} size={64} shape="circle" />
+              : <TeamLogoImg abbr={signal.team} size={64} shape="circle" sport={sport === "MLB" ? "mlb" : "nba"} />
             }
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "3px", color: teamColors.secondary, textShadow: "0 1px 4px rgba(0,0,0,0.7)", lineHeight: 1 }}>
               {signal.team}
