@@ -11,7 +11,7 @@ import {
   PlayerHeadshot, TeamLogoImg,
   FeaturedEdgeCard,
   VerdictBadge, TypeChip, ConfidenceBar,
-  T as _T, getTeamColors,
+  T as _T, getTeamColors, toTeamAbbr,
 } from "../components/v2/SportVisuals";
 import {
   ChevronRight, X, Filter, Zap, TrendingUp,
@@ -489,7 +489,7 @@ export default function MLBBoard() {
   const highConfCount  = signals.filter(s => (s.confidence_score ?? 0) >= 80).length;
 
   return (
-    <V2Shell boardsMode>
+    <V2Shell sport="MLB">
       <style>{`
         @keyframes esPulse   { 0%,100%{opacity:1} 50%{opacity:0.22} }
         @keyframes esShimmer { 0%{background-position:0%} 50%{background-position:100%} 100%{background-position:0%} }
@@ -596,10 +596,10 @@ export default function MLBBoard() {
                         sources:         featured.source_count ?? featured.sources?.length ?? 1,
                         type:            featured.signal_type ?? "news",
                         player:          featured.player_name,
-                        team:            featured.team ?? "MLB",
+                        team:            toTeamAbbr(featured.team) || "MLB",
                         opponent:        undefined,
                         timestamp:       new Date(featured.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                        tags:            [featured.team ?? "MLB", featured.signal_type ?? "intel"].filter(Boolean),
+                        tags:            [toTeamAbbr(featured.team) || "MLB", featured.signal_type ?? "intel"].filter(Boolean),
                       }}
                     />
                   </div>

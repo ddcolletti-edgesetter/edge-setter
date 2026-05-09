@@ -11,7 +11,7 @@ import {
   PlayerHeadshot, TeamLogoImg,
   FeaturedEdgeCard,
   VerdictBadge, TypeChip, ConfidenceBar,
-  T as _T, getTeamColors,
+  T as _T, getTeamColors, toTeamAbbr,
 } from "../components/v2/SportVisuals";
 import {
   ChevronRight, X, Filter, Zap, TrendingUp,
@@ -586,10 +586,10 @@ export default function NBABoard() {
                         sources:         featured.source_count ?? featured.sources?.length ?? 1,
                         type:            featured.signal_type ?? "news",
                         player:          featured.player_name,
-                        team:            featured.team ?? "NBA",
+                        team:            toTeamAbbr(featured.team) || "NBA",
                         opponent:        undefined,
                         timestamp:       new Date(featured.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                        tags:            [featured.team ?? "NBA", featured.signal_type ?? "intel"].filter(Boolean),
+                        tags:            [toTeamAbbr(featured.team) || "NBA", featured.signal_type ?? "intel"].filter(Boolean),
                       }}
                     />
                   </div>

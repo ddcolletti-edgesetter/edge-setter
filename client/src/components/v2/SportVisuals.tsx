@@ -55,6 +55,37 @@ export function getTeamColors(abbr: string) {
   return TEAM_COLORS[abbr?.toUpperCase()] ?? TEAM_COLORS.DEFAULT;
 }
 
+const TEAM_NAME_TO_ABBR: Record<string, string> = {
+  // NBA
+  "atlanta hawks": "ATL", "boston celtics": "BOS", "brooklyn nets": "BKN",
+  "charlotte hornets": "CHA", "chicago bulls": "CHI", "cleveland cavaliers": "CLE",
+  "dallas mavericks": "DAL", "denver nuggets": "DEN", "detroit pistons": "DET",
+  "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
+  "los angeles clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
+  "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN",
+  "new orleans pelicans": "NOP", "new york knicks": "NYK", "oklahoma city thunder": "OKC",
+  "orlando magic": "ORL", "philadelphia 76ers": "PHI", "phoenix suns": "PHX",
+  "portland trail blazers": "POR", "sacramento kings": "SAC", "san antonio spurs": "SAS",
+  "toronto raptors": "TOR", "utah jazz": "UTA", "washington wizards": "WAS",
+  // MLB
+  "arizona diamondbacks": "ARI", "atlanta braves": "ATL", "baltimore orioles": "BAL",
+  "boston red sox": "BOS", "chicago white sox": "CWS", "chicago cubs": "CHC",
+  "cincinnati reds": "CIN", "cleveland guardians": "CLE", "colorado rockies": "COL",
+  "detroit tigers": "DET", "houston astros": "HOU", "kansas city royals": "KCR",
+  "los angeles angels": "LAA", "los angeles dodgers": "LAD", "miami marlins": "MIA",
+  "milwaukee brewers": "MIL", "minnesota twins": "MIN", "new york mets": "NYM",
+  "new york yankees": "NYY", "oakland athletics": "OAK", "philadelphia phillies": "PHI",
+  "pittsburgh pirates": "PIT", "san diego padres": "SDP", "san francisco giants": "SFG",
+  "seattle mariners": "SEA", "st. louis cardinals": "STL", "tampa bay rays": "TBR",
+  "texas rangers": "TEX", "toronto blue jays": "TOR", "washington nationals": "WSN",
+};
+
+export function toTeamAbbr(name?: string): string {
+  if (!name) return "";
+  if (name.length <= 4) return name.toUpperCase();
+  return TEAM_NAME_TO_ABBR[name.toLowerCase()] ?? name.slice(0, 3).toUpperCase();
+}
+
 export const PLAYER_HEADSHOTS: Record<string, string> = {
   "Anthony Davis":         "https://a.espncdn.com/i/headshots/nba/players/full/6583.png",
   "Jaylen Brown":          "https://a.espncdn.com/i/headshots/nba/players/full/6474.png",
