@@ -364,10 +364,11 @@ export function V2Shell({ children, sport }: V2ShellProps) {
           {/* Breadcrumb — Bebas Neue page name */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: txtF }}>Edge Setter</span>
-            {activeTop && activeTop.href !== "/v2" && (
+            {activeTop {activeTop && activeTop.href !== "/v2" && ({activeTop && activeTop.href !== "/v2" && ( activeTop.href !== "/v2" && (
+              // Show sport-specific board name when on a board page
               <>
                 <span style={{ color: txtF, fontSize: 12, opacity: 0.5 }}>›</span>
-                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "2px", color: sportTheme ? sportTheme.primary : T.gold }}>{activeTop.label}</span>
+                <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "2px", color: sportTheme ? sportTheme.primary : T.gold }}>{currentSport ? `${currentSport} Board` : activeTop.label}</span>
               </>
             )}
           </div>
