@@ -74,11 +74,34 @@ export default function FlagshipHome() {
         @keyframes navPulse  { 0%,100%{opacity:1} 50%{opacity:0.28} }
         @keyframes tickScroll{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
         @keyframes fadeUp    { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes esShimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
         .board-card:hover  { border-color: rgba(196,162,74,0.35) !important; transform: translateY(-2px); transition: all 0.15s; }
         .sport-card:hover  { transform: translateY(-3px); filter: brightness(1.06); transition: all 0.15s; }
         .sig-tick:hover    { background: rgba(196,162,74,0.08) !important; border-color: rgba(196,162,74,0.3) !important; }
         .cta-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
         .cta-btn:hover     { filter: brightness(1.1); transform: translateY(-1px); }
+        .es-chalk-nba {
+          background-image:
+            repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(196,162,74,0.18) 39px, rgba(196,162,74,0.18) 40px),
+            repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(196,162,74,0.10) 39px, rgba(196,162,74,0.10) 40px);
+          background-size: 40px 40px;
+        }
+        .es-chalk-mlb {
+          background-image:
+            repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(58,143,224,0.14) 28px, rgba(58,143,224,0.14) 29px),
+            repeating-linear-gradient(-45deg, transparent, transparent 28px, rgba(58,143,224,0.10) 28px, rgba(58,143,224,0.10) 29px);
+          background-size: 40px 40px;
+        }
+        .es-chalk-nfl {
+          background-image:
+            repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(196,48,26,0.14) 19px, rgba(196,48,26,0.14) 20px);
+          background-size: 100% 20px;
+        }
+        .es-chalk-cfb {
+          background-image:
+            repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(136,68,204,0.12) 19px, rgba(136,68,204,0.12) 20px);
+          background-size: 100% 20px;
+        }
       `}</style>
 
       <ChalkBg />

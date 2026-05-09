@@ -232,16 +232,13 @@ export function V2Shell({ children, sport }: V2ShellProps) {
           position: "relative", overflow: "hidden",
         }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.gold}, ${T.goldDim})` }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 2 }}>
-            <V2Logo />
-            <div>
-              <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, letterSpacing: "3px", color: T.gold, lineHeight: 1, marginBottom: 2 }}>
-                Edge Setter
-              </div>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: txtF, lineHeight: 1 }}>
-                · Intelligence Verified
-              </div>
+          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1, userSelect: "none" }}>
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: T.gold, letterSpacing: "0.05em" }}>EDGE</span>
+              <span style={{ width: 1, height: 13, background: T.gold, opacity: 0.4, display: "inline-block", margin: "0 3px", alignSelf: "center" }} />
+              <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: "#F5F0E8", letterSpacing: "0.05em" }}>SETTER</span>
             </div>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 8, color: "#555", letterSpacing: "0.2em", textTransform: "uppercase", marginTop: 2 }}>INTELLIGENCE TERMINAL</span>
           </div>
           {sportTheme && (
             <div style={{ height: 1, background: `linear-gradient(90deg, ${sportTheme.primary}80, transparent)`, marginTop: 10 }} />
@@ -399,21 +396,6 @@ export function V2Shell({ children, sport }: V2ShellProps) {
         </main>
       </div>
     </div>
-  );
-}
-
-function V2Logo() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-      <rect width="32" height="32" rx="3" fill="#1A1714" />
-      <polygon points="16,3 27,9.5 27,22.5 16,29 5,22.5 5,9.5" stroke="#C4A24A" strokeWidth="1.5" fill="none" opacity="0.8" />
-      <polygon points="16,8 22,16 16,24 10,16" stroke="#C4A24A" strokeWidth="1" fill="none" opacity="0.4" />
-      <line x1="16" y1="9" x2="16" y2="23" stroke="#C4A24A" strokeWidth="1.5" opacity="0.6" />
-      <line x1="9" y1="16" x2="23" y2="16" stroke="#C4A24A" strokeWidth="1" opacity="0.35" />
-      <circle cx="16" cy="16" r="2.5" fill="#E0BB6A" />
-      <circle cx="16" cy="5" r="1.2" fill="#C4A24A" opacity="0.6" />
-      <circle cx="16" cy="27" r="1.2" fill="#C4A24A" opacity="0.6" />
-    </svg>
   );
 }
 
