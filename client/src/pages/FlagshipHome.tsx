@@ -41,22 +41,27 @@ const MLB_GAMES = [
   { id: "m3", away: "CHC", home: "NYM", time: "7:10 PM ET",  spread: "NYM -112", total: "8"   },
 ];
 
-/* ── Four-quadrant chalk background ── */
+/* ── Four-quadrant chalk background — inline styles, no CSS class dependency ── */
+const CHALK_NBA = "repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(232,124,42,0.28) 39px,rgba(232,124,42,0.28) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(232,124,42,0.18) 39px,rgba(232,124,42,0.18) 40px)";
+const CHALK_MLB = "repeating-linear-gradient(45deg,transparent,transparent 28px,rgba(58,143,224,0.26) 28px,rgba(58,143,224,0.26) 29px),repeating-linear-gradient(-45deg,transparent,transparent 28px,rgba(58,143,224,0.18) 28px,rgba(58,143,224,0.18) 29px)";
+const CHALK_NFL = "repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(196,48,26,0.28) 19px,rgba(196,48,26,0.28) 20px)";
+const CHALK_CFB = "repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(136,68,204,0.24) 19px,rgba(136,68,204,0.24) 20px)";
+
 function ChalkBg() {
   return (
     <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", overflow: "hidden" }}>
-      {/* NW — Basketball court */}
-      <div style={{ position: "absolute", top: 0, left: 0, width: "56%", height: "56%", opacity: 0.13 }} className="es-chalk-nba" />
+      {/* NW — Basketball court grid */}
+      <div style={{ position: "absolute", top: 0, left: 0, width: "56%", height: "56%", backgroundImage: CHALK_NBA, backgroundSize: "40px 40px" }} />
       {/* NE — Baseball diamond */}
-      <div style={{ position: "absolute", top: 0, right: 0, width: "56%", height: "56%", opacity: 0.10 }} className="es-chalk-mlb" />
-      {/* SW — Football field */}
-      <div style={{ position: "absolute", bottom: 0, left: 0, width: "56%", height: "48%", opacity: 0.09 }} className="es-chalk-nfl" />
-      {/* SE — CFB */}
-      <div style={{ position: "absolute", bottom: 0, right: 0, width: "56%", height: "48%", opacity: 0.08 }} className="es-chalk-cfb" />
-      {/* Radial vignette unifying all four — softer so chalk shows */}
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 65% 60% at 50% 50%, transparent 10%, rgba(12,11,9,0.62) 58%, rgba(12,11,9,0.90) 100%)" }} />
-      {/* Hairline gold cross — barely visible quadrant hint */}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent 49.2%, rgba(196,162,74,0.055) 49.8%, rgba(196,162,74,0.055) 50.2%, transparent 50.8%), linear-gradient(180deg, transparent 49.2%, rgba(196,162,74,0.055) 49.8%, rgba(196,162,74,0.055) 50.2%, transparent 50.8%)" }} />
+      <div style={{ position: "absolute", top: 0, right: 0, width: "56%", height: "56%", backgroundImage: CHALK_MLB, backgroundSize: "40px 40px" }} />
+      {/* SW — Football yard lines */}
+      <div style={{ position: "absolute", bottom: 0, left: 0, width: "56%", height: "48%", backgroundImage: CHALK_NFL, backgroundSize: "100% 20px" }} />
+      {/* SE — CFB hash marks */}
+      <div style={{ position: "absolute", bottom: 0, right: 0, width: "56%", height: "48%", backgroundImage: CHALK_CFB, backgroundSize: "100% 20px" }} />
+      {/* Radial vignette — pulls all four to dark center */}
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 65% 60% at 50% 50%, transparent 10%, rgba(12,11,9,0.70) 55%, rgba(12,11,9,0.94) 100%)" }} />
+      {/* Hairline gold cross — subtle quadrant divider */}
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,transparent 49.2%,rgba(196,162,74,0.08) 49.8%,rgba(196,162,74,0.08) 50.2%,transparent 50.8%),linear-gradient(180deg,transparent 49.2%,rgba(196,162,74,0.08) 49.8%,rgba(196,162,74,0.08) 50.2%,transparent 50.8%)" }} />
     </div>
   );
 }
@@ -298,8 +303,8 @@ export default function FlagshipHome() {
               >
                 {/* Sport color header with chalk bg */}
                 <div style={{ height: 90, position: "relative", overflow: "hidden", background: `linear-gradient(160deg, ${sport.color}CC 0%, ${sport.color}44 50%, ${T.surface2} 100%)` }}>
-                  {/* Chalk bg overlay */}
-                  <div style={{ position: "absolute", inset: 0, opacity: 0.08 }} className={`es-chalk-${sport.label.toLowerCase()}`} />
+                  {/* Chalk bg overlay — inline to avoid CSS class dependency */}
+                  <div style={{ position: "absolute", inset: 0, backgroundImage: sport.label === "NBA" ? CHALK_NBA : sport.label === "MLB" ? CHALK_MLB : sport.label === "NFL" ? CHALK_NFL : CHALK_CFB, backgroundSize: (sport.label === "NBA" || sport.label === "MLB") ? "40px 40px" : "100% 20px", opacity: 0.18 }} />
                   {/* Sport watermark */}
                   <div style={{ position: "absolute", right: 8, bottom: -8, fontFamily: "'Bebas Neue', sans-serif", fontSize: 80, letterSpacing: "-2px", color: T.text, opacity: 0.08, lineHeight: 1 }}>{sport.label}</div>
                   {/* Status badge */}

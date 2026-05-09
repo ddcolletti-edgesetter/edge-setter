@@ -157,6 +157,78 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json(result);
   });
 
+  // ─── Sport Scoreboards (ESPN free API) ───────────────────────────────────────
+  app.get("/api/nba/scoreboard", async (_req, res) => {
+    try {
+      const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard");
+      if (!r.ok) return res.json({ games: [] });
+      const data: any = await r.json();
+      const games = (data.events ?? []).map((ev: any) => {
+        const comp = ev.competitions?.[0];
+        if (!comp) return null;
+        const home = comp.competitors?.find((c: any) => c.homeAway === "home");
+        const away = comp.competitors?.find((c: any) => c.homeAway === "away");
+        const stName: string = comp.status?.type?.name ?? "";
+        const status = stName.includes("FINAL") ? "FINAL" : stName.includes("IN_PROGRESS") ? "LIVE" : "PRE";
+        const odds = comp.odds?.[0];
+        return {
+          id: ev.id,
+          away: away?.team?.abbreviation ?? "---",
+          home: home?.team?.abbreviation ?? "---",
+          time: new Date(ev.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) + " ET",
+          status,
+          awayScore: status !== "PRE" ? parseInt(away?.score ?? "0") : null,
+          homeScore: status !== "PRE" ? parseInt(home?.score ?? "0") : null,
+          period: status === "LIVE" ? `Q${comp.status?.period ?? ""}` : null,
+          spread: odds?.details ?? "--",
+          total: odds?.overUnder != null ? String(odds.overUnder) : "--",
+          series: comp.series?.title ?? null,
+        };
+      }).filter(Boolean);
+      return res.json({ games });
+    } catch (err: any) {
+      console.error("[nba-scoreboard]", err.message);
+      return res.json({ games: [] });
+    }
+  });
+
+  app.get("/api/mlb/scoreboard", async (_req, res) => {
+    try {
+      const r = await fetch("https://site.api.espn.com/apis/site/v2/sports/baseball/mlb/scoreboard");
+      if (!r.ok) return res.json({ games: [] });
+      const data: any = await r.json();
+      const games = (data.events ?? []).map((ev: any) => {
+        const comp = ev.competitions?.[0];
+        if (!comp) return null;
+        const home = comp.competitors?.find((c: any) => c.homeAway === "home");
+        const away = comp.competitors?.find((c: any) => c.homeAway === "away");
+        const stName: string = comp.status?.type?.name ?? "";
+        const status = stName.includes("FINAL") ? "FINAL" : stName.includes("IN_PROGRESS") ? "LIVE" : "PRE";
+        const odds = comp.odds?.[0];
+        const awayPitcher = away?.probables?.[0]?.athlete?.displayName ?? null;
+        const homePitcher = home?.probables?.[0]?.athlete?.displayName ?? null;
+        return {
+          id: ev.id,
+          away: away?.team?.abbreviation ?? "---",
+          home: home?.team?.abbreviation ?? "---",
+          time: new Date(ev.date).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }) + " ET",
+          status,
+          awayScore: status !== "PRE" ? parseInt(away?.score ?? "0") : null,
+          homeScore: status !== "PRE" ? parseInt(home?.score ?? "0") : null,
+          inning: status === "LIVE" ? (comp.status?.displayClock ?? null) : null,
+          spread: odds?.details ?? "--",
+          total: odds?.overUnder != null ? String(odds.overUnder) : "--",
+          awayPitcher,
+          homePitcher,
+        };
+      }).filter(Boolean);
+      return res.json({ games });
+    } catch (err: any) {
+      console.error("[mlb-scoreboard]", err.message);
+      return res.json({ games: [] });
+    }
+  });
+
   // ─── Admin DB Debug ───────────────────────────────────────────────────────────
   app.get("/api/admin/debug-db", (_req, res) => {
     const pdb = getPipelineDb();
