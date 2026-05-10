@@ -161,10 +161,12 @@ export default function FlagshipHome() {
             );
           })()}
         </div>
-        <div style={{ flexShrink: 0, padding: "0 14px", borderLeft: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 5, height: "100%" }}>
-          <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite" }} />
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: T.green, textTransform: "uppercase" }}>Agents Running — NBA &amp; MLB</span>
-        </div>
+        {!isMobile && (
+          <div style={{ flexShrink: 0, padding: "0 14px", borderLeft: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 5, height: "100%" }}>
+            <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite" }} />
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: T.green, textTransform: "uppercase" }}>Agents Running — NBA &amp; MLB</span>
+          </div>
+        )}
       </div>
 
       {/* ══════════════════════ HERO ══════════════════════ */}
@@ -315,13 +317,13 @@ export default function FlagshipHome() {
 
       {/* ══════════════════════ SPORT BOARDS GRID ══════════════════════ */}
       <section style={{ position: "relative", zIndex: 2, borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: "40px 40px" }}>
+        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "24px 20px" : "40px 40px" }}>
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.24em", textTransform: "uppercase", color: T.textFaint, marginBottom: 6 }}>Intelligence Boards</div>
             <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(24px, 3vw, 38px)", fontWeight: 400, letterSpacing: "2px", color: T.text, margin: 0 }}>EVERY SPORT. EVERY EDGE.</h2>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)", gap: 12 }}>
             {SPORT_CONFIG.map(sport => (
               <div
                 key={sport.label}
@@ -386,7 +388,7 @@ export default function FlagshipHome() {
 
       {/* ══════════════════════ PRO BAND ══════════════════════ */}
       <section style={{ background: `linear-gradient(135deg, rgba(196,162,74,0.07), rgba(196,162,74,0.02))`, borderBottom: `1px solid rgba(196,162,74,0.2)`, position: "relative", zIndex: 2 }}>
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: "48px 40px", display: "grid", gridTemplateColumns: "1fr auto", gap: 40, alignItems: "center" }}>
+        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "32px 20px" : "48px 40px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: isMobile ? 24 : 40, alignItems: "center" }}>
           <div>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "3px", color: T.gold, marginBottom: 10 }}>PRO INTELLIGENCE</div>
             <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(24px, 3vw, 42px)", fontWeight: 400, letterSpacing: "2px", color: T.text, margin: "0 0 12px" }}>
