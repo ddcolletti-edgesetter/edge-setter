@@ -174,8 +174,8 @@ function GameCard({ game, active, onClick, signalCount }: {
   const home = getTeamAbbr(homeFull);
   const [awayBg] = getTeamColors(away);
   const [homeBg] = getTeamColors(home);
-  const awayLogoUrl = `/api/img-proxy?url=${encodeURIComponent(`https://a.espncdn.com/i/teamlogos/nba/500/${away.toLowerCase()}.png`)}`;
-  const homeLogoUrl = `/api/img-proxy?url=${encodeURIComponent(`https://a.espncdn.com/i/teamlogos/nba/500/${home.toLowerCase()}.png`)}`;
+  const awayLogoUrl = `/api/img-proxy?url=${encodeURIComponent('https://a.espncdn.com/i/teamlogos/nba/500/' + away.toLowerCase() + '.png')}`;
+  const homeLogoUrl = `/api/img-proxy?url=${encodeURIComponent('https://a.espncdn.com/i/teamlogos/nba/500/' + home.toLowerCase() + '.png')}`;
   const status = game.statusDescription ?? game.status ?? "";
   const isLive = status.toUpperCase() === "LIVE" || status.toLowerCase().includes("in progress");
   return (
