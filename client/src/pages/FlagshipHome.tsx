@@ -179,7 +179,7 @@ export default function FlagshipHome() {
         <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "32px 20px 28px" : "52px 40px 44px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 360px", gap: isMobile ? 24 : 52, alignItems: "center", position: "relative", zIndex: 2 }}>
 
           {/* ── Left ── */}
-          <div style={{ animation: "fadeUp 0.55s ease both" }}>
+          <div style={{ animation: "fadeUp 0.55s ease both", minWidth: 0 }}>
             {/* Eyebrow */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 11px", borderRadius: 2, background: "rgba(62,186,106,0.1)", border: "1px solid rgba(62,186,106,0.28)" }}>
@@ -203,14 +203,14 @@ export default function FlagshipHome() {
             </p>
 
             {/* CTAs */}
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 32 }}>
-              <button className="cta-primary" onClick={() => navigate("/v2/nba")} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 24px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #8A6A28 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
+            <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 10, marginBottom: 32 }}>
+              <button className="cta-primary" onClick={() => navigate("/v2/nba")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 24px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #8A6A28 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
                 <Zap size={14} /> NBA BOARD
               </button>
-              <button className="cta-btn" onClick={() => navigate("/v2/mlb")} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "rgba(58,143,224,0.1)", border: "1px solid rgba(58,143,224,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
+              <button className="cta-btn" onClick={() => navigate("/v2/mlb")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "rgba(58,143,224,0.1)", border: "1px solid rgba(58,143,224,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
                 MLB BOARD
               </button>
-              <button className="cta-btn" onClick={() => navigate("/accuracy")} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "transparent", border: `1px solid ${T.border}`, color: T.textMuted, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
+              <button className="cta-btn" onClick={() => navigate("/accuracy")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "transparent", border: `1px solid ${T.border}`, color: T.textMuted, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
                 ACCURACY
               </button>
             </div>
