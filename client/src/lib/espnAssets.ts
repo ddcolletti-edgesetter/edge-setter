@@ -188,6 +188,8 @@ const NBA_PLAYER_IDS: Record<string, number> = {
   "Tyrese Haliburton": 4432579, "De'Aaron Fox": 4066261,
   "Victor Wembanyama": 4432815, "Anthony Edwards": 4432816,
   "Jalen Brunson": 4066328, "Ja Morant": 4279888,
+  "Bam Adebayo": 3136776, "Dru Smith": 4432580, "Nikola Jovic": 4897429,
+  "Myles Turner": 3064514, "Brandon Clarke": 4066421,
 };
 
 export function getPlayerHeadshot(playerName: string | null | undefined, sport: "mlb" | "nba"): string | null {
