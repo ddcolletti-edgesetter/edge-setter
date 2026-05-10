@@ -192,7 +192,7 @@ export default function FlagshipHome() {
             </div>
 
             {/* Headline — Bebas, full impact */}
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: "clamp(52px, 6.5vw, 84px)", fontWeight: 400, lineHeight: 0.90, letterSpacing: "2px", color: T.text, margin: "0 0 20px" }}>
+            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? "clamp(36px, 9vw, 52px)" : "clamp(52px, 6.5vw, 84px)", fontWeight: 400, lineHeight: 0.90, letterSpacing: "2px", color: T.text, margin: "0 0 20px" }}>
               THE MULTI-SPORT<br />
               <span style={{ color: T.gold }}>INTELLIGENCE</span><br />
               TERMINAL
@@ -225,7 +225,7 @@ export default function FlagshipHome() {
                     <div key={sig.id} className="sig-tick" onClick={() => navigate("/v2/nba")} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 2, background: "rgba(255,255,255,0.04)", border: `1px solid ${T.border}`, cursor: "pointer", transition: "background 0.1s, border-color 0.1s" }}>
                       {sig.player && <PlayerHeadshot name={sig.player} team={sig.team} size={22} shape="circle" />}
                       {!sig.player && <TeamLogoImg abbr={sig.team} size={22} />}
-                      <div style={{ flex: 1, fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35 }}>{sig.headline.slice(0, 68)}{sig.headline.length > 68 ? "…" : ""}</div>
+                      <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.headline.slice(0, 68)}{sig.headline.length > 68 ? "…" : ""}</div>
                       <TypeChip type={sig.type} />
                       <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, fontWeight: 700, color: vc, flexShrink: 0 }}>{sig.confidence}%</span>
                     </div>
@@ -294,7 +294,7 @@ export default function FlagshipHome() {
 
       {/* ══════════════════════ TONIGHT'S SLATE ══════════════════════ */}
       <section style={{ borderBottom: `1px solid ${T.border}`, background: T.surface1, position: "relative", zIndex: 2 }}>
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: "20px 40px" }}>
+        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "14px 20px" : "20px 40px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint }}>Tonight's NBA Slate</span>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(62,186,106,0.08)", border: "1px solid rgba(62,186,106,0.22)" }}>
@@ -365,7 +365,7 @@ export default function FlagshipHome() {
 
       {/* ══════════════════════ MLB STRIP ══════════════════════ */}
       <section style={{ borderBottom: `1px solid ${T.border}`, background: T.surface1, position: "relative", zIndex: 2 }}>
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: "20px 40px" }}>
+        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "14px 20px" : "20px 40px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint }}>MLB Today</span>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(74,168,200,0.08)", border: "1px solid rgba(74,168,200,0.2)" }}>
@@ -417,7 +417,7 @@ export default function FlagshipHome() {
       </section>
 
       {/* Footer */}
-      <footer style={{ padding: "18px 40px", maxWidth: 1300, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", position: "relative", zIndex: 2 }}>
+      <footer style={{ padding: isMobile ? "14px 20px" : "18px 40px", maxWidth: 1300, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: isMobile ? 8 : 0, position: "relative", zIndex: 2 }}>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.12em" }}>© 2026 Edge Setter · Intelligence Verified</div>
         <div style={{ display: "flex", gap: 18 }}>
           {[{ label: "NBA", href: "/v2/nba" }, { label: "MLB", href: "/v2/mlb" }, { label: "Accuracy", href: "/accuracy" }, { label: "Pro", href: "/pro" }].map(link => (
