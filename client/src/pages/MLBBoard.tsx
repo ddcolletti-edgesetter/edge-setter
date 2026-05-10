@@ -173,6 +173,8 @@ function GameCard({ game, active, onClick, signalCount }: {
   const home = getTeamAbbr(homeFull);
   const [awayBg] = getTeamColors(away);
   const [homeBg] = getTeamColors(home);
+  const awayLogoUrl = `/api/img-proxy?url=${encodeURIComponent(`https://a.espncdn.com/i/teamlogos/mlb/500/${away.toLowerCase()}.png`)}`;
+  const homeLogoUrl = `/api/img-proxy?url=${encodeURIComponent(`https://a.espncdn.com/i/teamlogos/mlb/500/${home.toLowerCase()}.png`)}`;
   const status = game.statusDescription ?? game.status ?? "";
   const isLive = status.toUpperCase() === "LIVE" || status.toLowerCase().includes("in progress");
   return (
@@ -190,7 +192,7 @@ function GameCard({ game, active, onClick, signalCount }: {
       <div style={{ padding: "14px 16px 10px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
-            <TeamBadge teamName={awayFull} size={48} />
+            <img src={awayLogoUrl} alt={away} style={{ width: 48, height: 48, objectFit: "contain" }} />
             <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{away}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
@@ -198,7 +200,7 @@ function GameCard({ game, active, onClick, signalCount }: {
             {isLive && <span style={{ fontSize: "0.55rem", fontWeight: 800, color: "#39FF14", textTransform: "uppercase" }}>LIVE</span>}
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
-            <TeamBadge teamName={homeFull} size={48} />
+            <img src={homeLogoUrl} alt={home} style={{ width: 48, height: 48, objectFit: "contain" }} />
             <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{home}</span>
           </div>
         </div>
