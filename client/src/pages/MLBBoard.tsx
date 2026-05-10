@@ -165,69 +165,37 @@ function formatGameTime(g: LiveGame): string {
 }
 
 function GameCard({ game, active, onClick, signalCount }: {
-  game: LiveGame; active: boolean; onClick: () => void; signalCount?: number;
+  game: any; active: boolean; onClick: () => void; signalCount?: number;
 }) {
-  const awayFull = game.awayTeam ?? game.away ?? game.awayName ?? "TBD";
-  const homeFull = game.homeTeam ?? game.home ?? game.homeName ?? "TBD";
-  const away = getTeamAbbr(awayFull);
-  const home = getTeamAbbr(homeFull);
-  const [awayBg] = getTeamColors(away);
-  const [homeBg] = getTeamColors(home);
-  const awayLogoUrl = `/api/img-proxy?url=${encodeURIComponent(`https://a.espncdn.com/i/teamlogos/mlb/500/${away.toLowerCase()}.png`)}`;
-  const homeLogoUrl = `/api/img-proxy?url=${encodeURIComponent(`https://a.espncdn.com/i/teamlogos/mlb/500/${home.toLowerCase()}.png`)}`;
-  const status = game.statusDescription ?? game.status ?? "";
-  const isLive = status.toUpperCase() === "LIVE" || status.toLowerCase().includes("in progress");
+  const away = (game.away ?? game.awayTeam ?? "TBD").toUpperCase().slice(0,3);
+  const home = (game.home ?? game.homeTeam ?? "TBD").toUpperCase().slice(0,3);
+  const awayLogo = `/api/img-proxy?url=${encodeURIComponent(`https://a.espncdn.com/i/teamlogos/nba/500/${away.toLowerCase()}.png`)}`;
+  const homeLogo = `/api/img-proxy?url=${encodeURIComponent(`https://a.espncdn.com/i/teamlogos/nba/500/${home.toLowerCase()}.png`)}`;
   return (
-    <div onClick={onClick} style={{
-      minWidth: "200px", maxWidth: "220px",
-      background: active ? "#1A1E2A" : "#111318",
-      border: `1px solid ${active ? "#3A8FE0" : "#1A1E2A"}`,
-      borderRadius: "10px", overflow: "hidden",
-      cursor: "pointer", flexShrink: 0, transition: "all 0.15s ease",
-    }}
-      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = "#2A2F3E"; }}
-      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = "#1A1E2A"; }}
-    >
-      <div style={{ height: "3px", background: `linear-gradient(90deg, ${awayBg}, ${homeBg})` }} />
-      <div style={{ padding: "14px 16px 10px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
-            <img src={awayLogoUrl} alt={away} style={{ width: 48, height: 48, objectFit: "contain" }} />
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{away}</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-            <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "0.8rem", color: "#3A3F4E", fontWeight: 700 }}>@</span>
-            {isLive && <span style={{ fontSize: "0.55rem", fontWeight: 800, color: "#39FF14", textTransform: "uppercase" }}>LIVE</span>}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
-            <img src={homeLogoUrl} alt={home} style={{ width: 48, height: 48, objectFit: "contain" }} />
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{home}</span>
-          </div>
+    <div onClick={onClick} style={{ minWidth:"200px", background: active?"#1A1E2A":"#111318", border:`1px solid ${active?"#F5A623":"#1A1E2A"}`, borderRadius:"10px", overflow:"hidden", cursor:"pointer", flexShrink:0 }}>
+      <div style={{ padding:"14px 16px", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"6px" }}>
+          <img src={awayLogo} style={{ width:48, height:48, objectFit:"contain" }} />
+          <span style={{ color:"#E0E0E0", fontFamily:"'Barlow Condensed',sans-serif", fontWeight:900, fontSize:"1rem" }}>{away}</span>
+        </div>
+        <span style={{ color:"#3A3F4E", fontFamily:"monospace" }}>@</span>
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:"6px" }}>
+          <img src={homeLogo} style={{ width:48, height:48, objectFit:"contain" }} />
+          <span style={{ color:"#E0E0E0", fontFamily:"'Barlow Condensed',sans-serif", fontWeight:900, fontSize:"1rem" }}>{home}</span>
         </div>
       </div>
-      {(game.homeScore !== null || game.awayScore !== null) && (
-        <div style={{ padding: "0 16px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "1.1rem", fontWeight: 700, color: "#3A8FE0" }}>{game.awayScore ?? "-"}</span>
-          <span style={{ fontSize: "0.6rem", color: "#555A66" }}>SCORE</span>
-          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "1.1rem", fontWeight: 700, color: "#3A8FE0" }}>{game.homeScore ?? "-"}</span>
+      {(game.awayScore != null || game.homeScore != null) && (
+        <div style={{ padding:"0 16px 8px", display:"flex", justifyContent:"space-between" }}>
+          <span style={{ color:"#F5A623", fontFamily:"monospace", fontSize:"1.1rem", fontWeight:700 }}>{game.awayScore ?? "-"}</span>
+          <span style={{ color:"#F5A623", fontFamily:"monospace", fontSize:"1.1rem", fontWeight:700 }}>{game.homeScore ?? "-"}</span>
         </div>
       )}
-      <div style={{ padding: "0 16px 12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
-        {[{ label: "STATUS", val: status || "Scheduled" }, { label: "TIME", val: formatGameTime(game) }].map(s => (
-          <div key={s.label} style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "0.58rem", color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "3px" }}>{s.label}</div>
-            <div style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "0.7rem", color: "#8A9099", lineHeight: 1.2 }}>{s.val}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ borderTop: "1px solid #1A1E2A", padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
-        <Zap size={12} style={{ color: "#3A8FE0" }} />
-        <span style={{ fontSize: "0.78rem", color: "#3A8FE0", fontWeight: 700 }}>{signalCount ?? 0} signals</span>
+      <div style={{ borderTop:"1px solid #1A1E2A", padding:"8px 16px" }}>
+        <span style={{ color:"#F5A623", fontSize:"0.78rem", fontWeight:700 }}>{signalCount ?? 0} signals</span>
       </div>
     </div>
   );
 }
-
 type Signal = {
   id: string | number; title: string; summary?: string | null;
   playerName?: string | null; player_name?: string | null;
