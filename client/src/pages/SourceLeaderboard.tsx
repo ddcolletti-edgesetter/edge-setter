@@ -331,7 +331,7 @@ function SourceLeaderboardInner() {
                       >
                         <td className="px-4 py-3 text-sm font-bold tabular-nums" style={{ color: C.ivorySub }}>{i + 1}</td>
                         <td className="px-4 py-3" style={{ minWidth: 0 }}>
-                          <div className="flex flex-col sm:flex-row sm:items-center" style={{ gap: 4, minWidth: 0 }}>
+                          <div className="flex flex-col sm:flex-row sm:items-center" style={{ gap: 4, minWidth: 0, flexWrap: "wrap" }}>
                             <p className="font-semibold text-base" style={{ color: C.ivoryPrimary, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
                               {s.source_name}
                             </p>

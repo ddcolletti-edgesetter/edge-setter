@@ -388,8 +388,9 @@ function AccuracyPageInner() {
 
                   {/* Source name + subtitle + status badge */}
                   <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 2, flexWrap: "wrap" }}>
                       <span style={{
+                        display: "block", width: "100%",
                         fontSize: 13, fontWeight: 600, color: T.text,
                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                       }}>{s.source_name}</span>
