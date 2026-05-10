@@ -149,7 +149,10 @@ function VerdictBadge({ status }: { status: string | null }) {
 }
 
 type LiveGame = {
-  id: number; homeTeam: string | null; awayTeam: string | null;
+  id: number;
+  homeTeam?: string | null; awayTeam?: string | null;
+  home?: string | null; away?: string | null;
+  homeName?: string | null; awayName?: string | null;
   gameDate: string | null; statusDescription: string | null; status: string | null;
   homeScore: number | null; awayScore: number | null; time: string | null;
 };
@@ -163,8 +166,8 @@ function formatGameTime(g: LiveGame): string {
 function GameCard({ game, active, onClick, signalCount }: {
   game: LiveGame; active: boolean; onClick: () => void; signalCount?: number;
 }) {
-  const awayFull = game.awayTeam ?? "TBD";
-  const homeFull = game.homeTeam ?? "TBD";
+  const awayFull = game.awayTeam ?? game.away ?? game.awayName ?? "TBD";
+  const homeFull = game.homeTeam ?? game.home ?? game.homeName ?? "TBD";
   const away = getTeamAbbr(awayFull);
   const home = getTeamAbbr(homeFull);
   const [awayBg] = getTeamColors(away);
