@@ -192,7 +192,7 @@ interface V2ShellProps {
 export function V2Shell({ children, sport }: V2ShellProps) {
   const [darkMode, setDarkMode] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [boardsOpen, setBoardsOpen] = useState(true);
+  const [boardsOpen, setBoardsOpen] = useState(false);
   const [location] = useLocation();
 
   const sportTheme = sport ? SPORT_THEME[sport] : null;
@@ -355,8 +355,8 @@ export function V2Shell({ children, sport }: V2ShellProps) {
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.gold}60, transparent 60%)` }} />
           )}
 
-          <button className="md:hidden es-btn" onClick={() => setMobileOpen(o => !o)} style={{ color: txtM, background: "none", border: "none", cursor: "pointer", padding: 8, display: "flex", minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center", borderRadius: 3 }}>
-            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
+          <button className="md:hidden es-btn" onClick={() => setMobileOpen(o => !o)} style={{ color: txtM, background: mobileOpen ? `rgba(196,162,74,0.08)` : "none", border: `1px solid ${mobileOpen ? T.borderMid : "transparent"}`, cursor: "pointer", padding: 10, display: "flex", minWidth: 52, minHeight: 52, alignItems: "center", justifyContent: "center", borderRadius: 4, flexShrink: 0 }}>
+            {mobileOpen ? <X size={22} /> : <Menu size={22} />}
           </button>
 
           {/* Breadcrumb — Bebas Neue page name */}
