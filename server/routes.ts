@@ -636,7 +636,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
         storage.logEvent({ event_name: "success_page_view", email, metadata: JSON.stringify({ session_id }) });
         syncToSupabase("users", proData, "upsert").catch(() => {});
         syncToSupabase("event_log", { event_name: "subscription_started", email, metadata: { session_id } }, "insert").catch(() => {});
-        sendProWelcome(email).catch(() => {});
         return res.json({ success: true, plan: "pro" });
       }
       return res.json({ success: false, plan: "free" });
