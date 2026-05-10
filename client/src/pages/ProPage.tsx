@@ -9,6 +9,7 @@ import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { trackProVisit, trackCheckoutClick } from "@/lib/analytics";
 import { isProUser } from "@shared/pro-utils";
+import { useAuth } from "@/context/AuthContext";
 import { CheckCircle2, Zap, BarChart2, Filter, BookOpen, ChevronRight } from "lucide-react";
 
 const C = {
@@ -55,10 +56,14 @@ const FEATURES = [
 ];
 
 /* ── Checkout form ─────────────────────────────────────────────── */
-function CheckoutForm() {
-  const [email, setEmail] = useState("");
+function CheckoutForm({ initialEmail = "" }: { initialEmail?: string }) {
+  const [email, setEmail] = useState(initialEmail);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (initialEmail) setEmail(e => e || initialEmail);
+  }, [initialEmail]);
 
   async function handleCheckout() {
     if (!email) return;
@@ -218,11 +223,17 @@ function ProManagementPanel({ email }: { email: string }) {
 
 /* ── Main page ─────────────────────────────────────────────────── */
 export default function ProPage() {
+  const { email: authEmail } = useAuth();
   const [email, setEmail] = useState("");
   const [isPro, setIsPro] = useState<boolean | null>(null);
 
   // Track pro page visit on mount
   useEffect(() => { trackProVisit(); }, []);
+
+  // Pre-fill "Already a subscriber?" input if user has a known email
+  useEffect(() => {
+    if (authEmail) setEmail(e => e || authEmail);
+  }, [authEmail]);
   const [checking, setChecking] = useState(false);
   const [billingStatus, setBillingStatus] = useState<string | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
@@ -456,7 +467,7 @@ export default function ProPage() {
               }}>
                 Enter your email and you'll be taken to Stripe checkout. No account creation required.
               </p>
-              <CheckoutForm />
+              <CheckoutForm initialEmail={authEmail ?? ""} />
             </div>
 
             {/* Already Pro? */}
