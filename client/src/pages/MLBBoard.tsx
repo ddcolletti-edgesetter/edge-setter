@@ -255,7 +255,7 @@ function normalizeSignal(s: Signal) {
   };
 }
 
-function SignalRow({ signal: raw, isPro = false }: { signal: Signal; isPro?: boolean }) {
+function SignalRow({ signal: raw, isPro = false, isMobile = false }: { signal: Signal; isPro?: boolean; isMobile?: boolean }) {
   const signal = normalizeSignal(raw);
   const [expanded, setExpanded] = useState(false);
   const t = signal.signalType.toLowerCase();
@@ -271,6 +271,13 @@ function SignalRow({ signal: raw, isPro = false }: { signal: Signal; isPro?: boo
     props:         { bg: "rgba(57,255,20,0.08)",  color: "#39FF14", border: "rgba(57,255,20,0.2)" },
   };
   const c = typeColors[t] ?? { bg: "rgba(58,143,224,0.08)", color: "#3A8FE0", border: "rgba(58,143,224,0.2)" };
+
+  const typeBadge = (
+    <span style={{ fontSize: "0.6rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 7px", borderRadius: "3px", background: c.bg, color: c.color, border: `1px solid ${c.border}`, whiteSpace: "nowrap" }}>
+      {signal.signalType.replace(/_/g, " ")}
+    </span>
+  );
+
   return (
     <div onClick={() => !isPro && setExpanded(e => !e)}
       style={{ borderBottom: "1px solid #1A1E2A", cursor: isPro ? "default" : "pointer", position: "relative" }}
@@ -284,26 +291,51 @@ function SignalRow({ signal: raw, isPro = false }: { signal: Signal; isPro?: boo
           </span>
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px" }}>
-        {signal.playerName
-          ? <PlayerAvatar name={signal.playerName} size={48} />
-          : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1A1E2A", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={18} style={{ color: "#3A3F4E" }} /></div>
-        }
-        <div style={{ minWidth: "70px" }}>
-          <span style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: "3px", background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>{signal.signalType.replace(/_/g, " ")}</span>
+
+      {isMobile ? (
+        /* ── MOBILE CARD LAYOUT ── */
+        <div style={{ padding: "12px 14px", display: "flex", gap: "10px", alignItems: "flex-start" }}>
+          {signal.playerName
+            ? <PlayerAvatar name={signal.playerName} size={36} />
+            : <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#1A1E2A", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={14} style={{ color: "#3A3F4E" }} /></div>
+          }
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "5px" }}>
+              {typeBadge}
+              <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono',monospace", fontSize: "0.62rem", color: "#3A3F4E", flexShrink: 0 }}>{timeAgo(signal.publishedAt)}</span>
+            </div>
+            <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "1.05rem", fontWeight: 700, color: isPro ? "#3A3F4E" : "#E8E8E8", lineHeight: 1.3, marginBottom: "4px", wordBreak: "break-word" }}>{signal.title}</div>
+            {signal.playerName && (
+              <div style={{ fontSize: "0.7rem", color: "#555A66", marginBottom: "6px" }}>{signal.playerName}{signal.teamName ? ` · ${signal.teamName}` : ""}</div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
+              <VerdictBadge status={signal.statusTag} />
+              <ConfBar score={signal.confidenceScore} />
+            </div>
+          </div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "1.15rem", fontWeight: 700, color: isPro ? "#3A3F4E" : "#E8E8E8", lineHeight: 1.3, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{signal.title}</div>
-          {signal.playerName && <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{signal.playerName}{signal.teamName ? ` · ${signal.teamName}` : ""}</div>}
+      ) : (
+        /* ── DESKTOP TABLE LAYOUT ── */
+        <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px" }}>
+          {signal.playerName
+            ? <PlayerAvatar name={signal.playerName} size={48} />
+            : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1A1E2A", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={18} style={{ color: "#3A3F4E" }} /></div>
+          }
+          <div style={{ minWidth: "70px" }}>{typeBadge}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "1.15rem", fontWeight: 700, color: isPro ? "#3A3F4E" : "#E8E8E8", lineHeight: 1.3, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{signal.title}</div>
+            {signal.playerName && <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{signal.playerName}{signal.teamName ? ` · ${signal.teamName}` : ""}</div>}
+          </div>
+          <div style={{ minWidth: "70px", textAlign: "right" }}><VerdictBadge status={signal.statusTag} /></div>
+          <div style={{ minWidth: "80px" }}><ConfBar score={signal.confidenceScore} /></div>
+          <div style={{ minWidth: "48px", textAlign: "right" }}>
+            <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "0.65rem", color: "#3A3F4E" }}>{timeAgo(signal.publishedAt)}</span>
+          </div>
         </div>
-        <div style={{ minWidth: "70px", textAlign: "right" }}><VerdictBadge status={signal.statusTag} /></div>
-        <div style={{ minWidth: "80px" }}><ConfBar score={signal.confidenceScore} /></div>
-        <div style={{ minWidth: "48px", textAlign: "right" }}>
-          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "0.65rem", color: "#3A3F4E" }}>{timeAgo(signal.publishedAt)}</span>
-        </div>
-      </div>
+      )}
+
       {expanded && !isPro && signal.summary && (
-        <div style={{ padding: "0 16px 14px 80px", borderTop: "1px solid #1A1E2A" }}>
+        <div style={{ padding: isMobile ? "0 14px 12px 60px" : "0 16px 14px 80px", borderTop: "1px solid #1A1E2A" }}>
           <p style={{ color: "#8A9099", fontSize: "0.85rem", lineHeight: 1.6, margin: "10px 0 8px" }}>{signal.summary}</p>
           {signal.actionTakeaway && (
             <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(58,143,224,0.06)", border: "1px solid rgba(58,143,224,0.15)" }}>
@@ -427,6 +459,7 @@ function useWindowWidth() {
 export default function MLBBoard() {
   const windowWidth = useWindowWidth();
   const showRightPanel = windowWidth >= 768;
+  const isMobile = windowWidth < 640;
 
   const [activeGame, setActiveGame] = useState<string | number | null>(null);
   const [activeTab, setActiveTab] = useState("today");
@@ -551,14 +584,16 @@ export default function MLBBoard() {
               </div>
             )}
 
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "8px 16px", borderBottom: "1px solid #1A1E2A", background: "#0A0C10" }}>
-              <div style={{ width: "36px" }} />
-              <div style={{ minWidth: "80px", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>TYPE</div>
-              <div style={{ flex: 1, fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>SIGNAL</div>
-              <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>VERDICT</div>
-              <div style={{ minWidth: "100px", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>CONF</div>
-              <div style={{ minWidth: "60px", textAlign: "right", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>TIME</div>
-            </div>
+            {!isMobile && (
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "8px 16px", borderBottom: "1px solid #1A1E2A", background: "#0A0C10" }}>
+                <div style={{ width: "36px" }} />
+                <div style={{ minWidth: "80px", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>TYPE</div>
+                <div style={{ flex: 1, fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>SIGNAL</div>
+                <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>VERDICT</div>
+                <div style={{ minWidth: "100px", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>CONF</div>
+                <div style={{ minWidth: "60px", textAlign: "right", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>TIME</div>
+              </div>
+            )}
 
             {loading ? (
               <div style={{ padding: "40px 24px" }}>
@@ -571,7 +606,7 @@ export default function MLBBoard() {
               </div>
             ) : (
               filteredSignals.map((signal, idx) => (
-                <SignalRow key={signal.id} signal={signal} isPro={idx >= PRO_THRESHOLD} />
+                <SignalRow key={signal.id} signal={signal} isPro={idx >= PRO_THRESHOLD} isMobile={isMobile} />
               ))
             )}
           </div>
