@@ -415,7 +415,20 @@ const TAB_FILTER: Record<string, string | null> = {
   props: "prop_alert", trends: "team_trend", line_moves: "line_move",
 };
 
+function useWindowWidth() {
+  const [width, setWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return width;
+}
+
 export default function NBABoard() {
+  const windowWidth = useWindowWidth();
+  const showRightPanel = windowWidth >= 768;
+
   const [activeGame, setActiveGame] = useState<string | number | null>(null);
   const [activeTab, setActiveTab] = useState("today");
   const [allSignals, setAllSignals] = useState<Signal[]>([]);
@@ -564,7 +577,7 @@ export default function NBABoard() {
             )}
           </div>
         </div>
-        <RightPanel />
+        {showRightPanel && <RightPanel />}
       </div>
     </V2Shell>
   );
