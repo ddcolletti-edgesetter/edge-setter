@@ -9,8 +9,8 @@
  *   - MLB transactions + pitchers: every 60 minutes
  *   - Processor: runs immediately after each ingest batch
  *
- * NFL/CFB (season-gated): odds + ESPN injuries run Sep–Feb (NFL) and Sep–Jan (CFB).
- *   Manual trigger: POST /api/pipeline/ingest/nfl or /cfb (bypasses season guard).
+ * NFL/CFB odds (season-gated): run Sep–Feb (NFL) and Sep–Jan (CFB) only — no games off-season.
+ * NFL/CFB injuries + transactions: year-round — covers OTAs, Draft, signings, transfers.
  */
 
 import { ingestOdds } from "./adapters/the-odds-api";
@@ -18,6 +18,8 @@ import { ingestNBAInjuries } from "./adapters/espn-nba";
 import { ingestMLBSchedule, ingestMLBTransactions, ingestProbablePitchers } from "./adapters/mlb-statsapi";
 import { ingestNFLInjuries } from "./adapters/espn-nfl";
 import { ingestCFBInjuries } from "./adapters/espn-cfb";
+import { ingestNFLTransactions } from "./adapters/espn-nfl-transactions";
+import { ingestCFBTransactions } from "./adapters/espn-cfb-transactions";
 import { processRawEvents } from "./processor";
 import { autoSettleFinishedGames } from "./settlement";
 import { dispatchSignalAlerts } from "../alerts";
@@ -69,6 +71,8 @@ export async function runIngestionCycle(): Promise<{
   mlb_pitchers: { created: number };
   nfl_injuries: { created: number; skipped: number } | null;
   cfb_injuries: { created: number; skipped: number } | null;
+  nfl_transactions: { created: number; skipped: number };
+  cfb_transactions: { created: number; skipped: number };
   processed: { processed: number; errors: number };
 }> {
   if (_running) {
@@ -81,6 +85,8 @@ export async function runIngestionCycle(): Promise<{
       mlb_pitchers: { created: 0 },
       nfl_injuries: null,
       cfb_injuries: null,
+      nfl_transactions: { created: 0, skipped: 0 },
+      cfb_transactions: { created: 0, skipped: 0 },
       processed: { processed: 0, errors: 0 },
     };
   }
@@ -148,27 +154,35 @@ export async function runIngestionCycle(): Promise<{
       mlbErrors.length ? mlbErrors.join("; ") : undefined,
     );
 
-    // ── 4. NFL + CFB injuries (season-gated) ──────────────
+    // ── 4. NFL + CFB injuries (year-round: covers OTAs, minicamp, spring ball) ──
     let nflInjError: string | undefined;
-    const nfl_injuries = nflSeason
-      ? await ingestNFLInjuries().catch(e => { nflInjError = e.message; console.error("[ingestion] NFL injuries error:", e.message); return { created: 0, skipped: 0 }; })
-      : null;
+    const nfl_injuries = await ingestNFLInjuries().catch(e => { nflInjError = e.message; console.error("[ingestion] NFL injuries error:", e.message); return { created: 0, skipped: 0 }; });
     let cfbInjError: string | undefined;
-    const cfb_injuries = cfbSeason
-      ? await ingestCFBInjuries().catch(e => { cfbInjError = e.message; console.error("[ingestion] CFB injuries error:", e.message); return { created: 0, skipped: 0 }; })
-      : null;
+    const cfb_injuries = await ingestCFBInjuries().catch(e => { cfbInjError = e.message; console.error("[ingestion] CFB injuries error:", e.message); return { created: 0, skipped: 0 }; });
 
-    if (nflSeason || cfbSeason) {
-      logIngestion(
-        "NFLCFBInjuries",
-        runId,
-        "espn",
-        `NFL: ${nfl_injuries ? `${nfl_injuries.created} created / ${nfl_injuries.skipped} skipped` : "off-season"} · CFB: ${cfb_injuries ? `${cfb_injuries.created} created / ${cfb_injuries.skipped} skipped` : "off-season"}`,
-        [nflInjError, cfbInjError].filter(Boolean).join("; ") || undefined,
-      );
-    }
+    logIngestion(
+      "NFLCFBInjuries",
+      runId,
+      "espn",
+      `NFL: ${nfl_injuries.created} created / ${nfl_injuries.skipped} skipped · CFB: ${cfb_injuries.created} created / ${cfb_injuries.skipped} skipped`,
+      [nflInjError, cfbInjError].filter(Boolean).join("; ") || undefined,
+    );
 
-    // ── 5. Process all new RawEvents ───────────────────────
+    // ── 5. NFL + CFB transactions (year-round: Draft, signings, cuts, transfers) ─
+    let nflTxError: string | undefined;
+    const nfl_transactions = await ingestNFLTransactions().catch(e => { nflTxError = e.message; console.error("[ingestion] NFL transactions error:", e.message); return { created: 0, skipped: 0 }; });
+    let cfbTxError: string | undefined;
+    const cfb_transactions = await ingestCFBTransactions().catch(e => { cfbTxError = e.message; console.error("[ingestion] CFB transactions error:", e.message); return { created: 0, skipped: 0 }; });
+
+    logIngestion(
+      "NFLCFBTransactions",
+      runId,
+      "espn",
+      `NFL tx: ${nfl_transactions.created} created / ${nfl_transactions.skipped} skipped · CFB tx: ${cfb_transactions.created} created / ${cfb_transactions.skipped} skipped`,
+      [nflTxError, cfbTxError].filter(Boolean).join("; ") || undefined,
+    );
+
+    // ── 6. Process all new RawEvents ───────────────────────
     let processorError: string | undefined;
     const processed = await processRawEvents().catch(e => {
       processorError = e.message;
@@ -176,7 +190,7 @@ export async function runIngestionCycle(): Promise<{
       return { processed: 0, errors: 0 };
     });
 
-    // ── 6. Dispatch alerts for newly scored signals ──────────
+    // ── 7. Dispatch alerts for newly scored signals ──────────
     const alertResult = await dispatchSignalAlerts().catch(e => {
       console.error("[ingestion] Alert dispatch error:", e.message);
       return { dispatched: 0, users_notified: 0 };
@@ -189,7 +203,7 @@ export async function runIngestionCycle(): Promise<{
       users_notified: alertResult.users_notified,
     });
 
-    // ── 7. Settle any games that are now final ───────────────
+    // ── 8. Settle any games that are now final ───────────────
     const settlement = await autoSettleFinishedGames().catch(e => {
       console.error("[ingestion] Settlement error:", e.message);
       return { scores_fetched: { NBA: 0, MLB: 0, NFL: 0, CFB: 0 }, games_updated: 0, games_settled: 0, signals_settled: 0 };
@@ -239,6 +253,8 @@ export async function runIngestionCycle(): Promise<{
       mlb_pitchers,
       nfl_injuries,
       cfb_injuries,
+      nfl_transactions,
+      cfb_transactions,
       processed,
     };
   } catch (e: any) {
