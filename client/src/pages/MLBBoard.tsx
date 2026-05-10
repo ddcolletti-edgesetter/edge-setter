@@ -148,17 +148,19 @@ function VerdictBadge({ status }: { status: string | null }) {
 }
 
 type LiveGame = {
-  id: number;
+  id: string | number;
   homeTeam?: string | null; awayTeam?: string | null;
   home?: string | null; away?: string | null;
   homeName?: string | null; awayName?: string | null;
-  gameDate: string | null; statusDescription: string | null; status: string | null;
+  gameDate?: string | null; statusDescription?: string | null; status: string | null;
   homeScore: number | null; awayScore: number | null; time: string | null;
+  period?: string | null; inning?: string | null;
 };
 
 function formatGameTime(g: LiveGame): string {
-  const s = g.statusDescription ?? g.status ?? "";
-  if (s.toLowerCase().includes("final") || s.toLowerCase().includes("in progress")) return s;
+  const s = (g.statusDescription ?? g.status ?? "").toUpperCase();
+  if (s === "FINAL") return "FINAL";
+  if (s === "LIVE") return g.inning ? `LIVE · ${g.inning}` : "LIVE";
   return g.time ?? "TBD";
 }
 
@@ -172,7 +174,7 @@ function GameCard({ game, active, onClick, signalCount }: {
   const [awayBg] = getTeamColors(away);
   const [homeBg] = getTeamColors(home);
   const status = game.statusDescription ?? game.status ?? "";
-  const isLive = status.toLowerCase().includes("in progress");
+  const isLive = status.toUpperCase() === "LIVE" || status.toLowerCase().includes("in progress");
   return (
     <div onClick={onClick} style={{
       minWidth: "200px", maxWidth: "220px",
@@ -410,7 +412,7 @@ const TAB_FILTER: Record<string, string | null> = {
 };
 
 export default function MLBBoard() {
-  const [activeGame, setActiveGame] = useState<number | null>(null);
+  const [activeGame, setActiveGame] = useState<string | number | null>(null);
   const [activeTab, setActiveTab] = useState("today");
   const [allSignals, setAllSignals] = useState<Signal[]>([]);
   const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
