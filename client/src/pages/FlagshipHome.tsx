@@ -60,7 +60,7 @@ function ChalkBg() {
       {/* SE — CFB hash marks */}
       <div style={{ position: "absolute", bottom: 0, right: 0, width: "56%", height: "48%", backgroundImage: CHALK_CFB, backgroundSize: "100% 20px" }} />
       {/* Radial vignette — pulls all four to dark center */}
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 65% 60% at 50% 50%, transparent 10%, rgba(12,11,9,0.70) 55%, rgba(12,11,9,0.94) 100%)" }} />
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 65% 60% at 50% 50%, transparent 10%, rgba(12,11,9,0.45) 55%, rgba(12,11,9,0.65) 100%)" }} />
       {/* Hairline gold cross — subtle quadrant divider */}
       <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,transparent 49.2%,rgba(196,162,74,0.08) 49.8%,rgba(196,162,74,0.08) 50.2%,transparent 50.8%),linear-gradient(180deg,transparent 49.2%,rgba(196,162,74,0.08) 49.8%,rgba(196,162,74,0.08) 50.2%,transparent 50.8%)" }} />
     </div>
@@ -85,6 +85,7 @@ export default function FlagshipHome() {
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Barlow', sans-serif", overflowX: "hidden", position: "relative" }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,300;0,400;0,600&family=Barlow+Condensed:wght@600;700;800&display=swap');
         @keyframes navPulse  { 0%,100%{opacity:1} 50%{opacity:0.28} }
         @keyframes tickScroll{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
         @keyframes fadeUp    { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }

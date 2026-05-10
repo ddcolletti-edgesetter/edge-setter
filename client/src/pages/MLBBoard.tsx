@@ -76,11 +76,11 @@ function PlayerAvatar({ name, size = 48 }: { name: string; size?: number }) {
             const el = e.currentTarget; el.style.display = "none";
             const p = el.parentElement!;
             p.style.background = color;
-            p.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${Math.round(size * 0.34)}px;color:#fff">${initials}</span>`;
+            p.innerHTML = `<span style="font-family:'Bebas Neue',sans-serif;font-weight:800;font-size:${Math.round(size * 0.34)}px;color:#fff">${initials}</span>`;
           }}
         />
       ) : (
-        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: size * 0.34, color: "#fff" }}>{initials || "?"}</span>
+        <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontWeight: 800, fontSize: size * 0.34, color: "#fff" }}>{initials || "?"}</span>
       )}
     </div>
   );
@@ -105,11 +105,11 @@ function TeamBadge({ teamName, size = 44 }: { teamName: string; size?: number })
             const el = e.currentTarget; el.style.display = "none";
             const p = el.parentElement!;
             p.style.cssText += `background:${bg};display:flex;align-items:center;justify-content:center;`;
-            p.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:${Math.round(size * 0.3)}px;color:${text}">${abbr}</span>`;
+            p.innerHTML = `<span style="font-family:'Bebas Neue',sans-serif;font-weight:900;font-size:${Math.round(size * 0.3)}px;color:${text}">${abbr}</span>`;
           }}
         />
       ) : (
-        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: size * 0.3, color: text }}>{abbr}</span>
+        <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontWeight: 900, fontSize: size * 0.3, color: text }}>{abbr}</span>
       )}
     </div>
   );
@@ -193,7 +193,7 @@ function GameCard({ game, active, onClick, signalCount }: {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
             <img src={awayLogoUrl} alt={away} style={{ width: 48, height: 48, objectFit: "contain" }} />
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{away}</span>
+            <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{away}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
             <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "0.8rem", color: "#3A3F4E", fontWeight: 700 }}>@</span>
@@ -201,7 +201,7 @@ function GameCard({ game, active, onClick, signalCount }: {
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
             <img src={homeLogoUrl} alt={home} style={{ width: 48, height: 48, objectFit: "contain" }} />
-            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{home}</span>
+            <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{home}</span>
           </div>
         </div>
       </div>
@@ -293,7 +293,7 @@ function SignalRow({ signal: raw, isPro = false }: { signal: Signal; isPro?: boo
           <span style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: "3px", background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>{signal.signalType.replace(/_/g, " ")}</span>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.15rem", fontWeight: 700, color: isPro ? "#3A3F4E" : "#E8E8E8", lineHeight: 1.3, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{signal.title}</div>
+          <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "1.15rem", fontWeight: 700, color: isPro ? "#3A3F4E" : "#E8E8E8", lineHeight: 1.3, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{signal.title}</div>
           {signal.playerName && <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{signal.playerName}{signal.teamName ? ` · ${signal.teamName}` : ""}</div>}
         </div>
         <div style={{ minWidth: "90px", textAlign: "right" }}><VerdictBadge status={signal.statusTag} /></div>
@@ -343,7 +343,7 @@ function RightPanel() {
       <div style={{ borderBottom: "1px solid #1A1E2A" }}>
         <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#F5A623", boxShadow: "0 0 8px #F5A623", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.08em" }}>Injury Report</span>
+          <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.08em" }}>Injury Report</span>
         </div>
         {INJURY_ALERTS.map(p => {
           const statusColor = p.status === "OUT" ? "#FF5555" : p.status === "Q" ? "#F5A623" : "#39FF14";
@@ -353,7 +353,7 @@ function RightPanel() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
                   <img src={getTeamLogo(p.team, "mlb") ?? ""} alt={p.team} style={{ width: 16, height: 16, objectFit: "contain" }} onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }} />
-                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.95rem", fontWeight: 700, color: "#D8D8D8" }}>{p.name}</span>
+                  <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "0.95rem", fontWeight: 700, color: "#D8D8D8" }}>{p.name}</span>
                 </div>
                 <div style={{ fontSize: "0.75rem", color: "#555A66" }}>{p.detail}</div>
               </div>
@@ -366,7 +366,7 @@ function RightPanel() {
       <div style={{ borderBottom: "1px solid #1A1E2A" }}>
         <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#3A8FE0", boxShadow: "0 0 8px #3A8FE0", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#3A8FE0", textTransform: "uppercase", letterSpacing: "0.08em" }}>Pitcher Updates</span>
+          <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#3A8FE0", textTransform: "uppercase", letterSpacing: "0.08em" }}>Pitcher Updates</span>
         </div>
         {PITCHER_UPDATES.map(m => (
           <div key={m.player} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
@@ -374,7 +374,7 @@ function RightPanel() {
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "2px" }}>
                 <img src={getTeamLogo(m.team, "mlb") ?? ""} alt={m.team} style={{ width: 14, height: 14, objectFit: "contain" }} onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }} />
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "#D0D0D0" }}>{m.player}</span>
+                <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "#D0D0D0" }}>{m.player}</span>
               </div>
               <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{m.detail}</div>
             </div>
@@ -386,12 +386,12 @@ function RightPanel() {
       <div>
         <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
           <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4A9EFF", boxShadow: "0 0 8px #4A9EFF", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#4A9EFF", textTransform: "uppercase", letterSpacing: "0.08em" }}>Team Trends</span>
+          <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#4A9EFF", textTransform: "uppercase", letterSpacing: "0.08em" }}>Team Trends</span>
         </div>
         {TEAM_TRENDS.map(t => (
           <div key={t.team + t.trend} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
             <TeamBadge teamName={t.team} size={36} />
-            <div style={{ flex: 1 }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.88rem", fontWeight: 600, color: "#D0D0D0" }}>{t.trend}</div></div>
+            <div style={{ flex: 1 }}><div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "0.88rem", fontWeight: 600, color: "#D0D0D0" }}>{t.trend}</div></div>
             {t.dir === "up" ? <TrendingUp size={14} style={{ color: "#39FF14", flexShrink: 0 }} /> : <TrendingDown size={14} style={{ color: "#FF5555", flexShrink: 0 }} />}
           </div>
         ))}
@@ -483,7 +483,7 @@ export default function MLBBoard() {
             <div id="games-section" style={{ marginBottom: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
                 <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#3A8FE0", flexShrink: 0 }} />
-                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.72rem", fontWeight: 800, color: "#3A8FE0", textTransform: "uppercase", letterSpacing: "0.1em" }}>Today's Games</span>
+                <span style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "0.72rem", fontWeight: 800, color: "#3A8FE0", textTransform: "uppercase", letterSpacing: "0.1em" }}>Today's Games</span>
               </div>
               <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "4px" }}>
                 {loading ? (
@@ -513,7 +513,7 @@ export default function MLBBoard() {
                 return (
                   <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
                     display: "inline-flex", alignItems: "center", gap: "6px", padding: "9px 16px",
-                    fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.85rem", fontWeight: 700,
+                    fontFamily: "'Bebas Neue',sans-serif", fontSize: "0.85rem", fontWeight: 700,
                     letterSpacing: "0.04em", textTransform: "uppercase", cursor: "pointer",
                     background: "transparent", color: isActive ? "#F0F0F0" : "#555A66",
                     border: "none", borderBottom: `2px solid ${isActive ? "#3A8FE0" : "transparent"}`,
@@ -534,7 +534,7 @@ export default function MLBBoard() {
                   <strong style={{ color: "#3A8FE0" }}>{Math.max(0, filteredSignals.length - PRO_THRESHOLD)} signals locked</strong> — Pro members see the full feed
                 </span>
                 <div style={{ flex: 1 }} />
-                <button onClick={() => window.location.href = "/#/pro"} style={{ padding: "5px 14px", fontSize: "0.72rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, background: "#3A8FE0", color: "#FFFFFF", border: "none", borderRadius: "4px", cursor: "pointer" }}>UNLOCK PRO</button>
+                <button onClick={() => window.location.href = "/#/pro"} style={{ padding: "5px 14px", fontSize: "0.72rem", fontFamily: "'Bebas Neue',sans-serif", fontWeight: 800, background: "#3A8FE0", color: "#FFFFFF", border: "none", borderRadius: "4px", cursor: "pointer" }}>UNLOCK PRO</button>
               </div>
             )}
 
