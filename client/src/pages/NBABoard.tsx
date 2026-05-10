@@ -521,12 +521,12 @@ export default function NBABoard() {
               </div>
             </div>
 
-            <div id="signal-feed" style={{ display: "flex", gap: "2px" }}>
+            <div id="signal-feed" style={{ display: "flex", gap: "2px", flexWrap: "wrap" }}>
               {FEED_TABS.map(tab => {
                 const isActive = activeTab === tab.key;
                 return (
                   <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-                    display: "inline-flex", alignItems: "center", gap: "6px", padding: "9px 16px",
+                    display: "inline-flex", alignItems: "center", gap: "6px", padding: "7px 10px",
                     fontFamily: "'Bebas Neue',sans-serif", fontSize: "0.85rem", fontWeight: 700,
                     letterSpacing: "0.04em", textTransform: "uppercase", cursor: "pointer",
                     background: "transparent", color: isActive ? "#F0F0F0" : "#555A66",
