@@ -290,16 +290,16 @@ function SignalRow({ signal: raw, isPro = false }: { signal: Signal; isPro?: boo
           ? <PlayerAvatar name={signal.playerName} size={48} />
           : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1A1E2A", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={18} style={{ color: "#3A3F4E" }} /></div>
         }
-        <div style={{ minWidth: "90px" }}>
+        <div style={{ minWidth: "70px" }}>
           <span style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: "3px", background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>{signal.signalType.replace(/_/g, " ")}</span>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "1.15rem", fontWeight: 700, color: isPro ? "#3A3F4E" : "#E8E8E8", lineHeight: 1.3, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{signal.title}</div>
           {signal.playerName && <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{signal.playerName}{signal.teamName ? ` · ${signal.teamName}` : ""}</div>}
         </div>
-        <div style={{ minWidth: "90px", textAlign: "right" }}><VerdictBadge status={signal.statusTag} /></div>
-        <div style={{ minWidth: "100px" }}><ConfBar score={signal.confidenceScore} /></div>
-        <div style={{ minWidth: "60px", textAlign: "right" }}>
+        <div style={{ minWidth: "70px", textAlign: "right" }}><VerdictBadge status={signal.statusTag} /></div>
+        <div style={{ minWidth: "80px" }}><ConfBar score={signal.confidenceScore} /></div>
+        <div style={{ minWidth: "48px", textAlign: "right" }}>
           <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "0.65rem", color: "#3A3F4E" }}>{timeAgo(signal.publishedAt)}</span>
         </div>
       </div>
