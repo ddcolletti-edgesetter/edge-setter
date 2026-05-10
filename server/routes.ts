@@ -495,7 +495,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
         customer: customerId, mode: "subscription",
         line_items: lineItems,
         success_url: `${baseUrl}/?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(email)}#/success`,
-        cancel_url: `${baseUrl}/#/signals`,
+        cancel_url: `${baseUrl}/#/pro`,
         metadata: { email },
       });
       storage.logEvent({ event_name: "checkout_started", email, metadata: JSON.stringify({ session_id: session.id }) });
