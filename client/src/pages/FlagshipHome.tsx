@@ -67,9 +67,21 @@ function ChalkBg() {
   );
 }
 
+function useWindowWidth() {
+  const [width, setWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return width;
+}
+
 export default function FlagshipHome() {
   const [, navigate] = useLocation();
   const darkMode     = useShellTheme();
+  const windowWidth  = useWindowWidth();
+  const isMobile     = windowWidth < 768;
   const [liveSignals, setLiveSignals] = useState<any[]>([]);
 
   useEffect(() => {
@@ -162,7 +174,7 @@ export default function FlagshipHome() {
         {/* Gold hairline accent from left */}
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg, ${T.gold}, ${T.gold}22 60%, transparent)` }} />
 
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: "52px 40px 44px", display: "grid", gridTemplateColumns: "1fr 360px", gap: 52, alignItems: "center", position: "relative", zIndex: 2 }}>
+        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "32px 20px 28px" : "52px 40px 44px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 360px", gap: isMobile ? 24 : 52, alignItems: "center", position: "relative", zIndex: 2 }}>
 
           {/* ── Left ── */}
           <div style={{ animation: "fadeUp 0.55s ease both" }}>
