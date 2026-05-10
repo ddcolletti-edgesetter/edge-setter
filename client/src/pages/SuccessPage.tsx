@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { apiRequest } from "@/lib/queryClient";
 import { trackSuccessPageLoad } from "@/lib/analytics";
+import { useAuth } from "@/context/AuthContext";
 
 const C = {
   void: "#0A0B0D", shell: "#111317",
@@ -22,6 +23,7 @@ function Cap({ children, color, size = 9 }: { children: React.ReactNode; color?:
 export default function SuccessPage() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [email, setEmail] = useState("");
+  const { login } = useAuth();
 
   useEffect(() => {
     // Params may be in real query string (new format: /?session_id=...#/success)
@@ -47,7 +49,10 @@ export default function SuccessPage() {
 
     apiRequest("POST", "/api/verify-subscription", { session_id, email: emailParam })
       .then(r => r.json())
-      .then(data => {
+      .then(async data => {
+        if (data.success && emailParam) {
+          await login(emailParam);
+        }
         setStatus(data.success ? "success" : "error");
       })
       .catch(() => setStatus("error"));
