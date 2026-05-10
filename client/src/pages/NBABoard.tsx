@@ -1,721 +1,561 @@
-/**
- * NBABoard.tsx — LFL Master Design
- * Basketball court chalk bg. Team-color Featured Edge banner.
- * Signal hierarchy — high confidence pops, rumors recede.
- * Sport temperature: warm orange/gold.
- */
-
-import { useState, useEffect, useCallback } from "react";
-import V2Shell, { SportBadge, SPORT_THEME } from "../components/V2Shell";
+import { useState, useMemo, useEffect } from "react";
+import { V2Shell } from "@/components/V2Shell";
+import { getTeamLogo, getPlayerHeadshot, getInitialsAvatar } from "@/lib/espnAssets";
 import {
-  PlayerHeadshot, TeamLogoImg,
-  FeaturedEdgeCard,
-  VerdictBadge, TypeChip, ConfidenceBar,
-  T as _T, getTeamColors, toTeamAbbr,
-} from "../components/v2/SportVisuals";
-import { getPlayerHeadshot, getInitialsAvatar } from "../lib/espnAssets";
-import {
-  ChevronRight, X, Filter, Zap, TrendingUp,
-  AlertCircle, Lock, Star, Activity, Users, BarChart2, ArrowUpDown,
+  Activity, BarChart2, Bell, BellOff, ChevronRight,
+  Lock, Shield, TrendingUp, TrendingDown, User, Zap,
 } from "lucide-react";
 
-// LFL warm tokens
-const T = {
-  bg:          "#0C0B09",
-  surface1:    "#131110",
-  surface2:    "#1A1714",
-  surface3:    "#201D19",
-  gold:        "#C4A24A",
-  goldBright:  "#E0BB6A",
-  goldDim:     "rgba(196,162,74,0.15)",
-  goldGlow:    "rgba(196,162,74,0.07)",
-  goldStrong:  "rgba(196,162,74,0.38)",
-  text:        "#EDE5D4",
-  textMuted:   "#8A7A62",
-  textFaint:   "#4A4235",
-  green:       "#3EBA6A",
-  cyan:        "#4AA8C8",
-  orange:      "#D98A42",
-  danger:      "#D94B4B",
-  border:      "rgba(196,162,74,0.12)",
-  borderMid:   "rgba(196,162,74,0.22)",
-  borderStrong:"rgba(196,162,74,0.40)",
-  // NBA-specific warm accent
-  nbaAccent:   "#E87C2A",
-  nbaGlow:     "rgba(232,124,42,0.15)",
+function timeAgo(ts: Date | string) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+function confColor(score: number) {
+  if (score >= 80) return "#39FF14";
+  if (score >= 60) return "#F5A623";
+  return "#FF5555";
+}
+
+const NBA_COLORS: Record<string, [string, string]> = {
+  BOS: ["#007A33", "#FFFFFF"], BKN: ["#000000", "#FFFFFF"],
+  NYK: ["#006BB6", "#F58426"], PHI: ["#006BB6", "#ED174C"],
+  TOR: ["#CE1141", "#FFFFFF"], CHI: ["#CE1141", "#000000"],
+  CLE: ["#860038", "#FDBB30"], DET: ["#C8102E", "#1D42BA"],
+  IND: ["#002D62", "#FDBB30"], MIL: ["#00471B", "#EEE1C6"],
+  ATL: ["#E03A3E", "#C1D32F"], CHA: ["#1D1160", "#00788C"],
+  MIA: ["#98002E", "#F9A01B"], ORL: ["#0077C0", "#C4CED4"],
+  WAS: ["#002B5C", "#E31837"], DEN: ["#0E2240", "#FEC524"],
+  MIN: ["#0C2340", "#236192"], OKC: ["#007AC1", "#EF3B24"],
+  POR: ["#E03A3E", "#000000"], UTA: ["#002B5C", "#00471B"],
+  GSW: ["#1D428A", "#FFC72C"], LAC: ["#C8102E", "#1D428A"],
+  LAL: ["#552583", "#FDB927"], PHX: ["#1D1160", "#E56020"],
+  SAC: ["#5A2D81", "#63727A"], DAL: ["#00538C", "#002B5C"],
+  HOU: ["#CE1141", "#000000"], MEM: ["#5D76A9", "#12173F"],
+  NOP: ["#0C2340", "#C8102E"], SAS: ["#C4CED4", "#000000"],
 };
-
-interface LiveSignal {
-  id: string; league: string; signal_type: string; headline: string;
-  title?: string; summary?: string; body?: string;
-  action_takeaway?: string; action_note?: string;
-  player_name?: string; team?: string; matchup?: string; verdict?: string;
-  confidence_score?: number; injury_designation?: string; lineup_status?: string;
-  line_movement?: any; sources?: any[]; source_count?: number;
-  why_it_matters?: string; created_at: string;
+function getTeamColors(abbr: string | null): [string, string] {
+  if (!abbr) return ["#1A1E2A", "#8A9099"];
+  return NBA_COLORS[abbr.toUpperCase()] ?? ["#1A1E2A", "#8A9099"];
 }
 
-const TABS = [
-  { key: "TODAY",      label: "Today",      icon: <Zap size={11} /> },
-  { key: "INJURIES",   label: "Injuries",   icon: <AlertCircle size={11} /> },
-  { key: "LINEUP",     label: "Lineup",     icon: <Users size={11} /> },
-  { key: "PROPS",      label: "Props",      icon: <Star size={11} /> },
-  { key: "TRENDS",     label: "Trends",     icon: <TrendingUp size={11} /> },
-  { key: "LINE_MOVES", label: "Line Moves", icon: <ArrowUpDown size={11} /> },
-] as const;
-type TabKey = typeof TABS[number]["key"];
-
-function filterByTab(signals: LiveSignal[], tab: TabKey) {
-  switch (tab) {
-    case "INJURIES":   return signals.filter(s => s.signal_type === "injury" || s.injury_designation);
-    case "LINEUP":     return signals.filter(s => ["rotation","lineup"].includes(s.signal_type) || s.lineup_status);
-    case "PROPS":      return signals.filter(s => s.signal_type === "prop");
-    case "TRENDS":     return signals.filter(s => ["trend","matchup_edge"].includes(s.signal_type));
-    case "LINE_MOVES": return signals.filter(s => s.signal_type === "line_move" || s.line_movement);
-    default:           return signals;
-  }
+const NBA_NAME_ABBR: Record<string, string> = {
+  "atlanta hawks": "ATL", "boston celtics": "BOS", "brooklyn nets": "BKN",
+  "charlotte hornets": "CHA", "chicago bulls": "CHI", "cleveland cavaliers": "CLE",
+  "dallas mavericks": "DAL", "denver nuggets": "DEN", "detroit pistons": "DET",
+  "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
+  "los angeles clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
+  "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN",
+  "new orleans pelicans": "NOP", "new york knicks": "NYK", "oklahoma city thunder": "OKC",
+  "orlando magic": "ORL", "philadelphia 76ers": "PHI", "phoenix suns": "PHX",
+  "portland trail blazers": "POR", "sacramento kings": "SAC", "san antonio spurs": "SAS",
+  "toronto raptors": "TOR", "utah jazz": "UTA", "washington wizards": "WAS",
+};
+function getTeamAbbr(fullName: string): string {
+  return NBA_NAME_ABBR[fullName.toLowerCase().trim()] ?? fullName.toUpperCase().slice(0, 3);
 }
 
-const NBA_TEAMS = ["LAL","BOS","GSW","MIA","DEN","OKC","MIN","NYK","MIL","PHX","DAL","CLE","SAC","PHI","ATL","CHI"];
-
-// ─── Tonight's Games ──────────────────────────────────────────────────────────
-
-interface GameData {
-  id: string; away: string; home: string;
-  time: string; status: "LIVE" | "FINAL" | "PRE";
-  awayScore: number | null; homeScore: number | null;
-  period: string | null; spread: string; total: string; series: string | null;
-}
-
-function TonightGamesBar({ teamFilter, onSelectTeam }: { teamFilter: string; onSelectTeam: (t: string) => void }) {
-  const [games, setGames]   = useState<GameData[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/nba/scoreboard");
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        if (!cancelled) setGames(data.games ?? []);
-      } catch { if (!cancelled) setGames([]); }
-      finally   { if (!cancelled) setLoading(false); }
-    };
-    load();
-    const iv = setInterval(load, 60_000);
-    return () => { cancelled = true; clearInterval(iv); };
-  }, []);
-
-  return (
-    <div style={{ padding: "10px 20px 12px", borderBottom: `1px solid ${T.border}`, flexShrink: 0, background: "rgba(12,11,9,0.55)" }}>
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
-        {games.some(g => g.status === "LIVE") && <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "esPulse 2s ease-in-out infinite", boxShadow: `0 0 5px ${T.green}` }} />}
-        Tonight's NBA Slate
-        {games.some(g => g.series) && <span style={{ color: T.gold, marginLeft: 2 }}>· Playoffs</span>}
-      </div>
-
-      {loading  && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint }}>Loading games…</div>}
-      {!loading && games.length === 0 && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint, padding: "4px 0" }}>No NBA games scheduled today</div>}
-
-      {!loading && games.length > 0 && (
-        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 2 }}>
-          {games.map(game => {
-            const isLive  = game.status === "LIVE";
-            const isFinal = game.status === "FINAL";
-            const isHit   = teamFilter === game.away || teamFilter === game.home;
-            const awayC   = getTeamColors(game.away);
-            const homeC   = getTeamColors(game.home);
-            return (
-              <div key={game.id} onClick={() => onSelectTeam(isHit ? "" : game.away)} style={{
-                flexShrink: 0, width: 208, borderRadius: 3, padding: "9px 12px", cursor: "pointer",
-                background: isHit ? `linear-gradient(140deg, ${awayC.primary}28, ${T.surface2})` : T.surface2,
-                border: `1px solid ${isHit ? T.borderStrong : isLive ? "rgba(62,186,106,0.32)" : T.border}`,
-                transition: "all 0.12s", position: "relative", overflow: "hidden",
-              }}>
-                {isLive && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.green}, ${T.green}44)` }} />}
-                <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `linear-gradient(135deg, ${awayC.primary}12 0%, transparent 45%, ${homeC.primary}0C 100%)` }} />
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7, position: "relative" }}>
-                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: isLive ? T.green : isFinal ? T.textFaint : T.textMuted, display: "flex", alignItems: "center", gap: 4 }}>
-                    {isLive && <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "esPulse 1.5s ease-in-out infinite" }} />}
-                    {isLive ? (game.period ?? "Live") : isFinal ? "Final" : game.time}
-                  </span>
-                  {game.series && <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, color: T.textFaint, maxWidth: 76, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{game.series}</span>}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, position: "relative" }}>
-                  {[{ abbr: game.away, score: game.awayScore }, { abbr: game.home, score: game.homeScore }].map(tm => (
-                    <div key={tm.abbr} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                      <TeamLogoImg abbr={tm.abbr} size={18} />
-                      <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: "0.1em", color: T.text, flex: 1 }}>{tm.abbr}</span>
-                      {(isLive || isFinal) && tm.score !== null && <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, color: T.text, minWidth: 24, textAlign: "right" }}>{tm.score}</span>}
-                    </div>
-                  ))}
-                </div>
-                <div style={{ marginTop: 6, paddingTop: 5, borderTop: `1px solid ${T.border}`, display: "flex", gap: 10, position: "relative" }}>
-                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{game.spread}</span>
-                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{game.total}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Right Sidebar ────────────────────────────────────────────────────────────
-
-function InjuryPanel({ signals }: { signals: LiveSignal[] }) {
-  const inj = signals.filter(s => s.signal_type === "injury" || s.injury_designation).slice(0, 9);
-  const statusColor = (d?: string) => {
-    if (!d) return T.textFaint;
-    const dl = d.toLowerCase();
-    if (dl.includes("out")) return T.danger;
-    if (dl.includes("doubtful")) return T.orange;
-    if (dl.includes("questionable")) return T.gold;
-    if (dl.includes("probable") || dl.includes("available")) return T.green;
-    return T.textFaint;
-  };
-  if (inj.length === 0) return <div style={{ padding: "10px 14px", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint }}>No injury signals this cycle</div>;
-  return (
-    <div>
-      {inj.map(sig => (
-        <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-          <PlayerCircle name={sig.player_name} size={32} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.player_name ?? sig.headline.slice(0, 26)}</div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: statusColor(sig.injury_designation), letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 1 }}>{sig.injury_designation ?? "Questionable"}</div>
-          </div>
-          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{sig.team}</div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function LineupPanel({ signals }: { signals: LiveSignal[] }) {
-  const lu = signals.filter(s => ["rotation","lineup"].includes(s.signal_type) || s.lineup_status).slice(0, 7);
-  if (lu.length === 0) return <div style={{ padding: "10px 14px", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint }}>No lineup signals today</div>;
-  return (
-    <div>
-      {lu.map(sig => (
-        <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "flex-start", gap: 8 }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: T.cyan, marginTop: 5, flexShrink: 0 }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, color: T.text, lineHeight: 1.35, fontWeight: 500 }}>{sig.headline.slice(0, 50)}{sig.headline.length > 50 ? "…" : ""}</div>
-            {sig.team && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, marginTop: 2 }}>{sig.team}{sig.lineup_status ? ` · ${sig.lineup_status}` : ""}</div>}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function TrendsPanel({ signals }: { signals: LiveSignal[] }) {
-  const tr = signals.filter(s => ["trend","matchup_edge"].includes(s.signal_type)).slice(0, 6);
-  if (tr.length === 0) return <div style={{ padding: "10px 14px", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint }}>No trend signals this cycle</div>;
-  return (
-    <div>
-      {tr.map(sig => {
-        const conf = sig.confidence_score ?? 70;
-        return (
-          <div key={sig.id} style={{ padding: "8px 13px", borderBottom: `1px solid ${T.border}` }}>
-            <div style={{ fontSize: 12, color: T.text, lineHeight: 1.35, fontWeight: 500, marginBottom: 5 }}>{sig.headline.slice(0, 55)}{sig.headline.length > 55 ? "…" : ""}</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {sig.team && <TeamLogoImg abbr={sig.team} size={13} />}
-              <ConfidenceBar value={conf} width={55} height={3} />
-              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: conf >= 80 ? T.gold : T.textFaint }}>{conf}%</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function RightSidebar({ signals }: { signals: LiveSignal[] }) {
-  const [open, setOpen] = useState<"injuries"|"lineup"|"trends">("injuries");
-  const panels = [
-    { key: "injuries" as const, label: "Injury Report",   icon: <AlertCircle size={11} />, color: T.danger, count: signals.filter(s => s.signal_type === "injury" || s.injury_designation).length },
-    { key: "lineup"   as const, label: "Lineup Movement", icon: <Users size={11} />,        color: T.cyan,   count: signals.filter(s => ["rotation","lineup"].includes(s.signal_type) || !!s.lineup_status).length },
-    { key: "trends"   as const, label: "Team Trends",     icon: <BarChart2 size={11} />,    color: T.green,  count: signals.filter(s => ["trend","matchup_edge"].includes(s.signal_type)).length },
-  ];
-  return (
-    <div className="board-right-rail" style={{ width: 234, flexShrink: 0, background: T.surface1, borderLeft: `1px solid ${T.border}`, display: "flex", flexDirection: "column", overflowY: "auto" }}>
-      {panels.map(p => (
-        <div key={p.key} style={{ borderBottom: `1px solid ${T.border}` }}>
-          <div onClick={() => setOpen(x => x === p.key ? "injuries" : p.key)} style={{ display: "flex", alignItems: "center", gap: 7, padding: "11px 13px", cursor: "pointer", background: open === p.key ? `linear-gradient(90deg, ${p.color}12, transparent)` : "transparent", borderLeft: `3px solid ${open === p.key ? p.color : "transparent"}`, transition: "background 0.1s" }}>
-            <span style={{ color: p.color, display: "flex" }}>{p.icon}</span>
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: open === p.key ? T.text : T.textMuted, flex: 1 }}>{p.label}</span>
-            {p.count > 0 && <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: p.color, background: `${p.color}18`, padding: "1px 5px", borderRadius: 2 }}>{p.count}</span>}
-            <ChevronRight size={10} style={{ color: T.textFaint, transform: open === p.key ? "rotate(90deg)" : "none", transition: "transform 0.15s" }} />
-          </div>
-          {open === p.key && (
-            <div style={{ borderTop: `1px solid ${T.border}` }}>
-              {p.key === "injuries" && <InjuryPanel signals={signals} />}
-              {p.key === "lineup"   && <LineupPanel signals={signals} />}
-              {p.key === "trends"   && <TrendsPanel signals={signals} />}
-            </div>
-          )}
-        </div>
-      ))}
-      <div style={{ marginTop: "auto", padding: "12px 10px" }}>
-        <div style={{ background: T.goldGlow, border: `1px solid ${T.borderStrong}`, borderRadius: 3, padding: "12px 10px" }}>
-          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold, marginBottom: 5 }}>⚡ Pro Only</div>
-          <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.5, marginBottom: 8 }}>Real-time alerts, full signal archive & source confidence scores.</div>
-          <a href="/#/pro" style={{ display: "block", textAlign: "center", background: `linear-gradient(135deg, ${T.gold}, #8A6A28)`, color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 13, letterSpacing: "2px", padding: "7px 0", borderRadius: 2, textDecoration: "none" }}>
-            Unlock Pro — $19/mo
-          </a>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Pro Gate ─────────────────────────────────────────────────────────────────
-
-function ProGate() {
-  return (
-    <div style={{ position: "relative", flexShrink: 0, background: `linear-gradient(to bottom, transparent, rgba(12,11,9,0.97) 38%)`, padding: "40px 20px 20px", marginTop: -40, zIndex: 10 }}>
-      <div style={{ border: `1px solid ${T.borderStrong}`, borderRadius: 3, background: "rgba(12,11,9,0.95)", padding: "16px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: T.goldGlow, border: `1px solid ${T.borderStrong}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Lock size={15} style={{ color: T.gold }} />
-          </div>
-          <div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, color: T.text, marginBottom: 2 }}>90 signals locked</div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.06em" }}>Pro members see the full feed — injury confirmations, lineup leaks, line movement alerts</div>
-          </div>
-        </div>
-        <a href="/#/pro" style={{ display: "inline-flex", alignItems: "center", gap: 6, background: `linear-gradient(135deg, ${T.gold} 0%, #8A6A28 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "2px", padding: "9px 18px", borderRadius: 2, textDecoration: "none", whiteSpace: "nowrap", flexShrink: 0 }}>
-          <Zap size={12} /> Unlock Pro
-        </a>
-      </div>
-    </div>
-  );
-}
-
-// ─── Player Circle — headshot or colored initials fallback ───────────────────
-
-function PlayerCircle({ name, size = 36 }: { name?: string | null; size?: number }) {
+function PlayerAvatar({ name, size = 48 }: { name: string; size?: number }) {
   const headshotUrl = getPlayerHeadshot(name, "nba");
   const { initials, color } = getInitialsAvatar(name);
-  const fontSize = Math.round(size * 0.34);
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%", flexShrink: 0,
-      overflow: "hidden", border: "2px solid rgba(255,255,255,0.08)",
+      overflow: "hidden", border: "2px solid #2A2F3E",
       background: headshotUrl ? "#111318" : color,
       display: "flex", alignItems: "center", justifyContent: "center",
     }}>
       {headshotUrl ? (
-        <img src={headshotUrl} alt={name ?? ""} style={{ width: "100%", height: "100%", objectFit: "cover" }}
+        <img src={headshotUrl} alt={name}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
           onError={e => {
-            const img = e.currentTarget as HTMLImageElement;
-            img.style.display = "none";
-            const p = img.parentElement!;
+            const el = e.currentTarget; el.style.display = "none";
+            const p = el.parentElement!;
             p.style.background = color;
-            p.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${fontSize}px;color:#fff">${initials}</span>`;
+            p.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${Math.round(size * 0.34)}px;color:#fff">${initials}</span>`;
           }}
         />
       ) : (
-        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize, color: "#fff" }}>{initials}</span>
+        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: size * 0.34, color: "#fff" }}>{initials || "?"}</span>
       )}
     </div>
   );
 }
 
-// ─── Signal Row — with confidence-based visual hierarchy ─────────────────────
-
-function SignalRow({ sig, idx, isSelected, onClick }: { sig: LiveSignal; idx: number; isSelected: boolean; onClick: () => void }) {
-  const conf    = sig.confidence_score ?? 70;
-  const verdict = sig.verdict ?? "unverified";
-  const isHigh  = conf >= 85 && (verdict === "official" || verdict === "confirmed" || verdict === "verified");
-  const isRumor = verdict === "rumor" || conf < 60;
-
-  const typeColors: Record<string, string> = {
-    injury: T.danger, line_move: T.green, matchup_edge: T.gold,
-    prop: T.orange, rotation: T.cyan, trend: T.cyan, lineup: T.cyan, news: T.textMuted,
-  };
-  const tc = typeColors[sig.signal_type] ?? T.textFaint;
-
-  const timeAgo = (ts: string) => {
-    const diff = Date.now() - new Date(ts).getTime();
-    const m = Math.floor(diff / 60000);
-    if (m < 1) return "just now";
-    if (m < 60) return `${m}m ago`;
-    const h = Math.floor(m / 60);
-    return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
-  };
-
+function TeamBadge({ teamName, size = 44 }: { teamName: string; size?: number }) {
+  const logoUrl = getTeamLogo(teamName, "nba");
+  const abbr = getTeamAbbr(teamName);
+  const colorAbbr = NBA_NAME_ABBR[teamName.toLowerCase().trim()] ?? teamName.toUpperCase().slice(0, 3);
+  const [bg, text] = getTeamColors(colorAbbr);
   return (
-    <div
-      className="sig-row"
-      onClick={onClick}
-      style={{
-        display: "grid",
-        gridTemplateColumns: "28px 100px 1fr 110px 80px 72px 62px",
-        padding: isHigh ? "14px 20px" : "9px 20px",
-        borderBottom: `1px solid ${T.border}`,
-        background: isSelected
-          ? `rgba(196,162,74,0.09)`
-          : isHigh
-          ? `linear-gradient(90deg, rgba(232,124,42,0.11) 0%, rgba(232,124,42,0.04) 35%, transparent 60%)`
-          : "transparent",
-        cursor: "pointer", alignItems: "center",
-        borderLeft: `${isHigh ? 4 : 2}px solid ${isSelected ? T.gold : isRumor ? tc + "28" : tc + (isHigh ? "EE" : "66")}`,
-        transition: "background 0.1s",
-        opacity: isRumor ? 0.62 : 1,
-        minHeight: isHigh ? 64 : 48,
-      }}
-    >
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint }}>{idx + 1}</div>
-      <div><TypeChip type={sig.signal_type as any} /></div>
-      <div style={{ paddingRight: 12 }}>
-        <div className="sig-headline" style={{ fontSize: isHigh ? 15 : 13, color: isHigh ? T.text : T.text, fontWeight: isHigh ? 700 : 500, lineHeight: 1.35, marginBottom: 2 }}>
-          {sig.headline ?? sig.title}
-        </div>
-        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, lineHeight: 1.4 }}>
-          {(sig.action_takeaway ?? sig.summary ?? "").slice(0, 66)}{(sig.action_takeaway ?? sig.summary ?? "").length > 66 ? "…" : ""}
-        </div>
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-        {sig.player_name
-          ? <PlayerCircle name={sig.player_name} size={34} />
-          : <TeamLogoImg abbr={sig.team ?? "NBA"} size={28} sport="nba" />
-        }
-        <div style={{ minWidth: 0 }}>
-          {sig.player_name && <div style={{ fontSize: 11, fontWeight: 600, color: T.textMuted, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.player_name.split(" ").pop()}</div>}
-          {sig.team && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{sig.team}</div>}
-        </div>
-      </div>
-      <VerdictBadge verdict={verdict as any} />
-      <div>
-        <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isHigh ? 16 : 14, color: conf >= 80 ? T.gold : T.textMuted, marginBottom: 2 }}>{conf}%</div>
-        <ConfidenceBar value={conf} width={44} height={3} />
-      </div>
-      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint }}>{timeAgo(sig.created_at)}</div>
+    <div style={{
+      width: size, height: size, borderRadius: "50%",
+      background: `${bg}22`, border: `2px solid ${bg}55`,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      flexShrink: 0, overflow: "hidden", padding: "4px",
+    }}>
+      {logoUrl ? (
+        <img src={logoUrl} alt={abbr}
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+          onError={e => {
+            const el = e.currentTarget; el.style.display = "none";
+            const p = el.parentElement!;
+            p.style.cssText += `background:${bg};display:flex;align-items:center;justify-content:center;`;
+            p.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:${Math.round(size * 0.3)}px;color:${text}">${abbr}</span>`;
+          }}
+        />
+      ) : (
+        <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 900, fontSize: size * 0.3, color: text }}>{abbr}</span>
+      )}
     </div>
   );
 }
 
-// ─── Detail Panel ─────────────────────────────────────────────────────────────
-
-function DetailPanel({ sig, onClose }: { sig: LiveSignal; onClose: () => void }) {
-  const team       = sig.team ?? "NBA";
-  const teamColors = getTeamColors(team);
-  const conf       = sig.confidence_score ?? 70;
-  const verdict    = sig.verdict ?? "unverified";
-
+function ConfBar({ score }: { score: number | null }) {
+  const pct = score ?? 50;
+  const color = confColor(pct);
   return (
-    <div style={{ width: 316, background: T.surface1, borderLeft: `1px solid ${T.borderStrong}`, flexShrink: 0, display: "flex", flexDirection: "column", overflowY: "auto", position: "relative" }}>
-      <button onClick={onClose} style={{ position: "absolute", top: 10, right: 10, zIndex: 10, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: "50%", color: T.textMuted, cursor: "pointer", width: 24, height: 24, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <X size={11} />
-      </button>
+    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+      <div style={{ width: "60px", height: "3px", background: "#1A1E2A", borderRadius: "2px", overflow: "hidden" }}>
+        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: "2px" }} />
+      </div>
+      <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.7rem", color, minWidth: "28px" }}>{pct}%</span>
+    </div>
+  );
+}
 
-      {/* Full-bleed team-color banner */}
-      <div style={{ position: "relative", overflow: "hidden", minHeight: 90, background: `linear-gradient(140deg, ${teamColors.primary}F0 0%, ${teamColors.primary}60 55%, ${T.surface2} 100%)`, padding: "16px 14px 12px", borderBottom: `1px solid ${T.border}` }}>
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.gold}, ${T.gold}44)` }} />
-        {/* Chalk bg texture in banner */}
-        <div style={{ position: "absolute", inset: 0, opacity: 0.06 }} className="es-chalk-nba" />
-        <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", gap: 9 }}>
-          <TeamLogoImg abbr={team} size={40} />
-          <div>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2px", color: T.text, lineHeight: 1.2 }}>{sig.player_name ? sig.player_name : team}</div>
-            <VerdictBadge verdict={verdict as any} />
+function VerdictBadge({ status }: { status: string | null }) {
+  if (!status) return null;
+  const map: Record<string, [string, string]> = {
+    verified:    ["#39FF14", "rgba(57,255,20,0.12)"],
+    confirmed:   ["#39FF14", "rgba(57,255,20,0.12)"],
+    official:    ["#F5A623", "rgba(245,166,35,0.12)"],
+    developing:  ["#F5A623", "rgba(245,166,35,0.12)"],
+    unconfirmed: ["#8A9099", "rgba(138,144,153,0.12)"],
+  };
+  const [color, bg] = map[status.toLowerCase()] ?? ["#8A9099", "rgba(138,144,153,0.12)"];
+  return (
+    <span style={{
+      display: "inline-block", padding: "2px 8px", borderRadius: "4px",
+      fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase",
+      letterSpacing: "0.08em", color, background: bg, border: `1px solid ${color}44`,
+    }}>{status}</span>
+  );
+}
+
+type LiveGame = {
+  id: number; homeTeam: string | null; awayTeam: string | null;
+  gameDate: string | null; statusDescription: string | null; status: string | null;
+  homeScore: number | null; awayScore: number | null; time: string | null;
+};
+
+function formatGameTime(g: LiveGame): string {
+  const s = g.statusDescription ?? g.status ?? "";
+  if (s.toLowerCase().includes("final") || s.toLowerCase().includes("in progress")) return s;
+  return g.time ?? "TBD";
+}
+
+function GameCard({ game, active, onClick, signalCount }: {
+  game: LiveGame; active: boolean; onClick: () => void; signalCount?: number;
+}) {
+  const awayFull = game.awayTeam ?? "TBD";
+  const homeFull = game.homeTeam ?? "TBD";
+  const away = getTeamAbbr(awayFull);
+  const home = getTeamAbbr(homeFull);
+  const [awayBg] = getTeamColors(away);
+  const [homeBg] = getTeamColors(home);
+  const status = game.statusDescription ?? game.status ?? "";
+  const isLive = status.toLowerCase().includes("in progress");
+  return (
+    <div onClick={onClick} style={{
+      minWidth: "200px", maxWidth: "220px",
+      background: active ? "#1A1E2A" : "#111318",
+      border: `1px solid ${active ? "#F5A623" : "#1A1E2A"}`,
+      borderRadius: "10px", overflow: "hidden",
+      cursor: "pointer", flexShrink: 0, transition: "all 0.15s ease",
+    }}
+      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = "#2A2F3E"; }}
+      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = "#1A1E2A"; }}
+    >
+      <div style={{ height: "3px", background: `linear-gradient(90deg, ${awayBg}, ${homeBg})` }} />
+      <div style={{ padding: "14px 16px 10px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
+            <TeamBadge teamName={awayFull} size={48} />
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{away}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
+            <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "0.8rem", color: "#3A3F4E", fontWeight: 700 }}>@</span>
+            {isLive && <span style={{ fontSize: "0.55rem", fontWeight: 800, color: "#39FF14", textTransform: "uppercase" }}>LIVE</span>}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
+            <TeamBadge teamName={homeFull} size={48} />
+            <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{home}</span>
           </div>
         </div>
       </div>
-
-      {/* Stats strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", background: T.surface2, borderBottom: `1px solid ${T.border}` }}>
-        {[
-          { label: "Verdict",    value: verdict.toUpperCase().slice(0, 9) },
-          { label: "Confidence", value: `${conf}%`, color: conf >= 80 ? T.gold : T.text },
-          { label: "Sources",    value: String(sig.source_count ?? sig.sources?.length ?? "—") },
-        ].map((s, i) => (
-          <div key={s.label} style={{ padding: "8px 0", textAlign: "center", borderRight: i < 2 ? `1px solid ${T.border}` : "none" }}>
-            <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, color: s.color ?? T.text }}>{s.value}</div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 1 }}>{s.label}</div>
+      {(game.homeScore !== null || game.awayScore !== null) && (
+        <div style={{ padding: "0 16px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5A623" }}>{game.awayScore ?? "-"}</span>
+          <span style={{ fontSize: "0.6rem", color: "#555A66" }}>SCORE</span>
+          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5A623" }}>{game.homeScore ?? "-"}</span>
+        </div>
+      )}
+      <div style={{ padding: "0 16px 12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
+        {[{ label: "STATUS", val: status || "Scheduled" }, { label: "TIME", val: formatGameTime(game) }].map(s => (
+          <div key={s.label} style={{ textAlign: "center" }}>
+            <div style={{ fontSize: "0.58rem", color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "3px" }}>{s.label}</div>
+            <div style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "0.7rem", color: "#8A9099", lineHeight: 1.2 }}>{s.val}</div>
           </div>
         ))}
       </div>
-      <div style={{ padding: "6px 14px 0" }}><ConfidenceBar value={conf} width="100%" height={3} /></div>
-
-      <div style={{ padding: "12px 14px", flex: 1 }}>
-        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 700, color: T.text, lineHeight: 1.4, marginBottom: 10 }}>{sig.headline ?? sig.title}</div>
-        {(sig.body ?? sig.summary) && (
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint, marginBottom: 4 }}>Detail</div>
-            <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 12, color: T.textMuted, lineHeight: 1.65 }}>{sig.body ?? sig.summary}</div>
-          </div>
-        )}
-        {(sig.action_takeaway ?? sig.action_note) && (
-          <div style={{ background: T.goldGlow, border: `1px solid rgba(196,162,74,0.22)`, borderRadius: 2, padding: "10px 12px" }}>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold, marginBottom: 4 }}>⚡ Action</div>
-            <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 12, color: T.text, lineHeight: 1.65 }}>{sig.action_takeaway ?? sig.action_note}</div>
-          </div>
-        )}
-        {sig.injury_designation && (
-          <div style={{ marginTop: 8, padding: "7px 10px", background: "rgba(217,75,75,0.07)", border: "1px solid rgba(217,75,75,0.22)", borderRadius: 2 }}>
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: T.danger }}>Status: {sig.injury_designation}</span>
-          </div>
-        )}
+      <div style={{ borderTop: "1px solid #1A1E2A", padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
+        <Zap size={12} style={{ color: "#F5A623" }} />
+        <span style={{ fontSize: "0.78rem", color: "#F5A623", fontWeight: 700 }}>{signalCount ?? 0} signals</span>
       </div>
     </div>
   );
 }
 
-// ─── Main ─────────────────────────────────────────────────────────────────────
+type Signal = {
+  id: string | number; title: string; summary?: string | null;
+  playerName?: string | null; player_name?: string | null;
+  teamName?: string | null; team_name?: string | null; team?: string | null;
+  signalType?: string; signal_type?: string; type?: string;
+  confidenceScore?: number | null; confidence?: number | null;
+  statusTag?: string | null; status?: string | null;
+  actionTakeaway?: string | null; action_takeaway?: string | null;
+  publishedAt?: string | Date; created_at?: string | Date; published_at?: string | Date;
+};
 
-const FREE_LIMIT = 8;
+function normalizeSignal(s: Signal) {
+  return {
+    id: s.id,
+    title: s.title,
+    summary: s.summary ?? null,
+    playerName: s.playerName ?? s.player_name ?? null,
+    teamName: s.teamName ?? s.team_name ?? s.team ?? null,
+    signalType: s.signalType ?? s.signal_type ?? s.type ?? "signal",
+    confidenceScore: s.confidenceScore ?? s.confidence ?? null,
+    statusTag: s.statusTag ?? s.status ?? null,
+    actionTakeaway: s.actionTakeaway ?? s.action_takeaway ?? null,
+    publishedAt: s.publishedAt ?? s.created_at ?? s.published_at ?? new Date(),
+  };
+}
+
+function SignalRow({ signal: raw, isPro = false }: { signal: Signal; isPro?: boolean }) {
+  const signal = normalizeSignal(raw);
+  const [expanded, setExpanded] = useState(false);
+  const t = signal.signalType.toLowerCase();
+  const typeColors: Record<string, { bg: string; color: string; border: string }> = {
+    injury:        { bg: "rgba(255,85,85,0.1)",   color: "#FF5555", border: "rgba(255,85,85,0.25)" },
+    injury_update: { bg: "rgba(255,85,85,0.1)",   color: "#FF5555", border: "rgba(255,85,85,0.25)" },
+    lineup:        { bg: "rgba(74,158,255,0.1)",  color: "#4A9EFF", border: "rgba(74,158,255,0.25)" },
+    lineup_change: { bg: "rgba(74,158,255,0.1)",  color: "#4A9EFF", border: "rgba(74,158,255,0.25)" },
+    line_move:     { bg: "rgba(176,110,255,0.1)", color: "#B06EFF", border: "rgba(176,110,255,0.25)" },
+    line_moves:    { bg: "rgba(176,110,255,0.1)", color: "#B06EFF", border: "rgba(176,110,255,0.25)" },
+    trade:         { bg: "rgba(245,166,35,0.1)",  color: "#F5A623", border: "rgba(245,166,35,0.25)" },
+    props:         { bg: "rgba(57,255,20,0.08)",  color: "#39FF14", border: "rgba(57,255,20,0.2)" },
+  };
+  const c = typeColors[t] ?? { bg: "rgba(245,166,35,0.08)", color: "#F5A623", border: "rgba(245,166,35,0.2)" };
+  return (
+    <div onClick={() => !isPro && setExpanded(e => !e)}
+      style={{ borderBottom: "1px solid #1A1E2A", cursor: isPro ? "default" : "pointer", position: "relative" }}
+      onMouseEnter={e => { if (!isPro) (e.currentTarget as HTMLElement).style.background = "#111318"; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+    >
+      {isPro && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(10,12,16,0.7)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "16px", zIndex: 2 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "5px", background: "rgba(245,166,35,0.12)", border: "1px solid rgba(245,166,35,0.3)", fontSize: "0.7rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase" }}>
+            <Lock size={10} /> PRO
+          </span>
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px" }}>
+        {signal.playerName
+          ? <PlayerAvatar name={signal.playerName} size={48} />
+          : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1A1E2A", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={18} style={{ color: "#3A3F4E" }} /></div>
+        }
+        <div style={{ minWidth: "90px" }}>
+          <span style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: "3px", background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>{signal.signalType.replace(/_/g, " ")}</span>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "1.15rem", fontWeight: 700, color: isPro ? "#3A3F4E" : "#E8E8E8", lineHeight: 1.3, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{signal.title}</div>
+          {signal.playerName && <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{signal.playerName}{signal.teamName ? ` · ${signal.teamName}` : ""}</div>}
+        </div>
+        <div style={{ minWidth: "90px", textAlign: "right" }}><VerdictBadge status={signal.statusTag} /></div>
+        <div style={{ minWidth: "100px" }}><ConfBar score={signal.confidenceScore} /></div>
+        <div style={{ minWidth: "60px", textAlign: "right" }}>
+          <span style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "0.65rem", color: "#3A3F4E" }}>{timeAgo(signal.publishedAt)}</span>
+        </div>
+      </div>
+      {expanded && !isPro && signal.summary && (
+        <div style={{ padding: "0 16px 14px 80px", borderTop: "1px solid #1A1E2A" }}>
+          <p style={{ color: "#8A9099", fontSize: "0.85rem", lineHeight: 1.6, margin: "10px 0 8px" }}>{signal.summary}</p>
+          {signal.actionTakeaway && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.15)" }}>
+              <Zap size={11} style={{ color: "#F5A623" }} />
+              <span style={{ fontSize: "0.8rem", color: "#F5A623" }}>{signal.actionTakeaway}</span>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const INJURY_ALERTS = [
+  { name: "LeBron James",   full: "LeBron James",         team: "LAL", detail: "Questionable — ankle", status: "Q"   },
+  { name: "Joel Embiid",    full: "Joel Embiid",           team: "PHI", detail: "OUT — knee",           status: "OUT" },
+  { name: "Steph Curry",    full: "Stephen Curry",         team: "GSW", detail: "Confirmed starter",    status: "OK"  },
+  { name: "Giannis A.",     full: "Giannis Antetokounmpo", team: "MIL", detail: "Full practice",        status: "OK"  },
+];
+const LINEUP_MOVES = [
+  { player: "Anthony Davis",     team: "LAL", detail: "Starting center confirmed", trend: "up"   },
+  { player: "Jaylen Brown",      team: "BOS", detail: "Moved to 2nd unit",         trend: "down" },
+  { player: "Nikola Jokic",      team: "DEN", detail: "Cleared to play",           trend: "up"   },
+  { player: "Tyrese Haliburton", team: "IND", detail: "Upgraded to probable",      trend: "up"   },
+];
+const TEAM_TRENDS = [
+  { team: "BOS", trend: "12-3 home this month", dir: "up"   },
+  { team: "DEN", trend: "8-2 ATS last 10",      dir: "up"   },
+  { team: "LAL", trend: "4-8 road games",       dir: "down" },
+  { team: "MIL", trend: "6-1 last 7 at home",  dir: "up"   },
+  { team: "GSW", trend: "3-7 last 10",          dir: "down" },
+];
+
+function RightPanel() {
+  return (
+    <aside style={{ width: "300px", minWidth: "300px", background: "#0A0C10", borderLeft: "1px solid #1A1E2A", overflowY: "auto", flexShrink: 0 }}>
+      <div style={{ borderBottom: "1px solid #1A1E2A" }}>
+        <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#F5A623", boxShadow: "0 0 8px #F5A623", flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.08em" }}>Injury Report</span>
+        </div>
+        {INJURY_ALERTS.map(p => {
+          const statusColor = p.status === "OUT" ? "#FF5555" : p.status === "Q" ? "#F5A623" : "#39FF14";
+          return (
+            <div key={p.name} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 18px", borderTop: "1px solid #1A1E2A" }}>
+              <PlayerAvatar name={p.full} size={42} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
+                  <img src={getTeamLogo(p.team, "nba") ?? ""} alt={p.team} style={{ width: 16, height: 16, objectFit: "contain" }} onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }} />
+                  <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.95rem", fontWeight: 700, color: "#D8D8D8" }}>{p.name}</span>
+                </div>
+                <div style={{ fontSize: "0.75rem", color: "#555A66" }}>{p.detail}</div>
+              </div>
+              <span style={{ fontSize: "0.65rem", fontWeight: 800, padding: "3px 7px", borderRadius: "3px", background: `${statusColor}18`, color: statusColor, border: `1px solid ${statusColor}44`, flexShrink: 0 }}>{p.status}</span>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ borderBottom: "1px solid #1A1E2A" }}>
+        <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#39FF14", boxShadow: "0 0 8px #39FF14", flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#39FF14", textTransform: "uppercase", letterSpacing: "0.08em" }}>Lineup Movement</span>
+        </div>
+        {LINEUP_MOVES.map(m => (
+          <div key={m.player} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
+            <PlayerAvatar name={m.player} size={38} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "2px" }}>
+                <img src={getTeamLogo(m.team, "nba") ?? ""} alt={m.team} style={{ width: 14, height: 14, objectFit: "contain" }} onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }} />
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "#D0D0D0" }}>{m.player}</span>
+              </div>
+              <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{m.detail}</div>
+            </div>
+            {m.trend === "up" ? <TrendingUp size={15} style={{ color: "#39FF14", flexShrink: 0 }} /> : <TrendingDown size={15} style={{ color: "#FF5555", flexShrink: 0 }} />}
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#4A9EFF", boxShadow: "0 0 8px #4A9EFF", flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#4A9EFF", textTransform: "uppercase", letterSpacing: "0.08em" }}>Team Trends</span>
+        </div>
+        {TEAM_TRENDS.map(t => (
+          <div key={t.team + t.trend} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
+            <TeamBadge teamName={t.team} size={36} />
+            <div style={{ flex: 1 }}><div style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.88rem", fontWeight: 600, color: "#D0D0D0" }}>{t.trend}</div></div>
+            {t.dir === "up" ? <TrendingUp size={14} style={{ color: "#39FF14", flexShrink: 0 }} /> : <TrendingDown size={14} style={{ color: "#FF5555", flexShrink: 0 }} />}
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}
+
+const FEED_TABS = [
+  { key: "today",      label: "Today",      icon: <Activity size={13} /> },
+  { key: "injuries",   label: "Injuries",   icon: <User size={13} /> },
+  { key: "lineup",     label: "Lineup",     icon: <TrendingUp size={13} /> },
+  { key: "props",      label: "Props",      icon: <BarChart2 size={13} /> },
+  { key: "trends",     label: "Trends",     icon: <TrendingUp size={13} /> },
+  { key: "line_moves", label: "Line Moves", icon: <Zap size={13} /> },
+];
+
+const TAB_FILTER: Record<string, string | null> = {
+  today: null, injuries: "injury_update", lineup: "lineup_change",
+  props: "prop_alert", trends: "team_trend", line_moves: "line_move",
+};
 
 export default function NBABoard() {
-  const [signals, setSignals]     = useState<LiveSignal[]>([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabKey>("TODAY");
-  const [teamFilter, setTeamFilter] = useState("");
-  const [selected, setSelected]   = useState<LiveSignal | null>(null);
-  const [isProUser]               = useState(false);
+  const [activeGame, setActiveGame] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState("today");
+  const [allSignals, setAllSignals] = useState<Signal[]>([]);
+  const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const fetchSignals = useCallback(async () => {
-    try {
-      const res = await fetch("/api/signals?league=NBA");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setSignals(await res.json());
-      setError(null);
-    } catch (e: any) { setError(e.message); }
-    finally { setLoading(false); }
+  useEffect(() => {
+    fetch("/api/v2/signals?sport=nba&limit=100")
+      .then(r => r.json())
+      .then(d => setAllSignals(Array.isArray(d) ? d : d.signals ?? []))
+      .catch(() => setAllSignals([]));
+    fetch("/api/nba/scoreboard")
+      .then(r => r.json())
+      .then(d => setLiveGames(Array.isArray(d) ? d : d.games ?? []))
+      .catch(() => setLiveGames([]))
+      .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => { fetchSignals(); const iv = setInterval(fetchSignals, 60_000); return () => clearInterval(iv); }, [fetchSignals]);
+  const filteredSignals = useMemo(() => {
+    const f = TAB_FILTER[activeTab];
+    if (!f) return allSignals;
+    return allSignals.filter(s => {
+      const t = (s.signalType ?? s.signal_type ?? s.type ?? "").toLowerCase();
+      return t.includes(f) || t === f;
+    });
+  }, [allSignals, activeTab]);
 
-  let filtered = filterByTab(signals, activeTab);
-  if (teamFilter) filtered = filtered.filter(s => s.team === teamFilter || s.matchup?.includes(teamFilter));
+  const signalCountByTeam = useMemo(() => {
+    const counts: Record<string, number> = {};
+    allSignals.forEach(s => {
+      const t = (s.teamName ?? s.team_name ?? s.team ?? "").toUpperCase();
+      if (t) counts[t] = (counts[t] ?? 0) + 1;
+    });
+    return counts;
+  }, [allSignals]);
 
-  const visible     = isProUser ? filtered : filtered.slice(0, FREE_LIMIT);
-  const lockedCount = filtered.length - visible.length;
-  const featured    = signals.find(s => (s.confidence_score ?? 0) >= 85) ?? signals[0];
-  const featColors  = getTeamColors(featured?.team ?? "NBA");
-  const featOppColors = getTeamColors(featured?.matchup?.split("@")[1]?.trim() ?? featured?.team ?? "NBA");
-
-  const confirmedCount = signals.filter(s => s.verdict === "confirmed").length;
-  const highConfCount  = signals.filter(s => (s.confidence_score ?? 0) >= 80).length;
+  const PRO_THRESHOLD = 10;
+  const confirmed = allSignals.filter(s => {
+    const st = (s.statusTag ?? s.status ?? "").toLowerCase();
+    return st === "verified" || st === "confirmed";
+  }).length;
 
   return (
     <V2Shell sport="NBA">
-      <style>{`
-        @keyframes esPulse   { 0%,100%{opacity:1} 50%{opacity:0.22} }
-        @keyframes esShimmer { 0%{background-position:0%} 50%{background-position:100%} 100%{background-position:0%} }
-        .tab-btn:hover { background: rgba(196,162,74,0.05) !important; }
-        .team-pill:hover { background: rgba(196,162,74,0.07) !important; border-color: rgba(196,162,74,0.3) !important; }
-      `}</style>
+      <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
+        <div style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
 
-      <div style={{ display: "flex", height: "100%", minHeight: "calc(100vh - 48px)" }}>
-
-        {/* ── Left sidebar ── */}
-        <aside style={{ width: 168, background: T.surface1, borderRight: `1px solid ${T.border}`, flexShrink: 0, padding: "12px 6px", overflowY: "auto" }}>
-          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.24em", textTransform: "uppercase", color: T.textFaint, padding: "0 7px", marginBottom: 7 }}>NBA Board</div>
-
-          {[
-            { label: "Signal Stream",     icon: <Zap size={11} />,         active: true  },
-            { label: "Tonight's Slate",   icon: <Activity size={11} />,    active: false },
-            { label: "Injury Volatility", icon: <AlertCircle size={11} />, active: false },
-            { label: "Line Movement",     icon: <ArrowUpDown size={11} />, active: false },
-            { label: "Matchup Edges",     icon: <BarChart2 size={11} />,   active: false },
-          ].map(({ label, icon, active }) => (
-            <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, padding: "6px 7px", marginBottom: 1, borderRadius: 2, borderLeft: `2px solid ${active ? T.nbaAccent : "transparent"}`, background: active ? "rgba(232,124,42,0.07)" : "transparent", color: active ? T.nbaAccent : T.textMuted, cursor: "pointer" }}>
-              <span style={{ opacity: active ? 1 : 0.4, display: "flex" }}>{icon}</span>
-              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</span>
-            </div>
-          ))}
-
-          <div style={{ margin: "12px 0 8px", borderTop: `1px solid ${T.border}` }} />
-          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.24em", textTransform: "uppercase", color: T.textFaint, padding: "0 7px", marginBottom: 6 }}>Teams</div>
-
-          {teamFilter && (
-            <div onClick={() => setTeamFilter("")} style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 7px", marginBottom: 5, borderRadius: 2, background: T.goldGlow, border: `1px solid ${T.borderStrong}`, cursor: "pointer" }}>
-              <X size={9} style={{ color: T.textFaint }} />
-              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: T.textFaint, letterSpacing: "0.1em", textTransform: "uppercase" }}>Clear</span>
-            </div>
-          )}
-
-          {NBA_TEAMS.map(tm => {
-            const isActive   = teamFilter === tm;
-            const hasSignals = signals.some(s => s.team === tm);
-            return (
-              <div key={tm} className="team-pill" onClick={() => setTeamFilter(isActive ? "" : tm)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 7px", borderRadius: 2, marginBottom: 1, cursor: "pointer", background: isActive ? T.goldGlow : "transparent", border: `1px solid ${isActive ? T.borderStrong : "transparent"}`, transition: "all 0.1s" }}>
-                <TeamLogoImg abbr={tm} size={18} />
-                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: isActive ? T.gold : T.textMuted, flex: 1 }}>{tm}</span>
-                {hasSignals && <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block" }} />}
+          <div style={{ padding: "20px 24px 0", borderBottom: "1px solid #1A1E2A", background: "linear-gradient(180deg, rgba(245,166,35,0.04) 0%, transparent 100%)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "4px" }}>
+              <h1 style={{ fontFamily: "'Bebas Neue',sans-serif", fontSize: "1.8rem", color: "#F0F0F0", letterSpacing: "0.04em", margin: 0 }}>NBA INTELLIGENCE BOARD</h1>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "3px 10px", borderRadius: "20px", background: "rgba(232,124,42,0.1)", border: "1px solid rgba(232,124,42,0.25)", fontSize: "0.65rem", fontWeight: 800, color: "#E87C2A", textTransform: "uppercase" }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#E87C2A", display: "inline-block" }} /> LIVE
+              </span>
+              <div style={{ flex: 1 }} />
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "1.4rem", fontWeight: 700, color: "#F5A623", lineHeight: 1 }}>{allSignals.length}</div>
+                <div style={{ fontSize: "0.6rem", color: "#3A3F4E", textTransform: "uppercase" }}>SIGNALS</div>
               </div>
-            );
-          })}
-        </aside>
-
-        {/* ── Main canvas ── */}
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden", position: "relative" }}>
-
-          {/* Chalk basketball court bg */}
-          <div className="es-chalk-nba" aria-hidden="true" style={{ position: "absolute", inset: 0, opacity: 0.07, pointerEvents: "none", zIndex: 0 }} />
-          {/* NBA warm radial glow — stronger orange atmosphere */}
-          <div aria-hidden="true" style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 1, background: `radial-gradient(ellipse 80% 65% at 50% 40%, rgba(232,124,42,0.10) 0%, rgba(232,124,42,0.03) 50%, transparent 72%), radial-gradient(ellipse 85% 80% at 50% 50%, transparent 30%, ${T.bg} 100%)` }} />
-
-          <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", height: "100%" }}>
-
-            {/* Board header */}
-            <div style={{ padding: "10px 20px", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0, background: "rgba(19,17,16,0.9)" }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 2 }}>
-                  <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 28, letterSpacing: "3px", color: T.text }}>NBA Intelligence Board</span>
-                  <SportBadge status="LIVE" />
-                </div>
-                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.08em" }}>
-                  {loading ? "Loading signals…" : error ? `Signal feed unavailable — ${error}` : `${signals.length} signals · Updated continuously`}
-                </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontFamily: "'Share Tech Mono',monospace", fontSize: "1.4rem", fontWeight: 700, color: "#39FF14", lineHeight: 1 }}>{confirmed}</div>
+                <div style={{ fontSize: "0.6rem", color: "#3A3F4E", textTransform: "uppercase" }}>CONFIRMED</div>
               </div>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                {[
-                  { label: "Total",     value: signals.length, color: T.text    },
-                  { label: "Confirmed", value: confirmedCount, color: T.green   },
-                  { label: "High Conf", value: highConfCount,  color: T.nbaAccent },
-                ].map(stat => (
-                  <div key={stat.label} style={{ textAlign: "center", padding: "5px 10px", background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 2 }}>
-                    <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, color: stat.color }}>{loading ? "—" : stat.value}</div>
-                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, color: T.textFaint, letterSpacing: "0.14em", textTransform: "uppercase" }}>{stat.label}</div>
-                  </div>
-                ))}
+            </div>
+            <div style={{ fontSize: "0.78rem", color: "#555A66", marginBottom: "16px" }}>Live · {allSignals.length} signals · Updated continuously</div>
+
+            <div id="games-section" style={{ marginBottom: "16px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
+                <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#F5A623", flexShrink: 0 }} />
+                <span style={{ fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.72rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.1em" }}>Tonight's Games</span>
+              </div>
+              <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "4px" }}>
+                {loading ? (
+                  [...Array(4)].map((_, i) => <div key={i} style={{ minWidth: "200px", height: "160px", background: "#111318", borderRadius: "10px", opacity: 0.3 + i * 0.1 }} />)
+                ) : liveGames.length === 0 ? (
+                  <div style={{ padding: "20px", color: "#555A66", fontSize: "0.85rem" }}>No games scheduled today.</div>
+                ) : (
+                  liveGames.map((game, i) => {
+                    const away = (game.awayTeam ?? "").toUpperCase();
+                    const home = (game.homeTeam ?? "").toUpperCase();
+                    const cnt = (signalCountByTeam[away] ?? 0) + (signalCountByTeam[home] ?? 0);
+                    return (
+                      <GameCard key={game.id ?? i} game={game}
+                        active={activeGame === (game.id ?? i)}
+                        onClick={() => setActiveGame(activeGame === (game.id ?? i) ? null : (game.id ?? i))}
+                        signalCount={cnt}
+                      />
+                    );
+                  })
+                )}
               </div>
             </div>
 
-            {/* Games bar */}
-            <TonightGamesBar teamFilter={teamFilter} onSelectTeam={setTeamFilter} />
-
-            {/* Featured Edge — COMMANDING team color bleed */}
-            {featured && !loading && (
-              <div style={{ padding: "12px 20px 0", flexShrink: 0 }}>
-                <div style={{ borderRadius: 3, overflow: "hidden", border: `1px solid ${featColors.primary}55`, position: "relative",
-                  boxShadow: `0 0 32px ${featColors.primary}22, 0 4px 24px rgba(0,0,0,0.5)` }}>
-                  {/* Gold top stripe */}
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.gold}, ${T.gold}33)`, zIndex: 3 }} />
-                  {/* PRIMARY team color — BOLD left bleed, unmissable */}
-                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(125deg, ${featColors.primary}90 0%, ${featColors.primary}44 30%, ${featColors.primary}18 55%, transparent 72%)`, pointerEvents: "none", zIndex: 1 }} />
-                  {/* Secondary team color accent */}
-                  <div style={{ position: "absolute", inset: 0, background: `linear-gradient(125deg, ${featColors.secondary}30 0%, transparent 40%)`, pointerEvents: "none", zIndex: 1 }} />
-                  {/* Opposing team bleed from right */}
-                  <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 98% 50%, ${featOppColors.primary}44, transparent 48%)`, pointerEvents: "none", zIndex: 1 }} />
-                  {/* Chalk texture */}
-                  <div className="es-chalk-nba" style={{ position: "absolute", inset: 0, opacity: 0.04, pointerEvents: "none", zIndex: 0 }} />
-                  <div style={{ position: "relative", zIndex: 2 }}>
-                    <FeaturedEdgeCard
-                      sport="NBA"
-                      signal={{
-                        headline:        featured.headline ?? featured.title ?? "Signal",
-                        detail:          featured.body ?? featured.summary ?? featured.why_it_matters ?? "—",
-                        action_takeaway: featured.action_takeaway ?? featured.action_note ?? "Monitor this situation.",
-                        verdict:         featured.verdict ?? "unverified",
-                        confidence:      featured.confidence_score ?? 70,
-                        sources:         featured.source_count ?? featured.sources?.length ?? 1,
-                        type:            featured.signal_type ?? "news",
-                        player:          featured.player_name,
-                        team:            toTeamAbbr(featured.team) || "NBA",
-                        opponent:        undefined,
-                        timestamp:       new Date(featured.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                        tags:            [toTeamAbbr(featured.team) || "NBA", featured.signal_type ?? "intel"].filter(Boolean),
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Sub-nav tabs */}
-            <div style={{ display: "flex", gap: 2, padding: "10px 20px 0", borderBottom: `1px solid ${T.border}`, background: "rgba(19,17,16,0.75)", flexShrink: 0 }}>
-              {TABS.map(tab => {
+            <div id="signal-feed" style={{ display: "flex", gap: "2px" }}>
+              {FEED_TABS.map(tab => {
                 const isActive = activeTab === tab.key;
-                const count    = filterByTab(signals, tab.key).length;
                 return (
-                  <button key={tab.key} className="tab-btn" onClick={() => setActiveTab(tab.key)} style={{
-                    display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px",
-                    borderRadius: "2px 2px 0 0", border: "none", background: "transparent",
-                    borderBottom: `2px solid ${isActive ? T.nbaAccent : "transparent"}`,
-                    color: isActive ? T.nbaAccent : T.textMuted,
-                    fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-                    cursor: "pointer", transition: "all 0.1s", marginBottom: -1,
+                  <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
+                    display: "inline-flex", alignItems: "center", gap: "6px", padding: "9px 16px",
+                    fontFamily: "'Barlow Condensed',sans-serif", fontSize: "0.85rem", fontWeight: 700,
+                    letterSpacing: "0.04em", textTransform: "uppercase", cursor: "pointer",
+                    background: "transparent", color: isActive ? "#F0F0F0" : "#555A66",
+                    border: "none", borderBottom: `2px solid ${isActive ? "#E87C2A" : "transparent"}`,
+                    transition: "all 0.15s ease",
                   }}>
-                    <span style={{ opacity: isActive ? 1 : 0.4 }}>{tab.icon}</span>
-                    {tab.label}
-                    {count > 0 && <span style={{ fontSize: 10, color: isActive ? T.nbaAccent : T.textFaint, background: isActive ? "rgba(232,124,42,0.12)" : "rgba(255,255,255,0.05)", padding: "1px 4px", borderRadius: 2 }}>{count}</span>}
+                    {tab.icon} {tab.label}
                   </button>
                 );
               })}
-              {teamFilter && (
-                <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 5, paddingBottom: 5, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, color: T.gold }}>
-                  <Filter size={10} />{teamFilter}
-                  <button onClick={() => setTeamFilter("")} style={{ background: "none", border: "none", color: T.textFaint, cursor: "pointer", padding: 0, display: "flex" }}><X size={10} /></button>
-                </div>
-              )}
             </div>
+          </div>
 
-            {/* Signal feed */}
-            <div style={{ flex: 1, overflowY: "auto", position: "relative" }}>
-              {/* Column header */}
-              <div style={{ display: "grid", gridTemplateColumns: "28px 100px 1fr 110px 80px 72px 62px", padding: "5px 20px", background: "rgba(19,17,16,0.94)", borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 5 }}>
-                {["#","Type","Signal","Player","Verdict","Conf","Time"].map(h => (
-                  <div key={h} style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint }}>{h}</div>
-                ))}
+          <div>
+            {allSignals.length > PRO_THRESHOLD && (
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 16px", background: "rgba(245,166,35,0.04)", borderBottom: "1px solid #1A1E2A" }}>
+                <Lock size={13} style={{ color: "#F5A623" }} />
+                <span style={{ fontSize: "0.78rem", color: "#8A9099" }}>
+                  <strong style={{ color: "#F5A623" }}>{Math.max(0, filteredSignals.length - PRO_THRESHOLD)} signals locked</strong> — Pro members see the full feed
+                </span>
+                <div style={{ flex: 1 }} />
+                <button onClick={() => window.location.href = "/#/pro"} style={{ padding: "5px 14px", fontSize: "0.72rem", fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, background: "#C4A24A", color: "#0C0B09", border: "none", borderRadius: "4px", cursor: "pointer" }}>UNLOCK PRO</button>
               </div>
+            )}
 
-              {loading && <div style={{ padding: "40px 20px", textAlign: "center", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, color: T.textFaint, letterSpacing: "0.12em" }}>Loading live signals…</div>}
-
-              {!loading && error && (
-                <div style={{ padding: "20px", margin: "16px 20px", background: "rgba(217,75,75,0.05)", border: "1px solid rgba(217,75,75,0.2)", borderRadius: 3 }}>
-                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, color: T.danger }}><strong>Signal feed unavailable</strong> — {error}</div>
-                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, marginTop: 4 }}>pipeline.db may be empty — check ingestion cycle logs.</div>
-                </div>
-              )}
-
-              {!loading && !error && filtered.length === 0 && (
-                <div style={{ padding: "40px 20px", textAlign: "center", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, color: T.textFaint }}>
-                  {teamFilter ? `No signals for ${teamFilter}` : `No ${activeTab.toLowerCase()} signals in current cycle`}
-                </div>
-              )}
-
-              {visible.map((sig, idx) => (
-                <SignalRow key={sig.id} sig={sig} idx={idx} isSelected={selected?.id === sig.id} onClick={() => setSelected(selected?.id === sig.id ? null : sig)} />
-              ))}
-
-              {!isProUser && lockedCount > 0 && (
-                <div style={{ position: "relative" }}>
-                  <div style={{ filter: "blur(3px)", pointerEvents: "none", userSelect: "none" }}>
-                    {filtered.slice(FREE_LIMIT, FREE_LIMIT + 3).map((sig, idx) => (
-                      <SignalRow key={sig.id + "_blur"} sig={sig} idx={FREE_LIMIT + idx} isSelected={false} onClick={() => {}} />
-                    ))}
-                  </div>
-                  <ProGate />
-                </div>
-              )}
-
-              {(isProUser || lockedCount === 0) && filtered.length > 0 && (
-                <div style={{ margin: "10px 20px", padding: "7px 12px", background: T.goldGlow, border: `1px solid ${T.border}`, borderRadius: 2 }}>
-                  <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint }}>{filtered.length} signals · Refreshes every 60s · Click any row to expand</div>
-                </div>
-              )}
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "8px 16px", borderBottom: "1px solid #1A1E2A", background: "#0A0C10" }}>
+              <div style={{ width: "36px" }} />
+              <div style={{ minWidth: "80px", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>TYPE</div>
+              <div style={{ flex: 1, fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>SIGNAL</div>
+              <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>VERDICT</div>
+              <div style={{ minWidth: "100px", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>CONF</div>
+              <div style={{ minWidth: "60px", textAlign: "right", fontSize: "0.62rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>TIME</div>
             </div>
+
+            {loading ? (
+              <div style={{ padding: "40px 24px" }}>
+                {[...Array(8)].map((_, i) => <div key={i} style={{ height: "60px", background: "#111318", borderRadius: "4px", marginBottom: "4px", opacity: 0.3 + i * 0.05 }} />)}
+              </div>
+            ) : filteredSignals.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "60px 24px" }}>
+                <Activity size={40} style={{ color: "#1A1E2A", margin: "0 auto 12px" }} />
+                <p style={{ color: "#555A66", fontSize: "0.9rem" }}>No {activeTab} signals yet.</p>
+              </div>
+            ) : (
+              filteredSignals.map((signal, idx) => (
+                <SignalRow key={signal.id} signal={signal} isPro={idx >= PRO_THRESHOLD} />
+              ))
+            )}
           </div>
         </div>
-
-        {/* Right sidebar */}
-        <RightSidebar signals={signals} />
-
-        {/* Detail panel */}
-        {selected && (
-          <div style={{ position: "relative", zIndex: 20 }}>
-            <DetailPanel sig={selected} onClose={() => setSelected(null)} />
-          </div>
-        )}
+        <RightPanel />
       </div>
     </V2Shell>
   );
