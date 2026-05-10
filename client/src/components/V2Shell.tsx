@@ -232,7 +232,8 @@ export function V2Shell({ children, sport }: V2ShellProps) {
           position: "relative", overflow: "hidden",
         }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: `linear-gradient(90deg, ${T.gold}, ${T.goldDim})` }} />
-          <div style={{ display: "flex", flexDirection: "column", lineHeight: 1, userSelect: "none" }}>
+          <img src="/manus-storage/edgesetter-emblem_a9db2400.png" alt="Edge Setter" className="md:hidden" style={{ height: 36, width: "auto" }} />
+          <div className="hidden md:flex" style={{ flexDirection: "column", lineHeight: 1, userSelect: "none" }}>
             <div style={{ display: "flex", alignItems: "center" }}>
               <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 20, color: T.gold, letterSpacing: "0.05em" }}>EDGE</span>
               <span style={{ width: 1, height: 13, background: T.gold, opacity: 0.4, display: "inline-block", margin: "0 3px", alignSelf: "center" }} />
@@ -336,7 +337,7 @@ export function V2Shell({ children, sport }: V2ShellProps) {
       {mobileOpen && <div className="fixed inset-0 z-40 md:hidden" style={{ background: "rgba(0,0,0,0.72)" }} onClick={() => setMobileOpen(false)} />}
 
       {/* ── MAIN CONTENT ── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden" style={{ marginLeft: 152 }}>
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:ml-[152px]">
 
         {/* ── HEADER ── */}
         <header style={{
