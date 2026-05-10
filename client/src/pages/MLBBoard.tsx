@@ -228,28 +228,30 @@ function GameCard({ game, active, onClick, signalCount }: {
   );
 }
 type Signal = {
-  id: string | number; title: string; summary?: string | null;
-  playerName?: string | null; player_name?: string | null;
+  id: string | number;
+  title?: string | null; headline?: string | null;
+  summary?: string | null; body?: string | null;
+  playerName?: string | null; player_name?: string | null; player?: string | null;
   teamName?: string | null; team_name?: string | null; team?: string | null;
   signalType?: string; signal_type?: string; type?: string;
   confidenceScore?: number | null; confidence?: number | null;
-  statusTag?: string | null; status?: string | null;
-  actionTakeaway?: string | null; action_takeaway?: string | null;
-  publishedAt?: string | Date; created_at?: string | Date; published_at?: string | Date;
+  statusTag?: string | null; status?: string | null; verdict?: string | null;
+  actionTakeaway?: string | null; action_takeaway?: string | null; action_note?: string | null;
+  publishedAt?: string | Date; created_at?: string | Date; published_at?: string | Date; signal_time?: string | Date;
 };
 
 function normalizeSignal(s: Signal) {
   return {
     id: s.id,
-    title: s.title,
-    summary: s.summary ?? null,
-    playerName: s.playerName ?? s.player_name ?? null,
+    title: s.title ?? s.headline ?? "",
+    summary: s.summary ?? s.body ?? null,
+    playerName: s.playerName ?? s.player_name ?? s.player ?? null,
     teamName: s.teamName ?? s.team_name ?? s.team ?? null,
     signalType: s.signalType ?? s.signal_type ?? s.type ?? "signal",
     confidenceScore: s.confidenceScore ?? s.confidence ?? null,
-    statusTag: s.statusTag ?? s.status ?? null,
-    actionTakeaway: s.actionTakeaway ?? s.action_takeaway ?? null,
-    publishedAt: s.publishedAt ?? s.created_at ?? s.published_at ?? new Date(),
+    statusTag: s.statusTag ?? s.verdict ?? s.status ?? null,
+    actionTakeaway: s.actionTakeaway ?? s.action_takeaway ?? s.action_note ?? null,
+    publishedAt: s.publishedAt ?? s.signal_time ?? s.created_at ?? s.published_at ?? new Date(),
   };
 }
 
