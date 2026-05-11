@@ -229,3 +229,14 @@ export default function Billing() {
                 ].map((feature) => (
                   <div key={feature} style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
                     <CheckCircle size={13} style={{ color: "#39FF14", flexShrink: 0, marginTop: "2px" }} />
+                    <span style={{ fontSize: "0.85rem", color: "var(--es-text-muted)", lineHeight: 1.4 }}>{feature}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </AppShell>
+  );
+}
