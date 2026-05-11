@@ -3,7 +3,7 @@ import AppShell from "@/components/AppShell";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { useSearch } from "wouter";
 import { getTeamLogo, getPlayerHeadshot, getInitialsAvatar } from "@/lib/espnAssets";
 import {
@@ -291,14 +291,15 @@ function SignalRow({
   userIsPro?: boolean;
   isMobile?: boolean;
 }) {
+  const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
   const [alerted, setAlerted] = useState(false);
   const alertToggle = trpc.alerts.toggle.useMutation({
     onSuccess: () => {
       setAlerted(a => !a);
-      toast.success(alerted ? "Alert removed" : "Alert set — we'll notify you of similar signals");
+      toast({ title: alerted ? "Alert removed" : "Alert set — we'll notify you of similar signals" });
     },
-    onError: () => toast.error("Could not update alert"),
+    onError: () => toast({ title: "Error", description: "Could not update alert", variant: "destructive" }),
   });
 
   // Shared type badge builder
@@ -588,6 +589,7 @@ const TAB_SIGNAL_TYPE: Record<string, string | null> = {
 
 // ── Main Board ───────────────────────────────────────────────────────────────
 export default function NBABoard() {
+  const { toast } = useToast();
   const [activeGame, setActiveGame] = useState<number | null>(null);
   // FIX: track mobile viewport for responsive layout
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -613,8 +615,8 @@ export default function NBABoard() {
   const { data: gamesData, isLoading: gamesLoading } = trpc.games.nba.useQuery();
   const { user } = useAuth();
   const checkout = trpc.billing.createCheckout.useMutation({
-    onSuccess: (res) => { toast.info("Opening Stripe checkout…"); window.open(res.url, "_blank"); },
-    onError: () => toast.error("Could not start checkout. Try again."),
+    onSuccess: (res) => { toast({ title: "Opening Stripe checkout…" }); window.open(res.url, "_blank"); },
+    onError: () => toast({ title: "Error", description: "Could not start checkout. Try again.", variant: "destructive" }),
   });
   const handleUpgrade = () => {
     if (!user) { window.location.href = getLoginUrl(); return; }

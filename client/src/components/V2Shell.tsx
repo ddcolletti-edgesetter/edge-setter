@@ -9,7 +9,7 @@ import {
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 
 // ── Logo URL ────────────────────────────────────────────────────────────────
@@ -57,13 +57,14 @@ const NBA_TEAMS_TODAY = ["LAL", "BOS", "GSW", "DEN", "MIA", "MIL", "PHI", "NYK"]
 
 // ── Pro CTA hook ─────────────────────────────────────────────────────────────
 function useProCheckout() {
+  const { toast } = useToast();
   const { user } = useAuth();
   const checkout = trpc.billing.createCheckout.useMutation({
     onSuccess: ({ url }) => {
       window.open(url, "_blank");
-      toast.info("Opening Stripe checkout in a new tab…");
+      toast({ title: "Opening Stripe checkout in a new tab…" });
     },
-    onError: (err) => toast.error(`Checkout failed: ${err.message}`),
+    onError: (err) => toast({ title: "Error", description: `Checkout failed: ${err.message}`, variant: "destructive" }),
   });
 
   const handleUpgrade = () => {
