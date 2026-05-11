@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import {
   CFB_SIGNALS, CFB_SLATE, CFB_FEATURED_EDGE,
@@ -33,13 +33,13 @@ const CFB_LOGO_URLS: Record<string, string> = {
 
 /* ── Design tokens (dark) ── */
 const T = {
-  bg:       "#0A0B0D",
+  bg:       "#0C0B09",
   surface1: "#111317",
   surface2: "#16191E",
   surface3: "#1B1F25",
-  gold:     "#CAA85A",
-  goldBright:"#D8B86A",
-  goldDim:  "rgba(202,168,90,0.18)",
+  gold:     "#F5A623",
+  goldBright:"#FFB84D",
+  goldDim:  "rgba(245,166,35,0.15)",
   text:     "#F3EFE6",
   textMuted:"#B7AFA0",
   textFaint:"#7E776A",
@@ -357,7 +357,7 @@ function CFBBoardInner() {
     textMuted: darkMode ? T.textMuted : "#3D3830",
     textFaint: darkMode ? T.textFaint : "#8C8277",
     border:    darkMode ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)",
-    goldDim:   darkMode ? T.goldDim   : "rgba(202,168,90,0.25)",
+    goldDim:   darkMode ? T.goldDim   : "rgba(245,166,35,0.2)",
     surface1TL: darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
   };
 
@@ -365,6 +365,14 @@ function CFBBoardInner() {
   const [tabFilter, setTabFilter] = useState<TabFilter>("Today");
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [selectedSig, setSelectedSig] = useState<CFBSignal | null>(null);
+  // FIX: mobile subnav drawer
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
 
   /* Live signals — falls back to mocks if API unavailable */
   const { signals: liveCFBSignals, isLive, error: liveError } = useCFBSignals(CFB_SIGNALS);
@@ -408,6 +416,10 @@ function CFBBoardInner() {
 
   return (
     <div style={{ display: "flex", height: "100%", background: TH.bg }}>
+      {/* FIX: mobile backdrop */}
+      {isMobile && navOpen && (
+        <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 49 }} />
+      )}
 
       {/* ── Left sidebar ── */}
       <div style={{
@@ -416,6 +428,13 @@ function CFBBoardInner() {
         borderRight: `1px solid ${TH.border}`,
         display: "flex", flexDirection: "column",
         overflowY: "auto",
+        // FIX: on mobile become a fixed overlay drawer
+        ...(isMobile ? {
+          position: "fixed" as const, top: 0, left: 0, height: "100dvh",
+          zIndex: 50,
+          transform: navOpen ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 0.25s ease",
+        } : {}),
       }}>
         {/* Filters */}
         <div style={{ padding: "14px 0 10px" }}>
@@ -424,7 +443,7 @@ function CFBBoardInner() {
             return (
               <button
                 key={f.key}
-                onClick={() => setSidebarFilter(f.key)}
+                onClick={() => { setSidebarFilter(f.key); if (isMobile) setNavOpen(false); }}
                 style={{
                   width: "100%", padding: "9px 18px",
                   background: isActive ? `${T.gold}10` : "transparent",
@@ -523,15 +542,24 @@ function CFBBoardInner() {
 
         {/* Board header */}
         <div style={{
-          padding: "14px 24px 12px",
+          padding: isMobile ? "12px 16px 10px" : "14px 24px 12px",
           borderBottom: `1px solid ${TH.border}`,
           background: TH.surface1,
           flexShrink: 0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+            {/* FIX: hamburger on mobile */}
+            {isMobile && (
+              <button
+                onClick={() => setNavOpen(o => !o)}
+                style={{ background: "none", border: `1px solid ${TH.border}`, borderRadius: 4, padding: "12px 14px", cursor: "pointer", color: T.gold, flexShrink: 0, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect y="2" width="16" height="2" rx="1" fill="currentColor"/><rect y="7" width="16" height="2" rx="1" fill="currentColor"/><rect y="12" width="16" height="2" rx="1" fill="currentColor"/></svg>
+              </button>
+            )}
             <span style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-              fontSize: 24, fontWeight: 800, letterSpacing: "0.02em", color: TH.text,
+              fontSize: isMobile ? 18 : 24, fontWeight: 800, letterSpacing: "0.02em", color: TH.text,
             }}>
               CFB Intelligence Board
             </span>
@@ -545,7 +573,8 @@ function CFBBoardInner() {
           </div>
         </div>
 
-        {/* Stats strip */}
+        {/* Stats strip — hidden on mobile */}
+        {!isMobile && (
         <div style={{
           display: "grid", gridTemplateColumns: "repeat(5, 1fr)",
           borderBottom: `1px solid ${TH.border}`,
@@ -577,6 +606,7 @@ function CFBBoardInner() {
             </div>
           ))}
         </div>
+        )}
 
         <TrackRecordStrip league="CFB" darkMode={darkMode} />
 

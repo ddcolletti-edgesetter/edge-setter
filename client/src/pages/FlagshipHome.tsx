@@ -6,7 +6,7 @@
 
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
-import { useShellTheme } from "../components/V2Shell";
+// FlagshipHome is always dark-themed — no shell theme dependency needed
 import {
   PlayerHeadshot, TeamLogoImg, TeamLogoPair, GameCard, FeaturedEdgeCard,
   VerdictBadge, TypeChip, ConfidenceBar,
@@ -27,10 +27,10 @@ const T = {
 };
 
 const SPORT_CONFIG = [
-  { label: "NBA", status: "LIVE",   color: "#E87C2A", dot: "#3EBA6A", href: "/v2/nba", desc: "Playoffs live — injury flags, line movement, rotation intel" },
-  { label: "MLB", status: "ACTIVE", color: "#3A8FE0", dot: "#4AA8C8", href: "/v2/mlb", desc: "Regular season — pitcher updates, lineup cards, sharp tracking" },
-  { label: "NFL", status: "ACTIVE", color: "#C4301A", dot: "#C4301A", href: "/v2/nfl", desc: "Active — injuries, depth charts, line shifts, matchup intel" },
-  { label: "CFB", status: "ACTIVE", color: "#8844CC", dot: "#8844CC", href: "/v2/cfb", desc: "Active — transfer intel, QB battles, coaching scheme edges" },
+  { label: "NBA", status: "LIVE",   color: "#E87C2A", dot: "#3EBA6A", href: "/nba", desc: "Playoffs live — injury flags, line movement, rotation intel",          logo: "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png" },
+  { label: "MLB", status: "ACTIVE", color: "#3A8FE0", dot: "#4AA8C8", href: "/mlb", desc: "Regular season — pitcher updates, lineup cards, sharp tracking",        logo: "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png" },
+  { label: "NFL", status: "ACTIVE", color: "#C4301A", dot: "#C4301A", href: "/nfl", desc: "Active — injuries, depth charts, line shifts, matchup intel",           logo: "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" },
+  { label: "CFB", status: "ACTIVE", color: "#8844CC", dot: "#8844CC", href: "/cfb", desc: "Active — transfer intel, QB battles, coaching scheme edges",            logo: "https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png" },
 ] as const;
 
 const HERO_SIGNAL  = NBA_SIGNALS.find(s => s.confidence >= 84) ?? NBA_SIGNALS[0];
@@ -79,7 +79,7 @@ function useWindowWidth() {
 
 export default function FlagshipHome() {
   const [, navigate] = useLocation();
-  const darkMode     = useShellTheme();
+  const darkMode     = true; // FlagshipHome is always dark-themed
   const windowWidth  = useWindowWidth();
   const isMobile     = windowWidth < 768;
   const [liveSignals, setLiveSignals] = useState<any[]>([]);
@@ -135,7 +135,7 @@ export default function FlagshipHome() {
 
       {/* ══════════════════════ LIVE TICKER STRIP ══════════════════════ */}
       <div style={{ position: "relative", zIndex: 5, background: "rgba(10,9,7,0.96)", borderBottom: `1px solid ${T.border}`, overflow: "hidden", display: "flex", alignItems: "center", height: 34 }}>
-        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "0 14px", borderRight: `1px solid ${T.border}`, height: "100%" }}>
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: isMobile ? "0 14px 0 58px" : "0 14px", borderRight: `1px solid ${T.border}`, height: "100%" }}>
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.gold, display: "inline-block", animation: "navPulse 2s ease-in-out infinite" }} />
           <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "2px", color: T.gold, textTransform: "uppercase" }}>Live Signals</span>
         </div>
@@ -180,6 +180,32 @@ export default function FlagshipHome() {
 
           {/* ── Left ── */}
           <div style={{ animation: "fadeUp 0.55s ease both", minWidth: 0 }}>
+            {/* Logo — img with guaranteed text fallback so it always renders */}
+            <div style={{ marginBottom: 24, display: "flex", alignItems: "center" }}>
+              <img
+                src="/edgesetter-logo-transparent_6b7a9796.png"
+                alt="Edge Setter"
+                style={{ height: isMobile ? "64px" : "90px", width: "auto", display: "block", maxWidth: "100%" }}
+                onError={e => {
+                  // Image failed — swap to styled text logo
+                  const img = e.currentTarget as HTMLImageElement;
+                  img.style.display = "none";
+                  const fallback = document.createElement("div");
+                  fallback.style.cssText = `
+                    font-family:'Barlow Condensed',sans-serif;
+                    font-weight:900;
+                    font-size:${isMobile ? "1.8rem" : "2.4rem"};
+                    letter-spacing:0.06em;
+                    line-height:1;
+                    color:#F5A623;
+                    text-transform:uppercase;
+                  `;
+                  fallback.textContent = "EDGE SETTER";
+                  img.parentElement?.appendChild(fallback);
+                }}
+              />
+            </div>
+
             {/* Eyebrow */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 11px", borderRadius: 2, background: "rgba(62,186,106,0.1)", border: "1px solid rgba(62,186,106,0.28)" }}>
@@ -204,10 +230,10 @@ export default function FlagshipHome() {
 
             {/* CTAs */}
             <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 10, marginBottom: 32 }}>
-              <button className="cta-primary" onClick={() => navigate("/v2/nba")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 24px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #8A6A28 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
+              <button className="cta-primary" onClick={() => navigate("/nba")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 24px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #8A6A28 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
                 <Zap size={14} /> NBA BOARD
               </button>
-              <button className="cta-btn" onClick={() => navigate("/v2/mlb")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "rgba(58,143,224,0.1)", border: "1px solid rgba(58,143,224,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
+              <button className="cta-btn" onClick={() => navigate("/mlb")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "rgba(58,143,224,0.1)", border: "1px solid rgba(58,143,224,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
                 MLB BOARD
               </button>
               <button className="cta-btn" onClick={() => navigate("/accuracy")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "transparent", border: `1px solid ${T.border}`, color: T.textMuted, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
@@ -222,7 +248,7 @@ export default function FlagshipHome() {
                 {TOP_SIGNALS.slice(0, 4).map(sig => {
                   const vc = VERDICT_COLORS[sig.verdict] ?? T.textFaint;
                   return (
-                    <div key={sig.id} className="sig-tick" onClick={() => navigate("/v2/nba")} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 2, background: "rgba(255,255,255,0.04)", border: `1px solid ${T.border}`, cursor: "pointer", transition: "background 0.1s, border-color 0.1s" }}>
+                    <div key={sig.id} className="sig-tick" onClick={() => navigate("/nba")} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", borderRadius: 2, background: "rgba(255,255,255,0.04)", border: `1px solid ${T.border}`, cursor: "pointer", transition: "background 0.1s, border-color 0.1s" }}>
                       {sig.player && <PlayerHeadshot name={sig.player} team={sig.team} size={22} shape="circle" />}
                       {!sig.player && <TeamLogoImg abbr={sig.team} size={22} />}
                       <div style={{ flex: 1, minWidth: 0, fontSize: 13, color: T.text, fontWeight: 500, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{sig.headline.slice(0, 68)}{sig.headline.length > 68 ? "…" : ""}</div>
@@ -283,7 +309,7 @@ export default function FlagshipHome() {
                   <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: T.gold, flexShrink: 0 }}>{HERO_SIGNAL.confidence}%</span>
                 </div>
 
-                <button onClick={() => navigate("/v2/nba")} style={{ width: "100%", padding: "10px", background: `linear-gradient(135deg, ${T.gold}, #8A6A28)`, border: "none", color: T.bg, borderRadius: 2, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "2.5px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <button onClick={() => navigate("/nba")} style={{ width: "100%", padding: "10px", background: `linear-gradient(135deg, ${T.gold}, #8A6A28)`, border: "none", color: T.bg, borderRadius: 2, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "2.5px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                   FULL NBA BOARD <ArrowRight size={12} />
                 </button>
               </div>
@@ -301,14 +327,14 @@ export default function FlagshipHome() {
               <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block" }} />
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green }}>Playoffs</span>
             </div>
-            <button onClick={() => navigate("/v2/nba")} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: T.gold, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
+            <button onClick={() => navigate("/nba")} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: T.gold, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
               All Signals <ChevronRight size={11} />
             </button>
           </div>
           <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}>
             {NBA_TONIGHT.map(game => (
               <div key={game.id} style={{ width: 240, flexShrink: 0 }}>
-                <GameCard away={game.away} home={game.home} time={game.time} series={game.series} spread={game.spread} total={game.total} compact onClick={() => navigate("/v2/nba")} />
+                <GameCard away={game.away} home={game.home} time={game.time} series={game.series} spread={game.spread} total={game.total} compact onClick={() => navigate("/nba")} />
               </div>
             ))}
           </div>
@@ -340,8 +366,13 @@ export default function FlagshipHome() {
                 <div style={{ height: 90, position: "relative", overflow: "hidden", background: `linear-gradient(160deg, ${sport.color}CC 0%, ${sport.color}44 50%, ${T.surface2} 100%)` }}>
                   {/* Chalk bg overlay — inline to avoid CSS class dependency */}
                   <div style={{ position: "absolute", inset: 0, backgroundImage: sport.label === "NBA" ? CHALK_NBA : sport.label === "MLB" ? CHALK_MLB : sport.label === "NFL" ? CHALK_NFL : CHALK_CFB, backgroundSize: (sport.label === "NBA" || sport.label === "MLB") ? "40px 40px" : "100% 20px", opacity: 0.18 }} />
-                  {/* Sport watermark */}
-                  <div style={{ position: "absolute", right: 8, bottom: -8, fontFamily: "'Bebas Neue', sans-serif", fontSize: 80, letterSpacing: "-2px", color: T.text, opacity: 0.08, lineHeight: 1 }}>{sport.label}</div>
+                  {/* Sport logo watermark — replaces bold text */}
+                  <img
+                    src={sport.logo}
+                    alt={sport.label}
+                    style={{ position: "absolute", right: -4, bottom: -4, width: 90, height: 90, objectFit: "contain", opacity: 0.18, pointerEvents: "none" }}
+                    onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
+                  />
                   {/* Status badge */}
                   <div style={{ position: "absolute", top: 10, left: 12, display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 8px", borderRadius: 2, background: `${sport.dot}18`, border: `1px solid ${sport.dot}44` }}>
                     <span style={{ width: 4, height: 4, borderRadius: "50%", background: sport.dot, display: "inline-block", boxShadow: `0 0 5px ${sport.dot}`, animation: "navPulse 2s ease-in-out infinite" }} />
@@ -372,14 +403,14 @@ export default function FlagshipHome() {
               <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.cyan }}>Active</span>
             </div>
-            <button onClick={() => navigate("/v2/mlb")} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: T.cyan, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
+            <button onClick={() => navigate("/mlb")} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: T.cyan, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
               MLB Board <ChevronRight size={11} />
             </button>
           </div>
           <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}>
             {MLB_GAMES.map(game => (
               <div key={game.id} style={{ width: 220, flexShrink: 0 }}>
-                <GameCard away={game.away} home={game.home} time={game.time} spread={game.spread} total={game.total} compact onClick={() => navigate("/v2/mlb")} />
+                <GameCard away={game.away} home={game.home} time={game.time} spread={game.spread} total={game.total} compact onClick={() => navigate("/mlb")} />
               </div>
             ))}
           </div>
@@ -420,7 +451,7 @@ export default function FlagshipHome() {
       <footer style={{ padding: isMobile ? "14px 20px" : "18px 40px", maxWidth: 1300, margin: "0 auto", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: isMobile ? 8 : 0, position: "relative", zIndex: 2 }}>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.12em" }}>© 2026 Edge Setter · Intelligence Verified</div>
         <div style={{ display: "flex", gap: 18 }}>
-          {[{ label: "NBA", href: "/v2/nba" }, { label: "MLB", href: "/v2/mlb" }, { label: "Accuracy", href: "/accuracy" }, { label: "Pro", href: "/pro" }].map(link => (
+          {[{ label: "NBA", href: "/nba" }, { label: "MLB", href: "/mlb" }, { label: "Accuracy", href: "/accuracy" }, { label: "Pro", href: "/pro" }].map(link => (
             <button key={link.label} onClick={() => navigate(link.href)} style={{ background: "none", border: "none", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer" }}>{link.label}</button>
           ))}
         </div>

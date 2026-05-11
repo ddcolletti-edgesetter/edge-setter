@@ -5,7 +5,10 @@ import {
   ArrowRight, Star, Bell, TrendingUp, Users, Bookmark, Lock,
   ChevronRight, Zap, Activity, BarChart2,
 } from "lucide-react";
-import { TeamLogo, PlayerAvatar, T, getTeamColors } from "../components/v2/SportVisuals";
+import { TeamLogo, PlayerAvatar, T as _T, getTeamColors } from "../components/v2/SportVisuals";
+
+// Override warm-brown gold with site-wide orange-gold
+const T = { ..._T, gold: "#F5A623", goldBright: "#FFB84D", goldDim: "rgba(245,166,35,0.15)" };
 
 /* ── Feature card data ── */
 interface FeatureCard {
@@ -312,7 +315,7 @@ export default function MyEdge() {
               { label: "NBA Board",          desc: "Live signal stream. Playoff intel.",  href: "/v2/nba",         color: T.gold,      dotColor: T.gold },
               { label: "MLB Board",          desc: "Regular season. Pitcher and lineup.", href: "/v2/mlb",         color: "#4AA8C8",   dotColor: "#4AA8C8" },
               { label: "Tools Hub",          desc: "All current + upcoming tools.",       href: "/v2/tools",       color: T.gold,      dotColor: T.green },
-              { label: "Source Leaderboard", desc: "Track source reliability.",           href: "/leaderboard",    color: T.textMuted, dotColor: T.textFaint },
+              { label: "Source Leaderboard", desc: "Track source reliability.",           href: "/sources",    color: T.textMuted, dotColor: T.textFaint },
             ].map(item => (
               <Link key={item.label} href={item.href}>
                 <div

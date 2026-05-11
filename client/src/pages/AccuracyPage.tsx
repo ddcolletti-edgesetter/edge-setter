@@ -5,12 +5,12 @@ import V2Shell from "../components/V2Shell";
 import { Award, TrendingUp, Clock, AlertCircle, CheckCircle } from "lucide-react";
 
 const T = {
-  bg:         "#0A0B0D",
+  bg:         "#0C0B09",
   surface1:   "#111317",
   surface2:   "#16191E",
-  gold:       "#CAA85A",
-  goldDim:    "rgba(202,168,90,0.16)",
-  goldBorder: "rgba(202,168,90,0.12)",
+  gold:       "#F5A623",
+  goldDim:    "rgba(245,166,35,0.16)",
+  goldBorder: "rgba(245,166,35,0.12)",
   text:       "#F3EFE6",
   textMuted:  "#B7AFA0",
   textFaint:  "#7E776A",
@@ -71,7 +71,7 @@ function statusBadge(acc: number, verifiedCount: number): StatusBadge {
 
 function statusBadgeStyle(badge: StatusBadge): { bg: string; border: string; color: string } {
   switch (badge) {
-    case "ELITE":      return { bg: "rgba(202,168,90,0.14)", border: "rgba(202,168,90,0.50)", color: T.gold };
+    case "ELITE":      return { bg: "rgba(245,166,35,0.14)", border: "rgba(245,166,35,0.50)", color: T.gold };
     case "TRUSTED":    return { bg: "rgba(74,168,200,0.12)", border: "rgba(74,168,200,0.40)", color: T.cyan };
     case "TRACKED":    return { bg: "rgba(76,175,130,0.10)", border: "rgba(76,175,130,0.36)", color: T.green };
     case "UNVERIFIED": return { bg: "rgba(126,119,106,0.08)", border: "rgba(126,119,106,0.28)", color: T.textFaint };
@@ -435,7 +435,7 @@ function AccuracyPageInner() {
                     }}>
                       {s._weight}<span style={{ fontSize: 10, color: T.textFaint }}>/100</span>
                     </div>
-                    <Bar value={s._weight} color="rgba(202,168,90,0.50)" />
+                    <Bar value={s._weight} color="rgba(245,166,35,0.50)" />
                   </div>
 
                   {/* Lead Time */}

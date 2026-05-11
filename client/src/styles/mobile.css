@@ -1,0 +1,225 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   EdgeSetter — Mobile UX CSS
+   Drop into src/styles/mobile.css and import in index.tsx or App.tsx:
+     import './styles/mobile.css';
+
+   This file only adds/overrides on mobile — desktop styles are untouched.
+───────────────────────────────────────────────────────────────────────────── */
+
+/* ── 1. CSS custom properties (match your existing theme) ───────────────── */
+:root {
+  --color-surface:           #080d1a;
+  --color-surface-elevated:  #0f172a;
+  --color-border:            rgba(255, 255, 255, 0.07);
+  --color-accent:            #22c55e;
+  --color-accent-dim:        rgba(34, 197, 94, 0.15);
+
+  /* Text — ensure WCAG AA contrast on dark background */
+  --color-text-primary:      #f1f5f9;   /* 15.8:1 on #080d1a */
+  --color-text-secondary:    #94a3b8;   /*  7.2:1 */
+  --color-text-muted:        #64748b;   /*  4.6:1 — min for large text */
+
+  /* Touch */
+  --touch-target-min:        44px;
+  --tap-color:               transparent;
+}
+
+/* ── 2. Base resets for mobile ──────────────────────────────────────────── */
+@media (max-width: 767px) {
+
+  /* Prevent text size inflation on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Smooth scrolling with momentum on iOS */
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Remove blue tap highlight everywhere */
+  * {
+    -webkit-tap-highlight-color: var(--tap-color);
+  }
+
+  /* ── Typography scale ── */
+  /* Display / page titles */
+  h1 { font-size: 1.5rem;   /* 24px */ line-height: 1.15; letter-spacing: -0.03em; }
+  h2 { font-size: 1.25rem;  /* 20px */ line-height: 1.2;  letter-spacing: -0.02em; }
+  h3 { font-size: 1.0625rem;/* 17px */ line-height: 1.3;  letter-spacing: -0.015em; }
+  h4 { font-size: 0.9375rem;/* 15px */ line-height: 1.4;  }
+
+  /* Body text — minimum 14px for legibility */
+  body, p, li, td, th { font-size: 0.9375rem; /* 15px */ line-height: 1.55; }
+
+  /* Labels / meta */
+  small, .text-sm  { font-size: 0.8125rem; /* 13px */ }
+  .text-xs         { font-size: 0.75rem;   /* 12px */ }
+  .text-xxs        { font-size: 0.6875rem; /* 11px */ }
+
+  /* ── 3. Touch targets ── */
+  /* Every interactive element gets at least 44×44 */
+  button,
+  [role="button"],
+  a,
+  input[type="checkbox"],
+  input[type="radio"],
+  select,
+  label[for] {
+    min-height: var(--touch-target-min);
+    min-width:  var(--touch-target-min);
+  }
+
+  /* Buttons that are naturally inline / pill shaped don't need full width */
+  button.pill,
+  .btn,
+  .btn-sm {
+    min-width: unset;
+    padding-inline: 1rem;
+  }
+
+  /* ── 4. Inputs ── */
+  input[type="text"],
+  input[type="search"],
+  input[type="email"],
+  input[type="number"],
+  textarea,
+  select {
+    font-size: 1rem; /* Prevent iOS zoom on focus (must be ≥16px) */
+    height: var(--touch-target-min);
+    border-radius: 10px;
+  }
+
+  textarea {
+    height: auto;
+    min-height: 80px;
+  }
+
+  /* ── 5. Scrollable containers ── */
+  /* Horizontal scroll lists (filter tabs, chip bars) */
+  .scroll-x {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 2px; /* Prevent bottom clipping */
+  }
+  .scroll-x::-webkit-scrollbar { display: none; }
+  .scroll-x > * { scroll-snap-align: start; flex-shrink: 0; }
+
+  /* ── 6. Cards / board layout ── */
+  .signal-grid,
+  .board-grid {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 12px 12px 80px; /* bottom padding for toast */
+  }
+
+  /* Desktop table rows → hide on mobile (SignalCard handles mobile) */
+  .board-table-row { display: none !important; }
+
+  /* ── 7. Main content width ── */
+  .page-container {
+    padding-inline: 0;
+    max-width: 100%;
+  }
+
+  .content-inner {
+    padding: 0 12px;
+  }
+
+  /* ── 8. Spacing utilities ── */
+  .section-gap   { gap: 12px  !important; }
+  .section-pad   { padding: 12px !important; }
+  .card-pad      { padding: 12px 14px !important; }
+
+  /* ── 9. Contrast reinforcements ── */
+  /* Ensure muted text still passes 4.5:1 (AA normal) */
+  .text-muted,
+  .text-secondary {
+    color: var(--color-text-secondary) !important; /* #94a3b8 — 7.2:1 */
+  }
+
+  /* Low-info labels can stay at muted */
+  .text-hint,
+  .label-xs {
+    color: var(--color-text-muted) !important; /* #64748b — 4.6:1 */
+  }
+
+  /* Accent on dark must pop */
+  .text-accent { color: var(--color-accent) !important; } /* #22c55e — 8.6:1 */
+
+  /* ── 10. Sidebar / panel overrides ── */
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Full-width layout when sidebar is hidden */
+  .layout-with-sidebar {
+    display: block !important;
+  }
+
+  /* ── 11. Modals / sheets ── */
+  /* Bottom-sheet style on mobile */
+  .modal-dialog {
+    position: fixed !important;
+    inset: auto 0 0 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: 90dvh;
+    overflow-y: auto;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .modal-backdrop {
+    backdrop-filter: blur(3px);
+  }
+
+  /* ── 12. Table → card fallback ── */
+  .responsive-table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+  }
+
+  /* ── 13. Safe area padding (notch / dynamic island) ── */
+  .safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .safe-left   { padding-left:   env(safe-area-inset-left,   0px); }
+  .safe-right  { padding-right:  env(safe-area-inset-right,  0px); }
+
+  /* Sticky header gets safe-area top */
+  .sticky-header {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* ── 14. Reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/* ── 15. Tablet adjustments (768–1023px) ── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .signal-grid,
+  .board-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+    padding: 16px;
+  }
+
+  h1 { font-size: 1.75rem; }
+}

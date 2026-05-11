@@ -20,7 +20,6 @@ import SignalOpsQueue from "./pages/SignalOpsQueue";
 import SiteWatchLogs from "./pages/SiteWatchLogs";
 import DistributionDrafts from "./pages/DistributionDrafts";
 import DailyOps from "./pages/DailyOps";
-import V2Home from "./pages/V2Home";
 import FlagshipHome from "./pages/FlagshipHome";
 import NBABoard from "./pages/NBABoard";
 import MLBBoard from "./pages/MLBBoard";
@@ -28,20 +27,26 @@ import NFLBoard from "./pages/NFLBoard";
 import CFBBoard from "./pages/CFBBoard";
 import ToolsHub from "./pages/ToolsHub";
 import MyEdge from "./pages/MyEdge";
-import V2Sources from "./pages/V2Sources";
 import AlertSettingsPage from "./pages/AlertSettingsPage";
 import AccuracyPage from "./pages/AccuracyPage";
+import Billing from "./pages/Billing";
+import PlayerSignals from "./pages/PlayerSignals";
+import MarketMovement from "./pages/MarketMovement";
 import OpsBoard from "./pages/OpsBoard";
 import NotFound from "./pages/not-found";
 import { SignalGateProvider } from "./context/SignalGate";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminGate } from "./components/AdminGate";
 import { ProModal } from "./components/ProGate";
+import { HamburgerButton, MobileNav } from "./components/MobileNav";
+import { useBreakpoint } from "./hooks/useBreakpoint";
 
 export type Theme = "dark" | "light";
 
 function App() {
   const [theme, setTheme] = useState<Theme>("dark");
+  const { isMobile } = useBreakpoint();
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -54,24 +59,43 @@ function App() {
       <AuthProvider>
       <SignalGateProvider>
       <ProModal />
+      {isMobile && (
+        <div style={{
+          position: "fixed",
+          top: "env(safe-area-inset-top, 8px)",
+          left: 12,
+          zIndex: 250,
+        }}>
+          <HamburgerButton
+            open={drawerOpen}
+            onToggle={() => setDrawerOpen(o => !o)}
+          />
+        </div>
+      )}
+      <MobileNav
+        open={drawerOpen}
+        onToggle={() => setDrawerOpen(o => !o)}
+      />
       <Router hook={useHashLocation}>
         <Switch>
-          <Route path="/" component={NBABoard} />
-          <Route path="/dashboard" component={() => <Dashboard theme={theme} toggleTheme={toggleTheme} />} />
-          <Route path="/admin" component={() => <AdminGate><AdminReview theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
-          <Route path="/leaderboard" component={SourceLeaderboard} />
-          <Route path="/draft" component={() => <DraftBoard theme={theme} toggleTheme={toggleTheme} />} />
-          <Route path="/alerts" component={() => <AdminGate><AlertsPage theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
-          <Route path="/logs" component={() => <AdminGate><AgentLogs theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
-          <Route path="/signals" component={SignalsPage} />
+          {/* ── Main routes ── */}
+          <Route path="/" component={FlagshipHome} />
+          <Route path="/nba" component={NBABoard} />
+          <Route path="/mlb" component={MLBBoard} />
+          <Route path="/nfl" component={NFLBoard} />
+          <Route path="/cfb" component={CFBBoard} />
+          <Route path="/tools" component={ToolsHub} />
+          <Route path="/tools/player-signals" component={PlayerSignals} />
+          <Route path="/tools/market-movement" component={MarketMovement} />
+          <Route path="/my-edge" component={MyEdge} />
+          <Route path="/sources" component={SourceLeaderboard} />
+          <Route path="/accuracy" component={AccuracyPage} />
+          <Route path="/billing" component={Billing} />
+          <Route path="/alerts" component={AlertSettingsPage} />
           <Route path="/pro" component={ProPage} />
           <Route path="/success" component={SuccessPage} />
-          <Route path="/signal-admin" component={SignalAdmin} />
-          <Route path="/signal-ops-queue" component={() => <AdminGate><SignalOpsQueue theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
-          <Route path="/site-watch-logs" component={() => <AdminGate><SiteWatchLogs theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
-          <Route path="/distribution-drafts" component={() => <AdminGate><DistributionDrafts theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
-          <Route path="/daily-ops" component={() => <AdminGate><DailyOps theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
-          {/* ── v2 multi-sport shell ── */}
+
+          {/* ── Legacy v2 redirects — keep so old bookmarks don't 404 ── */}
           <Route path="/v2" component={FlagshipHome} />
           <Route path="/v2/nba" component={NBABoard} />
           <Route path="/v2/mlb" component={MLBBoard} />
@@ -79,10 +103,22 @@ function App() {
           <Route path="/v2/cfb" component={CFBBoard} />
           <Route path="/v2/tools" component={ToolsHub} />
           <Route path="/v2/my-edge" component={MyEdge} />
-          <Route path="/v2/sources" component={V2Sources} />
-          <Route path="/v2/alerts" component={AlertSettingsPage} />
-          <Route path="/accuracy" component={AccuracyPage} />
+          <Route path="/v2/sources" component={SourceLeaderboard} />
+          <Route path="/leaderboard" component={SourceLeaderboard} />
+
+          {/* ── Admin routes ── */}
+          <Route path="/dashboard" component={() => <Dashboard theme={theme} toggleTheme={toggleTheme} />} />
+          <Route path="/admin" component={() => <AdminGate><AdminReview theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
           <Route path="/admin/ops" component={() => <AdminGate><OpsBoard /></AdminGate>} />
+          <Route path="/signal-admin" component={SignalAdmin} />
+          <Route path="/signal-ops-queue" component={() => <AdminGate><SignalOpsQueue theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          <Route path="/site-watch-logs" component={() => <AdminGate><SiteWatchLogs theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          <Route path="/distribution-drafts" component={() => <AdminGate><DistributionDrafts theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          <Route path="/daily-ops" component={() => <AdminGate><DailyOps theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          <Route path="/signals" component={SignalsPage} />
+          <Route path="/logs" component={() => <AdminGate><AgentLogs theme={theme} toggleTheme={toggleTheme} /></AdminGate>} />
+          <Route path="/draft" component={() => <DraftBoard theme={theme} toggleTheme={toggleTheme} />} />
+
           <Route component={NotFound} />
         </Switch>
       </Router>

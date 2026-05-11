@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Trophy, Clock, TrendingDown } from "lucide-react";
@@ -130,6 +130,12 @@ export default function SourceLeaderboard() {
 function SourceLeaderboardInner() {
   const [activeFilter, setActiveFilter] = useState<FilterChip>("all");
   const [activeLeague, setActiveLeague] = useState<LeagueTab>("ALL");
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
 
   const { data: rawScores, isLoading } = useQuery({
     queryKey: ["/api/leaderboard"],
@@ -279,101 +285,138 @@ function SourceLeaderboardInner() {
         )}
 
         {!isLoading && filteredScores && filteredScores.length > 0 && (
-          <div className="rounded overflow-hidden" style={{ border: `1px solid ${C.borderMid}` }}>
-            <div className="overflow-x-auto" style={{ background: C.panelBase }}>
-              <table className="w-full text-base">
-                <thead>
-                  <tr style={{ background: C.parchmentSoft, borderBottom: `1px solid ${C.parchmentBdr}` }}>
-                    <th className="text-left px-4 py-3 w-8">
-                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>#</span>
-                    </th>
-                    <th className="text-left px-4 py-3">
-                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Source</span>
-                    </th>
-                    <th className="text-left px-4 py-3 hidden sm:table-cell">
-                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Tier</span>
-                    </th>
-                    <th className="text-right px-4 py-3">
-                      <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
-                        <Trophy size={11} />Accuracy
+          isMobile ? (
+            // ── MOBILE: card list ──────────────────────────────────────────
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {filteredScores.map((s: any, i: number) => {
+                const acc = parseFloat(s.overall_accuracy ?? "0");
+                const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
+                const leadTime = parseFloat(s.average_lead_time_minutes ?? "0").toFixed(0);
+                return (
+                  <div
+                    key={s.source_id ?? s.id ?? i}
+                    style={{
+                      background: C.panelBase,
+                      border: `1px solid ${C.borderSub}`,
+                      borderRadius: 4,
+                      padding: "14px 16px",
+                    }}
+                  >
+                    {/* Row 1: rank + name + accuracy */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                      <span style={{
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: 13, fontWeight: 800, color: C.ivorySub,
+                        minWidth: 20, textAlign: "center",
+                      }}>{i + 1}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontFamily: "'Barlow Condensed', sans-serif",
+                          fontSize: 15, fontWeight: 700, color: C.ivoryPrimary,
+                          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                        }}>
+                          {s.source_name}
+                        </div>
+                      </div>
+                      <span style={{
+                        fontFamily: "'Barlow Condensed', sans-serif",
+                        fontSize: 17, fontWeight: 800, color: accColor,
+                        flexShrink: 0,
+                      }}>
+                        {acc.toFixed(1)}%
                       </span>
-                    </th>
-                    <th className="text-right px-4 py-3 hidden md:table-cell">
-                      <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
-                        <Clock size={11} />Lead Time
-                      </span>
-                    </th>
-                    <th className="text-right px-4 py-3 hidden lg:table-cell">
-                      <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
-                        <TrendingDown size={11} />False+
-                      </span>
-                    </th>
-                    <th className="text-right px-4 py-3 hidden md:table-cell">
-                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Injury Acc.</span>
-                    </th>
-                    <th className="text-right px-4 py-3 hidden lg:table-cell">
-                      <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Draft Acc.</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredScores.map((s: any, i: number) => {
-                    const acc = parseFloat(s.overall_accuracy ?? "0");
-                    const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
-                    return (
-                      <tr
-                        key={s.source_id ?? s.id ?? i}
-                        className="transition-colors"
-                        style={{ borderBottom: `1px solid ${C.borderSub}` }}
-                        onMouseEnter={e => (e.currentTarget.style.background = C.panelLift)}
-                        onMouseLeave={e => (e.currentTarget.style.background = "")}
-                        data-testid={`leaderboard-row-${s.source_id}`}
-                      >
-                        <td className="px-4 py-3 text-sm font-bold tabular-nums" style={{ color: C.ivorySub }}>{i + 1}</td>
-                        <td className="px-4 py-3" style={{ minWidth: 0 }}>
-                          <div className="flex flex-col sm:flex-row sm:items-center" style={{ gap: 4, minWidth: 0, flexWrap: "wrap" }}>
-                            <p className="font-semibold text-base" style={{ color: C.ivoryPrimary, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>
-                              {s.source_name}
-                            </p>
-                            <SourceTypeBadge sourceType={s.source_type} />
-                          </div>
-                          {s.source_type === "analytics" && (
-                            <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>Grading · analytics service</p>
-                          )}
-                          {s.source_type === "scouting" && (
-                            <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>Team fit · player evaluation · personnel</p>
-                          )}
-                          {s.source_type === "college_analyst" && (
-                            <p style={{ fontSize: 12, color: C.ivoryMuted, marginTop: 2 }}>College production · draft prospect context</p>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 hidden sm:table-cell">
-                          <TierBadge tier={s.trust_tier ?? null} />
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <span className="stat-num-display text-base font-bold" style={{ color: accColor }}>
-                            {acc.toFixed(1)}%
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
-                          {parseFloat(s.average_lead_time_minutes ?? "0").toFixed(0)}m
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
-                          {parseFloat(s.false_positive_rate ?? "0").toFixed(1)}%
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm tabular-nums hidden md:table-cell" style={{ color: C.ivoryMuted }}>
-                          {parseFloat(s.injury_accuracy ?? "0").toFixed(1)}%
-                        </td>
-                        <td className="px-4 py-3 text-right text-sm tabular-nums hidden lg:table-cell" style={{ color: C.ivoryMuted }}>
-                          {parseFloat(s.draft_accuracy ?? "0").toFixed(1)}%
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    </div>
+                    {/* Row 2: tier + type + lead time */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <TierBadge tier={s.trust_tier ?? null} />
+                      <SourceTypeBadge sourceType={s.source_type} />
+                      {leadTime !== "0" && (
+                        <span style={{ fontSize: 11, color: C.ivoryMuted, marginLeft: "auto" }}>
+                          <Clock size={10} style={{ display: "inline", marginRight: 3 }} />
+                          {leadTime}m lead
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          ) : (
+            // ── DESKTOP: full table ────────────────────────────────────────
+            <div className="rounded overflow-hidden" style={{ border: `1px solid ${C.borderMid}` }}>
+              <div className="overflow-x-auto" style={{ background: C.panelBase }}>
+                <table className="w-full text-base">
+                  <thead>
+                    <tr style={{ background: C.parchmentSoft, borderBottom: `1px solid ${C.parchmentBdr}` }}>
+                      <th className="text-left px-4 py-3 w-8">
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>#</span>
+                      </th>
+                      <th className="text-left px-4 py-3">
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Source</span>
+                      </th>
+                      <th className="text-left px-4 py-3">
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Tier</span>
+                      </th>
+                      <th className="text-right px-4 py-3">
+                        <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
+                          <Trophy size={11} />Accuracy
+                        </span>
+                      </th>
+                      <th className="text-right px-4 py-3">
+                        <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
+                          <Clock size={11} />Lead Time
+                        </span>
+                      </th>
+                      <th className="text-right px-4 py-3">
+                        <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
+                          <TrendingDown size={11} />False+
+                        </span>
+                      </th>
+                      <th className="text-right px-4 py-3">
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Injury Acc.</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredScores.map((s: any, i: number) => {
+                      const acc = parseFloat(s.overall_accuracy ?? "0");
+                      const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
+                      return (
+                        <tr
+                          key={s.source_id ?? s.id ?? i}
+                          className="transition-colors"
+                          style={{ borderBottom: `1px solid ${C.borderSub}` }}
+                          onMouseEnter={e => (e.currentTarget.style.background = C.panelLift)}
+                          onMouseLeave={e => (e.currentTarget.style.background = "")}
+                        >
+                          <td className="px-4 py-3 text-sm font-bold tabular-nums" style={{ color: C.ivorySub }}>{i + 1}</td>
+                          <td className="px-4 py-3" style={{ minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                              <span style={{ fontWeight: 600, color: C.ivoryPrimary }}>{s.source_name}</span>
+                              <SourceTypeBadge sourceType={s.source_type} />
+                            </div>
+                          </td>
+                          <td className="px-4 py-3"><TierBadge tier={s.trust_tier ?? null} /></td>
+                          <td className="px-4 py-3 text-right">
+                            <span className="font-bold" style={{ color: accColor }}>{acc.toFixed(1)}%</span>
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: C.ivoryMuted }}>
+                            {parseFloat(s.average_lead_time_minutes ?? "0").toFixed(0)}m
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: C.ivoryMuted }}>
+                            {parseFloat(s.false_positive_rate ?? "0").toFixed(1)}%
+                          </td>
+                          <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: C.ivoryMuted }}>
+                            {parseFloat(s.injury_accuracy ?? "0").toFixed(1)}%
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )
         )}
       </div>
     </div>

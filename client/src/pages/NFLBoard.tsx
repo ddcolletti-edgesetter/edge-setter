@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { scoreAndRankSignals, selectFeaturedEdge, SCORE_BANDS, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
@@ -46,14 +46,14 @@ const NFL_PLAYER_HEADSHOTS: Record<string, string> = {
 
 /* ── Design tokens (dark) ── */
 const T = {
-  bg:       "#0A0B0D",
+  bg:       "#0C0B09",
   surface1: "#111317",
   surface2: "#16191E",
   surface3: "#1B1F25",
-  gold:     "#CAA85A",
-  goldBright:"#D8B86A",
-  goldDim:  "rgba(202,168,90,0.18)",
-  border:   "rgba(202,168,90,0.12)",
+  gold:     "#F5A623",
+  goldBright:"#FFB84D",
+  goldDim:  "rgba(245,166,35,0.15)",
+  border:   "rgba(245,166,35,0.12)",
   text:     "#F3EFE6",
   textMuted:"#B7AFA0",
   textFaint:"#7E776A",
@@ -412,7 +412,7 @@ function NFLBoardInner() {
     surface1:  darkMode ? T.surface1  : "#FFFFFF",
     surface2:  darkMode ? T.surface2  : "#F5F1EB",
     surface3:  darkMode ? T.surface3  : "#EDE9E2",
-    goldDim:   darkMode ? T.goldDim   : "rgba(202,168,90,0.25)",
+    goldDim:   darkMode ? T.goldDim   : "rgba(245,166,35,0.2)",
     border:    darkMode ? T.border    : "rgba(0,0,0,0.08)",
     text:      darkMode ? T.text      : "#1A1712",
     textMuted: darkMode ? T.textMuted : "#4A443C",
@@ -422,6 +422,14 @@ function NFLBoardInner() {
   const [activeFilter, setActiveFilter] = useState<NFLFilter>("Today");
   const [selectedSig, setSelectedSig] = useState<NFLSignal | null>(null);
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  // FIX: mobile subnav drawer
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [navOpen, setNavOpen] = useState(false);
+  useEffect(() => {
+    const h = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
 
   /* Live signals — falls back to mocks if API unavailable */
   const { signals: liveNFLSignals, isLive, error: liveError } = useNFLSignals(NFL_SIGNALS);
@@ -488,6 +496,10 @@ function NFLBoardInner() {
 
   return (
     <div style={{ display: "flex", height: "100%", position: "relative" }}>
+      {/* FIX: mobile backdrop */}
+      {isMobile && navOpen && (
+        <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 49 }} />
+      )}
       {/* ── Left board subnav ── */}
       <div
         className="board-subnav"
@@ -497,6 +509,13 @@ function NFLBoardInner() {
           background: TH.surface1,
           display: "flex", flexDirection: "column",
           overflowY: "auto",
+          // FIX: on mobile become a fixed overlay drawer
+          ...(isMobile ? {
+            position: "fixed" as const, top: 0, left: 0, height: "100dvh",
+            zIndex: 50,
+            transform: navOpen ? "translateX(0)" : "translateX(-100%)",
+            transition: "transform 0.25s ease",
+          } : {}),
         }}
       >
         <div style={{ padding: "14px 10px 8px" }}>
@@ -512,7 +531,7 @@ function NFLBoardInner() {
               <button
                 key={label}
                 style={modeStyle(isActive)}
-                onClick={() => setActiveFilter(mode as NFLFilter)}
+                onClick={() => { setActiveFilter(mode as NFLFilter); if (isMobile) setNavOpen(false); }}
               >
                 <span style={{
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -541,7 +560,7 @@ function NFLBoardInner() {
             return (
               <button
                 key={t.abbr}
-                onClick={() => setTeamFilter(isActive ? null : t.abbr)}
+                onClick={() => { setTeamFilter(isActive ? null : t.abbr); if (isMobile) setNavOpen(false); }}
                 style={{
                   display: "flex", alignItems: "center", gap: 9,
                   padding: "9px 10px", borderRadius: 3, width: "100%",
@@ -570,26 +589,38 @@ function NFLBoardInner() {
         {/* Page header */}
         <div style={{
           display: "flex", alignItems: "flex-start", justifyContent: "space-between",
-          padding: "20px 24px 16px",
+          padding: isMobile ? "14px 16px 12px" : "20px 24px 16px",
           borderBottom: `1px solid ${TH.goldDim}`,
         }}>
-          <div>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-              <h1 style={{
-                fontFamily: "'Playfair Display', Georgia, serif",
-                fontSize: 24, fontWeight: 700, color: TH.text, margin: 0, lineHeight: 1.2,
-              }}>NFL Intelligence Board</h1>
-              <SportBadge status="ACTIVE" />
-            </div>
-            <div style={{
-              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 14, color: TH.textFaint, letterSpacing: "0.06em",
-            }}>
-              Regular season · {totalSignals} signals · Updated continuously
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, minWidth: 0 }}>
+            {/* FIX: hamburger on mobile to open subnav drawer */}
+            {isMobile && (
+              <button
+                onClick={() => setNavOpen(o => !o)}
+                style={{ background: "none", border: `1px solid ${TH.goldDim}`, borderRadius: 4, padding: "12px 14px", cursor: "pointer", color: T.gold, flexShrink: 0, marginTop: 2, minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect y="2" width="16" height="2" rx="1" fill="currentColor"/><rect y="7" width="16" height="2" rx="1" fill="currentColor"/><rect y="12" width="16" height="2" rx="1" fill="currentColor"/></svg>
+              </button>
+            )}
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
+                <h1 style={{
+                  fontFamily: "'Playfair Display', Georgia, serif",
+                  fontSize: isMobile ? 18 : 24, fontWeight: 700, color: TH.text, margin: 0, lineHeight: 1.2,
+                }}>NFL Intelligence Board</h1>
+                <SportBadge status="ACTIVE" />
+              </div>
+              <div style={{
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 14, color: TH.textFaint, letterSpacing: "0.06em",
+              }}>
+                Regular season · {totalSignals} signals · Updated continuously
+              </div>
             </div>
           </div>
 
-          {/* Stats strip */}
+          {/* Stats strip — hidden on mobile to avoid overflow */}
+          {!isMobile && (
           <div style={{ display: "flex", gap: 20, flexShrink: 0 }}>
             {[
               { label: "TOTAL",     val: totalSignals   },
@@ -603,6 +634,7 @@ function NFLBoardInner() {
               </div>
             ))}
           </div>
+          )}
         </div>
 
         <TrackRecordStrip league="NFL" darkMode={darkMode} />

@@ -212,7 +212,7 @@ function FeaturedToolBanner() {
             all in one visual board with confidence scoring and action takeaways.
           </div>
         </div>
-        <Link href="/v2/nba">
+        <Link href="/nba">
           <button style={{
             background: T.gold, color: T.bg, border: "none", borderRadius: 3,
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
