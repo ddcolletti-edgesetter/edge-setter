@@ -1,8 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import AppShell from "@/components/V2Shell";
-import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
+import { useNBASignals } from "@/hooks/useSignals";
 import { useToast } from "@/hooks/use-toast";
 import { useSearch } from "wouter";
 import { getTeamLogo, getPlayerHeadshot, getInitialsAvatar } from "@/lib/espnAssets";
@@ -294,13 +292,7 @@ function SignalRow({
   const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
   const [alerted, setAlerted] = useState(false);
-  const alertToggle = trpc.alerts.toggle.useMutation({
-    onSuccess: () => {
-      setAlerted(a => !a);
-      toast({ title: alerted ? "Alert removed" : "Alert set — we'll notify you of similar signals" });
-    },
-    onError: () => toast({ title: "Error", description: "Could not update alert", variant: "destructive" }),
-  });
+
 
   // Shared type badge builder
   const typeBadge = (() => {
@@ -374,7 +366,7 @@ function SignalRow({
             <button
               onClick={e => {
                 e.stopPropagation();
-                alertToggle.mutate({ sport: "nba", teamName: signal.teamName ?? undefined, signalType: signal.signalType ?? undefined });
+                setAlerted(a => !a);
               }}
               title={alerted ? "Remove alert" : "Alert me for similar"}
               style={{ display: "inline-flex", alignItems: "center", padding: "4px", borderRadius: "4px", background: "transparent", border: "none", cursor: "pointer", color: alerted ? "#F5A623" : "#3A3F4E", transition: "color 0.15s" }}
@@ -433,7 +425,7 @@ function SignalRow({
           <button
             onClick={e => {
               e.stopPropagation();
-              alertToggle.mutate({ sport: "nba", teamName: signal.teamName ?? undefined, signalType: signal.signalType ?? undefined });
+              setAlerted(a => !a);
             }}
             title={alerted ? "Remove alert" : "Get alerted for similar signals"}
             style={{ display: "inline-flex", alignItems: "center", padding: "4px", borderRadius: "4px", background: "transparent", border: "none", cursor: "pointer", color: alerted ? "#F5A623" : "#3A3F4E", transition: "color 0.15s" }}
@@ -611,17 +603,11 @@ export default function NBABoard() {
     // Force wouter to re-render by dispatching popstate
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
-  const { data, isLoading } = trpc.signals.nba.useQuery({ limit: 100 });
-  const { data: gamesData, isLoading: gamesLoading } = trpc.games.nba.useQuery();
-  const { user } = useAuth();
-  const checkout = trpc.billing.createCheckout.useMutation({
-    onSuccess: (res) => { toast({ title: "Opening Stripe checkout…" }); window.open(res.url, "_blank"); },
-    onError: () => toast({ title: "Error", description: "Could not start checkout. Try again.", variant: "destructive" }),
-  });
-  const handleUpgrade = () => {
-    if (!user) { window.location.href = getLoginUrl(); return; }
-    checkout.mutate({ origin: window.location.origin });
-  };
+  const { signals: data, loading: isLoading } = useNBASignals([]);
+  const gamesData = null;
+  const gamesLoading = false;
+  const checkout = { isPending: false };
+  const handleUpgrade = () => {};
 
   const allSignals: Signal[] = (data ?? []) as Signal[];
   const liveGames: LiveGame[] = (gamesData ?? []) as LiveGame[];
@@ -778,7 +764,7 @@ export default function NBABoard() {
             ) : (
               // FIX: pass isMobile to SignalRow for card vs. row layout
               filteredSignals.map((signal, idx) => (
-                <SignalRow key={signal.id} signal={signal} isPro={idx >= PRO_THRESHOLD} userIsPro={!!(user?.isPro)} isMobile={isMobile} />
+                <SignalRow key={signal.id} signal={signal} isPro={idx >= PRO_THRESHOLD} userIsPro={false} isMobile={isMobile} />
               ))
             )}
           </div>

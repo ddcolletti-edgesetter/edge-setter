@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import AppShell from "@/components/V2Shell";
-import { trpc } from "@/lib/trpc";
+import { useNBASignals, useMLBSignals } from "@/hooks/useSignals";
 import { TrendingUp, TrendingDown, Zap, BarChart2, AlertTriangle } from "lucide-react";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
@@ -241,8 +241,8 @@ export default function MarketMovement() {
     return () => window.removeEventListener("resize", h);
   }, []);
 
-  const { data: nbaData, isLoading: nbaLoading } = trpc.signals.nba.useQuery({ limit: 200 });
-  const { data: mlbData, isLoading: mlbLoading } = trpc.signals.mlb.useQuery({ limit: 200 });
+  const { signals: nbaData, loading: nbaLoading } = useNBASignals([]);
+  const { signals: mlbData, loading: mlbLoading } = useMLBSignals([]);
 
   const isLoading = nbaLoading || mlbLoading;
 

@@ -6,9 +6,6 @@ import {
   Home, LayoutGrid, List, Menu, Moon, Sun,
   Star, TrendingUp, Wrench, Zap, CreditCard,
 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 
@@ -57,22 +54,8 @@ const NBA_TEAMS_TODAY = ["LAL", "BOS", "GSW", "DEN", "MIA", "MIL", "PHI", "NYK"]
 
 // ── Pro CTA hook ─────────────────────────────────────────────────────────────
 function useProCheckout() {
-  const { toast } = useToast();
-  const { user } = useAuth();
-  const checkout = trpc.billing.createCheckout.useMutation({
-    onSuccess: ({ url }) => {
-      window.open(url, "_blank");
-      toast({ title: "Opening Stripe checkout in a new tab…" });
-    },
-    onError: (err) => toast({ title: "Error", description: `Checkout failed: ${err.message}`, variant: "destructive" }),
-  });
-
-  const handleUpgrade = () => {
-    if (!user) { window.location.href = getLoginUrl(); return; }
-    checkout.mutate({ origin: window.location.origin });
-  };
-
-  return { handleUpgrade, loading: checkout.isPending };
+  const handleUpgrade = () => {};
+  return { handleUpgrade, loading: false };
 }
 
 function ProUpgradeButton() {

@@ -1,6 +1,4 @@
 import AppShell from "@/components/V2Shell";
-import { trpc } from "@/lib/trpc";
-import { useAuth } from "@/_core/hooks/useAuth";
 import { CreditCard, Zap, CheckCircle, AlertCircle, Calendar, ExternalLink, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,32 +13,12 @@ function formatAmount(cents: number, currency: string) {
 
 export default function Billing() {
   const { toast } = useToast();
-  const { user, loading: authLoading } = useAuth();
-  const { data: subDetails, isLoading: subLoading } = trpc.billing.subscriptionDetails.useQuery(undefined, {
-    enabled: !!user,
-  });
-  const { data: status } = trpc.billing.status.useQuery(undefined, { enabled: !!user });
-
-  const portalMutation = trpc.billing.portalSession.useMutation({
-    onSuccess: (data) => {
-      toast({ title: "Opening Stripe billing portal…" });
-      window.open(data.url, "_blank");
-    },
-    onError: (err) => {
-      toast({ title: "Error", description: err.message ?? "Could not open billing portal", variant: "destructive" });
-    },
-  });
-
-  const checkoutMutation = trpc.billing.createCheckout.useMutation({
-    onSuccess: (data) => {
-      toast({ title: "Opening Stripe checkout…" });
-      window.open(data.url, "_blank");
-    },
-    onError: (err) => toast({ title: "Error", description: err.message ?? "Checkout failed", variant: "destructive" }),
-  });
-
-  const isPro = status?.isPro ?? false;
-  const isLoading = authLoading || subLoading;
+  const isPro = false;
+  const isLoading = false;
+  const subDetails = undefined;
+  const user = null;
+  const portalMutation = { isPending: false, mutate: () => {} };
+  const checkoutMutation = { isPending: false, mutate: (_args: any) => {} };
 
   return (
     <AppShell>
