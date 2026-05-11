@@ -937,3 +937,8 @@ export default function MLBBoard() {
             )}
           </div>
         </div>
+        {!isMobile && <RightPanel />}
+      </div>
+    </AppShell>
+  );
+}
