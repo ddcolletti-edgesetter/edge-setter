@@ -2,7 +2,7 @@ import AppShell from "@/components/AppShell";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { CreditCard, Zap, CheckCircle, AlertCircle, Calendar, ExternalLink, ArrowRight } from "lucide-react";
-import { toast } from "sonner";
+import { useToast } from "@/hooks/use-toast";
 
 function formatDate(d: Date | string | null | undefined) {
   if (!d) return "—";
@@ -14,6 +14,7 @@ function formatAmount(cents: number, currency: string) {
 }
 
 export default function Billing() {
+  const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const { data: subDetails, isLoading: subLoading } = trpc.billing.subscriptionDetails.useQuery(undefined, {
     enabled: !!user,
@@ -22,20 +23,20 @@ export default function Billing() {
 
   const portalMutation = trpc.billing.portalSession.useMutation({
     onSuccess: (data) => {
-      toast.info("Opening Stripe billing portal…");
+      toast({ title: "Opening Stripe billing portal…" });
       window.open(data.url, "_blank");
     },
     onError: (err) => {
-      toast.error(err.message ?? "Could not open billing portal");
+      toast({ title: "Error", description: err.message ?? "Could not open billing portal", variant: "destructive" });
     },
   });
 
   const checkoutMutation = trpc.billing.createCheckout.useMutation({
     onSuccess: (data) => {
-      toast.info("Opening Stripe checkout…");
+      toast({ title: "Opening Stripe checkout…" });
       window.open(data.url, "_blank");
     },
-    onError: (err) => toast.error(err.message ?? "Checkout failed"),
+    onError: (err) => toast({ title: "Error", description: err.message ?? "Checkout failed", variant: "destructive" }),
   });
 
   const isPro = status?.isPro ?? false;
