@@ -30,7 +30,7 @@ interface MobileNavProps {
 // ── Default nav items — adjust paths/icons to match your router ──────────────
 const DEFAULT_NAV: NavItem[] = [
   {
-    label: 'Dashboard',
+    label: 'Home',
     path: '/',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -83,7 +83,7 @@ const DEFAULT_NAV: NavItem[] = [
   },
   {
     label: 'Player Signals',
-    path: '/player-signals',
+    path: '/tools/player-signals',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <path d="M3 13l4-4 3 3 4-5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -93,7 +93,7 @@ const DEFAULT_NAV: NavItem[] = [
   },
   {
     label: 'Market Movement',
-    path: '/market-movement',
+    path: '/tools/market-movement',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <path d="M3 15l4-6 3 4 3-7 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
