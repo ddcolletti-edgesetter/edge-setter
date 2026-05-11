@@ -7,7 +7,9 @@ import {
   Star, TrendingUp, Wrench, Zap, CreditCard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useTheme } from "@/contexts/ThemeContext";
+function useTheme() {
+  return { theme: "dark" as const, toggleTheme: () => {} };
+}
 
 // ── Logo URL ────────────────────────────────────────────────────────────────
 const LOGO_URL = "/edgesetter-logo-transparent_6b7a9796.png";
