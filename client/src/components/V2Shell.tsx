@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 
 // ── Logo URL ────────────────────────────────────────────────────────────────
-const LOGO_URL = "/edgesetter-logo-transparent_6b7a9796.png"";
+const LOGO_URL = "/edgesetter-logo-transparent_6b7a9796.png";
 
 // ── Sport tab config ─────────────────────────────────────────────────────────
 const SPORT_TABS = [
