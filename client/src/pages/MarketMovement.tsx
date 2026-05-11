@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import AppShell from "@/components/AppShell";
+import AppShell from "@/components/V2Shell";
 import { trpc } from "@/lib/trpc";
 import { TrendingUp, TrendingDown, Zap, BarChart2, AlertTriangle } from "lucide-react";
 
