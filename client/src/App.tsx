@@ -38,15 +38,11 @@ import { SignalGateProvider } from "./context/SignalGate";
 import { AuthProvider } from "./context/AuthContext";
 import { AdminGate } from "./components/AdminGate";
 import { ProModal } from "./components/ProGate";
-import { HamburgerButton, MobileNav } from "./components/MobileNav";
-import { useBreakpoint } from "./hooks/useBreakpoint";
 
 export type Theme = "dark" | "light";
 
 function App() {
   const [theme, setTheme] = useState<Theme>("dark");
-  const { isMobile } = useBreakpoint();
-  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
@@ -59,23 +55,6 @@ function App() {
       <AuthProvider>
       <SignalGateProvider>
       <ProModal />
-      {isMobile && (
-        <div style={{
-          position: "fixed",
-          top: "env(safe-area-inset-top, 8px)",
-          left: 12,
-          zIndex: 250,
-        }}>
-          <HamburgerButton
-            open={drawerOpen}
-            onToggle={() => setDrawerOpen(o => !o)}
-          />
-        </div>
-      )}
-      <MobileNav
-        open={drawerOpen}
-        onToggle={() => setDrawerOpen(o => !o)}
-      />
       <Router hook={useHashLocation}>
         <Switch>
           {/* ── Main routes ── */}

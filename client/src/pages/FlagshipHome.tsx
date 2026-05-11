@@ -6,6 +6,7 @@
 
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
+import { HamburgerButton, MobileNav } from "../components/MobileNav";
 // FlagshipHome is always dark-themed — no shell theme dependency needed
 import {
   PlayerHeadshot, TeamLogoImg, TeamLogoPair, GameCard, FeaturedEdgeCard,
@@ -82,6 +83,7 @@ export default function FlagshipHome() {
   const darkMode     = true; // FlagshipHome is always dark-themed
   const windowWidth  = useWindowWidth();
   const isMobile     = windowWidth < 768;
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [liveSignals, setLiveSignals] = useState<any[]>([]);
 
   useEffect(() => {
@@ -165,6 +167,11 @@ export default function FlagshipHome() {
           <div style={{ flexShrink: 0, padding: "0 14px", borderLeft: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 5, height: "100%" }}>
             <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite" }} />
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: T.green, textTransform: "uppercase" }}>Agents Running — NBA &amp; MLB</span>
+          </div>
+        )}
+        {isMobile && (
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", height: "100%", paddingRight: 4 }}>
+            <HamburgerButton open={drawerOpen} onToggle={() => setDrawerOpen(o => !o)} />
           </div>
         )}
       </div>
@@ -456,6 +463,7 @@ export default function FlagshipHome() {
           ))}
         </div>
       </footer>
+      <MobileNav open={drawerOpen} onToggle={() => setDrawerOpen(o => !o)} />
     </div>
   );
 }
