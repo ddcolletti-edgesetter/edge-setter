@@ -224,8 +224,8 @@ export function MobileNav({
     };
   }, [open]);
 
-  // Only render on mobile; on desktop the regular nav handles it
-  if (!isMobile) return null;
+  // On desktop with drawer closed, render nothing; if open always render
+  if (!isMobile && !open) return null;
 
   return (
     <>
