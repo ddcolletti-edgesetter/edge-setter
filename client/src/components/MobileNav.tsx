@@ -268,6 +268,7 @@ export function MobileNav({
           willChange: 'transform',
           overflowY: 'auto',
           WebkitOverflowScrolling: 'touch',
+          pointerEvents: open ? 'auto' : 'none',
         }}
       >
         {/* Header */}
@@ -347,7 +348,7 @@ export function MobileNav({
                   textDecoration: 'none',
                   color: isActive
                     ? 'var(--color-text-primary, #f1f5f9)'
-                    : 'var(--color-text-secondary, #94a3b8)',
+                    : '#cbd5e1',
                   background: isActive ? 'rgba(255,255,255,0.05)' : 'transparent',
                   borderLeft: isActive
                     ? '2px solid var(--color-accent, #22c55e)'
@@ -360,7 +361,7 @@ export function MobileNav({
                   position: 'relative',
                 }}
               >
-                <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.6 }}>
+                <span style={{ flexShrink: 0, opacity: isActive ? 1 : 0.85 }}>
                   {item.icon}
                 </span>
                 <span style={{ flex: 1 }}>{item.label}</span>

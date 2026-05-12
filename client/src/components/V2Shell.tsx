@@ -852,6 +852,7 @@ export default function AppShell({
             // Slide in/out
             transform: mobileDrawerOpen ? "translateX(0)" : "translateX(-100%)",
             transition: "transform 0.25s ease",
+            pointerEvents: mobileDrawerOpen ? "auto" : "none",
           }}
         />
       ) : (

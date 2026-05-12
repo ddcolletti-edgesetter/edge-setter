@@ -97,7 +97,7 @@ export default function FlagshipHome() {
   const oppColors  = HERO_SIGNAL.opponent ? getTeamColors(HERO_SIGNAL.opponent) : heroColors;
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Barlow', sans-serif", overflow: "clip", position: "relative" }}>
+    <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Barlow', sans-serif", position: "relative" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:ital,wght@0,300;0,400;0,600&family=Barlow+Condensed:wght@600;700;800&display=swap');
         @keyframes navPulse  { 0%,100%{opacity:1} 50%{opacity:0.28} }
@@ -145,7 +145,7 @@ export default function FlagshipHome() {
           {(() => {
             const tickItems = liveSignals.length > 0 ? liveSignals : TOP_SIGNALS;
             return (
-              <div style={{ display: "flex", gap: 48, animation: "tickScroll 32s linear infinite", whiteSpace: "nowrap", paddingLeft: 20 }}>
+              <div style={{ display: "flex", gap: 48, animation: "tickScroll 32s linear infinite", whiteSpace: "nowrap", paddingLeft: 20, pointerEvents: "none" }}>
                 {[...tickItems, ...tickItems].map((sig: any, i) => {
                   const name = sig.player_name ?? sig.player ?? sig.team ?? "";
                   const headline = sig.headline ?? sig.title ?? "";
@@ -170,7 +170,7 @@ export default function FlagshipHome() {
           </div>
         )}
         {isMobile && (
-          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", height: "100%", paddingRight: 4 }}>
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", height: "100%", paddingRight: 12 }}>
             <HamburgerButton open={drawerOpen} onToggle={() => setDrawerOpen(o => !o)} />
           </div>
         )}
