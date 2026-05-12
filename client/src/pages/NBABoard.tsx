@@ -268,12 +268,11 @@ function GameCard({ game, active, onClick, signalCount }: {
 
 // ── Signal row ───────────────────────────────────────────────────────────────
 type Signal = {
-  id: number; title: string; summary: string | null;
-  playerName: string | null; teamName: string | null;
-  signalType: string; urgencyScore: number | null;
-  confidenceScore: number | null; statusTag: string | null;
-  consensusScore: number | null; actionTakeaway: string | null;
-  publishedAt: Date | string;
+  id: number | string; headline: string; detail: string | null;
+  player: string | null; team: string | null;
+  type: string; confidence: number | null;
+  verdict: string | null; action_takeaway: string | null;
+  timestamp: string;
 };
 
 // FIX: Added isMobile prop — renders card layout on mobile, table row on desktop.
@@ -294,7 +293,7 @@ function SignalRow({
 
   // Shared type badge builder
   const typeBadge = (() => {
-    const t = (signal.signalType ?? "").toLowerCase();
+    const t = (signal.type ?? "").toLowerCase();
     const colors: Record<string, { bg: string; color: string; border: string }> = {
       injury:     { bg: "rgba(255,85,85,0.1)",   color: "#FF5555", border: "rgba(255,85,85,0.25)" },
       lineup:     { bg: "rgba(74,158,255,0.1)",  color: "#4A9EFF", border: "rgba(74,158,255,0.25)" },
@@ -308,7 +307,7 @@ function SignalRow({
     const c = colors[t] ?? { bg: "rgba(245,166,35,0.08)", color: "#F5A623", border: "rgba(245,166,35,0.2)" };
     return (
       <span style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: "3px", background: c.bg, color: c.color, border: `1px solid ${c.border}`, whiteSpace: "nowrap" }}>
-        {signal.signalType}
+        {signal.type}
       </span>
     );
   })();
@@ -338,9 +337,9 @@ function SignalRow({
         {/* Row 1: type badge + verdict + time */}
         <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
           {typeBadge}
-          <VerdictBadge status={signal.statusTag} />
+          <VerdictBadge status={signal.verdict} />
           <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono', monospace", fontSize: "0.65rem", color: "#3A3F4E" }}>
-            {timeAgo(signal.publishedAt)}
+            {signal.timestamp}
           </span>
         </div>
         {/* Row 2: title */}
@@ -350,16 +349,16 @@ function SignalRow({
           color: isPro ? "#3A3F4E" : "#E8E8E8",
           lineHeight: 1.3, marginBottom: "4px",
         }}>
-          {signal.title}
+          {signal.headline}
         </div>
         {/* Row 3: player/team + conf bar */}
-        {(signal.playerName || signal.teamName) && (
+        {(signal.player || signal.team) && (
           <div style={{ fontSize: "0.72rem", color: "#555A66", marginBottom: "8px" }}>
-            {signal.playerName}{signal.teamName ? ` · ${signal.teamName}` : ""}
+            {signal.player}{signal.team ? ` · ${signal.team}` : ""}
           </div>
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <ConfBar score={signal.confidenceScore} />
+          <ConfBar score={signal.confidence} />
           {userIsPro && !isPro && (
             <button
               onClick={e => {
@@ -376,11 +375,11 @@ function SignalRow({
         {/* Expanded detail */}
         {expanded && !isPro && (
           <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px solid #1A1E2A" }}>
-            {signal.summary && <p style={{ color: "#8A9099", fontSize: "0.85rem", lineHeight: 1.6, margin: "0 0 8px" }}>{signal.summary}</p>}
-            {signal.actionTakeaway && (
+            {signal.detail && <p style={{ color: "#8A9099", fontSize: "0.85rem", lineHeight: 1.6, margin: "0 0 8px" }}>{signal.detail}</p>}
+            {signal.action_takeaway && (
               <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.15)" }}>
                 <Zap size={11} style={{ color: "#F5A623" }} />
-                <span style={{ fontSize: "0.8rem", color: "#F5A623" }}>{signal.actionTakeaway}</span>
+                <span style={{ fontSize: "0.8rem", color: "#F5A623" }}>{signal.action_takeaway}</span>
               </div>
             )}
           </div>
@@ -405,19 +404,19 @@ function SignalRow({
         </div>
       )}
       <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px" }}>
-        {signal.playerName
-          ? <PlayerAvatar name={signal.playerName} size={48} />
+        {signal.player
+          ? <PlayerAvatar name={signal.player} size={48} />
           : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1A1714", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={18} style={{ color: "#3A3F4E" }} /></div>
         }
         <div style={{ minWidth: "90px" }}>{typeBadge}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.15rem", fontWeight: 700, color: isPro ? "#3A3F4E" : "#E8E8E8", lineHeight: 1.3, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{signal.title}</div>
-          {signal.playerName && <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{signal.playerName}{signal.teamName ? ` · ${signal.teamName}` : ""}</div>}
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.15rem", fontWeight: 700, color: isPro ? "#3A3F4E" : "#E8E8E8", lineHeight: 1.3, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{signal.headline}</div>
+          {signal.player && <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{signal.player}{signal.team ? ` · ${signal.team}` : ""}</div>}
         </div>
-        <div style={{ minWidth: "90px", textAlign: "right" }}><VerdictBadge status={signal.statusTag} /></div>
-        <div style={{ minWidth: "100px" }}><ConfBar score={signal.confidenceScore} /></div>
+        <div style={{ minWidth: "90px", textAlign: "right" }}><VerdictBadge status={signal.verdict} /></div>
+        <div style={{ minWidth: "100px" }}><ConfBar score={signal.confidence} /></div>
         <div style={{ minWidth: "60px", textAlign: "right" }}>
-          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.65rem", color: "#3A3F4E" }}>{timeAgo(signal.publishedAt)}</span>
+          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.65rem", color: "#3A3F4E" }}>{signal.timestamp}</span>
         </div>
         {userIsPro && !isPro && (
           <button
@@ -436,11 +435,11 @@ function SignalRow({
       </div>
       {expanded && !isPro && (
         <div style={{ padding: "0 16px 14px 64px", borderTop: "1px solid #1A1E2A" }}>
-          {signal.summary && <p style={{ color: "#8A9099", fontSize: "0.85rem", lineHeight: 1.6, margin: "10px 0 8px" }}>{signal.summary}</p>}
-          {signal.actionTakeaway && (
+          {signal.detail && <p style={{ color: "#8A9099", fontSize: "0.85rem", lineHeight: 1.6, margin: "10px 0 8px" }}>{signal.detail}</p>}
+          {signal.action_takeaway && (
             <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(245,166,35,0.06)", border: "1px solid rgba(245,166,35,0.15)" }}>
               <Zap size={11} style={{ color: "#F5A623" }} />
-              <span style={{ fontSize: "0.8rem", color: "#F5A623" }}>{signal.actionTakeaway}</span>
+              <span style={{ fontSize: "0.8rem", color: "#F5A623" }}>{signal.action_takeaway}</span>
             </div>
           )}
         </div>
@@ -573,8 +572,8 @@ const FEED_TABS = [
 ];
 
 const TAB_SIGNAL_TYPE: Record<string, string | null> = {
-  today: null, injuries: "Injury Update", lineup: "Lineup Change",
-  props: "Prop Alert", trends: "Team Trend", line_moves: "Line Move",
+  today: null, injuries: "injury", lineup: "lineup",
+  props: "prop", trends: "trend", line_moves: "line_move",
 };
 
 // ── Main Board ───────────────────────────────────────────────────────────────
@@ -612,7 +611,7 @@ export default function NBABoard() {
   const signalCountByTeam = useMemo(() => {
     const counts: Record<string, number> = {};
     allSignals.forEach(s => {
-      if (s.teamName) counts[s.teamName.toUpperCase()] = (counts[s.teamName.toUpperCase()] ?? 0) + 1;
+      if (s.team) counts[s.team.toUpperCase()] = (counts[s.team.toUpperCase()] ?? 0) + 1;
     });
     return counts;
   }, [allSignals]);
@@ -620,7 +619,7 @@ export default function NBABoard() {
   const filteredSignals = useMemo(() => {
     const typeFilter = TAB_SIGNAL_TYPE[activeTab];
     if (!typeFilter) return allSignals;
-    return allSignals.filter(s => s.signalType === typeFilter);
+    return allSignals.filter(s => s.type === typeFilter);
   }, [allSignals, activeTab]);
 
   const PRO_THRESHOLD = 10;
@@ -648,7 +647,7 @@ export default function NBABoard() {
                 <div style={{ fontSize: "0.6rem", color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.06em" }}>SIGNALS</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.4rem", fontWeight: 700, color: "#39FF14", lineHeight: 1 }}>{allSignals.filter(s => s.statusTag === "verified" || s.statusTag === "confirmed").length}</div>
+                <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.4rem", fontWeight: 700, color: "#39FF14", lineHeight: 1 }}>{allSignals.filter(s => s.verdict === "confirmed").length}</div>
                 <div style={{ fontSize: "0.6rem", color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.06em" }}>CONFIRMED</div>
               </div>
             </div>

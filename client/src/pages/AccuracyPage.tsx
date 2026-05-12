@@ -320,7 +320,8 @@ function AccuracyPageInner() {
 
         {/* ── Table ── */}
         {!isLoading && filtered.length > 0 && (
-          <div style={{ border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" as any, borderRadius: 5 }}>
+          <div style={{ border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 5, overflow: "hidden", minWidth: 760 }}>
 
             {/* Column headers */}
             <div style={{
@@ -480,6 +481,7 @@ function AccuracyPageInner() {
                 </div>
               );
             })}
+          </div>
           </div>
         )}
 
