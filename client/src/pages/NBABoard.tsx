@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import AppShell from "@/components/V2Shell";
 import { useNBASignals } from "@/hooks/useSignals";
-import { useToast } from "@/hooks/use-toast";
 import { useSearch } from "wouter";
 import { getTeamLogo, getPlayerHeadshot, getInitialsAvatar } from "@/lib/espnAssets";
 import {
@@ -289,7 +288,6 @@ function SignalRow({
   userIsPro?: boolean;
   isMobile?: boolean;
 }) {
-  const { toast } = useToast();
   const [expanded, setExpanded] = useState(false);
   const [alerted, setAlerted] = useState(false);
 
@@ -581,7 +579,6 @@ const TAB_SIGNAL_TYPE: Record<string, string | null> = {
 
 // ── Main Board ───────────────────────────────────────────────────────────────
 export default function NBABoard() {
-  const { toast } = useToast();
   const [activeGame, setActiveGame] = useState<number | null>(null);
   // FIX: track mobile viewport for responsive layout
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
