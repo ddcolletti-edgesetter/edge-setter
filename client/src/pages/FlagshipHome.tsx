@@ -169,11 +169,7 @@ export default function FlagshipHome() {
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: T.green, textTransform: "uppercase" }}>Agents Running — NBA &amp; MLB</span>
           </div>
         )}
-        {isMobile && (
-          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", height: "100%", paddingRight: 12 }}>
-            <HamburgerButton open={drawerOpen} onToggle={() => setDrawerOpen(o => !o)} />
-          </div>
-        )}
+        {isMobile && <div style={{ flexShrink: 0, width: 56 }} />}
       </div>
 
       {/* ══════════════════════ HERO ══════════════════════ */}
@@ -463,6 +459,19 @@ export default function FlagshipHome() {
           ))}
         </div>
       </footer>
+      {/* Fixed hamburger — rendered outside ticker strip so no layout/z-index can block it */}
+      {isMobile && (
+        <div
+          style={{
+            position: "fixed", top: 0, right: 0, zIndex: 100,
+            width: 56, height: 44,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(10,9,7,0.96)",
+          }}
+        >
+          <HamburgerButton open={drawerOpen} onToggle={() => setDrawerOpen(o => !o)} />
+        </div>
+      )}
       <MobileNav open={drawerOpen} onToggle={() => setDrawerOpen(o => !o)} />
     </div>
   );
