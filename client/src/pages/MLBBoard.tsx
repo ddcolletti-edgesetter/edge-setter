@@ -349,18 +349,7 @@ function SignalRow({
   // ── MOBILE CARD LAYOUT ────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div
-        onClick={() => !isPro && setExpanded(e => !e)}
-        style={{
-          borderBottom: "1px solid #1A1E2A",
-          cursor: isPro ? "default" : "pointer",
-          position: "relative",
-          padding: "14px 16px",
-          transition: "background 0.1s",
-        }}
-        onMouseEnter={e => { if (!isPro) (e.currentTarget as HTMLElement).style.background = "#131110"; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-      >
+      <div style={{ borderBottom: "1px solid #1A1E2A", position: "relative" }}>
         {isPro && (
           <div style={{ position: "absolute", inset: 0, background: "rgba(10,12,16,0.7)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "14px", zIndex: 2 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "5px", background: "rgba(245,166,35,0.12)", border: "1px solid rgba(245,166,35,0.3)", fontSize: "0.7rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.06em" }}>
@@ -368,54 +357,55 @@ function SignalRow({
             </span>
           </div>
         )}
-        {/* Row 1: type + verdict + time */}
-        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "8px", flexWrap: "wrap" }}>
-          {typeBadge}
-          <VerdictBadge status={signal.verdict} />
-          <span style={{ marginLeft: "auto", fontFamily: "'Share Tech Mono', monospace", fontSize: "0.65rem", color: "#3A3F4E" }}>
-            {signal.timestamp}
-          </span>
-        </div>
-        {/* Row 2: title */}
-        <div style={{
-          fontFamily: "'Barlow Condensed', sans-serif",
-          fontSize: "1.1rem", fontWeight: 700,
-          color: isPro ? "#3A3F4E" : "#E8E8E8",
-          lineHeight: 1.3, marginBottom: "4px",
-        }}>
-          {signal.headline}
-        </div>
-        {/* Row 3: player/team */}
-        {signal.player && (
-          <div style={{ fontSize: "0.8rem", color: "#6A7080", display: "flex", alignItems: "center", gap: "6px", marginBottom: "8px" }}>
-            {signal.team && (
-              <img src={getTeamLogo(signal.team, "mlb") ?? ""} alt={signal.team}
-                style={{ width: 14, height: 14, objectFit: "contain" }}
-                onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
-              />
-            )}
-            <span style={{ fontWeight: 600, color: "#9A9FAA" }}>{signal.player}</span>
-            {signal.team && <span style={{ color: "#3A3F4E" }}>· {signal.team}</span>}
+        <div style={{ padding: "12px 16px 10px" }}>
+          {/* Row 1: type badge (left) + timestamp (right) */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+            {typeBadge}
+            <span style={{ fontSize: "0.75rem", color: "#3A3F4E" }}>{signal.timestamp}</span>
           </div>
-        )}
-        {/* Row 4: conf + alert btn */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          {/* Row 2: player name — 16px, 500 weight */}
+          {(signal.player || signal.team) && (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "1rem", fontWeight: 500, color: isPro ? "#3A3F4E" : "#E8E8E8", marginBottom: "4px" }}>
+              {signal.team && (
+                <img src={getTeamLogo(signal.team, "mlb") ?? ""} alt={signal.team}
+                  style={{ width: 16, height: 16, objectFit: "contain" }}
+                  onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
+                />
+              )}
+              {signal.player ?? signal.team}
+            </div>
+          )}
+          {/* Row 3: headline — 14px, 2-line clamp */}
+          <div style={{
+            fontSize: "0.875rem", fontWeight: 400,
+            color: isPro ? "#3A3F4E" : "#9A9FAA",
+            lineHeight: 1.45,
+            overflow: "hidden",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical" as any,
+            marginBottom: "10px",
+          }}>
+            {signal.headline}
+          </div>
+          {/* Row 4: confidence bar full width */}
           <ConfBar score={signal.confidence} />
-          {userIsPro && !isPro && (
+        </div>
+        {/* Row 5: verdict badge (left) + View Detail → (right), min 44px tap target */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", minHeight: "44px", borderTop: "1px solid #1A1E2A" }}>
+          <VerdictBadge status={signal.verdict} />
+          {!isPro && (
             <button
-              onClick={e => {
-                e.stopPropagation();
-                setAlerted(a => !a);
-              }}
-              style={{ display: "inline-flex", alignItems: "center", padding: "4px", borderRadius: "4px", background: "transparent", border: "none", cursor: "pointer", color: alerted ? "#F5A623" : "#3A3F4E", transition: "color 0.15s" }}
+              onClick={() => setExpanded(e => !e)}
+              style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "transparent", border: "none", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600, color: "#39FF14", minHeight: "44px", padding: "0", WebkitTapHighlightColor: "transparent" }}
             >
-              {alerted ? <Bell size={14} /> : <BellOff size={14} />}
+              {expanded ? "Close" : "View Detail"} <ChevronRight size={13} />
             </button>
           )}
         </div>
         {/* Expanded */}
         {expanded && !isPro && (
-          <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px solid #1A1E2A" }}>
+          <div style={{ padding: "10px 16px 14px", borderTop: "1px solid #1A1E2A" }}>
             {signal.detail && <p style={{ color: "#8A9099", fontSize: "0.85rem", lineHeight: 1.6, margin: "0 0 8px" }}>{signal.detail}</p>}
             {signal.action_takeaway && (
               <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(57,255,20,0.06)", border: "1px solid rgba(57,255,20,0.15)" }}>
