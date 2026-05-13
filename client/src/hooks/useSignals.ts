@@ -99,33 +99,70 @@ function useLeagueSignals<T>(
   isLive: boolean;
   error: string | null;
   refresh: () => void;
+  pendingCount: number;
+  flushPending: () => void;
 } {
   const [signals, setSignals] = useState<T[]>(mockFallback);
+  const [pending, setPending] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isFirstLoad = useRef(true);
+  const displayedIds = useRef<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
       const live = await fetchSignals(league);
       if (live.length > 0) {
-        setSignals(live.map(adapter));
+        const adapted = live.map(adapter);
+        if (isFirstLoad.current) {
+          // Initial load: show immediately
+          setSignals(adapted);
+          displayedIds.current = new Set(adapted.map((s: any) => String(s.id)));
+          isFirstLoad.current = false;
+        } else {
+          // Subsequent polls: queue truly new signals, never auto-replace
+          const fresh = adapted.filter((s: any) => !displayedIds.current.has(String(s.id)));
+          if (fresh.length > 0) {
+            setPending(prev => {
+              const pendingIds = new Set(prev.map((s: any) => String(s.id)));
+              const novel = fresh.filter((s: any) => !pendingIds.has(String(s.id)));
+              return novel.length ? [...novel, ...prev] : prev;
+            });
+          }
+        }
         setIsLive(true);
         setError(null);
       } else {
-        // API returned nothing — use mocks
-        setSignals(mockFallback);
+        if (isFirstLoad.current) {
+          setSignals(mockFallback);
+          isFirstLoad.current = false;
+        }
         setIsLive(false);
       }
     } catch (e: any) {
       setError("Live data unavailable — showing last known state");
-      setSignals(mockFallback);
+      if (isFirstLoad.current) {
+        setSignals(mockFallback);
+        isFirstLoad.current = false;
+      }
       setIsLive(false);
     } finally {
       setLoading(false);
     }
   }, [league]);
+
+  // Merge pending into the visible list and update tracked IDs
+  const flushPending = useCallback(() => {
+    setPending(prev => {
+      if (prev.length) {
+        prev.forEach((s: any) => displayedIds.current.add(String(s.id)));
+        setSignals(curr => [...prev, ...curr]);
+      }
+      return [];
+    });
+  }, []);
 
   useEffect(() => {
     load();
@@ -133,5 +170,5 @@ function useLeagueSignals<T>(
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [load]);
 
-  return { signals, loading, isLive, error, refresh: load };
+  return { signals, loading, isLive, error, refresh: load, pendingCount: pending.length, flushPending };
 }

@@ -1,5 +1,6 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import AppShell from "@/components/V2Shell";
+import { NewSignalsToast } from "@/components/NewSignalsToast";
 import { BoardHeader } from "@/components/BoardHeader";
 import { useNBASignals } from "@/hooks/useSignals";
 import { useSearch } from "wouter";
@@ -591,7 +592,12 @@ export default function NBABoard() {
     // Force wouter to re-render by dispatching popstate
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
-  const { signals: data, loading: isLoading } = useNBASignals([]);
+  const { signals: data, loading: isLoading, pendingCount, flushPending } = useNBASignals([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const handleToastView = useCallback(() => {
+    flushPending();
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [flushPending]);
   const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
   const [gamesLoading, setGamesLoading] = useState(true);
   const checkout = { isPending: false };
@@ -647,7 +653,7 @@ export default function NBABoard() {
   return (
     <AppShell>
       <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
-        <div style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
+        <div ref={scrollContainerRef} style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
 
           {/* Board header */}
           <div style={{
@@ -774,6 +780,13 @@ export default function NBABoard() {
         {/* FIX: RightPanel hidden on mobile — 300px column destroyed the layout */}
         {!isMobile && <RightPanel />}
       </div>
+
+      <NewSignalsToast
+        count={pendingCount}
+        onView={handleToastView}
+        board="NBA"
+        scrollContainerRef={scrollContainerRef}
+      />
     </AppShell>
   );
 }

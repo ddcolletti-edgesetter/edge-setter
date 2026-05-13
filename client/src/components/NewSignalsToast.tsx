@@ -28,27 +28,37 @@ interface NewSignalsToastProps {
   onView: () => void;
   /** Optional: which board this belongs to, for labelling */
   board?: string;
+  /** Optional: ref to the scrolling container div (falls back to window) */
+  scrollContainerRef?: React.RefObject<HTMLElement>;
 }
 
-export function NewSignalsToast({ count, onView, board }: NewSignalsToastProps) {
+export function NewSignalsToast({ count, onView, board, scrollContainerRef }: NewSignalsToastProps) {
   const [userScrolled, setUserScrolled] = useState(false);
   const [visible, setVisible] = useState(false);
   const [exiting, setExiting] = useState(false);
   const scrollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Track scroll position (throttled)
+  // Track scroll position (throttled). Uses scrollContainerRef if provided, else window.
   useEffect(() => {
+    const el: EventTarget = scrollContainerRef?.current ?? window;
+    const getScrollTop = () =>
+      scrollContainerRef?.current ? scrollContainerRef.current.scrollTop : window.scrollY;
+
     const handleScroll = () => {
       if (scrollRef.current) clearTimeout(scrollRef.current);
       scrollRef.current = setTimeout(() => {
-        setUserScrolled(window.scrollY > SCROLL_THRESHOLD);
+        setUserScrolled(getScrollTop() > SCROLL_THRESHOLD);
       }, 60);
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    el.addEventListener('scroll', handleScroll, { passive: true } as any);
     return () => {
-      window.removeEventListener('scroll', handleScroll);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (el as any).removeEventListener('scroll', handleScroll);
       if (scrollRef.current) clearTimeout(scrollRef.current);
     };
+  // scrollContainerRef is a stable ref object; its .current is populated before this effect runs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Show only when there are new signals AND user has scrolled
