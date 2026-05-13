@@ -463,7 +463,7 @@ export default function FlagshipHome() {
       {isMobile && (
         <div
           style={{
-            position: "fixed", top: 0, right: 0, zIndex: 100,
+            position: "fixed", top: 0, right: 0, zIndex: 110,
             width: 56, height: 44,
             display: "flex", alignItems: "center", justifyContent: "center",
             background: "rgba(10,9,7,0.96)",
