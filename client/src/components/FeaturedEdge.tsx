@@ -77,6 +77,22 @@ export function FeaturedEdge({
     );
   }
 
+  const canShare = typeof navigator !== 'undefined' && !!navigator.share;
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!navigator.share) return;
+    try {
+      await navigator.share({
+        title,
+        text: subtitle,
+        url: window.location.href,
+      });
+    } catch {
+      // User cancelled or share failed — no action needed
+    }
+  };
+
   // Mobile — collapsible
   return (
     <div
@@ -89,13 +105,14 @@ export function FeaturedEdge({
         marginBottom: 8,
       }}
     >
-      {/* ── Collapsed header / tap target ── */}
+      {/* ── Collapsed header row: toggle + share ── */}
+      <div style={{ display: 'flex', alignItems: 'center' }}>
       <button
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         aria-label={`${open ? 'Collapse' : 'Expand'} ${title}`}
         style={{
-          width: '100%',
+          flex: 1,
           display: 'flex',
           alignItems: 'center',
           gap: 10,
@@ -105,7 +122,6 @@ export function FeaturedEdge({
           cursor: 'pointer',
           textAlign: 'left',
           WebkitTapHighlightColor: 'transparent',
-          // Minimum touch target
           minHeight: 52,
         }}
       >
@@ -205,6 +221,46 @@ export function FeaturedEdge({
           />
         </svg>
       </button>
+
+      {/* Share button — mobile only, gated on Web Share API */}
+      {canShare && (
+        <button
+          onClick={handleShare}
+          aria-label="Share this edge"
+          style={{
+            flexShrink: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minWidth: 44,
+            minHeight: 44,
+            padding: '0 12px',
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            WebkitTapHighlightColor: 'transparent',
+            color: 'var(--color-text-muted, #475569)',
+          }}
+        >
+          {/* Upload / share icon */}
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+            <path
+              d="M9 2v9M6 5l3-3 3 3"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M3 11v3a1 1 0 001 1h10a1 1 0 001-1v-3"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+      )}
+      </div>
 
       {/* Metrics strip (always visible) */}
       {metrics.length > 0 && (
