@@ -193,7 +193,7 @@ function CFBDetailPanel({ sig, onClose, TH, darkMode }: {
           <ConfBar value={sig.confidence} color={typeColor} />
           <span style={{
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-            fontSize: 12, color: TH.textFaint,
+            fontSize: 14, color: TH.textFaint,
           }}>
             {sig.sources} sources · {sig.timestamp}
           </span>
@@ -206,7 +206,7 @@ function CFBDetailPanel({ sig, onClose, TH, darkMode }: {
         <div>
           <div style={{
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
-            fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
+            fontSize: 14, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
             color: TH.textFaint, marginBottom: 6,
           }}>
             Intel
@@ -714,13 +714,13 @@ function CFBBoardInner() {
           </div>
           {feat.whyItMatters && (
             <div style={{ marginBottom: 8 }}>
-              <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Why It Matters</div>
-              <div style={{ fontSize: 13, color: TH.textMuted, lineHeight: 1.5 }}>{feat.whyItMatters}</div>
+              <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: TH.textFaint, marginBottom: 3 }}>Why It Matters</div>
+              <div style={{ fontSize: 14, color: TH.textMuted, lineHeight: 1.5 }}>{feat.whyItMatters}</div>
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
             <ConfBar value={feat.confidence} color={T.gold} />
-            <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 12, color: TH.textFaint }}>
+            <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 14, color: TH.textFaint }}>
               {feat.sources} sources · {CFB_FEATURED_EDGE.conference}
             </span>
             {feat.sourceLabels && feat.sourceLabels.length > 0 && (

@@ -257,7 +257,7 @@ function NFLDetailPanel({ sig, onClose, TH, darkMode }: { sig: NFLSignal; onClos
             <VerdictBadge verdict={sig.verdict} />
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-              fontSize: 12, color: TH.textFaint, letterSpacing: "0.06em",
+              fontSize: 14, color: TH.textFaint, letterSpacing: "0.06em",
               display: "flex", alignItems: "center", gap: 4,
             }}>
               {sig.sources} sources · {sig.timestamp}
@@ -273,7 +273,7 @@ function NFLDetailPanel({ sig, onClose, TH, darkMode }: { sig: NFLSignal; onClos
         }}>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 11, fontWeight: 700, color: TH.textFaint,
+            fontSize: 14, fontWeight: 700, color: TH.textFaint,
             letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6,
           }}>Intel</div>
           <div style={{

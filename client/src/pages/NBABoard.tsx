@@ -148,7 +148,7 @@ function ConfBar({ score }: { score: number | null }) {
       <div style={{ width: "60px", height: "3px", background: "#1A1714", borderRadius: "2px", overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: "2px" }} />
       </div>
-      <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.7rem", color, minWidth: "28px" }}>{pct}%</span>
+      <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.875rem", color, minWidth: "28px" }}>{pct}%</span>
     </div>
   );
 }
@@ -318,7 +318,7 @@ function SignalRow({
       <div style={{ borderBottom: "1px solid #1A1E2A", position: "relative" }}>
         {isPro && (
           <div style={{ position: "absolute", inset: 0, background: "rgba(10,12,16,0.7)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "14px", zIndex: 2 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "5px", background: "rgba(245,166,35,0.12)", border: "1px solid rgba(245,166,35,0.3)", fontSize: "0.7rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "5px", background: "rgba(245,166,35,0.22)", border: "1px solid rgba(245,166,35,0.45)", fontSize: "0.875rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <Lock size={10} /> PRO
             </span>
           </div>
@@ -327,7 +327,7 @@ function SignalRow({
           {/* Row 1: type badge (left) + timestamp (right) */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
             {typeBadge}
-            <span style={{ fontSize: "0.75rem", color: "#3A3F4E" }}>{signal.timestamp}</span>
+            <span style={{ fontSize: "0.875rem", color: "#3A3F4E" }}>{signal.timestamp}</span>
           </div>
           {/* Row 2: player name — 16px, 500 weight */}
           {(signal.player || signal.team) && (
