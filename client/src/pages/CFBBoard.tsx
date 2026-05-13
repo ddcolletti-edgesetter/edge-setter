@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import {
   CFB_SIGNALS, CFB_SLATE, CFB_FEATURED_EDGE,
@@ -368,6 +368,8 @@ function CFBBoardInner() {
   // FIX: mobile subnav drawer
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [navOpen, setNavOpen] = useState(false);
+  const sheetTouchStartY = useRef(0);
+  const sheetTouchDeltaY = useRef(0);
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", h);
@@ -947,8 +949,8 @@ function CFBBoardInner() {
             </div>
           </div>
 
-          {/* Detail rail */}
-          {selectedSig && (
+          {/* Detail rail — desktop only */}
+          {selectedSig && !isMobile && (
             <div style={{ width: 340, flexShrink: 0, overflowY: "auto", borderLeft: `1px solid ${TH.border}` }}>
               <CFBDetailPanel
                 sig={selectedSig}
@@ -960,6 +962,30 @@ function CFBBoardInner() {
           )}
         </div>
       </div>
+      {/* Bottom sheet — mobile only, position:fixed so no layout impact */}
+      {selectedSig && isMobile && (
+        <>
+          <div
+            className="bottom-sheet-backdrop"
+            onClick={() => setSelectedSig(null)}
+          />
+          <div
+            className="bottom-sheet"
+            style={{ background: TH.surface1 }}
+            onTouchStart={e => { sheetTouchStartY.current = e.touches[0].clientY; sheetTouchDeltaY.current = 0; }}
+            onTouchMove={e => { sheetTouchDeltaY.current = e.touches[0].clientY - sheetTouchStartY.current; }}
+            onTouchEnd={() => { if (sheetTouchDeltaY.current > 60) setSelectedSig(null); }}
+          >
+            <div className="bottom-sheet-handle" />
+            <CFBDetailPanel
+              sig={selectedSig}
+              onClose={() => setSelectedSig(null)}
+              TH={TH}
+              darkMode={darkMode}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
