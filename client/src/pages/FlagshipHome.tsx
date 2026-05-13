@@ -7,6 +7,7 @@
 import { useLocation } from "wouter";
 import { useState, useEffect } from "react";
 import { HamburgerButton, MobileNav } from "../components/MobileNav";
+import MobileTabBar from "../components/MobileTabBar";
 // FlagshipHome is always dark-themed — no shell theme dependency needed
 import {
   PlayerHeadshot, TeamLogoImg, TeamLogoPair, GameCard, FeaturedEdgeCard,
@@ -14,7 +15,7 @@ import {
   T as _T, VERDICT_COLORS, getTeamColors,
 } from "../components/v2/SportVisuals";
 import { NBA_SIGNALS, NBA_TONIGHT, type V2Signal } from "../data/v2MockData";
-import { Zap, ArrowRight, TrendingUp, Shield, BarChart3, ChevronRight, Activity } from "lucide-react";
+import { Zap, ArrowRight, TrendingUp, Shield, BarChart3, ChevronRight, ChevronDown, Activity } from "lucide-react";
 
 // Local token override — warm LFL values
 const T = {
@@ -84,6 +85,7 @@ export default function FlagshipHome() {
   const windowWidth  = useWindowWidth();
   const isMobile     = windowWidth < 768;
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [featuredOpen, setFeaturedOpen] = useState(false);
   const [liveSignals, setLiveSignals] = useState<any[]>([]);
 
   useEffect(() => {
@@ -266,6 +268,30 @@ export default function FlagshipHome() {
 
           {/* ── Right: Featured Edge card ── */}
           <div style={{ animation: "fadeUp 0.65s ease 0.1s both" }}>
+            {isMobile && (
+              <button
+                onClick={() => setFeaturedOpen(o => !o)}
+                aria-expanded={featuredOpen}
+                aria-label={`${featuredOpen ? 'Collapse' : 'Expand'} Featured Edge`}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center',
+                  justifyContent: 'space-between', gap: 8,
+                  padding: '10px 14px', marginBottom: 4,
+                  background: T.surface1, border: `1px solid ${T.borderMid}`,
+                  borderRadius: 3, cursor: 'pointer',
+                  WebkitTapHighlightColor: 'transparent', minHeight: 44,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.gold, flexShrink: 0 }}>Featured Edge</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {HERO_SIGNAL.team}{HERO_SIGNAL.opponent ? ` @ ${HERO_SIGNAL.opponent}` : ''}
+                  </span>
+                </div>
+                <ChevronDown size={14} style={{ color: T.textMuted, flexShrink: 0, transform: featuredOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s' }} />
+              </button>
+            )}
+            <div style={{ maxHeight: isMobile ? (featuredOpen ? 800 : 0) : undefined, overflow: 'hidden', transition: isMobile ? 'max-height 0.32s cubic-bezier(0.4,0,0.2,1)' : undefined }}>
             <div style={{ background: T.surface1, border: `1px solid ${T.borderMid}`, borderRadius: 3, overflow: "hidden", boxShadow: "0 8px 56px rgba(0,0,0,0.65)" }}>
               {/* Team-color banner — full bleed, commanding */}
               <div style={{ padding: "14px 16px 12px", background: `linear-gradient(140deg, ${heroColors.primary}F0 0%, ${heroColors.primary}80 45%, ${T.surface2} 100%)`, borderBottom: `1px solid ${T.border}`, position: "relative", overflow: "hidden", minHeight: 80 }}>
@@ -316,6 +342,7 @@ export default function FlagshipHome() {
                   FULL NBA BOARD <ArrowRight size={12} />
                 </button>
               </div>
+            </div>
             </div>
           </div>
         </div>
@@ -473,6 +500,8 @@ export default function FlagshipHome() {
         </div>
       )}
       <MobileNav open={drawerOpen} onToggle={() => setDrawerOpen(o => !o)} />
+      <MobileTabBar />
+      {isMobile && <div style={{ height: 72 }} />}
     </div>
   );
 }
