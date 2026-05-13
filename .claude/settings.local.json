@@ -15,7 +15,26 @@
       "Bash(npm install *)",
       "Read(//usr/local/**)",
       "Read(//c/Users/ddcol/.nvm/versions/**)",
-      "PowerShell(Get-ChildItem *)"
+      "PowerShell(Get-ChildItem *)",
+      "Bash(curl *)",
+      "Bash(git show *)",
+      "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(json.dumps\\(t, indent=2\\)\\) for t in d['transactions'][:3]]\")",
+      "Bash(npm init *)",
+      "PowerShell(cmd /c \"dir C:\\\\Users\\\\ddcol\\\\.local\\\\bin\" 2>&1)",
+      "Bash(npm run *)",
+      "PowerShell(npm *)",
+      "Bash(./node_modules/.bin/tsc --noEmit --project client/tsconfig.json)",
+      "Bash(node -e \"require\\('typescript'\\)\")",
+      "PowerShell(Get-Process *)",
+      "Bash(node_modules/.bin/tsc --noEmit --project client/tsconfig.json)",
+      "PowerShell($env:PATH -split ';' | Where-Object { $_ -match 'node|npm' })",
+      "Bash(node node_modules/.bin/tsc --noEmit)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\ddcol\\\\edge-setter\\\\client\\\\node_modules\\\\.bin\" | Where-Object { $_.Name -match 'vite|tsc' } | Select-Object -First 10 Name)",
+      "PowerShell($env:PATH -split \";\" | Where-Object { $_ -match \"node|npm\" })",
+      "PowerShell(& \"C:\\\\Program Files\\\\nodejs\\\\node.exe\" --version 2>&1; & \"C:\\\\Program Files\\\\nodejs\\\\npm.cmd\" --version 2>&1)",
+      "PowerShell($env:PATH = \"C:\\\\Program Files\\\\nodejs;$env:PATH\"; cd C:\\\\Users\\\\ddcol\\\\edge-setter; npx tsc --noEmit -p client/tsconfig.json 2>&1 | Select-Object -First 40)",
+      "PowerShell($env:PATH)",
+      "PowerShell($env:NVM_HOME; $env:NVM_SYMLINK; $env:NODE_PATH)"
     ]
   }
 }
