@@ -179,10 +179,10 @@ export function ProModal() {
         <button
           onClick={closeModal}
           style={{
-            position: "absolute", top: 14, right: 14,
+            position: "absolute", top: 7, right: 7,
             background: "rgba(255,255,255,0.06)", border: "none", borderRadius: "50%",
             color: T.textMuted, cursor: "pointer",
-            width: 30, height: 30,
+            minWidth: 44, minHeight: 44,
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
@@ -301,6 +301,7 @@ export function ProModal() {
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 12, color: T.textFaint, marginTop: 12,
                   letterSpacing: "0.06em", padding: 0,
+                  display: "flex", alignItems: "center", minHeight: 44,
                 }}
               >
                 ← Back to upgrade options
@@ -352,6 +353,7 @@ export function ProModal() {
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 12, color: T.textFaint, letterSpacing: "0.06em",
                     padding: 0, textDecoration: "underline",
+                    display: "inline-flex", alignItems: "center", minHeight: 44,
                   }}
                 >
                   Already subscribed? Activate access →

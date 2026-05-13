@@ -260,7 +260,7 @@ function MobileCard({ signal, onBookmark, onExpand, isBookmarked }: SignalCardPr
           style={{
             marginLeft: 'auto',
             minWidth: 44,
-            minHeight: 40,
+            minHeight: 44,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -314,7 +314,7 @@ function MobileCard({ signal, onBookmark, onExpand, isBookmarked }: SignalCardPr
               onClick={() => onBookmark?.(signal.id)}
               style={{
                 flex: 1,
-                height: 36,
+                minHeight: 44,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

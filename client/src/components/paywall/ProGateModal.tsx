@@ -75,10 +75,12 @@ export default function ProGateModal() {
           data-testid="button-modal-close"
           onClick={closeModal}
           style={{
-            position: "absolute", top: 16, right: 16,
+            position: "absolute", top: 7, right: 7,
             background: "none", border: "none",
             color: C.textFaint, cursor: "pointer",
-            padding: 4, lineHeight: 1,
+            padding: 13, lineHeight: 1,
+            minWidth: 44, minHeight: 44,
+            display: "flex", alignItems: "center", justifyContent: "center",
             transition: "color 0.15s",
           }}
           onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.color = C.text; }}

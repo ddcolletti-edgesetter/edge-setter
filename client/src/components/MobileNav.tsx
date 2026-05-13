@@ -313,8 +313,8 @@ export function MobileNav({
             onClick={onToggle}
             aria-label="Close menu"
             style={{
-              minWidth: 36,
-              minHeight: 36,
+              minWidth: 44,
+              minHeight: 44,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
