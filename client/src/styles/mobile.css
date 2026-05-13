@@ -211,7 +211,23 @@
   }
 }
 
-/* ── 15. Tablet adjustments (768–1023px) ── */
+/* ── 15. Mobile bottom tab bar spacing ── */
+@media (max-width: 767px) {
+  /* Utility class for pages that need bottom padding to clear the tab bar */
+  .tab-bar-offset {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* Tab bar is hidden on desktop via the component's isMobile check,
+   but guard here too in case it ever renders without the JS check */
+@media (min-width: 768px) {
+  nav[aria-label="Bottom navigation"] {
+    display: none !important;
+  }
+}
+
+/* ── 16. Tablet adjustments (768–1023px) ── */
 @media (min-width: 768px) and (max-width: 1023px) {
   .signal-grid,
   .board-grid {

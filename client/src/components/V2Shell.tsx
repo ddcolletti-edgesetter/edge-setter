@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
+import MobileTabBar from "./MobileTabBar";
 import { NBA_LOGOS, MLB_LOGOS } from "@/lib/espnAssets";
 import {
   Activity, BarChart2, ChevronDown, ChevronRight,
@@ -806,6 +807,7 @@ export default function AppShell({
         }}
       >
         {children}
+        <MobileTabBar />
       </div>
     );
   }
@@ -878,8 +880,9 @@ export default function AppShell({
           onMenuToggle={handleMenuToggle}
           isMobile={isMobile}
         />
-        <div style={{ flex: 1, overflowY: "auto" }}>{children}</div>
+        <div style={{ flex: 1, overflowY: "auto", paddingBottom: isMobile ? "72px" : 0 }}>{children}</div>
       </div>
+      <MobileTabBar />
     </div>
   );
 }
