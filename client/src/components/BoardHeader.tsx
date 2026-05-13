@@ -179,13 +179,14 @@ export function BoardHeader({
       {filters.length > 0 && (
         <div
           ref={tabsRef}
+          className="board-filter-tabs"
           style={{
             display: 'flex',
             overflowX: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             padding: isMobile ? '0 16px 10px' : '0 24px 10px',
-            gap: 6,
+            gap: isMobile ? 8 : 6,
           }}
         >
           <style>{`
@@ -200,8 +201,7 @@ export function BoardHeader({
                 onClick={() => onFilterChange?.(filter)}
                 style={{
                   flexShrink: 0,
-                  // 36px height keeps touch target accessible on mobile
-                  height: 34,
+                  height: isMobile ? 44 : 34,
                   padding: '0 14px',
                   background: isActive
                     ? 'var(--color-accent, #22c55e)'
