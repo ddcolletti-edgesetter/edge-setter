@@ -246,6 +246,90 @@ export default function FlagshipHome() {
               </button>
             </div>
 
+            {/* Mobile-only: Featured Edge — above signal list */}
+            {isMobile && (
+              <div style={{ marginBottom: 16 }}>
+                <button
+                  onClick={() => setFeaturedOpen(o => !o)}
+                  aria-expanded={featuredOpen}
+                  aria-label={`${featuredOpen ? 'Collapse' : 'Expand'} Featured Edge`}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center',
+                    justifyContent: 'space-between', gap: 8,
+                    padding: '11px 14px',
+                    background: `linear-gradient(90deg, rgba(196,162,74,0.10) 0%, ${T.surface1} 100%)`,
+                    border: `1px solid ${T.borderMid}`,
+                    borderLeft: `3px solid ${T.gold}`,
+                    borderRadius: 3, cursor: 'pointer',
+                    WebkitTapHighlightColor: 'transparent', minHeight: 48,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                    <div style={{ flexShrink: 0, width: 24, height: 24, background: 'rgba(196,162,74,0.12)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.545 3.09L12 4.635l-2.5 2.41.59 3.41L7 8.9l-3.09 1.555.59-3.41L2 4.635l3.455-.545L7 1z" fill="#C4A24A" /></svg>
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.gold, lineHeight: 1, marginBottom: 2 }}>Featured Edge</div>
+                      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 600, color: T.text, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {HERO_SIGNAL.team}{HERO_SIGNAL.opponent ? ` @ ${HERO_SIGNAL.opponent}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                    <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, color: T.gold, lineHeight: 1 }}>{HERO_SIGNAL.confidence}%</span>
+                    <ChevronDown size={14} style={{ color: T.textMuted, transform: featuredOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s' }} />
+                  </div>
+                </button>
+                <div style={{ maxHeight: featuredOpen ? 800 : 0, overflow: 'hidden', transition: 'max-height 0.32s cubic-bezier(0.4,0,0.2,1)' }}>
+                  <div style={{ background: T.surface1, border: `1px solid ${T.borderMid}`, borderTop: 'none', borderRadius: '0 0 3px 3px', overflow: 'hidden' }}>
+                    <div style={{ padding: "14px 16px 12px", background: `linear-gradient(140deg, ${heroColors.primary}F0 0%, ${heroColors.primary}80 45%, ${T.surface2} 100%)`, borderBottom: `1px solid ${T.border}`, position: "relative", overflow: "hidden", minHeight: 80 }}>
+                      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 95% 50%, ${oppColors.primary}48, transparent 55%)` }} />
+                      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.gold}, ${T.gold}44)` }} />
+                      <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", gap: 10 }}>
+                        <TeamLogoPair away={HERO_SIGNAL.team} home={HERO_SIGNAL.opponent ?? HERO_SIGNAL.team} size={36} useImg />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "2px", color: T.text }}>
+                            {HERO_SIGNAL.team}{HERO_SIGNAL.opponent ? ` @ ${HERO_SIGNAL.opponent}` : ""}
+                          </div>
+                          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em" }}>NBA Playoffs · Tonight</div>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 2, background: "rgba(62,186,106,0.14)", border: "1px solid rgba(62,186,106,0.3)" }}>
+                          <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 2s ease-in-out infinite" }} />
+                          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green }}>Live</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ padding: "16px" }}>
+                      <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+                        {HERO_SIGNAL.player && <PlayerHeadshot name={HERO_SIGNAL.player} team={HERO_SIGNAL.team} size={58} shape="circle" />}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: "flex", gap: 6, marginBottom: 6, flexWrap: "wrap" }}>
+                            <TypeChip type={HERO_SIGNAL.type} />
+                            <VerdictBadge verdict={HERO_SIGNAL.verdict} />
+                          </div>
+                          {HERO_SIGNAL.player && <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 15, letterSpacing: "1.5px", color: T.text, textTransform: "uppercase" }}>{HERO_SIGNAL.player}</div>}
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 600, color: T.text, lineHeight: 1.4, marginBottom: 12 }}>
+                        {HERO_SIGNAL.headline}
+                      </div>
+                      <div style={{ background: T.goldGlow, border: `1px solid rgba(196,162,74,0.2)`, borderRadius: 2, padding: "10px 12px", marginBottom: 12 }}>
+                        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold, marginBottom: 4 }}>⚡ Action</div>
+                        <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 13, color: T.text, lineHeight: 1.6 }}>{HERO_SIGNAL.action_takeaway}</div>
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                        <ConfidenceBar value={HERO_SIGNAL.confidence} width="100%" height={4} />
+                        <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: T.gold, flexShrink: 0 }}>{HERO_SIGNAL.confidence}%</span>
+                      </div>
+                      <button onClick={() => navigate("/nba")} style={{ width: "100%", padding: "10px", background: `linear-gradient(135deg, ${T.gold}, #8A6A28)`, border: "none", color: T.bg, borderRadius: 2, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "2.5px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                        FULL NBA BOARD <ArrowRight size={12} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Live signal list */}
             <div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint, marginBottom: 8 }}>Latest Signals</div>
@@ -266,32 +350,9 @@ export default function FlagshipHome() {
             </div>
           </div>
 
-          {/* ── Right: Featured Edge card ── */}
+          {/* ── Right: Featured Edge card — desktop only ── */}
+          {!isMobile && (
           <div style={{ animation: "fadeUp 0.65s ease 0.1s both" }}>
-            {isMobile && (
-              <button
-                onClick={() => setFeaturedOpen(o => !o)}
-                aria-expanded={featuredOpen}
-                aria-label={`${featuredOpen ? 'Collapse' : 'Expand'} Featured Edge`}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center',
-                  justifyContent: 'space-between', gap: 8,
-                  padding: '10px 14px', marginBottom: 4,
-                  background: T.surface1, border: `1px solid ${T.borderMid}`,
-                  borderRadius: 3, cursor: 'pointer',
-                  WebkitTapHighlightColor: 'transparent', minHeight: 44,
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.gold, flexShrink: 0 }}>Featured Edge</span>
-                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {HERO_SIGNAL.team}{HERO_SIGNAL.opponent ? ` @ ${HERO_SIGNAL.opponent}` : ''}
-                  </span>
-                </div>
-                <ChevronDown size={14} style={{ color: T.textMuted, flexShrink: 0, transform: featuredOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s' }} />
-              </button>
-            )}
-            <div style={{ maxHeight: isMobile ? (featuredOpen ? 800 : 0) : undefined, overflow: 'hidden', transition: isMobile ? 'max-height 0.32s cubic-bezier(0.4,0,0.2,1)' : undefined }}>
             <div style={{ background: T.surface1, border: `1px solid ${T.borderMid}`, borderRadius: 3, overflow: "hidden", boxShadow: "0 8px 56px rgba(0,0,0,0.65)" }}>
               {/* Team-color banner — full bleed, commanding */}
               <div style={{ padding: "14px 16px 12px", background: `linear-gradient(140deg, ${heroColors.primary}F0 0%, ${heroColors.primary}80 45%, ${T.surface2} 100%)`, borderBottom: `1px solid ${T.border}`, position: "relative", overflow: "hidden", minHeight: 80 }}>
@@ -343,8 +404,8 @@ export default function FlagshipHome() {
                 </button>
               </div>
             </div>
-            </div>
           </div>
+          )}
         </div>
       </section>
 
