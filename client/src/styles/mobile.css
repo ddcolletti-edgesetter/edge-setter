@@ -263,6 +263,13 @@
   flex-shrink: 0;
 }
 
+/* ── Skeleton loading animation (global — applies to both mobile and desktop) ── */
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+.skeleton { animation: pulse 1.5s ease-in-out infinite; }
+
 /* ── 16. Tablet adjustments (768–1023px) ── */
 @media (min-width: 768px) and (max-width: 1023px) {
   .signal-grid,

@@ -554,6 +554,47 @@ function RightPanel() {
   );
 }
 
+// ── Skeleton card for loading state ─────────────────────────────────────────
+function SignalSkeleton({ isMobile }: { isMobile: boolean }) {
+  const bg = "#1A1E2A";
+  if (isMobile) {
+    return (
+      <div className="skeleton" style={{ borderBottom: "1px solid #1A1E2A" }}>
+        <div style={{ padding: "12px 16px 10px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
+            <div style={{ width: 52, height: 18, background: bg, borderRadius: 3 }} />
+            <div style={{ width: 40, height: 12, background: bg, borderRadius: 3 }} />
+          </div>
+          <div style={{ width: 130, height: 16, background: bg, borderRadius: 3, marginBottom: 6 }} />
+          <div style={{ width: "100%", height: 14, background: bg, borderRadius: 3, marginBottom: 4 }} />
+          <div style={{ width: "70%", height: 14, background: bg, borderRadius: 3, marginBottom: 10 }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div style={{ width: 60, height: 3, background: bg, borderRadius: 2 }} />
+            <div style={{ width: 30, height: 12, background: bg, borderRadius: 2 }} />
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", minHeight: 44, borderTop: "1px solid #1A1E2A" }}>
+          <div style={{ width: 60, height: 16, background: bg, borderRadius: 3 }} />
+          <div style={{ width: 80, height: 16, background: bg, borderRadius: 3 }} />
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="skeleton" style={{ borderBottom: "1px solid #1A1E2A", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ width: 48, height: 48, borderRadius: "50%", background: bg, flexShrink: 0 }} />
+      <div style={{ width: 80, height: 18, background: bg, borderRadius: 3, flexShrink: 0 }} />
+      <div style={{ flex: 1 }}>
+        <div style={{ width: "60%", height: 18, background: bg, borderRadius: 3, marginBottom: 6 }} />
+        <div style={{ width: "30%", height: 12, background: bg, borderRadius: 3 }} />
+      </div>
+      <div style={{ width: 70, height: 18, background: bg, borderRadius: 3, flexShrink: 0 }} />
+      <div style={{ width: 100, height: 12, background: bg, borderRadius: 3, flexShrink: 0 }} />
+      <div style={{ width: 50, height: 12, background: bg, borderRadius: 3, flexShrink: 0 }} />
+    </div>
+  );
+}
+
 // ── Feed tabs ────────────────────────────────────────────────────────────────
 const FEED_TABS = [
   { key: "today",     label: "Today",    icon: <Activity size={13} /> },
@@ -758,11 +799,7 @@ export default function NBABoard() {
             )}
 
             {isLoading ? (
-              <div style={{ padding: "40px 24px" }}>
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} style={{ height: "60px", background: "#131110", borderRadius: "4px", marginBottom: "4px", opacity: 0.3 + i * 0.05 }} />
-                ))}
-              </div>
+              [...Array(5)].map((_, i) => <SignalSkeleton key={i} isMobile={isMobile} />)
             ) : filteredSignals.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px 24px" }}>
                 <Activity size={40} style={{ color: "#1A1714", margin: "0 auto 12px" }} />
