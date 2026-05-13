@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import AppShell from "@/components/V2Shell";
+import { BoardHeader } from "@/components/BoardHeader";
 import { useNBASignals } from "@/hooks/useSignals";
 import { useSearch } from "wouter";
 import { getTeamLogo, getPlayerHeadshot, getInitialsAvatar } from "@/lib/espnAssets";
@@ -683,37 +684,22 @@ export default function NBABoard() {
               </div>
             </div>
 
-            {/* Feed tabs */}
-            {/* FIX: overflowX scroll on mobile so all 6 tabs are accessible */}
-            <div id="signal-feed" style={{ display: "flex", gap: "2px", overflowX: "auto", scrollbarWidth: "none" }}>
-              {FEED_TABS.map(tab => {
-                const isActive = activeTab === tab.key;
-                return (
-                  <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-                    display: "inline-flex", alignItems: "center", gap: "6px",
-                    padding: "9px 16px",
-                    fontFamily: "'Barlow Condensed', sans-serif",
-                    fontSize: "0.85rem", fontWeight: 700,
-                    letterSpacing: "0.04em", textTransform: "uppercase",
-                    cursor: "pointer", background: "transparent",
-                    color: isActive ? "#F0F0F0" : "#555A66",
-                    border: "none",
-                    borderBottom: `2px solid ${isActive ? "#F5A623" : "transparent"}`,
-                    transition: "all 0.15s ease",
-                    flexShrink: 0,
-                    whiteSpace: "nowrap",
-                  }}
-                  onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.color = "#A0A5B0"; }}
-                  onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.color = "#555A66"; }}>
-                    {tab.icon} {tab.label}
-                  </button>
-                );
-              })}
-            </div>
           </div>
 
+          <BoardHeader
+            league="NBA"
+            totalSignals={allSignals.length}
+            liveCount={liveGames.filter(g => g.statusDescription?.toLowerCase().includes("in progress")).length}
+            filters={FEED_TABS.map(t => t.label)}
+            activeFilter={FEED_TABS.find(t => t.key === activeTab)?.label ?? "Today"}
+            onFilterChange={label => {
+              const tab = FEED_TABS.find(t => t.label === label);
+              if (tab) setActiveTab(tab.key);
+            }}
+          />
+
           {/* Signal feed */}
-          <div>
+          <div id="signal-feed">
             {allSignals.length > PRO_THRESHOLD && (
               <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 16px", background: "rgba(245,166,35,0.04)", borderBottom: "1px solid #1A1E2A" }}>
                 <Lock size={13} style={{ color: "#F5A623" }} />

@@ -74,9 +74,9 @@ export function BoardHeader({
     <div
       ref={headerRef}
       style={{
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
+        position: isMobile ? 'sticky' : undefined,
+        top: isMobile ? 0 : undefined,
+        zIndex: isMobile ? 50 : undefined,
         background: 'var(--color-surface, #0a0f1e)',
         borderBottom: '1px solid var(--color-border, rgba(255,255,255,0.08))',
         boxShadow: scrolled ? '0 4px 24px rgba(0,0,0,0.5)' : 'none',
