@@ -592,13 +592,41 @@ export default function NBABoard() {
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
   const { signals: data, loading: isLoading } = useNBASignals([]);
-  const gamesData = null;
-  const gamesLoading = false;
+  const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
+  const [gamesLoading, setGamesLoading] = useState(true);
   const checkout = { isPending: false };
   const handleUpgrade = () => {};
 
+  useEffect(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    fetch("/api/v2/games?league=NBA")
+      .then(r => r.json())
+      .then(data => {
+        const statusLabel: Record<string, string> = {
+          live: "In Progress", final: "Final",
+          scheduled: "Scheduled", postponed: "Postponed",
+        };
+        const adapted: LiveGame[] = (data.games ?? [])
+          .filter((g: any) => g.game_time?.slice(0, 10) === today)
+          .map((g: any) => ({
+            id: g.id,
+            sport: "nba" as const,
+            espnEventId: g.source_game_id ?? g.id,
+            homeTeam: g.home_team ?? null,
+            awayTeam: g.away_team ?? null,
+            gameDate: g.game_time ? new Date(g.game_time) : null,
+            statusDescription: statusLabel[g.status] ?? g.status ?? null,
+            homeScore: g.home_score ?? null,
+            awayScore: g.away_score ?? null,
+            cachedAt: new Date(g.updated_at ?? g.created_at),
+          }));
+        setLiveGames(adapted);
+      })
+      .catch(() => setLiveGames([]))
+      .finally(() => setGamesLoading(false));
+  }, []);
+
   const allSignals: Signal[] = (data ?? []) as Signal[];
-  const liveGames: LiveGame[] = (gamesData ?? []) as LiveGame[];
 
   const signalCountByTeam = useMemo(() => {
     const counts: Record<string, number> = {};
