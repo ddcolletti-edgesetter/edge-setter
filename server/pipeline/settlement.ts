@@ -517,7 +517,7 @@ export function computeSourceAccuracy(): void {
       }
     }
 
-    for (const t of sourceTally.values()) {
+    for (const t of Array.from(sourceTally.values())) {
       const total = t.wins + t.losses;
       upsertAccuracy(db, league, null, t.source_type, t.source_id, t.source_name, {
         total,
@@ -613,7 +613,7 @@ export function syncAccuracyToStorageDb(): void {
     }
 
     let synced = 0;
-    for (const t of sourceTally.values()) {
+    for (const t of Array.from(sourceTally.values())) {
       try {
         const total   = t.wins + t.losses;
         const hitRate = total > 0 ? t.wins / total : null;
@@ -621,12 +621,12 @@ export function syncAccuracyToStorageDb(): void {
         storage.upsertSourceScore({
           source_id:                 t.source_id,
           source_name:               t.source_name,
-          overall_accuracy:          hitRate != null ? Math.round(hitRate * 100) : 0,
-          draft_accuracy:            hitRate != null ? Math.round(hitRate * 100) : 0,
-          average_lead_time_minutes: 0,
-          injury_accuracy:           0,
-          portal_accuracy:           0,
-          false_positive_rate:       0,
+          overall_accuracy:          String(hitRate != null ? Math.round(hitRate * 100) : 0),
+          draft_accuracy:            String(hitRate != null ? Math.round(hitRate * 100) : 0),
+          average_lead_time_minutes: "0",
+          injury_accuracy:           "0",
+          portal_accuracy:           "0",
+          false_positive_rate:       "0",
         });
         synced++;
       } catch (err: any) {

@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { Server } from "http";
 import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress, getVerifiedCountBySource } from "./storage";
 import { runFullBackfill } from "./pipeline/backfill";
-import { insertWaitlistSchema } from "@shared/schema";
+import { insertSignalSchema, insertWaitlistSchema } from "@shared/schema";
 import { sendDailyDigest } from "./email";
 import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
 import { runSignalOps, batchSignalOps } from "./signal-ops";
@@ -801,8 +801,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
         verdict: verdictMap[item.signal_type ?? "general"] ?? "rumor",
         summary: item.normalized_summary ?? item.raw_headline,
         action_takeaway: `Human-approved signal — monitor ${item.player ?? "this player"} situation.`,
-        is_featured: 0,
-        is_public: 1,
+        is_featured: false,
+        is_public: true,
       });
       (storage as any).resolveSignalOpsItem(item.id, signal.id);
       storage.logAgentAction({

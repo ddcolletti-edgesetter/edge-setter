@@ -23,6 +23,7 @@ import {
   type EventLog, type InsertEventLog,
   type DigestSubscriber, type InsertDigestSubscriber,
 } from "@shared/schema";
+import type { OddsSnapshotRow } from "./pipeline/store";
 
 // Resolve a writable directory for SQLite.
 // Priority: DATA_DIR env var → /tmp (always writable) → . (local dev)
@@ -383,6 +384,17 @@ function now() {
 }
 
 // ─── IStorage interface ───────────────────────────────────────────────────────
+export interface ReplayMarketState {
+  game_id: string;
+  as_of: string;
+  latest_snapshot: OddsSnapshotRow | null;
+  previous_snapshot: OddsSnapshotRow | null;
+}
+
+export interface ReplayMarketStateInput {
+  game_id: string;
+  as_of: string;
+}
 export interface IStorage {
   // Sources
   getSources(): Source[];
@@ -524,7 +536,7 @@ export class SqliteStorage implements IStorage {
         ?? name.toLowerCase().replace(/[-_\s]+/g, " ").trim();
       if (!seen.has(key)) seen.set(key, { ...row, source_name: name });
     }
-    return [...seen.values()];
+    return Array.from(seen.values());
   }
   getSourceScore(source_id: string): SourceScore | undefined {
     return db.select().from(source_scores).where(eq(source_scores.source_id, source_id)).get();
@@ -730,7 +742,7 @@ export class SqliteStorage implements IStorage {
 
   // ─── Signal Ops Queue ──────────────────────────────────────────────────────
   createSignalOpsItem(data: Record<string, any>): Record<string, any> {
-    const row = { ...data, id: uuid(), created_at: now() };
+    const row: Record<string, any> = { ...data, id: uuid(), created_at: now() };
     return sqlite.prepare(`INSERT INTO signal_ops_queue (id,source_name,source_url,raw_headline,raw_body,player_tags,team_tags,ingest_timestamp,cluster_id,normalized_headline,normalized_summary,player,team,signal_type,confidence_score,decision,reason,source_count,conflict_flags,signal_id,processed_at,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) RETURNING *`).get(row.id,row.source_name,row.source_url??null,row.raw_headline,row.raw_body??null,row.player_tags??'[]',row.team_tags??'[]',row.ingest_timestamp,row.cluster_id??null,row.normalized_headline??null,row.normalized_summary??null,row.player??null,row.team??null,row.signal_type??null,row.confidence_score??0,row.decision,row.reason??null,row.source_count??1,row.conflict_flags??'[]',row.signal_id??null,row.processed_at??null,row.created_at) as Record<string,any>;
   }
   updateSignalOpsItem(id: string, data: Record<string, any>): void {

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import AppShell from "@/components/V2Shell";
 import { useNBASignals, useMLBSignals } from "@/hooks/useSignals";
 import { Activity, Search, User, Zap, X, AlertTriangle, TrendingUp, BarChart2 } from "lucide-react";
+import type { V2Signal } from "@/data/v2MockData";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -24,7 +25,7 @@ const T = {
 type Sport = "ALL" | "NBA" | "MLB";
 
 type Signal = {
-  id: number;
+  id: string;
   title: string;
   summary: string | null;
   playerName: string | null;
@@ -37,6 +38,22 @@ type Signal = {
   publishedAt: Date | string;
   sport?: string;
 };
+
+function toPlayerSignal(signal: V2Signal): Signal {
+  return {
+    id: signal.id,
+    title: signal.headline,
+    summary: signal.detail,
+    playerName: signal.player ?? null,
+    teamName: signal.team,
+    signalType: signal.type,
+    urgencyScore: null,
+    confidenceScore: signal.confidence,
+    statusTag: signal.verdict,
+    actionTakeaway: signal.action_takeaway,
+    publishedAt: signal.isoTimestamp ?? signal.timestamp,
+  };
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(ts: Date | string) {
@@ -193,10 +210,10 @@ export default function PlayerSignals() {
 
   // Merge signals, tag with sport, filter to player signals only
   const allPlayerSignals = useMemo(() => {
-    const nba = ((nbaData ?? []) as Signal[])
+    const nba = (nbaData ?? []).map(toPlayerSignal)
       .filter(s => s.playerName)
       .map(s => ({ ...s, sport: "NBA" }));
-    const mlb = ((mlbData ?? []) as Signal[])
+    const mlb = (mlbData ?? []).map(toPlayerSignal)
       .filter(s => s.playerName)
       .map(s => ({ ...s, sport: "MLB" }));
     return [...nba, ...mlb].sort(

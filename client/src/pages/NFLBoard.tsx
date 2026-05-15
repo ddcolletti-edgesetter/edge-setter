@@ -85,6 +85,8 @@ const TYPE_META: Record<NFLSignalType, { color: string; label: string }> = {
   role_change: { color: T.orange,  label: "ROLE"      },
   trend:       { color: T.green,   label: "TREND"     },
   prop:        { color: T.orange,  label: "PROP"      },
+  scheme:      { color: T.cyan,    label: "SCHEME"    },
+  transaction: { color: T.green,   label: "TRANS"     },
 };
 
 /* ── Filter tabs ── */

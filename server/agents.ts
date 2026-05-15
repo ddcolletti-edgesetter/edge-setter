@@ -67,7 +67,6 @@ export async function scoutAgent(params: {
   await log("Scout", JSON.stringify(params), "", `Ingesting raw item from source ${params.source_id}`);
 
   const event = storage.createEvent({
-    id: uuid(),
     sport: "football",
     league: params.league ?? "NFL",
     team: params.team ?? null,
@@ -309,7 +308,6 @@ export async function sourceScorerAgent(source_id: string): Promise<void> {
   const jitter = Math.random() * 6 - 3; // ±3 variance
 
   storage.upsertSourceScore({
-    id: existing?.id ?? uuid(),
     source_id,
     overall_accuracy: (base + jitter).toFixed(1),
     average_lead_time_minutes: (Math.random() * 60 + 5).toFixed(0),

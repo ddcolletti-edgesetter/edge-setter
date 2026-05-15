@@ -35,7 +35,7 @@ export const events = sqliteTable("events", {
   updated_at: text("updated_at").default(new Date().toISOString()),
 });
 
-export const insertEventSchema = createInsertSchema(events).omit({ created_at: true, updated_at: true });
+export const insertEventSchema = createInsertSchema(events).omit({ id: true, created_at: true, updated_at: true });
 export type InsertEvent = z.infer<typeof insertEventSchema>;
 export type Event = typeof events.$inferSelect;
 
@@ -101,7 +101,7 @@ export const source_scores = sqliteTable("source_scores", {
   updated_at: text("updated_at").default(new Date().toISOString()),
 });
 
-export const insertSourceScoreSchema = createInsertSchema(source_scores).omit({ updated_at: true });
+export const insertSourceScoreSchema = createInsertSchema(source_scores).omit({ id: true, updated_at: true });
 export type InsertSourceScore = z.infer<typeof insertSourceScoreSchema>;
 export type SourceScore = typeof source_scores.$inferSelect;
 
@@ -158,7 +158,7 @@ export const signals = sqliteTable("signals", {
   updated_at: text("updated_at").default(new Date().toISOString()),
 });
 
-export const insertSignalSchema = createInsertSchema(signals).omit({ created_at: true, updated_at: true });
+export const insertSignalSchema = createInsertSchema(signals).omit({ id: true, created_at: true, updated_at: true });
 export type InsertSignal = z.infer<typeof insertSignalSchema>;
 export type Signal = typeof signals.$inferSelect;
 
@@ -198,7 +198,7 @@ export const users = sqliteTable("users", {
   updated_at: text("updated_at").default(new Date().toISOString()),
 });
 
-export const insertUserSchema = createInsertSchema(users).omit({ created_at: true, updated_at: true });
+export const insertUserSchema = createInsertSchema(users).omit({ id: true, created_at: true, updated_at: true });
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
@@ -212,7 +212,7 @@ export const event_log = sqliteTable("event_log", {
   created_at: text("created_at").default(new Date().toISOString()),
 });
 
-export const insertEventLogSchema = createInsertSchema(event_log).omit({ created_at: true });
+export const insertEventLogSchema = createInsertSchema(event_log).omit({ id: true, created_at: true });
 export type InsertEventLog = z.infer<typeof insertEventLogSchema>;
 export type EventLog = typeof event_log.$inferSelect;
 

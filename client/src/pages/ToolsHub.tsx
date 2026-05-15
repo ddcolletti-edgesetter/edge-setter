@@ -55,10 +55,11 @@ function SportTag({ sport }: { sport: string }) {
 /* ── Individual tool card ── */
 function ToolCard({ tool }: { tool: typeof TOOLS[number] }) {
   const [hovered, setHovered] = useState(false);
-  const ss = STATUS_STYLE[tool.status];
+  const ss = STATUS_STYLE[tool.status] ?? STATUS_STYLE["Coming Soon"];
   const isDisabled = tool.status === "Coming Soon";
   const primarySport = tool.sport[0] ?? "NBA";
   const accentColor = SPORT_ACCENT[primarySport] ?? T.gold;
+  const description = "description" in tool && typeof tool.description === "string" ? tool.description : undefined;
 
   const card = (
     <div
@@ -135,13 +136,15 @@ function ToolCard({ tool }: { tool: typeof TOOLS[number] }) {
         </div>
 
         {/* Description */}
-        <div style={{
-          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          fontSize: 12, color: T.textMuted, letterSpacing: "0.03em", lineHeight: 1.65,
-          marginBottom: 12,
-        }}>
-          {tool.description}
-        </div>
+        {description && (
+          <div style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 12, color: T.textMuted, letterSpacing: "0.03em", lineHeight: 1.65,
+            marginBottom: 12,
+          }}>
+            {description}
+          </div>
+        )}
 
         {/* CTA row */}
         {!isDisabled && (

@@ -11,13 +11,23 @@ function formatAmount(cents: number, currency: string) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100);
 }
 
+interface SubscriptionDetails {
+  planName: string;
+  amount: number;
+  currency: string;
+  interval: string;
+  status: string;
+  cancelAtPeriodEnd: boolean;
+  currentPeriodEnd: string | null;
+}
+
 export default function Billing() {
   const { toast } = useToast();
-  const isPro = false;
-  const isLoading = false;
-  const subDetails = undefined;
-  const user = null;
-  const portalMutation = { isPending: false, mutate: () => {} };
+  const isPro = false as boolean;
+  const isLoading = false as boolean;
+  const subDetails = null as SubscriptionDetails | null;
+  const user = null as { id?: string } | null;
+  const portalMutation = { isPending: false, mutate: (_args: { origin: string }) => {} };
   const checkoutMutation = { isPending: false, mutate: (_args: any) => {} };
 
   return (
@@ -105,7 +115,7 @@ export default function Billing() {
             </div>
 
             {/* Subscription Details (Pro only) */}
-            {isPro && subDetails && (
+            {isPro && (
               <div className="es-card" style={{ padding: "28px" }}>
                 <h2 style={{
                   fontFamily: "'Barlow Condensed', sans-serif",
@@ -117,31 +127,31 @@ export default function Billing() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "20px" }}>
                   <div>
                     <div style={{ fontSize: "0.75rem", color: "var(--es-text-muted)", marginBottom: "4px", letterSpacing: "0.08em" }}>PLAN</div>
-                    <div style={{ fontWeight: 700, color: "var(--es-text-primary)", fontSize: "0.95rem" }}>{subDetails.planName}</div>
+                    <div style={{ fontWeight: 700, color: "var(--es-text-primary)", fontSize: "0.95rem" }}>{subDetails?.planName}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: "0.75rem", color: "var(--es-text-muted)", marginBottom: "4px", letterSpacing: "0.08em" }}>AMOUNT</div>
                     <div style={{ fontWeight: 700, color: "var(--es-text-primary)", fontSize: "0.95rem" }}>
-                      {formatAmount(subDetails.amount, subDetails.currency)} / {subDetails.interval}
+                      {formatAmount(subDetails?.amount ?? 0, subDetails?.currency ?? "usd")} / {subDetails?.interval ?? "month"}
                     </div>
                   </div>
                   <div>
                     <div style={{ fontSize: "0.75rem", color: "var(--es-text-muted)", marginBottom: "4px", letterSpacing: "0.08em" }}>STATUS</div>
-                    <div style={{ fontWeight: 700, color: subDetails.status === "active" ? "#39FF14" : "#F5A623", fontSize: "0.95rem", textTransform: "capitalize" }}>
-                      {subDetails.cancelAtPeriodEnd ? "Cancels at period end" : subDetails.status}
+                    <div style={{ fontWeight: 700, color: subDetails?.status === "active" ? "#39FF14" : "#F5A623", fontSize: "0.95rem", textTransform: "capitalize" }}>
+                      {subDetails?.cancelAtPeriodEnd ? "Cancels at period end" : (subDetails?.status ?? "inactive")}
                     </div>
                   </div>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "0.75rem", color: "var(--es-text-muted)", marginBottom: "4px", letterSpacing: "0.08em" }}>
-                      <Calendar size={11} /> {subDetails.cancelAtPeriodEnd ? "ACCESS ENDS" : "NEXT BILLING"}
+                      <Calendar size={11} /> {subDetails?.cancelAtPeriodEnd ? "ACCESS ENDS" : "NEXT BILLING"}
                     </div>
                     <div style={{ fontWeight: 700, color: "var(--es-text-primary)", fontSize: "0.95rem" }}>
-                      {formatDate(subDetails.currentPeriodEnd)}
+                      {formatDate(subDetails?.currentPeriodEnd)}
                     </div>
                   </div>
                 </div>
 
-                {subDetails.cancelAtPeriodEnd && (
+                {subDetails?.cancelAtPeriodEnd && (
                   <div style={{
                     marginTop: "20px", padding: "12px 16px",
                     background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.2)",

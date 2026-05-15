@@ -203,7 +203,7 @@ export function runCalibration(): CalibrationReport {
   const suggestedWeights = suggestWeights(overallCorrs);
 
   // ── Per-league stats ────────────────────────────────────
-  const leagues = [...new Set(parsed.map(r => r.league))];
+  const leagues = Array.from(new Set(parsed.map(r => r.league)));
   const byLeague: Record<string, LeagueStats> = {};
 
   for (const league of leagues) {
@@ -224,7 +224,7 @@ export function runCalibration(): CalibrationReport {
     }
 
     // Per-signal-type within league
-    const signalTypes = [...new Set(leagueRows.map(r => r.signal_type))];
+    const signalTypes = Array.from(new Set(leagueRows.map(r => r.signal_type)));
     const bySignalType: LeagueStats["by_signal_type"] = {};
     for (const st of signalTypes) {
       const stRows = leagueRows.filter(r => r.signal_type === st);
@@ -260,14 +260,14 @@ export function runCalibration(): CalibrationReport {
   // ── Persist to calibration_weights table ────────────────
   const seasons = ["NFL-2024", "NFL-2025", "CFB-2024", "CFB-2025", "NBA-2024-25", "NBA-2025-26", "MLB-2025", "MLB-2026"];
 
-  upsertCalibrationWeights("ALL", "component_correlations", overallCorrs as Record<string, number>, seasons, total);
-  upsertCalibrationWeights("ALL", "suggested_weights", suggestedWeights as Record<string, number>, seasons, total);
+  upsertCalibrationWeights("ALL", "component_correlations", overallCorrs as unknown as Record<string, number>, seasons, total);
+  upsertCalibrationWeights("ALL", "suggested_weights", suggestedWeights as unknown as Record<string, number>, seasons, total);
 
   for (const [league, stats] of Object.entries(byLeague)) {
     if (stats.total_settled >= 30) {
       upsertCalibrationWeights(
         league, "component_correlations",
-        stats.component_correlations as Record<string, number>,
+        stats.component_correlations as unknown as Record<string, number>,
         seasons, stats.total_settled,
       );
     }

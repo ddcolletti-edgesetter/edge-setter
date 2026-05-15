@@ -23,6 +23,7 @@ interface SignalGateState {
   canView: (id: string) => boolean;
   /** Returns true if row index (0-based) is free — first FREE_LIMIT rows always free. */
   rowIsFree: (idx: number) => boolean;
+  consumeSignal: (id: string) => void;
   modalOpen: boolean;
   modalTrigger: ModalTrigger;
   openModal: (trigger?: ModalTrigger) => void;
@@ -51,6 +52,16 @@ export function SignalGateProvider({ children }: { children: ReactNode }) {
     return idx < FREE_LIMIT;
   }, [isPro]);
 
+  const consumeSignal = useCallback((id: string) => {
+    if (isPro) return;
+    setViewedIds(prev => {
+      if (prev.has(id) || prev.size >= FREE_LIMIT) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, [isPro]);
+
   const openModal = useCallback((trigger: ModalTrigger = "generic") => {
     setModalTrigger(trigger);
     setModalOpen(true);
@@ -59,7 +70,7 @@ export function SignalGateProvider({ children }: { children: ReactNode }) {
   return (
     <SignalGateContext.Provider value={{
       viewedIds, freeCount, isGated, isPro,
-      canView, rowIsFree,
+      canView, rowIsFree, consumeSignal,
       modalOpen, modalTrigger,
       openModal,
       closeModal: () => setModalOpen(false),

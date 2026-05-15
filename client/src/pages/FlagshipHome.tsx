@@ -425,7 +425,7 @@ export default function FlagshipHome() {
           <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 4 }}>
             {NBA_TONIGHT.map(game => (
               <div key={game.id} style={{ width: 240, flexShrink: 0 }}>
-                <GameCard away={game.away} home={game.home} time={game.time} series={game.series} spread={game.spread} total={game.total} compact onClick={() => navigate("/nba")} />
+                <GameCard away={game.away} home={game.home} time={game.time} series={game.seriesRecord} spread={game.spread} total={game.total} compact onClick={() => navigate("/nba")} />
               </div>
             ))}
           </div>

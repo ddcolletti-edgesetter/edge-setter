@@ -158,9 +158,8 @@ function checkFunnelAnomalies(): Anomaly[] {
       return age >= twoH && age < 4 * 3600 * 1000;
     });
 
-    function count(arr: typeof logs, name: string) {
-      return arr.filter(e => e.event_name === name).length;
-    }
+    const count = (arr: typeof logs, name: string) =>
+      arr.filter(e => e.event_name === name).length;
 
     const checkoutRecent  = count(recent, "checkout_click");
     const successRecent   = count(recent, "success_page_load");

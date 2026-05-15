@@ -129,6 +129,8 @@ export async function ingestMLBSchedule(): Promise<{ games: number }> {
       moneyline_away: null,
       open_spread: null,
       open_total: null,
+      home_score: null,
+      away_score: null,
       source_game_id: String(g.gamePk),
     });
     count++;

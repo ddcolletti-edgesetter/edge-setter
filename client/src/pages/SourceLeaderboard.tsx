@@ -154,7 +154,7 @@ function SourceLeaderboardInner() {
         seen.set(key, row);
       }
     }
-    return [...seen.values()];
+    return Array.from(seen.values());
   })();
 
   const leagueFiltered = activeLeague === "ALL"

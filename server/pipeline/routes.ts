@@ -524,7 +524,8 @@ export function registerPipelineRoutes(app: Express) {
       return res.status(400).json({ error: "home_score and away_score are required" });
     }
     try {
-      const result = settleGame(req.params.game_id, Number(home_score), Number(away_score));
+      const gameId = Array.isArray(req.params.game_id) ? req.params.game_id[0] : req.params.game_id;
+      const result = settleGame(gameId, Number(home_score), Number(away_score));
       computeSourceAccuracy();
       return res.json({ success: true, ...result });
     } catch (err: any) {

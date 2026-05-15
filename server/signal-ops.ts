@@ -345,8 +345,8 @@ export async function runSignalOps(input: SignalOpsInput): Promise<SignalOpsOutp
         verdict,
         summary,
         action_takeaway: `Monitor ${player} situation — ${signalType.replace(/_/g, " ")} signal from ${input.source_name}.`,
-        is_featured: 0,
-        is_public: 1,
+        is_featured: false,
+        is_public: true,
       });
       (storage as any).resolveSignalOpsItem(item.id, signal.id);
       agentLog("Publish", item.id, signal.id, `Published signal ${signal.id} — ${normHeadline.slice(0, 60)}`);

@@ -387,7 +387,7 @@ function V2HomeInner() {
                   away={NBA_TONIGHT[0].away}
                   home={NBA_TONIGHT[0].home}
                   time={NBA_TONIGHT[0].time}
-                  series={NBA_TONIGHT[0].series}
+                  series={NBA_TONIGHT[0].seriesRecord}
                   spread={NBA_TONIGHT[0].spread}
                   total={NBA_TONIGHT[0].total}
                 />
@@ -523,7 +523,7 @@ function V2HomeInner() {
                   <GameCard
                     key={g.id}
                     away={g.away} home={g.home}
-                    time={g.time} series={g.series}
+                    time={g.time} series={g.seriesRecord}
                     spread={g.spread} total={g.total}
                     compact
                   />

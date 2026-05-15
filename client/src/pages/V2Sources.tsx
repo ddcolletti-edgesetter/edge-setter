@@ -154,7 +154,7 @@ function V2SourcesInner() {
         seen.set(key, row);
       }
     }
-    return [...seen.values()].map(row => ({
+    return Array.from(seen.values()).map(row => ({
       ...row,
       _acc:      parseFloat(row.overall_accuracy ?? "0"),
       _lead:     parseFloat(row.average_lead_time_minutes ?? "0"),

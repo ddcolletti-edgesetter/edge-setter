@@ -383,6 +383,7 @@ export async function runDailyOps(options: { sendEmailReport?: boolean } = {}): 
       await sendEmail({
         to:      ALERT_TO,
         subject: `Edge Setter Daily Ops — ${date} [${site_health.last_status.toUpperCase()}]`,
+        html:    `<pre>${formatEmailBody(summary)}</pre>`,
         text:    formatEmailBody(summary),
       });
       summary.email_sent = true;

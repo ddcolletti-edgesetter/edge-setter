@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import AppShell from "@/components/V2Shell";
 import { useNBASignals, useMLBSignals } from "@/hooks/useSignals";
 import { TrendingUp, TrendingDown, Zap, BarChart2, AlertTriangle } from "lucide-react";
+import type { V2Signal } from "@/data/v2MockData";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -26,7 +27,7 @@ type Sport = "ALL" | "NBA" | "MLB";
 type SortKey = "time" | "confidence" | "urgency";
 
 type Signal = {
-  id: number;
+  id: string;
   title: string;
   summary: string | null;
   playerName: string | null;
@@ -39,6 +40,22 @@ type Signal = {
   publishedAt: Date | string;
   sport?: string;
 };
+
+function toMarketSignal(signal: V2Signal): Signal {
+  return {
+    id: signal.id,
+    title: signal.headline,
+    summary: signal.detail,
+    playerName: signal.player ?? null,
+    teamName: signal.team,
+    signalType: signal.type,
+    urgencyScore: null,
+    confidenceScore: signal.confidence,
+    statusTag: signal.verdict,
+    actionTakeaway: signal.action_takeaway,
+    publishedAt: signal.isoTimestamp ?? signal.timestamp,
+  };
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(ts: Date | string) {
@@ -251,8 +268,8 @@ export default function MarketMovement() {
     const isLineMove = (s: Signal) =>
       ["line_move", "line_moves", "sharp", "sharp_money"].includes((s.signalType ?? "").toLowerCase());
 
-    const nba = ((nbaData ?? []) as Signal[]).filter(isLineMove).map(s => ({ ...s, sport: "NBA" }));
-    const mlb = ((mlbData ?? []) as Signal[]).filter(isLineMove).map(s => ({ ...s, sport: "MLB" }));
+    const nba = (nbaData ?? []).map(toMarketSignal).filter(isLineMove).map(s => ({ ...s, sport: "NBA" }));
+    const mlb = (mlbData ?? []).map(toMarketSignal).filter(isLineMove).map(s => ({ ...s, sport: "MLB" }));
     return [...nba, ...mlb];
   }, [nbaData, mlbData]);
 

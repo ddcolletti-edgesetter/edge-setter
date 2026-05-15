@@ -68,7 +68,6 @@ export async function seedDemoData() {
     const src = storage.createSource(s as any);
     sourceIds.push(src.id);
     storage.upsertSourceScore({
-      id: crypto.randomUUID(),
       source_id: src.id,
       source_name: s.name,
       overall_accuracy: s.reliability_score,

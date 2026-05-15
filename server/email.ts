@@ -13,6 +13,7 @@ interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
+  text?: string;
 }
 
 // Rate-limit guard: after a 429/403, skip all sends until this timestamp
@@ -36,6 +37,7 @@ export async function sendEmail(opts: SendEmailOptions): Promise<boolean> {
         to: opts.to,
         subject: opts.subject,
         html: opts.html,
+        text: opts.text,
       }),
     });
     if (!res.ok) {
