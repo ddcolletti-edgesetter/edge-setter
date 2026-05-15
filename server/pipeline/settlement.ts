@@ -22,7 +22,8 @@ import {
   createOutcome,
   linkOutcomeToSignal,
  getLatestSnapshotBefore,
-getClosingSnapshot, 
+getClosingSnapshot,
+recordSignalStateChange,
 } from "./store";
 import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
 import { fetchNBAFinalScores } from "./adapters/espn-nba";
@@ -254,7 +255,17 @@ export function settleGame(
       });
 
       linkOutcomeToSignal(signal.id, outcome.id);
-
+      recordSignalStateChange({
+        signal_id: signal.id,
+        previous_state: "UPDATED",
+        new_state: result.hit ? "SETTLED_WIN" : "SETTLED_LOSS",
+        reason: "Outcome settlement completed",
+        metadata: {
+          game_id: gameId,
+          market: result.market,
+          clv: result.clv,
+        },
+      });
       insertSettledOutcome({
         signal_id:      signal.id,
         game_id:        gameId,
@@ -361,7 +372,17 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
       });
 
       linkOutcomeToSignal(signal.id, outcome.id);
-
+      recordSignalStateChange({
+        signal_id: signal.id,
+        previous_state: "UPDATED",
+        new_state: result.hit ? "SETTLED_WIN" : "SETTLED_LOSS",
+        reason: "Outcome settlement completed",
+        metadata: {
+          game_id: game.id,
+          market: result.market,
+          clv: result.clv,
+        },
+      });
       insertSettledOutcome({
         signal_id:      signal.id,
         game_id:        game.id,
