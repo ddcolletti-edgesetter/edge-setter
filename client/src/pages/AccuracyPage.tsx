@@ -159,7 +159,7 @@ function AccuracyPageInner() {
         seen.set(key, row);
       }
     }
-    return [...seen.values()].map(row => {
+    return Array.from(seen.values()).map(row => {
       const acc       = parseFloat(row.overall_accuracy ?? "0");
       const verified  = row.verified_count ?? 0;
       const rel       = parseFloat(row.reliability_score ?? "0");

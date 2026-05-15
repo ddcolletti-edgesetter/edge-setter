@@ -61,7 +61,7 @@ export default function LockedSignalCard({ signal, index }: Props) {
   return (
     <div
       data-testid={`locked-signal-card-${signal.id}`}
-      onClick={openModal}
+      onClick={() => openModal()}
       style={{
         position: "relative",
         background: T.surface1,

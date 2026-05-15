@@ -766,7 +766,7 @@ export default function AppShell({
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const { theme } = useTheme();
-  const isLight = theme === "light";
+  const isLight = (theme as "dark" | "light") === "light";
 
   useEffect(() => {
     const handleResize = () => {
