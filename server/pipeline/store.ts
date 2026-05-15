@@ -184,7 +184,18 @@ CREATE INDEX IF NOT EXISTS idx_odds_snapshots_league_time
       updated_at              TEXT NOT NULL,
       outcome_id              TEXT
     );
+CREATE TABLE IF NOT EXISTS signal_state_history (
+  id                TEXT PRIMARY KEY,
+  signal_id         TEXT NOT NULL,
+  previous_state    TEXT,
+  new_state         TEXT NOT NULL,
+  reason            TEXT,
+  metadata          TEXT DEFAULT '{}',
+  created_at        TEXT NOT NULL
+);
 
+CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
+  ON signal_state_history(signal_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_live_signals_league      ON live_signals(league);
     CREATE INDEX IF NOT EXISTS idx_live_signals_created_at  ON live_signals(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_raw_events_processed     ON raw_events(processed);
@@ -507,7 +518,41 @@ function deserializeRawEvent(row: any): RawEvent {
 }
 
 /* ─── LiveSignal CRUD ───────────────────────────────────── */
+export type SignalLifecycleState =
+  | "CREATED"
+  | "PUBLISHED"
+  | "UPDATED"
+  | "MOVED"
+  | "SETTLED_WIN"
+  | "SETTLED_LOSS"
+  | "VOID"
+  | "EXPIRED";
 
+export function recordSignalStateChange(data: {
+  signal_id: string;
+  previous_state?: SignalLifecycleState | null;
+  new_state: SignalLifecycleState;
+  reason?: string | null;
+  metadata?: Record<string, unknown>;
+}): void {
+  const db = getPipelineDb();
+  const ts = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO signal_state_history (
+      id, signal_id, previous_state, new_state, reason, metadata, created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    randomUUID(),
+    data.signal_id,
+    data.previous_state ?? null,
+    data.new_state,
+    data.reason ?? null,
+    JSON.stringify(data.metadata ?? {}),
+    ts,
+  );
+}
 export function upsertLiveSignal(s: LiveSignal): LiveSignal {
   const db = getPipelineDb();
   db.prepare(`
