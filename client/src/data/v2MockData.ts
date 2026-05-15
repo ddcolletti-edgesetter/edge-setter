@@ -508,8 +508,6 @@ export const MLB_SIGNALS: V2Signal[] = [
     },
     bettingRelevance: true,
     fantasyRelevance: true,
-    weatherNote: "18 mph out to CF. Forecast stable through first pitch.",
-    parkFactor: "hitter",
     hitRateStub: null,
     closingLineValueStub: null,
     _stub: true,

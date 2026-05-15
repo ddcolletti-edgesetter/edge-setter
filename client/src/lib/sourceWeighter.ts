@@ -16,35 +16,26 @@ import type { ConfirmationStrength, Verdict } from "../data/v2MockData";
 /* ── Per-type base quality points ─────────────────────────── */
 const SOURCE_TYPE_QUALITY: Record<string, number> = {
   "official report":     3.5,   // League-mandated reports (highest trust)
-  official:              3.5,
   "beat reporter":       3.0,   // Full-time team access reporters
-  beat_reporter:         3.0,
   "wire service":        2.5,
-  wire_service:          2.5,
   "sportsbook":          2.5,   // Sharp-accepting books (Pinnacle, Circa)
-  sportsbook:            2.5,
   "sharp money":         2.0,
   sharp_money:           2.0,
   "line tracking":       2.0,
   line_tracking:         2.0,
   "analytics":           2.0,
-  analytics:             2.0,
   "tracking data":       2.0,
   tracking_data:         2.0,
   "fantasy platform":    1.5,
   fantasy_platform:      1.5,
   "broadcast":           1.5,
-  broadcast:             1.5,
   "practice observation":1.5,
   practice_observation:  1.5,
   "rotational":          1.0,
-  rotational:            1.0,
   "social":              0.5,
-  social:                0.5,
   "weather service":     2.5,
   weather_service:       2.5,
   "transaction":         3.5,
-  transaction:           3.5,
 };
 
 /* ── Named insider bonus map ──────────────────────────────── */
