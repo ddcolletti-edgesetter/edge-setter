@@ -1,0 +1,291 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap');
+  .es-wrap { background: #0C0B09; color: #EDE5D4; font-family: 'Barlow', sans-serif; border-radius: 8px; overflow: hidden; }
+  .bebas { font-family: 'Bebas Neue', sans-serif; }
+  .barlow { font-family: 'Barlow Condensed', sans-serif; }
+  .injury { background: rgba(217,75,75,0.18); color: #FF6B6B; border: 1px solid rgba(217,75,75,0.35); padding: 2px 7px; border-radius: 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+  .line-move { background: rgba(62,186,106,0.15); color: #3EBA6A; border: 1px solid rgba(62,186,106,0.3); padding: 2px 7px; border-radius: 2px; font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
+  .confirmed { background: rgba(62,186,106,0.12); color: #3EBA6A; border: 1px solid rgba(62,186,106,0.28); padding: 2px 7px; border-radius: 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; }
+  .sig-high { background: linear-gradient(90deg, rgba(232,124,42,0.14) 0%, rgba(232,124,42,0.05) 40%, transparent 65%); border-left: 4px solid #E87C2A; }
+  .sig-normal { border-left: 2px solid rgba(217,75,75,0.55); }
+</style>
+<div class="es-wrap">
+
+  <!-- HEADER -->
+  <div style="background:#131110; border-bottom:3px solid transparent; border-image:linear-gradient(90deg,#E87C2A,rgba(232,124,42,0.2)) 1; padding:0 20px; height:56px; display:flex; align-items:center; gap:12px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span style="font-size:11px;color:#4A4235;letter-spacing:0.18em;" class="barlow">EDGE SETTER</span>
+      <span style="color:#4A4235;opacity:0.5">›</span>
+      <span style="font-size:18px;color:#E87C2A;letter-spacing:2px;" class="bebas">BOARDS</span>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:6px;align-items:center;">
+      <div style="display:flex;align-items:center;gap:5px;padding:0 10px;height:30px;background:rgba(232,124,42,0.1);border:1px solid rgba(232,124,42,0.4);border-radius:2px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#E87C2A;box-shadow:0 0 6px #E87C2A;display:inline-block;"></span>
+        <span style="font-size:12px;font-weight:800;color:#E87C2A;letter-spacing:0.12em;" class="barlow">NBA</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;padding:0 10px;height:30px;background:rgba(58,143,224,0.08);border:1px solid rgba(58,143,224,0.25);border-radius:2px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#3A8FE0;display:inline-block;"></span>
+        <span style="font-size:12px;font-weight:700;color:#4AA8C8;letter-spacing:0.12em;" class="barlow">MLB</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:5px;padding:0 10px;height:30px;background:rgba(196,48,26,0.08);border:1px solid rgba(196,48,26,0.25);border-radius:2px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#C4301A;display:inline-block;"></span>
+        <span style="font-size:12px;font-weight:700;color:#C4301A;letter-spacing:0.12em;" class="barlow">NFL</span>
+      </div>
+      <div style="padding:0 14px;height:32px;background:linear-gradient(135deg,#C4A24A,#8A6A28);border:none;border-radius:2px;display:flex;align-items:center;">
+        <span style="font-size:14px;color:#0C0B09;letter-spacing:2px;" class="bebas">PRO — $19/MO</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;height:580px;">
+
+    <!-- SIDEBAR -->
+    <div style="width:148px;background:#131110;border-right:1px solid rgba(196,162,74,0.12);display:flex;flex-direction:column;flex-shrink:0;">
+      <div style="padding:16px 12px 14px;border-bottom:1px solid rgba(196,162,74,0.12);position:relative;">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#C4A24A,rgba(196,162,74,0.1));"></div>
+        <div style="font-size:20px;color:#C4A24A;letter-spacing:3px;line-height:1;" class="bebas">Edge Setter</div>
+        <div style="font-size:9px;color:#4A4235;letter-spacing:0.18em;text-transform:uppercase;margin-top:2px;" class="barlow">· Intelligence Verified</div>
+        <div style="height:1px;background:linear-gradient(90deg,rgba(232,124,42,0.6),transparent);margin-top:8px;"></div>
+      </div>
+      <div style="padding:8px 6px;">
+        <div style="display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:2px;border-left:3px solid transparent;color:#8A7A62;margin-bottom:1px;" class="barlow" style="font-size:13px;">
+          <span style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#8A7A62;">Home</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:2px;border-left:3px solid #C4A24A;background:linear-gradient(90deg,rgba(196,162,74,0.1),transparent);margin-bottom:1px;">
+          <span style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#C4A24A;" class="barlow">Boards</span>
+        </div>
+        <div style="margin-left:6px;margin-bottom:4px;">
+          <div style="display:flex;align-items:center;gap:6px;padding:7px 8px;border-left:3px solid #E87C2A;background:linear-gradient(90deg,rgba(232,124,42,0.12),transparent);border-radius:2px;margin-bottom:1px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#E87C2A;box-shadow:0 0 5px #E87C2A;"></span>
+            <span style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#E87C2A;flex:1;" class="barlow">NBA Board</span>
+            <span style="font-size:9px;color:#E87C2A;background:rgba(232,124,42,0.14);padding:1px 4px;border-radius:2px;" class="barlow">LIVE</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding:7px 8px;border-left:3px solid transparent;border-radius:2px;margin-bottom:1px;">
+            <span style="width:6px;height:6px;border-radius:50%;background:#4AA8C8;"></span>
+            <span style="font-size:12px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#8A7A62;flex:1;" class="barlow">MLB Board</span>
+            <span style="font-size:9px;color:#4AA8C8;background:rgba(74,168,200,0.1);padding:1px 4px;border-radius:2px;" class="barlow">ACTIVE</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;padding:8px 8px;border-radius:2px;border-left:3px solid transparent;margin-bottom:1px;">
+          <span style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#8A7A62;" class="barlow">Sources</span>
+        </div>
+      </div>
+      <div style="margin:0 8px;border-top:1px solid rgba(196,162,74,0.12);"></div>
+      <div style="padding:10px 8px 10px;">
+        <div style="border:1px solid rgba(196,162,74,0.4);border-radius:3px;background:linear-gradient(145deg,rgba(196,162,74,0.08),rgba(196,162,74,0.02));position:relative;overflow:hidden;">
+          <div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#C4A24A,rgba(196,162,74,0.1));"></div>
+          <div style="padding:12px 10px 10px;">
+            <div style="font-size:17px;color:#C4A24A;letter-spacing:2px;line-height:1;margin-bottom:2px;" class="bebas">Pro Intelligence</div>
+            <div style="font-size:9px;color:#4A4235;letter-spacing:0.12em;text-transform:uppercase;margin-bottom:9px;" class="barlow">Alerts · Archive · Multi-Sport</div>
+            <div style="background:linear-gradient(135deg,#C4A24A,#8A6A28);color:#0C0B09;border-radius:2px;padding:8px 0;text-align:center;font-size:15px;letter-spacing:2.5px;" class="bebas">$19 / Month</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div style="flex:1;display:flex;flex-direction:column;position:relative;overflow:hidden;background:#0C0B09;">
+      <!-- Court texture suggestion -->
+      <div style="position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(196,162,74,0.06) 39px,rgba(196,162,74,0.06) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(196,162,74,0.04) 39px,rgba(196,162,74,0.04) 40px);opacity:1;pointer-events:none;"></div>
+      <!-- Orange atmosphere -->
+      <div style="position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 35%,rgba(232,124,42,0.09),transparent 68%);pointer-events:none;"></div>
+
+      <!-- Board header -->
+      <div style="padding:10px 20px;border-bottom:1px solid rgba(196,162,74,0.12);display:flex;align-items:center;gap:12px;background:rgba(19,17,16,0.92);position:relative;z-index:2;flex-shrink:0;">
+        <div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:26px;letter-spacing:3px;color:#EDE5D4;" class="bebas">NBA Intelligence Board</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;background:rgba(62,186,106,0.12);border:1px solid rgba(62,186,106,0.3);border-radius:2px;">
+              <span style="width:5px;height:5px;border-radius:50%;background:#3EBA6A;box-shadow:0 0 5px #3EBA6A;"></span>
+              <span style="font-size:11px;font-weight:700;color:#3EBA6A;letter-spacing:0.14em;" class="barlow">LIVE</span>
+            </span>
+          </div>
+          <div style="font-size:11px;color:#4A4235;letter-spacing:0.08em;" class="barlow">36 signals · Updated continuously</div>
+        </div>
+        <div style="margin-left:auto;display:flex;gap:6px;">
+          <div style="text-align:center;padding:5px 12px;background:#1A1714;border:1px solid rgba(196,162,74,0.12);border-radius:2px;">
+            <div style="font-size:17px;color:#EDE5D4;" class="bebas">36</div>
+            <div style="font-size:9px;color:#4A4235;letter-spacing:0.14em;text-transform:uppercase;" class="barlow">Total</div>
+          </div>
+          <div style="text-align:center;padding:5px 12px;background:#1A1714;border:1px solid rgba(196,162,74,0.12);border-radius:2px;">
+            <div style="font-size:17px;color:#3EBA6A;" class="bebas">32</div>
+            <div style="font-size:9px;color:#4A4235;letter-spacing:0.14em;text-transform:uppercase;" class="barlow">Confirmed</div>
+          </div>
+          <div style="text-align:center;padding:5px 12px;background:#1A1714;border:1px solid rgba(196,162,74,0.12);border-radius:2px;">
+            <div style="font-size:17px;color:#E87C2A;" class="bebas">28</div>
+            <div style="font-size:9px;color:#4A4235;letter-spacing:0.14em;text-transform:uppercase;" class="barlow">High Conf</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FEATURED EDGE — DAL blue bold bleed -->
+      <div style="padding:10px 18px 0;flex-shrink:0;position:relative;z-index:2;">
+        <div style="border-radius:3px;overflow:hidden;border:1px solid rgba(0,83,140,0.55);box-shadow:0 0 28px rgba(0,83,140,0.2),0 4px 20px rgba(0,0,0,0.5);">
+          <div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#C4A24A,rgba(196,162,74,0.2));z-index:3;"></div>
+          <div style="display:flex;">
+            <!-- LEFT PANEL — full team color -->
+            <div style="width:120px;flex-shrink:0;background:linear-gradient(160deg,rgba(0,83,140,0.85) 0%,rgba(0,83,140,0.45) 60%,rgba(0,83,140,0.2) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:16px 0;border-right:1px solid rgba(255,255,255,0.06);">
+              <div style="width:56px;height:56px;border-radius:50%;background:rgba(0,83,140,0.6);border:2px solid rgba(184,196,202,0.4);display:flex;align-items:center;justify-content:center;">
+                <span style="font-size:18px;font-weight:800;color:#B8C4CA;" class="barlow">PJ</span>
+              </div>
+              <div style="font-size:20px;letter-spacing:2px;color:#EDE5D4;text-align:center;" class="bebas">DAL</div>
+            </div>
+            <!-- RIGHT CONTENT -->
+            <div style="flex:1;padding:14px 16px;background:linear-gradient(135deg,rgba(0,83,140,0.22) 0%,rgba(0,83,140,0.08) 35%,transparent 58%);">
+              <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px;">
+                <span style="padding:2px 8px;background:rgba(196,162,74,0.15);border:1px solid rgba(196,162,74,0.35);border-radius:2px;font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#C4A24A;" class="barlow">⚡ Featured Edge</span>
+                <span class="confirmed">+ CONFIRMED</span>
+                <span style="font-size:11px;color:#4A4235;" class="barlow">02:10 PM</span>
+              </div>
+              <div style="font-size:17px;font-weight:700;color:#EDE5D4;line-height:1.3;margin-bottom:7px;letter-spacing:0.02em;" class="barlow">P.J. Washington (elbow) is listed as OUT for Sunday vs Bulls</div>
+              <div style="font-size:12px;color:#8A7A62;line-height:1.5;margin-bottom:9px;" class="barlow">Washington missed last 3 games. Dallas rotations shift — monitor Lively and Kleber minutes.</div>
+              <div style="background:rgba(196,162,74,0.07);border:1px solid rgba(196,162,74,0.2);border-radius:2px;padding:8px 10px;margin-bottom:9px;">
+                <span style="font-size:11px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#C4A24A;margin-right:6px;" class="barlow">Action →</span>
+                <span style="font-size:13px;color:#EDE5D4;" class="barlow">Adjust DAL lineup exposure. Line implications for Chicago spread.</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;">
+                <span style="font-size:22px;font-weight:800;color:#3EBA6A;" class="bebas">88%</span>
+                <div style="flex:1;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;"><div style="width:88%;height:100%;background:#3EBA6A;border-radius:2px;"></div></div>
+                <span style="font-size:10px;color:#4A4235;letter-spacing:0.1em;" class="barlow">CONFIDENCE · 1 SOURCE · DAL</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABS -->
+      <div style="display:flex;gap:2px;padding:8px 18px 0;border-bottom:1px solid rgba(196,162,74,0.12);background:rgba(19,17,16,0.75);flex-shrink:0;position:relative;z-index:2;">
+        <div style="padding:7px 13px;border-bottom:2px solid #E87C2A;color:#E87C2A;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;display:inline-flex;align-items:center;gap:5px;" class="barlow">Today <span style="font-size:10px;background:rgba(232,124,42,0.14);padding:1px 5px;border-radius:2px;">36</span></div>
+        <div style="padding:7px 13px;border-bottom:2px solid transparent;color:#8A7A62;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;" class="barlow">Injuries <span style="font-size:10px;background:rgba(255,255,255,0.05);padding:1px 4px;border-radius:2px;margin-left:3px;">32</span></div>
+        <div style="padding:7px 13px;border-bottom:2px solid transparent;color:#8A7A62;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;" class="barlow">Lineup</div>
+        <div style="padding:7px 13px;border-bottom:2px solid transparent;color:#8A7A62;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;" class="barlow">Props</div>
+        <div style="padding:7px 13px;border-bottom:2px solid transparent;color:#8A7A62;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;" class="barlow">Line Moves</div>
+      </div>
+
+      <!-- SIGNAL ROWS -->
+      <div style="flex:1;overflow:hidden;position:relative;z-index:2;">
+        <!-- Column headers -->
+        <div style="display:grid;grid-template-columns:26px 88px 1fr 100px 88px 68px 58px;padding:5px 18px;background:rgba(19,17,16,0.95);border-bottom:1px solid rgba(196,162,74,0.1);">
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#4A4235;" class="barlow">#</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#4A4235;" class="barlow">Type</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#4A4235;" class="barlow">Signal</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#4A4235;" class="barlow">Player</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#4A4235;" class="barlow">Verdict</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#4A4235;" class="barlow">Conf</div>
+          <div style="font-size:9px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:#4A4235;" class="barlow">Time</div>
+        </div>
+        <!-- HIGH CONF ROW 1 -->
+        <div class="sig-high" style="display:grid;grid-template-columns:26px 88px 1fr 100px 88px 68px 58px;padding:13px 18px;border-bottom:1px solid rgba(196,162,74,0.08);align-items:center;min-height:62px;">
+          <div style="font-size:11px;color:#4A4235;" class="barlow">1</div>
+          <div><span class="injury">INJURY</span></div>
+          <div style="padding-right:10px;">
+            <div style="font-size:14px;font-weight:700;color:#EDE5D4;line-height:1.3;margin-bottom:2px;">P.J. Washington (elbow) listed OUT vs Chicago Bulls</div>
+            <div style="font-size:11px;color:#4A4235;" class="barlow">Adjust roster exposure immediately. Line implications for DAL.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:rgba(0,83,140,0.6);border:1px solid rgba(184,196,202,0.3);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#B8C4CA;" class="barlow">DAL</div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:#8A7A62;line-height:1.2;" class="barlow">Washington</div>
+              <div style="font-size:10px;color:#4A4235;" class="barlow">DAL</div>
+            </div>
+          </div>
+          <span class="confirmed">+ CONFIRMED</span>
+          <div>
+            <div style="font-size:16px;color:#C4A24A;" class="bebas">88%</div>
+            <div style="width:44px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;"><div style="width:88%;height:100%;background:#C4A24A;border-radius:2px;"></div></div>
+          </div>
+          <div style="font-size:10px;color:#4A4235;" class="barlow">3m ago</div>
+        </div>
+        <!-- HIGH CONF ROW 2 -->
+        <div class="sig-high" style="display:grid;grid-template-columns:26px 88px 1fr 100px 88px 68px 58px;padding:13px 18px;border-bottom:1px solid rgba(196,162,74,0.08);align-items:center;min-height:62px;">
+          <div style="font-size:11px;color:#4A4235;" class="barlow">2</div>
+          <div><span class="injury">INJURY</span></div>
+          <div style="padding-right:10px;">
+            <div style="font-size:14px;font-weight:700;color:#EDE5D4;line-height:1.3;margin-bottom:2px;">Caleb Martin (heel) ruled OUT for Sunday vs Chicago</div>
+            <div style="font-size:11px;color:#4A4235;" class="barlow">Adjust roster exposure immediately. Line implications for DAL.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:rgba(0,83,140,0.6);border:1px solid rgba(184,196,202,0.3);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#B8C4CA;" class="barlow">DAL</div>
+            <div>
+              <div style="font-size:11px;font-weight:600;color:#8A7A62;line-height:1.2;" class="barlow">Martin</div>
+              <div style="font-size:10px;color:#4A4235;" class="barlow">DAL</div>
+            </div>
+          </div>
+          <span class="confirmed">+ CONFIRMED</span>
+          <div>
+            <div style="font-size:16px;color:#C4A24A;" class="bebas">88%</div>
+            <div style="width:44px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;"><div style="width:88%;height:100%;background:#C4A24A;border-radius:2px;"></div></div>
+          </div>
+          <div style="font-size:10px;color:#4A4235;" class="barlow">3m ago</div>
+        </div>
+        <!-- NORMAL ROW -->
+        <div class="sig-normal" style="display:grid;grid-template-columns:26px 88px 1fr 100px 88px 68px 58px;padding:9px 18px;border-bottom:1px solid rgba(196,162,74,0.07);align-items:center;min-height:48px;opacity:0.7;">
+          <div style="font-size:11px;color:#4A4235;" class="barlow">3</div>
+          <div><span class="line-move">LINE MOVE</span></div>
+          <div style="padding-right:10px;">
+            <div style="font-size:13px;font-weight:500;color:#EDE5D4;line-height:1.3;margin-bottom:2px;">LAL vs GSW: line moved from -4.5 to -6.5 overnight</div>
+            <div style="font-size:11px;color:#4A4235;" class="barlow">Sharp money on LAL. Monitor for further movement.</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:5px;">
+            <div style="width:20px;height:20px;border-radius:50%;background:rgba(85,37,131,0.6);border:1px solid rgba(253,185,39,0.3);display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#FDB927;" class="barlow">LAL</div>
+          </div>
+          <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 7px;background:rgba(196,162,74,0.1);border:1px solid rgba(196,162,74,0.25);border-radius:2px;font-size:11px;font-weight:700;letter-spacing:0.1em;color:#C4A24A;" class="barlow">+ LIKELY</span>
+          <div>
+            <div style="font-size:14px;color:#8A7A62;" class="bebas">72%</div>
+            <div style="width:44px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;"><div style="width:72%;height:100%;background:#8A7A62;border-radius:2px;"></div></div>
+          </div>
+          <div style="font-size:10px;color:#4A4235;" class="barlow">18m ago</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT RAIL -->
+    <div style="width:224px;background:#131110;border-left:1px solid rgba(196,162,74,0.12);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;">
+      <!-- Injury panel header -->
+      <div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(196,162,74,0.1);border-left:3px solid #D94B4B;background:linear-gradient(90deg,rgba(217,75,75,0.08),transparent);">
+        <span style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#EDE5D4;flex:1;" class="barlow">Injury Report</span>
+        <span style="font-size:10px;color:#D94B4B;background:rgba(217,75,75,0.15);padding:1px 5px;border-radius:2px;" class="barlow">32</span>
+      </div>
+      <!-- Injury entries -->
+      <div>
+        <div style="padding:8px 12px;border-bottom:1px solid rgba(196,162,74,0.07);display:flex;align-items:center;gap:7px;">
+          <div style="width:18px;height:18px;border-radius:50%;background:rgba(0,83,140,0.5);display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#B8C4CA;flex-shrink:0;" class="barlow">DAL</div>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:600;color:#EDE5D4;">P.J. Washington</div>
+            <div style="font-size:10px;color:#D94B4B;letter-spacing:0.08em;text-transform:uppercase;" class="barlow">OUT</div>
+          </div>
+        </div>
+        <div style="padding:8px 12px;border-bottom:1px solid rgba(196,162,74,0.07);display:flex;align-items:center;gap:7px;">
+          <div style="width:18px;height:18px;border-radius:50%;background:rgba(0,83,140,0.5);display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#B8C4CA;flex-shrink:0;" class="barlow">DAL</div>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:600;color:#EDE5D4;">Caleb Martin</div>
+            <div style="font-size:10px;color:#D94B4B;letter-spacing:0.08em;text-transform:uppercase;" class="barlow">OUT</div>
+          </div>
+        </div>
+        <div style="padding:8px 12px;border-bottom:1px solid rgba(196,162,74,0.07);display:flex;align-items:center;gap:7px;">
+          <div style="width:18px;height:18px;border-radius:50%;background:rgba(0,71,27,0.5);display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#EEE1C6;flex-shrink:0;" class="barlow">MIL</div>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:600;color:#EDE5D4;">Khris Middleton</div>
+            <div style="font-size:10px;color:#D98A42;letter-spacing:0.08em;text-transform:uppercase;" class="barlow">DOUBTFUL</div>
+          </div>
+        </div>
+        <div style="padding:8px 12px;border-bottom:1px solid rgba(196,162,74,0.07);display:flex;align-items:center;gap:7px;">
+          <div style="width:18px;height:18px;border-radius:50%;background:rgba(85,37,131,0.5);display:flex;align-items:center;justify-content:center;font-size:6px;font-weight:800;color:#FDB927;flex-shrink:0;" class="barlow">LAL</div>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:600;color:#EDE5D4;">Anthony Davis</div>
+            <div style="font-size:10px;color:#C4A24A;letter-spacing:0.08em;text-transform:uppercase;" class="barlow">QUESTIONABLE</div>
+          </div>
+        </div>
+      </div>
+      <!-- Lineup Movement header -->
+      <div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(196,162,74,0.1);border-top:1px solid rgba(196,162,74,0.1);border-left:3px solid transparent;">
+        <span style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#8A7A62;flex:1;" class="barlow">Lineup Movement</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;padding:10px 12px;border-bottom:1px solid rgba(196,162,74,0.1);border-left:3px solid transparent;">
+        <span style="font-size:13px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#8A7A62;flex:1;" class="barlow">Team Trends</span>
+      </div>
+    </div>
+
+  </div>
+</div>

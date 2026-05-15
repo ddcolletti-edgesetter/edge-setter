@@ -111,7 +111,27 @@ function initSchema(db: Database.Database) {
       updated_at      TEXT NOT NULL
     );
 
+CREATE TABLE IF NOT EXISTS odds_snapshots (
+  id                TEXT PRIMARY KEY,
+  game_id           TEXT NOT NULL,
+  league            TEXT NOT NULL,
+  sportsbook        TEXT NOT NULL,
+  market_source     TEXT NOT NULL DEFAULT 'the_odds_api',
+  spread_line       REAL,
+  spread_team       TEXT,
+  total_line        REAL,
+  moneyline_home    REAL,
+  moneyline_away    REAL,
+  source_game_id    TEXT,
+  snapshot_at       TEXT NOT NULL,
+  created_at        TEXT NOT NULL
+);
 
+CREATE INDEX IF NOT EXISTS idx_odds_snapshots_game_time
+  ON odds_snapshots(game_id, snapshot_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_odds_snapshots_league_time
+  ON odds_snapshots(league, snapshot_at DESC);
     CREATE TABLE IF NOT EXISTS raw_events (
       id            TEXT PRIMARY KEY,
       source_id     TEXT NOT NULL,
@@ -193,7 +213,53 @@ function initSchema(db: Database.Database) {
 }
 
 /* ─── Game CRUD ─────────────────────────────────────────── */
+export function insertOddsSnapshot(data: {
+  game_id: string;
+  league: string;
+  sportsbook: string;
+  spread_line: number | null;
+  spread_team: string | null;
+  total_line: number | null;
+  moneyline_home: number | null;
+  moneyline_away: number | null;
+  source_game_id: string | null;
+  snapshot_at?: string;
+}): void {
+  const db = getPipelineDb();
+  const ts = data.snapshot_at ?? new Date().toISOString();
 
+  db.prepare(`
+    INSERT INTO odds_snapshots (
+      id,
+      game_id,
+      league,
+      sportsbook,
+      market_source,
+      spread_line,
+      spread_team,
+      total_line,
+      moneyline_home,
+      moneyline_away,
+      source_game_id,
+      snapshot_at,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, 'the_odds_api', ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    randomUUID(),
+    data.game_id,
+    data.league,
+    data.sportsbook,
+    data.spread_line,
+    data.spread_team,
+    data.total_line,
+    data.moneyline_home,
+    data.moneyline_away,
+    data.source_game_id,
+    ts,
+    ts,
+  );
+}
 export function upsertGame(g: Omit<Game, "created_at" | "updated_at"> & Partial<Pick<Game, "created_at" | "updated_at">>): Game {
   const db = getPipelineDb();
   const now = new Date().toISOString();

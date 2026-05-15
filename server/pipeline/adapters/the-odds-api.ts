@@ -13,7 +13,7 @@
  * Called by the ingestion scheduler every 15 minutes during active hours.
  */
 
-import { upsertGame, getGame, insertRawEvent } from "../store";
+import { upsertGame, getGame, insertRawEvent, insertOddsSnapshot } from "../store";
 import type { League } from "../types";
 
 const API_KEY = process.env.THE_ODDS_API_KEY ?? "";
@@ -116,7 +116,18 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
 
     // Build canonical game id
     const gameId = `${league.toLowerCase()}_${ag.id}`;
-
+insertOddsSnapshot({
+  game_id: gameId,
+  league,
+  sportsbook: bm.key,
+  spread_line: spreadLine,
+  spread_team: spreadTeam ? shortCode(spreadTeam) : null,
+  total_line: totalLine,
+  moneyline_home: mlHome,
+  moneyline_away: mlAway,
+  source_game_id: ag.id,
+  snapshot_at: new Date().toISOString(),
+});
     // Check if game already exists for open_line tracking
     const existing = getGame(gameId);
 
@@ -135,6 +146,8 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
       // Preserve open lines from first ingest
       open_spread: existing?.open_spread ?? spreadLine,
       open_total:  existing?.open_total  ?? totalLine,
+      home_score: null,
+away_score: null,
       source_game_id: ag.id,
     });
     gamesUpserted++;
