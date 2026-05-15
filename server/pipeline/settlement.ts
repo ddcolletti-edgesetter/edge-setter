@@ -21,6 +21,8 @@ import {
   getCompletedUnfinalGames,
   createOutcome,
   linkOutcomeToSignal,
+ getLatestSnapshotBefore,
+getClosingSnapshot, 
 } from "./store";
 import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
 import { fetchNBAFinalScores } from "./adapters/espn-nba";
@@ -107,9 +109,26 @@ function settleSignal(signal: LiveSignal, game: Game, homeScore: number, awaySco
       const lm = signal.line_movement;
       if (!lm || game.spread_line == null) return base;
 
-      const lineAtSignal = lm.open;
-      const closingLine  = game.spread_line;
-      const rawClv = lineAtSignal - closingLine;
+      const signalSnapshot = getLatestSnapshotBefore(
+  game.id,
+  signal.created_at,
+);
+
+const closingSnapshot = getClosingSnapshot(game.id);
+
+const lineAtSignal =
+  signalSnapshot?.spread_line ??
+  lm.open;
+
+const closingLine =
+  closingSnapshot?.spread_line ??
+  game.spread_line;
+
+if (lineAtSignal == null || closingLine == null) {
+  return base;
+}
+
+const rawClv = lineAtSignal - closingLine;
       const clv = Math.min(20, Math.max(-20, Math.round(rawClv * 10) / 10));
 
       return {
