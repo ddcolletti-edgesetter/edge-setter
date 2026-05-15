@@ -115,7 +115,14 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
     const mlAway = h2hMarket?.outcomes.find(o => o.name === ag.away_team)?.price ?? null;
 
     // Build canonical game id
-    const gameId = `${league.toLowerCase()}_${ag.id}`;
+    const gameDate = ag.commence_time.slice(0, 10).replace(/-/g, "_");
+
+    const gameId = [
+      league,
+      gameDate,
+      shortCode(ag.away_team),
+      shortCode(ag.home_team),
+    ].join("_");
 insertOddsSnapshot({
   game_id: gameId,
   league,
