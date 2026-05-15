@@ -617,7 +617,76 @@ function deserializeLiveSignal(row: any): LiveSignal {
 }
 
 /* ─── Outcome CRUD ──────────────────────────────────────── */
+export interface OddsSnapshotRow {
+  id: string;
+  game_id: string;
+  league: string;
+  sportsbook: string;
+  market_source: string;
+  spread_line: number | null;
+  spread_team: string | null;
+  total_line: number | null;
+  moneyline_home: number | null;
+  moneyline_away: number | null;
+  source_game_id: string | null;
+  snapshot_at: string;
+  created_at: string;
+}
 
+export function getOpeningSnapshot(gameId: string): OddsSnapshotRow | null {
+  const db = getPipelineDb();
+
+  return (db.prepare(`
+    SELECT *
+    FROM odds_snapshots
+    WHERE game_id = ?
+    ORDER BY snapshot_at ASC
+    LIMIT 1
+  `).get(gameId) as OddsSnapshotRow) ?? null;
+}
+
+export function getClosingSnapshot(gameId: string): OddsSnapshotRow | null {
+  const db = getPipelineDb();
+
+  return (db.prepare(`
+    SELECT *
+    FROM odds_snapshots
+    WHERE game_id = ?
+    ORDER BY snapshot_at DESC
+    LIMIT 1
+  `).get(gameId) as OddsSnapshotRow) ?? null;
+}
+
+export function getLatestSnapshotBefore(
+  gameId: string,
+  beforeTime: string,
+): OddsSnapshotRow | null {
+  const db = getPipelineDb();
+
+  return (db.prepare(`
+    SELECT *
+    FROM odds_snapshots
+    WHERE game_id = ?
+      AND snapshot_at <= ?
+    ORDER BY snapshot_at DESC
+    LIMIT 1
+  `).get(gameId, beforeTime) as OddsSnapshotRow) ?? null;
+}
+
+export function getSnapshotHistory(
+  gameId: string,
+  limit = 200,
+): OddsSnapshotRow[] {
+  const db = getPipelineDb();
+
+  return db.prepare(`
+    SELECT *
+    FROM odds_snapshots
+    WHERE game_id = ?
+    ORDER BY snapshot_at ASC
+    LIMIT ?
+  `).all(gameId, limit) as OddsSnapshotRow[];
+}
 export function createOutcome(o: Omit<Outcome, "id" | "created_at">): Outcome {
   const db = getPipelineDb();
   const now = new Date().toISOString();
