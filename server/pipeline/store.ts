@@ -601,7 +601,33 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
     JSON.stringify(s.raw_event_ids), s.signal_time, s.created_at, s.updated_at,
     s.outcome_id,
   );
-  return s;
+  const existing = getLiveSignal(s.id);
+
+if (!existing) {
+  recordSignalStateChange({
+    signal_id: s.id,
+    previous_state: null,
+    new_state: "CREATED",
+    reason: "Initial signal creation",
+    metadata: {
+      signal_type: s.signal_type,
+      league: s.league,
+    },
+  });
+} else {
+  recordSignalStateChange({
+    signal_id: s.id,
+    previous_state: "CREATED",
+    new_state: "UPDATED",
+    reason: "Signal updated via ingestion pipeline",
+    metadata: {
+      signal_type: s.signal_type,
+      league: s.league,
+    },
+  });
+}
+
+return s;
 }
 
 export function getLiveSignals(opts: {
