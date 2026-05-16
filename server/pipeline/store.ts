@@ -528,6 +528,16 @@ export type SignalLifecycleState =
   | "VOID"
   | "EXPIRED";
 
+export interface SignalHistoryRow {
+  id: string;
+  signal_id: string;
+  previous_state: SignalLifecycleState | null;
+  new_state: SignalLifecycleState;
+  reason: string | null;
+  metadata: string | null;
+  created_at: string;
+}
+
 export function recordSignalStateChange(data: {
   signal_id: string;
   previous_state?: SignalLifecycleState | null;
@@ -552,6 +562,30 @@ export function recordSignalStateChange(data: {
     JSON.stringify(data.metadata ?? {}),
     ts,
   );
+}
+
+export function getSignalHistory(
+  signalId: string,
+  beforeTime?: string,
+): SignalHistoryRow[] {
+  const db = getPipelineDb();
+
+  if (beforeTime) {
+    return db.prepare(`
+      SELECT *
+      FROM signal_state_history
+      WHERE signal_id = ?
+        AND created_at <= ?
+      ORDER BY created_at ASC
+    `).all(signalId, beforeTime) as SignalHistoryRow[];
+  }
+
+  return db.prepare(`
+    SELECT *
+    FROM signal_state_history
+    WHERE signal_id = ?
+    ORDER BY created_at ASC
+  `).all(signalId) as SignalHistoryRow[];
 }
 export function upsertLiveSignal(s: LiveSignal): LiveSignal {
   const db = getPipelineDb();
