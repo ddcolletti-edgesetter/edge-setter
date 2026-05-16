@@ -1,6 +1,6 @@
 import type { ReplayMarketState } from "../storage";
 import { deriveReplayClvStates, getReplaySignals } from "./replay";
-import { getOutcomes, getPipelineDb, getSnapshotHistory } from "./store";
+import { getClosingSnapshot, getOutcomes, getPipelineDb, getSnapshotHistory } from "./store";
 
 export interface ReplayOutcomeValidation {
   signal_id: string;
@@ -54,7 +54,7 @@ export function validateReplayAgainstOutcome(
   const replay: ReplayMarketState = {
     game_id: outcome.game_id,
     as_of: asOf,
-    latest_snapshot: snapshotHistory[snapshotHistory.length - 1] ?? null,
+    latest_snapshot: getClosingSnapshot(outcome.game_id),
     snapshot_history: snapshotHistory,
     signals: getReplaySignals(outcome.game_id, asOf),
     clv_states: [],
@@ -136,11 +136,18 @@ export function validateReplayParityForGame(gameId: string): ReplayParityValidat
   );
 }
 
-function dedupeValidations(validations: ReplayOutcomeValidation[]): ReplayOutcomeValidation[] {
+function dedupeValidations(
+  validations: ReplayOutcomeValidation[],
+): ReplayOutcomeValidation[] {
   const seen = new Set<string>();
+
   return validations.filter(validation => {
     const key = validation.outcome_id ?? validation.signal_id;
-    if (seen.has(key)) return false;
+
+    if (seen.has(key)) {
+      return false;
+    }
+
     seen.add(key);
     return true;
   });

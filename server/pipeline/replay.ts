@@ -36,22 +36,25 @@ function deserializeReplaySignal(row: any): LiveSignal {
 
 export function deriveReplayClvStates(replay: ReplayMarketState): CLVState[] {
   return replay.signals.flatMap(({ signal }) => {
-    if (!signal.game_id || !signal.line_movement || !signal.created_at) return [];
+    if (!signal.game_id || !signal.line_movement || !signal.created_at) {
+      return [];
+    }
 
     const signalSnapshot = replay.snapshot_history
       .filter(snapshot => snapshot.snapshot_at <= signal.created_at)
       .at(-1);
+
     const lineAtSignal = signalSnapshot?.spread_line ?? signal.line_movement.open;
     const closingLine = replay.latest_snapshot?.spread_line ?? null;
 
-    return {
+    return [{
       signal_id: signal.id,
       game_id: signal.game_id,
       market: "spread",
       line_at_signal: lineAtSignal,
       closing_line: closingLine,
       clv: computeSpreadOrTotalClv(lineAtSignal, closingLine),
-    };
+    }];
   });
 }
 

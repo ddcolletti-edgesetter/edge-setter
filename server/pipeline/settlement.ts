@@ -109,26 +109,20 @@ function settleSignal(signal: LiveSignal, game: Game, homeScore: number, awaySco
 
     case "line_move": {
       const lm = signal.line_movement;
-      if (!lm || game.spread_line == null) return base;
+      if (!lm) return base;
 
       const signalSnapshot = getLatestSnapshotBefore(
-  game.id,
-  signal.created_at,
-);
+        game.id,
+        signal.created_at,
+      );
+      const closingSnapshot = getClosingSnapshot(game.id);
 
-const closingSnapshot = getClosingSnapshot(game.id);
+      const lineAtSignal = signalSnapshot?.spread_line ?? lm.open;
+      const closingLine = closingSnapshot?.spread_line ?? null;
 
-const lineAtSignal =
-  signalSnapshot?.spread_line ??
-  lm.open;
-
-const closingLine =
-  closingSnapshot?.spread_line ??
-  game.spread_line;
-
-if (lineAtSignal == null || closingLine == null) {
-  return base;
-}
+      if (lineAtSignal == null || closingLine == null) {
+        return base;
+      }
 
       const clv = computeSpreadOrTotalClv(lineAtSignal, closingLine)!;
 
