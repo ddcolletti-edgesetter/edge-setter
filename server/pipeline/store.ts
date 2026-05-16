@@ -747,8 +747,20 @@ export function getLatestSnapshotBefore(
 export function getSnapshotHistory(
   gameId: string,
   limit = 200,
+  beforeTime?: string,
 ): OddsSnapshotRow[] {
   const db = getPipelineDb();
+
+  if (beforeTime) {
+    return db.prepare(`
+      SELECT *
+      FROM odds_snapshots
+      WHERE game_id = ?
+        AND snapshot_at <= ?
+      ORDER BY snapshot_at ASC
+      LIMIT ?
+    `).all(gameId, beforeTime, limit) as OddsSnapshotRow[];
+  }
 
   return db.prepare(`
     SELECT *
