@@ -38,6 +38,7 @@ import { ingestOdds } from "./adapters/the-odds-api";
 import { settleGame, autoSettleFinishedGames, computeSourceAccuracy } from "./settlement";
 import { runFullBackfill, getBackfillStatus } from "./backfill";
 import { runCalibration, getStoredCalibration } from "./calibration";
+import { computeSpreadOrTotalClv } from "./clv";
 import type { League, RawEventType } from "./types";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
@@ -405,9 +406,8 @@ export function registerPipelineRoutes(app: Express) {
       //   Works for spreads (neg fav): signal=-3, close=-5 → -3−(−5) = +2 (we beat close)
       //   Works for totals: signal=220, close=224 → -4 (over bettor took worse number)
       //
-      const rawClv = (line_at_signal as number) - (closing_line as number);
       // Round to 1 decimal; cap at ±20 to guard against data entry errors
-      computedClv = Math.min(20, Math.max(-20, Math.round(rawClv * 10) / 10));
+      computedClv = computeSpreadOrTotalClv(line_at_signal as number, closing_line as number);
     }
     // Moneyline CLV: deferred (not yet computed)
     // if (mkt === "moneyline") { ... }
