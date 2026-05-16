@@ -23,7 +23,7 @@ import {
   type EventLog, type InsertEventLog,
   type DigestSubscriber, type InsertDigestSubscriber,
 } from "@shared/schema";
-import type { OddsSnapshotRow } from "./pipeline/store";
+import type { OddsSnapshotRow, SignalLifecycleState } from "./pipeline/store";
 
 // Resolve a writable directory for SQLite.
 // Priority: DATA_DIR env var → /tmp (always writable) → . (local dev)
@@ -388,7 +388,28 @@ export interface ReplayMarketState {
   game_id: string;
   as_of: string;
   latest_snapshot: OddsSnapshotRow | null;
-  previous_snapshot: OddsSnapshotRow | null;
+  snapshot_history: OddsSnapshotRow[];
+  signals: SignalHistoryRow[];
+  clv_states: CLVState[];
+}
+
+export interface SignalHistoryRow {
+  id: string;
+  signal_id: string;
+  previous_state: SignalLifecycleState | null;
+  new_state: SignalLifecycleState;
+  reason: string | null;
+  metadata: string | null;
+  created_at: string;
+}
+
+export interface CLVState {
+  signal_id: string;
+  game_id: string;
+  market: string;
+  line_at_signal: number | null;
+  closing_line: number | null;
+  clv: number | null;
 }
 
 export interface ReplayMarketStateInput {
