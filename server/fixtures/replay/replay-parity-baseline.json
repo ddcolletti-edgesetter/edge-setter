@@ -1,0 +1,88 @@
+{
+  "generated_at": "2026-05-16T15:05:09.517Z",
+  "total": 3,
+  "matched": 3,
+  "mismatched": 0,
+  "by_game": [
+    {
+      "scope": "game",
+      "id": "mlb_bc2f7272b3d5ef426608824387a95824",
+      "total": 3,
+      "matched": 3,
+      "mismatched": 0,
+      "validations": [
+        {
+          "signal_id": "4e2814ff-d3cc-4ca4-9033-97590b858eab",
+          "outcome_id": "bd7e35f7-b9c8-45de-9750-68346bea6de0",
+          "game_id": "mlb_bc2f7272b3d5ef426608824387a95824",
+          "as_of": "2026-05-15T05:10:03.290Z",
+          "matched": true,
+          "replay_clv": 0,
+          "outcome_clv": 0,
+          "reason": null
+        },
+        {
+          "signal_id": "5ab2cb03-d472-4302-af1c-66d9c6fa23e8",
+          "outcome_id": "2cb120f1-d148-4eec-a51f-b0f6a13b4379",
+          "game_id": "mlb_bc2f7272b3d5ef426608824387a95824",
+          "as_of": "2026-05-15T05:10:03.287Z",
+          "matched": true,
+          "replay_clv": -1,
+          "outcome_clv": -1,
+          "reason": null
+        },
+        {
+          "signal_id": "f2c5f749-e155-4cc6-a1ab-874cce1b097b",
+          "outcome_id": "8199e267-7683-4216-b8dc-952f3bde209e",
+          "game_id": "mlb_bc2f7272b3d5ef426608824387a95824",
+          "as_of": "2026-05-15T05:10:03.289Z",
+          "matched": true,
+          "replay_clv": -1,
+          "outcome_clv": -1,
+          "reason": null
+        }
+      ]
+    }
+  ],
+  "by_league": [
+    {
+      "scope": "league",
+      "id": "MLB",
+      "total": 3,
+      "matched": 3,
+      "mismatched": 0,
+      "validations": [
+        {
+          "signal_id": "4e2814ff-d3cc-4ca4-9033-97590b858eab",
+          "outcome_id": "bd7e35f7-b9c8-45de-9750-68346bea6de0",
+          "game_id": "mlb_bc2f7272b3d5ef426608824387a95824",
+          "as_of": "2026-05-15T05:10:03.290Z",
+          "matched": true,
+          "replay_clv": 0,
+          "outcome_clv": 0,
+          "reason": null
+        },
+        {
+          "signal_id": "5ab2cb03-d472-4302-af1c-66d9c6fa23e8",
+          "outcome_id": "2cb120f1-d148-4eec-a51f-b0f6a13b4379",
+          "game_id": "mlb_bc2f7272b3d5ef426608824387a95824",
+          "as_of": "2026-05-15T05:10:03.287Z",
+          "matched": true,
+          "replay_clv": -1,
+          "outcome_clv": -1,
+          "reason": null
+        },
+        {
+          "signal_id": "f2c5f749-e155-4cc6-a1ab-874cce1b097b",
+          "outcome_id": "8199e267-7683-4216-b8dc-952f3bde209e",
+          "game_id": "mlb_bc2f7272b3d5ef426608824387a95824",
+          "as_of": "2026-05-15T05:10:03.289Z",
+          "matched": true,
+          "replay_clv": -1,
+          "outcome_clv": -1,
+          "reason": null
+        }
+      ]
+    }
+  ]
+}
