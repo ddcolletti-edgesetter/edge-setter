@@ -22,6 +22,15 @@ export interface ReplayParityValidation {
   validations: ReplayOutcomeValidation[];
 }
 
+export interface ReplayParityReport {
+  generated_at: string;
+  total: number;
+  matched: number;
+  mismatched: number;
+  by_game: ReplayParityValidation[];
+  by_league: ReplayParityValidation[];
+}
+
 export function validateReplayAgainstOutcome(
   signalId: string,
 ): ReplayOutcomeValidation {
@@ -68,6 +77,49 @@ export function validateReplayAgainstOutcome(
   };
 }
 
+export function printReplayParitySummary(): string {
+  const report = exportReplayParityReport();
+  const lines = [
+    `Replay parity: ${report.matched}/${report.total} matched (${report.mismatched} mismatched)`,
+    `Games checked: ${report.by_game.length}`,
+    `Leagues checked: ${report.by_league.length}`,
+  ];
+  const summary = lines.join("\n");
+  console.log(summary);
+  return summary;
+}
+
+export function exportReplayParityReport(): ReplayParityReport {
+  const db = getPipelineDb();
+  const gameRows = db.prepare(`
+    SELECT DISTINCT game_id
+    FROM outcomes
+    WHERE game_id IS NOT NULL
+    ORDER BY game_id ASC
+  `).all() as { game_id: string }[];
+  const leagueRows = db.prepare(`
+    SELECT DISTINCT s.league
+    FROM outcomes o
+    JOIN live_signals s ON s.id = o.signal_id
+    WHERE s.league IS NOT NULL
+    ORDER BY s.league ASC
+  `).all() as { league: string }[];
+
+  const byGame = gameRows.map(row => validateReplayParityForGame(row.game_id));
+  const byLeague = leagueRows.map(row => validateReplayParityForLeague(row.league));
+  const validations = dedupeValidations(byGame.flatMap(game => game.validations));
+  const matched = validations.filter(validation => validation.matched).length;
+
+  return {
+    generated_at: new Date().toISOString(),
+    total: validations.length,
+    matched,
+    mismatched: validations.length - matched,
+    by_game: byGame,
+    by_league: byLeague,
+  };
+}
+
 export function validateReplayParityForGame(gameId: string): ReplayParityValidation {
   const db = getPipelineDb();
   const rows = db.prepare(`
@@ -82,6 +134,16 @@ export function validateReplayParityForGame(gameId: string): ReplayParityValidat
     gameId,
     rows.map(row => row.signal_id),
   );
+}
+
+function dedupeValidations(validations: ReplayOutcomeValidation[]): ReplayOutcomeValidation[] {
+  const seen = new Set<string>();
+  return validations.filter(validation => {
+    const key = validation.outcome_id ?? validation.signal_id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 export function validateReplayParityForLeague(league: string): ReplayParityValidation {
