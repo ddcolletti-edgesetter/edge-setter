@@ -1,6 +1,7 @@
-import type { ReplayMarketState, ReplayMarketStateInput, ReplaySignalState } from "../storage";
+import type { CLVState, ReplayMarketState, ReplayMarketStateInput, ReplaySignalState } from "../storage";
+import { computeSpreadOrTotalClv } from "./clv";
 import type { LiveSignal } from "./types";
-import { getPipelineDb, getSignalHistory, getSnapshotHistory, type SignalHistoryRow } from "./store";
+import { getPipelineDb, getSignalHistory, getSnapshotHistory } from "./store";
 
 export function getReplaySignals(gameId: string, asOf: string): ReplaySignalState[] {
   const db = getPipelineDb();
@@ -33,6 +34,27 @@ function deserializeReplaySignal(row: any): LiveSignal {
   };
 }
 
+export function deriveReplayClvStates(replay: ReplayMarketState): CLVState[] {
+  return replay.signals.flatMap(({ signal }) => {
+    if (!signal.game_id || !signal.line_movement || !signal.created_at) return [];
+
+    const signalSnapshot = replay.snapshot_history
+      .filter(snapshot => snapshot.snapshot_at <= signal.created_at)
+      .at(-1);
+    const lineAtSignal = signalSnapshot?.spread_line ?? signal.line_movement.open;
+    const closingLine = replay.latest_snapshot?.spread_line ?? null;
+
+    return {
+      signal_id: signal.id,
+      game_id: signal.game_id,
+      market: "spread",
+      line_at_signal: lineAtSignal,
+      closing_line: closingLine,
+      clv: computeSpreadOrTotalClv(lineAtSignal, closingLine),
+    };
+  });
+}
+
 export async function buildReplayMarketState(
   input: ReplayMarketStateInput,
 ): Promise<ReplayMarketState> {
@@ -40,12 +62,17 @@ export async function buildReplayMarketState(
   const latestSnapshot = snapshotHistory[snapshotHistory.length - 1] ?? null;
   const signals = getReplaySignals(input.game_id, input.as_of);
 
-  return {
+  const replay: ReplayMarketState = {
     game_id: input.game_id,
     as_of: input.as_of,
     latest_snapshot: latestSnapshot,
     snapshot_history: snapshotHistory,
     signals,
     clv_states: [],
+  };
+
+  return {
+    ...replay,
+    clv_states: deriveReplayClvStates(replay),
   };
 }
