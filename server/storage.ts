@@ -24,6 +24,7 @@ import {
   type DigestSubscriber, type InsertDigestSubscriber,
 } from "@shared/schema";
 import type { OddsSnapshotRow, SignalLifecycleState } from "./pipeline/store";
+import type { LiveSignal } from "./pipeline/types";
 
 // Resolve a writable directory for SQLite.
 // Priority: DATA_DIR env var → /tmp (always writable) → . (local dev)
@@ -389,7 +390,7 @@ export interface ReplayMarketState {
   as_of: string;
   latest_snapshot: OddsSnapshotRow | null;
   snapshot_history: OddsSnapshotRow[];
-  signals: SignalHistoryRow[];
+  signals: ReplaySignalState[];
   clv_states: CLVState[];
 }
 
@@ -401,6 +402,11 @@ export interface SignalHistoryRow {
   reason: string | null;
   metadata: string | null;
   created_at: string;
+}
+
+export interface ReplaySignalState {
+  signal: LiveSignal;
+  history: SignalHistoryRow[];
 }
 
 export interface CLVState {

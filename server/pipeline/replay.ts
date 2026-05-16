@@ -1,17 +1,36 @@
-import type { ReplayMarketState, ReplayMarketStateInput } from "../storage";
+import type { ReplayMarketState, ReplayMarketStateInput, ReplaySignalState } from "../storage";
+import type { LiveSignal } from "./types";
 import { getPipelineDb, getSignalHistory, getSnapshotHistory, type SignalHistoryRow } from "./store";
 
-export function getReplaySignals(gameId: string, asOf: string): SignalHistoryRow[] {
+export function getReplaySignals(gameId: string, asOf: string): ReplaySignalState[] {
   const db = getPipelineDb();
   const rows = db.prepare(`
-    SELECT id
+    SELECT *
     FROM live_signals
     WHERE game_id = ?
       AND created_at <= ?
     ORDER BY created_at ASC, id ASC
-  `).all(gameId, asOf) as { id: string }[];
+  `).all(gameId, asOf);
 
-  return rows.flatMap(row => getSignalHistory(row.id, asOf));
+  return rows.map(row => {
+    const signal = deserializeReplaySignal(row);
+    return {
+      signal,
+      history: getSignalHistory(signal.id, asOf),
+    };
+  });
+}
+
+function deserializeReplaySignal(row: any): LiveSignal {
+  return {
+    ...row,
+    sources: JSON.parse(row.sources ?? "[]"),
+    line_movement: row.line_movement ? JSON.parse(row.line_movement) : null,
+    breakdown: JSON.parse(row.breakdown ?? "{}"),
+    raw_event_ids: JSON.parse(row.raw_event_ids ?? "[]"),
+    betting_relevance: row.betting_relevance === 1,
+    fantasy_relevance: row.fantasy_relevance === 1,
+  };
 }
 
 export async function buildReplayMarketState(
