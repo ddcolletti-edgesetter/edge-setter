@@ -79,3 +79,35 @@ export async function buildReplayMarketState(
     clv_states: deriveReplayClvStates(replay),
   };
 }
+export function getReplayState(
+  gameId: string,
+  asOf: string,
+): ReplayMarketState {
+  const snapshot_history = getSnapshotHistory(gameId);
+
+  const signals = getReplaySignals(gameId, asOf);
+
+  const clv_states: CLVState[] = signals.map(({ signal }) => ({
+    game_id: gameId,
+    signal_id: signal.id,
+    market: signal.signal_type ?? "unknown",
+    line_at_signal: signal.line_movement?.open ?? null,
+    closing_line: signal.line_movement?.current ?? null,
+    clv: computeSpreadOrTotalClv(
+      signal.line_movement?.open ?? null,
+      signal.line_movement?.current ?? null,
+    ),
+  }));
+
+  return {
+    game_id: gameId,
+    as_of: asOf,
+    latest_snapshot:
+      snapshot_history.length > 0
+        ? snapshot_history[snapshot_history.length - 1]
+        : null,
+    snapshot_history,
+    signals,
+    clv_states,
+  };
+}

@@ -40,7 +40,8 @@ import { runFullBackfill, getBackfillStatus } from "./backfill";
 import { runCalibration, getStoredCalibration } from "./calibration";
 import { computeSpreadOrTotalClv } from "./clv";
 import type { League, RawEventType } from "./types";
-
+import { getReplayState } from "./replay";
+import { mapReplayToApiResponse } from "./replay-mapper";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
 
 function requireAdmin(req: Request, res: Response): boolean {
@@ -59,7 +60,49 @@ export function registerPipelineRoutes(app: Express) {
   /* ══════════════════════════════════════════════════════
      DELIVERY API — public
      ══════════════════════════════════════════════════════ */
+  /**
+   * GET /api/replay/:gameId
+   *
+   * Deterministic replay reconstruction endpoint.
+   *
+   * Query params:
+   *   asOf — optional ISO timestamp replay cutoff
+   */
+  app.get("/api/replay/:gameId", (req: Request, res: Response) => {
+    try {
+      const gameId = String(req.params.gameId);
+      const asOf =
+  typeof req.query.asOf === "string"
+    ? req.query.asOf
+    : Array.isArray(req.query.asOf) && typeof req.query.asOf[0] === "string"
+      ? req.query.asOf[0]
+      : new Date().toISOString();
 
+      if (!gameId) {
+        return res.status(400).json({
+          error: "gameId is required",
+        });
+      }
+
+      const replay = getReplayState(gameId, asOf);
+
+      if (!replay) {
+        return res.status(404).json({
+          error: "Replay state not found",
+        });
+      }
+
+      const response = mapReplayToApiResponse(replay);
+
+      return res.json(response);
+    } catch (err: any) {
+      console.error("[replay-api]", err);
+
+      return res.status(500).json({
+        error: err.message ?? "Replay API failure",
+      });
+    }
+  });
   /**
    * GET /api/v2/signals
    *
