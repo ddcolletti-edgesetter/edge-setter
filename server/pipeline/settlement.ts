@@ -31,6 +31,7 @@ import { fetchNFLFinalScores } from "./adapters/espn-nfl";
 import { fetchCFBFinalScores } from "./adapters/espn-cfb";
 import { storage, insertSettledOutcome, getSettledOutcomesForAccuracy } from "../storage";
 import type { LiveSignal, Game } from "./types";
+import { computeSpreadOrTotalClv } from "./clv";
 
 /* ─── Schema for source accuracy table ─────────────────── */
 
@@ -129,8 +130,7 @@ if (lineAtSignal == null || closingLine == null) {
   return base;
 }
 
-const rawClv = lineAtSignal - closingLine;
-      const clv = Math.min(20, Math.max(-20, Math.round(rawClv * 10) / 10));
+      const clv = computeSpreadOrTotalClv(lineAtSignal, closingLine)!;
 
       return {
         market: "spread",
