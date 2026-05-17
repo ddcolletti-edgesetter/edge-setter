@@ -29,6 +29,13 @@ import {
   getGames, getRawEvents, insertRawEvent,
   createOutcome, getOutcomes,
   getTrackRecord, getPipelineDb,
+  listReplayAuditsByGameId,
+  getReplayAuditByReplayHash,
+  getLatestReplayVerification,
+  listReplayVerificationHistory,
+  getReplayProvenance,
+  listReplayLineageChildren,
+  listReplayLineageParents,
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
@@ -42,6 +49,24 @@ import { computeSpreadOrTotalClv } from "./clv";
 import type { League, RawEventType } from "./types";
 import { getReplayState } from "./replay";
 import { mapReplayToApiResponse } from "./replay-mapper";
+import type {
+  ReplayAuditDetailResponse,
+  ReplayAuditListResponse,
+  ReplayDivergenceHistoryLatestResponse,
+  ReplayDivergenceHistoryResponse,
+  ReplayLineageChildrenResponse,
+  ReplayLineageParentsResponse,
+  ReplayProvenanceResponse,
+  ReplayVerificationHistoryResponse,
+  ReplayVerificationLatestResponse,
+} from "./replay-contract";
+import {
+  analyzeReplayDivergence,
+  getLatestReplayDivergenceAnalysis,
+  inspectReplayForensics,
+  listReplayDivergenceAnalysisHistory,
+} from "./replay-divergence";
+import { propagateReplayConfidence } from "./replay-confidence";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
 
 function requireAdmin(req: Request, res: Response): boolean {
@@ -55,11 +80,219 @@ function requireAdmin(req: Request, res: Response): boolean {
   return true;
 }
 
+function routeParam(value: string | string[] | undefined): string {
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
 export function registerPipelineRoutes(app: Express) {
 
   /* ══════════════════════════════════════════════════════
      DELIVERY API — public
      ══════════════════════════════════════════════════════ */
+  /**
+   * GET /api/replay/audits/:gameId
+   *
+   * Lists persisted replay audits for a game, newest first.
+   */
+  app.get("/api/replay/audits/:gameId", (req: Request, res: Response) => {
+    const gameId = routeParam(req.params.gameId);
+    if (!gameId) return res.status(400).json({ error: "gameId is required" });
+
+    const audits = listReplayAuditsByGameId(gameId);
+    const response: ReplayAuditListResponse = {
+      game_id: gameId,
+      count: audits.length,
+      audits,
+    };
+
+    return res.json(response);
+  });
+
+  /**
+   * GET /api/replay/audit/:replayHash
+   *
+   * Returns the latest persisted audit row for a replay hash.
+   */
+  app.get("/api/replay/audit/:replayHash", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const audit = getReplayAuditByReplayHash(replayHash);
+    if (!audit) return res.status(404).json({ error: "Replay audit not found" });
+
+    const response: ReplayAuditDetailResponse = { audit };
+    return res.json(response);
+  });
+
+  /**
+   * GET /api/replay/verification/:replayHash/latest
+   *
+   * Returns the latest verification record for a replay hash.
+   */
+  app.get("/api/replay/verification/:replayHash/latest", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const verification = getLatestReplayVerification(replayHash);
+    if (!verification) return res.status(404).json({ error: "Replay verification not found" });
+
+    const response: ReplayVerificationLatestResponse = { verification };
+    return res.json(response);
+  });
+
+  /**
+   * GET /api/replay/verification/:replayHash/history
+   *
+   * Lists verification records for a replay hash, newest first.
+   */
+  app.get("/api/replay/verification/:replayHash/history", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const history = listReplayVerificationHistory(replayHash);
+    const response: ReplayVerificationHistoryResponse = {
+      replay_hash: replayHash,
+      count: history.length,
+      history,
+    };
+
+    return res.json(response);
+  });
+
+  /**
+   * GET /api/replay/provenance/:replayHash
+   *
+   * Returns provenance metadata for a replay hash.
+   */
+  app.get("/api/replay/provenance/:replayHash", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const provenance = getReplayProvenance(replayHash);
+    if (!provenance) return res.status(404).json({ error: "Replay provenance not found" });
+
+    const response: ReplayProvenanceResponse = { provenance };
+    return res.json(response);
+  });
+
+  /**
+   * GET /api/replay/lineage/:replayHash/children
+   *
+   * Lists child replay audits that reference the provided replay hash as parent.
+   */
+  app.get("/api/replay/lineage/:replayHash/children", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const children = listReplayLineageChildren(replayHash);
+    const response: ReplayLineageChildrenResponse = {
+      replay_hash: replayHash,
+      count: children.length,
+      children,
+    };
+
+    return res.json(response);
+  });
+
+  /**
+   * GET /api/replay/lineage/:replayHash/parents
+   *
+   * Traverses parent replay audits from the provided child replay hash.
+   */
+  app.get("/api/replay/lineage/:replayHash/parents", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const parents = listReplayLineageParents(replayHash);
+    const response: ReplayLineageParentsResponse = {
+      replay_hash: replayHash,
+      count: parents.length,
+      parents,
+    };
+
+    return res.json(response);
+  });
+
+  /**
+   * GET /api/replay/divergence/:replayHash/history
+   *
+   * Lists persisted replay divergence analyses, newest first.
+   */
+  app.get("/api/replay/divergence/:replayHash/history", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const history = listReplayDivergenceAnalysisHistory(replayHash);
+    const response: ReplayDivergenceHistoryResponse = {
+      replay_hash: replayHash,
+      count: history.length,
+      history,
+    };
+
+    return res.json(response);
+  });
+
+  /**
+   * GET /api/replay/divergence/:replayHash/latest
+   *
+   * Returns the latest persisted replay divergence analysis.
+   */
+  app.get("/api/replay/divergence/:replayHash/latest", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const divergence = getLatestReplayDivergenceAnalysis(replayHash);
+    if (!divergence) return res.status(404).json({ error: "Replay divergence history not found" });
+
+    const response: ReplayDivergenceHistoryLatestResponse = { divergence };
+    return res.json(response);
+  });
+
+  /**
+   * GET /api/replay/divergence/:replayHash
+   *
+   * Deterministic replay divergence analytics.
+   */
+  app.get("/api/replay/divergence/:replayHash", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const divergence = analyzeReplayDivergence(replayHash);
+    if (!divergence) return res.status(404).json({ error: "Replay divergence record not found" });
+
+    return res.json(divergence);
+  });
+
+  /**
+   * GET /api/replay/confidence/:replayHash
+   *
+   * Returns deterministic replay confidence propagation.
+   */
+  app.get("/api/replay/confidence/:replayHash", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const confidence = propagateReplayConfidence(replayHash);
+    if (!confidence) return res.status(404).json({ error: "Replay confidence not found" });
+
+    return res.json(confidence);
+  });
+
+  /**
+   * GET /api/replay/forensics/:replayHash
+   *
+   * Returns deterministic replay audit inspection data.
+   */
+  app.get("/api/replay/forensics/:replayHash", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    if (!replayHash) return res.status(400).json({ error: "replayHash is required" });
+
+    const forensics = inspectReplayForensics(replayHash);
+    if (!forensics) return res.status(404).json({ error: "Replay forensics not found" });
+
+    return res.json(forensics);
+  });
+
   /**
    * GET /api/replay/:gameId
    *

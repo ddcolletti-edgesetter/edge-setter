@@ -243,6 +243,25 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
 
     CREATE INDEX IF NOT EXISTS idx_replay_audits_status
       ON replay_audits(verification_status);
+
+    CREATE TABLE IF NOT EXISTS replay_divergence_history (
+      id                          TEXT PRIMARY KEY,
+      replay_hash                 TEXT NOT NULL,
+      compared_against            TEXT,
+      divergence_detected         INTEGER NOT NULL DEFAULT 0,
+      mismatch_count              INTEGER NOT NULL DEFAULT 0,
+      mismatch_categories_json    TEXT NOT NULL DEFAULT '[]',
+      mismatch_details_json       TEXT NOT NULL DEFAULT '[]',
+      integrity_status            TEXT NOT NULL,
+      confidence_delta            REAL,
+      analyzed_at                 TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_replay_divergence_history_hash
+      ON replay_divergence_history(replay_hash, analyzed_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_replay_divergence_history_integrity
+      ON replay_divergence_history(integrity_status);
   `);
 
   // Migrate existing DBs that predate home_score/away_score columns on games
@@ -271,6 +290,76 @@ export interface ReplayAuditRecord {
 
   reconstruction_version?: string | null;
   replay_version?: number;
+}
+
+export interface ReplayAuditRow extends ReplayAuditRecord {
+  id: string;
+  verification_status: string;
+  divergence_count: number;
+  replay_version: number;
+  created_at: string;
+}
+
+export interface ReplayVerificationRecord {
+  id: string;
+  game_id: string;
+  as_of: string;
+  replay_hash: string;
+  verification_status: string;
+  divergence_count: number;
+  divergence_summary_json: string | null;
+  timeline_hash: string | null;
+  signal_hash: string | null;
+  snapshot_hash: string | null;
+  reconstruction_version: string | null;
+  replay_version: number;
+  created_at: string;
+}
+
+export interface ReplayProvenanceRecord {
+  id: string;
+  game_id: string;
+  as_of: string;
+  replay_hash: string;
+  provenance_json: string | null;
+  provenance: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface ReplayLineageRecord {
+  id: string;
+  game_id: string;
+  as_of: string;
+  replay_hash: string;
+  parent_replay_hash: string | null;
+  lineage_json: string | null;
+  lineage: Record<string, unknown> | null;
+  created_at: string;
+}
+
+export interface ReplayDivergenceHistoryRecord {
+  id: string;
+  replay_hash: string;
+  compared_against: string | null;
+  divergence_detected: boolean;
+  mismatch_count: number;
+  mismatch_categories_json: string;
+  mismatch_details_json: string;
+  integrity_status: string;
+  confidence_delta: number | null;
+  analyzed_at: string;
+}
+
+export interface ReplayDivergenceHistoryInput {
+  replay_hash: string;
+  compared_against: string | null;
+  divergence_detected: boolean;
+  mismatch_count: number;
+  mismatch_categories_json: string;
+  mismatch_details_json: string;
+  integrity_status: string;
+  confidence_delta: number | null;
+  analyzed_at: string;
 }
 
 export function insertReplayAudit(
@@ -315,6 +404,352 @@ export function insertReplayAudit(
     audit.replay_version ?? 1,
     createdAt,
   );
+}
+
+export function listReplayAuditsByGameId(gameId: string): ReplayAuditRow[] {
+  const db = getPipelineDb();
+
+  return db.prepare(`
+    SELECT
+      id,
+      game_id,
+      as_of,
+      replay_hash,
+      timeline_hash,
+      signal_hash,
+      snapshot_hash,
+      verification_status,
+      divergence_count,
+      divergence_summary_json,
+      provenance_json,
+      lineage_json,
+      reconstruction_version,
+      replay_version,
+      created_at
+    FROM replay_audits
+    WHERE game_id = ?
+    ORDER BY created_at DESC, replay_hash ASC
+  `).all(gameId) as ReplayAuditRow[];
+}
+
+export function getReplayAuditByReplayHash(replayHash: string): ReplayAuditRow | null {
+  const db = getPipelineDb();
+
+  return (db.prepare(`
+    SELECT
+      id,
+      game_id,
+      as_of,
+      replay_hash,
+      timeline_hash,
+      signal_hash,
+      snapshot_hash,
+      verification_status,
+      divergence_count,
+      divergence_summary_json,
+      provenance_json,
+      lineage_json,
+      reconstruction_version,
+      replay_version,
+      created_at
+    FROM replay_audits
+    WHERE replay_hash = ?
+    ORDER BY created_at DESC, id ASC
+    LIMIT 1
+  `).get(replayHash) as ReplayAuditRow | undefined) ?? null;
+}
+
+export function getLatestReplayVerification(
+  replayHash: string,
+): ReplayVerificationRecord | null {
+  const db = getPipelineDb();
+
+  return (db.prepare(`
+    SELECT
+      id,
+      game_id,
+      as_of,
+      replay_hash,
+      verification_status,
+      divergence_count,
+      divergence_summary_json,
+      timeline_hash,
+      signal_hash,
+      snapshot_hash,
+      reconstruction_version,
+      replay_version,
+      created_at
+    FROM replay_audits
+    WHERE replay_hash = ?
+    ORDER BY created_at DESC, id ASC
+    LIMIT 1
+  `).get(replayHash) as ReplayVerificationRecord | undefined) ?? null;
+}
+
+export function listReplayVerificationHistory(
+  replayHash: string,
+): ReplayVerificationRecord[] {
+  const db = getPipelineDb();
+
+  return db.prepare(`
+    SELECT
+      id,
+      game_id,
+      as_of,
+      replay_hash,
+      verification_status,
+      divergence_count,
+      divergence_summary_json,
+      timeline_hash,
+      signal_hash,
+      snapshot_hash,
+      reconstruction_version,
+      replay_version,
+      created_at
+    FROM replay_audits
+    WHERE replay_hash = ?
+    ORDER BY created_at DESC, id ASC
+  `).all(replayHash) as ReplayVerificationRecord[];
+}
+
+export function getReplayProvenance(replayHash: string): ReplayProvenanceRecord | null {
+  const db = getPipelineDb();
+  const row = db.prepare(`
+    SELECT
+      id,
+      game_id,
+      as_of,
+      replay_hash,
+      provenance_json,
+      created_at
+    FROM replay_audits
+    WHERE replay_hash = ?
+    ORDER BY created_at DESC, id ASC
+    LIMIT 1
+  `).get(replayHash) as Omit<ReplayProvenanceRecord, "provenance"> | undefined;
+
+  if (!row) return null;
+
+  return {
+    ...row,
+    provenance: parseReplayAuditJson(row.provenance_json),
+  };
+}
+
+export function listReplayLineageChildren(parentReplayHash: string): ReplayLineageRecord[] {
+  const db = getPipelineDb();
+  const rows = db.prepare(`
+    SELECT
+      id,
+      game_id,
+      as_of,
+      replay_hash,
+      json_extract(lineage_json, '$.parent_replay_hash') AS parent_replay_hash,
+      lineage_json,
+      created_at
+    FROM replay_audits
+    WHERE lineage_json IS NOT NULL
+      AND json_valid(lineage_json)
+      AND json_extract(lineage_json, '$.parent_replay_hash') = ?
+    ORDER BY created_at DESC, replay_hash ASC
+  `).all(parentReplayHash) as Omit<ReplayLineageRecord, "lineage">[];
+
+  return rows.map(row => ({
+    ...row,
+    lineage: parseReplayAuditJson(row.lineage_json),
+  }));
+}
+
+export function listReplayLineageParents(childReplayHash: string): ReplayLineageRecord[] {
+  const parents: ReplayLineageRecord[] = [];
+  const seen = new Set<string>([childReplayHash]);
+  let current = getReplayLineageByReplayHash(childReplayHash);
+
+  while (current?.parent_replay_hash && !seen.has(current.parent_replay_hash)) {
+    seen.add(current.parent_replay_hash);
+    const parent = getReplayLineageByReplayHash(current.parent_replay_hash);
+    if (!parent) break;
+
+    parents.push(parent);
+    current = parent;
+  }
+
+  return parents;
+}
+
+function getReplayLineageByReplayHash(replayHash: string): ReplayLineageRecord | null {
+  const db = getPipelineDb();
+  const row = db.prepare(`
+    SELECT
+      id,
+      game_id,
+      as_of,
+      replay_hash,
+      CASE
+        WHEN lineage_json IS NOT NULL AND json_valid(lineage_json)
+          THEN json_extract(lineage_json, '$.parent_replay_hash')
+        ELSE NULL
+      END AS parent_replay_hash,
+      lineage_json,
+      created_at
+    FROM replay_audits
+    WHERE replay_hash = ?
+    ORDER BY created_at DESC, id ASC
+    LIMIT 1
+  `).get(replayHash) as Omit<ReplayLineageRecord, "lineage"> | undefined;
+
+  if (!row) return null;
+
+  return {
+    ...row,
+    lineage: parseReplayAuditJson(row.lineage_json),
+  };
+}
+
+function parseReplayAuditJson(value: string | null): Record<string, unknown> | null {
+  if (!value) return null;
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function upsertReplayDivergenceHistory(
+  divergence: ReplayDivergenceHistoryInput,
+): ReplayDivergenceHistoryRecord {
+  const db = getPipelineDb();
+  const id = buildReplayDivergenceHistoryId(
+    divergence.replay_hash,
+    divergence.compared_against,
+    divergence.analyzed_at,
+  );
+
+  db.prepare(`
+    INSERT INTO replay_divergence_history (
+      id,
+      replay_hash,
+      compared_against,
+      divergence_detected,
+      mismatch_count,
+      mismatch_categories_json,
+      mismatch_details_json,
+      integrity_status,
+      confidence_delta,
+      analyzed_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      replay_hash=excluded.replay_hash,
+      compared_against=excluded.compared_against,
+      divergence_detected=excluded.divergence_detected,
+      mismatch_count=excluded.mismatch_count,
+      mismatch_categories_json=excluded.mismatch_categories_json,
+      mismatch_details_json=excluded.mismatch_details_json,
+      integrity_status=excluded.integrity_status,
+      confidence_delta=excluded.confidence_delta,
+      analyzed_at=excluded.analyzed_at
+  `).run(
+    id,
+    divergence.replay_hash,
+    divergence.compared_against,
+    divergence.divergence_detected ? 1 : 0,
+    divergence.mismatch_count,
+    divergence.mismatch_categories_json,
+    divergence.mismatch_details_json,
+    divergence.integrity_status,
+    divergence.confidence_delta,
+    divergence.analyzed_at,
+  );
+
+  return getReplayDivergenceHistoryById(id) as ReplayDivergenceHistoryRecord;
+}
+
+export function getLatestReplayDivergenceHistory(
+  replayHash: string,
+): ReplayDivergenceHistoryRecord | null {
+  const row = getPipelineDb().prepare(`
+    SELECT
+      id,
+      replay_hash,
+      compared_against,
+      divergence_detected,
+      mismatch_count,
+      mismatch_categories_json,
+      mismatch_details_json,
+      integrity_status,
+      confidence_delta,
+      analyzed_at
+    FROM replay_divergence_history
+    WHERE replay_hash = ?
+    ORDER BY analyzed_at DESC, id ASC
+    LIMIT 1
+  `).get(replayHash);
+
+  return row ? deserializeReplayDivergenceHistory(row) : null;
+}
+
+export function listReplayDivergenceHistory(
+  replayHash: string,
+): ReplayDivergenceHistoryRecord[] {
+  const rows = getPipelineDb().prepare(`
+    SELECT
+      id,
+      replay_hash,
+      compared_against,
+      divergence_detected,
+      mismatch_count,
+      mismatch_categories_json,
+      mismatch_details_json,
+      integrity_status,
+      confidence_delta,
+      analyzed_at
+    FROM replay_divergence_history
+    WHERE replay_hash = ?
+    ORDER BY analyzed_at DESC, id ASC
+  `).all(replayHash);
+
+  return rows.map(deserializeReplayDivergenceHistory);
+}
+
+function getReplayDivergenceHistoryById(id: string): ReplayDivergenceHistoryRecord | null {
+  const row = getPipelineDb().prepare(`
+    SELECT
+      id,
+      replay_hash,
+      compared_against,
+      divergence_detected,
+      mismatch_count,
+      mismatch_categories_json,
+      mismatch_details_json,
+      integrity_status,
+      confidence_delta,
+      analyzed_at
+    FROM replay_divergence_history
+    WHERE id = ?
+    LIMIT 1
+  `).get(id);
+
+  return row ? deserializeReplayDivergenceHistory(row) : null;
+}
+
+function deserializeReplayDivergenceHistory(row: any): ReplayDivergenceHistoryRecord {
+  return {
+    ...row,
+    divergence_detected: row.divergence_detected === 1,
+  };
+}
+
+function buildReplayDivergenceHistoryId(
+  replayHash: string,
+  comparedAgainst: string | null,
+  analyzedAt: string,
+): string {
+  return `${replayHash}|${comparedAgainst ?? "none"}|${analyzedAt}`;
 }
 export function insertOddsSnapshot(data: {
   game_id: string;
