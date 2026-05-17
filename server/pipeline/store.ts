@@ -216,6 +216,33 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
       recorded_at     TEXT,
       created_at      TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS replay_audits (
+      id                          TEXT PRIMARY KEY,
+      game_id                     TEXT NOT NULL,
+      as_of                       TEXT NOT NULL,
+      replay_hash                 TEXT NOT NULL,
+      timeline_hash               TEXT,
+      signal_hash                 TEXT,
+      snapshot_hash               TEXT,
+      verification_status         TEXT NOT NULL DEFAULT 'unknown',
+      divergence_count            INTEGER NOT NULL DEFAULT 0,
+      divergence_summary_json     TEXT,
+      provenance_json             TEXT,
+      lineage_json                TEXT,
+      reconstruction_version      TEXT,
+      replay_version              INTEGER NOT NULL DEFAULT 1,
+      created_at                  TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_replay_audits_game
+      ON replay_audits(game_id, created_at DESC);
+
+    CREATE INDEX IF NOT EXISTS idx_replay_audits_hash
+      ON replay_audits(replay_hash);
+
+    CREATE INDEX IF NOT EXISTS idx_replay_audits_status
+      ON replay_audits(verification_status);
   `);
 
   // Migrate existing DBs that predate home_score/away_score columns on games
@@ -224,6 +251,71 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
 }
 
 /* ─── Game CRUD ─────────────────────────────────────────── */
+export interface ReplayAuditRecord {
+  game_id: string;
+  as_of: string;
+
+  replay_hash: string;
+
+  timeline_hash?: string | null;
+  signal_hash?: string | null;
+  snapshot_hash?: string | null;
+
+  verification_status?: string;
+
+  divergence_count?: number;
+  divergence_summary_json?: string | null;
+
+  provenance_json?: string | null;
+  lineage_json?: string | null;
+
+  reconstruction_version?: string | null;
+  replay_version?: number;
+}
+
+export function insertReplayAudit(
+  audit: ReplayAuditRecord,
+): void {
+  const db = getPipelineDb();
+  const createdAt = new Date().toISOString();
+
+  db.prepare(`
+    INSERT INTO replay_audits (
+      id,
+      game_id,
+      as_of,
+      replay_hash,
+      timeline_hash,
+      signal_hash,
+      snapshot_hash,
+      verification_status,
+      divergence_count,
+      divergence_summary_json,
+      provenance_json,
+      lineage_json,
+      reconstruction_version,
+      replay_version,
+      created_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    randomUUID(),
+    audit.game_id,
+    audit.as_of,
+    audit.replay_hash,
+    audit.timeline_hash ?? null,
+    audit.signal_hash ?? null,
+    audit.snapshot_hash ?? null,
+    audit.verification_status ?? "unknown",
+    audit.divergence_count ?? 0,
+    audit.divergence_summary_json ?? null,
+    audit.provenance_json ?? null,
+    audit.lineage_json ?? null,
+    audit.reconstruction_version ?? null,
+    audit.replay_version ?? 1,
+    createdAt,
+  );
+}
 export function insertOddsSnapshot(data: {
   game_id: string;
   league: string;

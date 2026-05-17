@@ -266,3 +266,44 @@ export interface SignalFeedItem {
   claim_id: string | null;
   created_at: string | null;
 }
+export const replay_audits = sqliteTable("replay_audits", {
+  id: text("id").primaryKey(),
+
+  game_id: text("game_id").notNull(),
+  as_of: text("as_of").notNull(),
+
+  replay_hash: text("replay_hash").notNull(),
+  timeline_hash: text("timeline_hash"),
+  signal_hash: text("signal_hash"),
+  snapshot_hash: text("snapshot_hash"),
+
+  verification_status: text("verification_status")
+    .notNull()
+    .default("unknown"),
+
+  divergence_count: integer("divergence_count")
+    .notNull()
+    .default(0),
+
+  divergence_summary_json: text("divergence_summary_json"),
+
+  provenance_json: text("provenance_json"),
+  lineage_json: text("lineage_json"),
+
+  reconstruction_version: text("reconstruction_version"),
+  replay_version: integer("replay_version").default(1),
+
+  created_at: text("created_at")
+    .default(new Date().toISOString()),
+});
+
+export const insertReplayAuditSchema =
+  createInsertSchema(replay_audits).omit({
+    created_at: true,
+  });
+
+export type InsertReplayAudit =
+  z.infer<typeof insertReplayAuditSchema>;
+
+export type ReplayAudit =
+  typeof replay_audits.$inferSelect;
