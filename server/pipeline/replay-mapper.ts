@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { ReplayMarketState } from "../storage";
 import type {
   ReplayApiResponse,
@@ -10,15 +11,33 @@ import type {
 export function mapReplayToApiResponse(
   replay: ReplayMarketState,
 ): ReplayApiResponse {
+  const snapshots = mapSnapshots(replay);
+  const signals = mapSignals(replay);
+  const timeline = normalizeTimeline(buildTimeline(replay));
+  const clv_states = mapClvStates(replay);
+
+  const timeline_hash = stableHash(timeline);
+  const integrity_hash = stableHash({
+    version: 1,
+    game_id: replay.game_id,
+    as_of: replay.as_of,
+    snapshots,
+    signals,
+    timeline,
+    clv_states,
+  });
+
   return {
     version: 1,
     generated_at: new Date().toISOString(),
     game_id: replay.game_id,
     as_of: replay.as_of,
-    snapshots: mapSnapshots(replay),
-    signals: mapSignals(replay),
-    timeline: buildTimeline(replay),
-    clv_states: mapClvStates(replay),
+    integrity_hash,
+    timeline_hash,
+    snapshots,
+    signals,
+    timeline,
+    clv_states,
   };
 }
 
@@ -73,8 +92,21 @@ function buildTimeline(
       },
     }));
 
-  return [...snapshotEvents, ...signalEvents]
-    .sort((a, b) => a.ts.localeCompare(b.ts));
+  return [...snapshotEvents, ...signalEvents];
+}
+
+function normalizeTimeline(
+  events: ReplayTimelineEvent[],
+): ReplayTimelineEvent[] {
+  return [...events].sort((a, b) => {
+    const byTs = a.ts.localeCompare(b.ts);
+    if (byTs !== 0) return byTs;
+
+    const byType = a.type.localeCompare(b.type);
+    if (byType !== 0) return byType;
+
+    return a.entity_id.localeCompare(b.entity_id);
+  });
 }
 
 function mapClvStates(
@@ -87,4 +119,32 @@ function mapClvStates(
     closing_line: state.closing_line,
     clv: state.clv,
   }));
+}
+
+function stableHash(value: unknown): string {
+  return crypto
+    .createHash("sha256")
+    .update(stableStringify(value))
+    .digest("hex");
+}
+
+function stableStringify(value: unknown): string {
+  return JSON.stringify(sortKeys(value));
+}
+
+function sortKeys(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortKeys);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = sortKeys((value as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+
+  return value;
 }

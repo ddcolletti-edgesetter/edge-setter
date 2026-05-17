@@ -83,7 +83,7 @@ export function getReplayState(
   gameId: string,
   asOf: string,
 ): ReplayMarketState {
-  const snapshot_history = getSnapshotHistory(gameId);
+  const snapshot_history = getSnapshotHistory(gameId, 200, asOf);
 
   const signals = getReplaySignals(gameId, asOf);
 

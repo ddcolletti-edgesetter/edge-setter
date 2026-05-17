@@ -3,6 +3,8 @@ export interface ReplayApiResponse {
   generated_at: string;
   game_id: string;
   as_of: string;
+  integrity_hash: string;
+  timeline_hash: string;
   snapshots: ReplaySnapshotContract[];
   signals: ReplaySignalContract[];
   timeline: ReplayTimelineEvent[];
