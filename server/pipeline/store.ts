@@ -262,6 +262,20 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
 
     CREATE INDEX IF NOT EXISTS idx_replay_divergence_history_integrity
       ON replay_divergence_history(integrity_status);
+    CREATE INDEX ...
+
+CREATE TABLE IF NOT EXISTS replay_archive_manifests (
+  ...
+);
+
+CREATE TABLE IF NOT EXISTS replay_archive_snapshots (
+  ...
+);
+
+CREATE TABLE IF NOT EXISTS replay_archive_verifications (
+  ...
+);
+
   `);
 
   // Migrate existing DBs that predate home_score/away_score columns on games
@@ -743,7 +757,68 @@ function deserializeReplayDivergenceHistory(row: any): ReplayDivergenceHistoryRe
     divergence_detected: row.divergence_detected === 1,
   };
 }
+export interface ReplayArchiveManifestRow {
+  id: number;
+  archive_id: string;
+  game_id: string;
 
+  created_at: string;
+
+  forensic_version: number;
+
+  snapshot_hash: string;
+  bundle_hash: string;
+
+  export_hash: string;
+  timeline_hash: string;
+  signal_hash: string;
+  settlement_hash: string;
+  provenance_hash: string;
+
+  compression: string;
+  bundle_size_bytes: number;
+
+  replay_count: number;
+
+  verification_status: string;
+  retention_class: string;
+
+  parent_archive_id: string | null;
+  root_archive_id: string | null;
+
+  revision_number: number;
+
+  tags_json: string;
+}
+
+export interface ReplayArchiveSnapshotRow {
+  id: number;
+  archive_id: string;
+
+  forensic_metadata_json: string;
+  forensic_payload_json: string;
+  generated_report_json: string;
+
+  canonical_hash: string;
+
+  created_at: string;
+}
+
+export interface ReplayArchiveVerificationRow {
+  id: number;
+
+  archive_id: string;
+
+  verified_at: string;
+
+  verification_hash: string;
+
+  verification_status: string;
+
+  mismatch_count: number;
+
+  details_json: string;
+}
 function buildReplayDivergenceHistoryId(
   replayHash: string,
   comparedAgainst: string | null,
