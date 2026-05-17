@@ -67,6 +67,14 @@ import {
   listReplayDivergenceAnalysisHistory,
 } from "./replay-divergence";
 import { propagateReplayConfidence } from "./replay-confidence";
+import {
+  buildLineageForensicPackage,
+  buildReplayAuditExportBundle,
+} from "./replay-forensic-export";
+import {
+  buildReplayConfidenceSummary,
+  buildReplayForensicOverview,
+} from "./replay-forensic-report";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
 
 function requireAdmin(req: Request, res: Response): boolean {
@@ -82,6 +90,10 @@ function requireAdmin(req: Request, res: Response): boolean {
 
 function routeParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
+function latestReplayHashForGame(gameId: string): string | null {
+  return listReplayAuditsByGameId(gameId)[0]?.replay_hash ?? null;
 }
 
 export function registerPipelineRoutes(app: Express) {
@@ -291,6 +303,78 @@ export function registerPipelineRoutes(app: Express) {
     if (!forensics) return res.status(404).json({ error: "Replay forensics not found" });
 
     return res.json(forensics);
+  });
+
+  /**
+   * GET /api/replay/:gameId/forensic/export
+   *
+   * Returns the latest replay forensic export bundle for a game.
+   */
+  app.get("/api/replay/:gameId/forensic/export", (req: Request, res: Response) => {
+    const gameId = routeParam(req.params.gameId);
+    if (!gameId) return res.status(400).json({ error: "gameId is required" });
+
+    const replayHash = latestReplayHashForGame(gameId);
+    if (!replayHash) return res.status(404).json({ error: "Replay audit not found for game" });
+
+    const bundle = buildReplayAuditExportBundle(replayHash);
+    if (!bundle) return res.status(404).json({ error: "Replay forensic export not found" });
+
+    return res.json(bundle);
+  });
+
+  /**
+   * GET /api/replay/:gameId/forensic/report
+   *
+   * Returns the latest replay forensic overview report for a game.
+   */
+  app.get("/api/replay/:gameId/forensic/report", (req: Request, res: Response) => {
+    const gameId = routeParam(req.params.gameId);
+    if (!gameId) return res.status(400).json({ error: "gameId is required" });
+
+    const replayHash = latestReplayHashForGame(gameId);
+    if (!replayHash) return res.status(404).json({ error: "Replay audit not found for game" });
+
+    const report = buildReplayForensicOverview(replayHash);
+    if (!report) return res.status(404).json({ error: "Replay forensic report not found" });
+
+    return res.json(report);
+  });
+
+  /**
+   * GET /api/replay/:gameId/forensic/lineage
+   *
+   * Returns the latest lineage-aware forensic package for a game.
+   */
+  app.get("/api/replay/:gameId/forensic/lineage", (req: Request, res: Response) => {
+    const gameId = routeParam(req.params.gameId);
+    if (!gameId) return res.status(400).json({ error: "gameId is required" });
+
+    const replayHash = latestReplayHashForGame(gameId);
+    if (!replayHash) return res.status(404).json({ error: "Replay audit not found for game" });
+
+    const lineage = buildLineageForensicPackage(replayHash);
+    if (!lineage) return res.status(404).json({ error: "Replay forensic lineage not found" });
+
+    return res.json(lineage);
+  });
+
+  /**
+   * GET /api/replay/:gameId/forensic/confidence
+   *
+   * Returns the latest replay forensic confidence summary for a game.
+   */
+  app.get("/api/replay/:gameId/forensic/confidence", (req: Request, res: Response) => {
+    const gameId = routeParam(req.params.gameId);
+    if (!gameId) return res.status(400).json({ error: "gameId is required" });
+
+    const replayHash = latestReplayHashForGame(gameId);
+    if (!replayHash) return res.status(404).json({ error: "Replay audit not found for game" });
+
+    const confidence = buildReplayConfidenceSummary(replayHash);
+    if (!confidence) return res.status(404).json({ error: "Replay forensic confidence not found" });
+
+    return res.json(confidence);
   });
 
   /**
