@@ -16,6 +16,18 @@ import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import type { Game, RawEvent, LiveSignal, Outcome } from "./types";
+import type {
+  ReplayAuditAnalyticsContract,
+  ReplayAuditAnalyticsRow,
+  ReplayEvolutionMetricContract,
+  ReplayEvolutionMetricRow,
+  ReplayForensicIntelligenceRecordContract,
+  ReplayForensicIntelligenceRecordRow,
+  ReplayIntelligenceSnapshotContract,
+  ReplayIntelligenceSnapshotRow,
+  ReplayLineageIntelligenceMetricContract,
+  ReplayLineageIntelligenceMetricRow,
+} from "./replay-intelligence-contract";
 import {
   markBackfillPhase as _markBackfillPhase,
   getBackfillPhase as _getBackfillPhase,
@@ -262,19 +274,174 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
 
     CREATE INDEX IF NOT EXISTS idx_replay_divergence_history_integrity
       ON replay_divergence_history(integrity_status);
-    CREATE INDEX ...
 
-CREATE TABLE IF NOT EXISTS replay_archive_manifests (
-  ...
-);
+    CREATE TABLE IF NOT EXISTS replay_archive_manifests (
+      id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+      archive_id                  TEXT NOT NULL UNIQUE,
+      game_id                     TEXT NOT NULL,
+      created_at                  TEXT NOT NULL,
+      forensic_version            INTEGER NOT NULL,
+      snapshot_hash               TEXT NOT NULL,
+      bundle_hash                 TEXT NOT NULL,
+      export_hash                 TEXT NOT NULL,
+      timeline_hash               TEXT NOT NULL,
+      signal_hash                 TEXT NOT NULL,
+      settlement_hash             TEXT NOT NULL,
+      provenance_hash             TEXT NOT NULL,
+      compression                 TEXT NOT NULL,
+      bundle_size_bytes           INTEGER NOT NULL,
+      replay_count                INTEGER NOT NULL,
+      verification_status         TEXT NOT NULL,
+      retention_class             TEXT NOT NULL,
+      parent_archive_id           TEXT,
+      root_archive_id             TEXT,
+      revision_number             INTEGER NOT NULL,
+      tags_json                   TEXT NOT NULL DEFAULT '[]'
+    );
 
-CREATE TABLE IF NOT EXISTS replay_archive_snapshots (
-  ...
-);
+    CREATE INDEX IF NOT EXISTS idx_replay_archive_manifests_game
+      ON replay_archive_manifests(game_id, created_at DESC, archive_id ASC);
 
-CREATE TABLE IF NOT EXISTS replay_archive_verifications (
-  ...
-);
+    CREATE INDEX IF NOT EXISTS idx_replay_archive_manifests_lineage
+      ON replay_archive_manifests(root_archive_id, parent_archive_id, created_at ASC);
+
+    CREATE TABLE IF NOT EXISTS replay_archive_snapshots (
+      id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+      archive_id                  TEXT NOT NULL,
+      forensic_metadata_json      TEXT NOT NULL,
+      forensic_payload_json       TEXT NOT NULL,
+      generated_report_json       TEXT NOT NULL,
+      canonical_hash              TEXT NOT NULL,
+      created_at                  TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_replay_archive_snapshots_archive
+      ON replay_archive_snapshots(archive_id, created_at DESC);
+
+    CREATE TABLE IF NOT EXISTS replay_archive_verifications (
+      id                          INTEGER PRIMARY KEY AUTOINCREMENT,
+      archive_id                  TEXT NOT NULL,
+      verified_at                 TEXT NOT NULL,
+      verification_hash           TEXT NOT NULL,
+      verification_status         TEXT NOT NULL,
+      mismatch_count              INTEGER NOT NULL,
+      details_json                TEXT NOT NULL DEFAULT '{}'
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_replay_archive_verifications_archive
+      ON replay_archive_verifications(archive_id, verified_at DESC);
+
+    CREATE TABLE IF NOT EXISTS replay_intelligence_snapshots (
+      snapshot_id                 TEXT PRIMARY KEY,
+      snapshot_kind               TEXT NOT NULL,
+      scope                       TEXT NOT NULL,
+      scope_id                    TEXT NOT NULL,
+      generated_at                TEXT NOT NULL,
+      deterministic_hash          TEXT NOT NULL,
+      report_version              INTEGER NOT NULL,
+      payload_json                TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_replay_intelligence_snapshots_scope
+      ON replay_intelligence_snapshots(scope, scope_id, generated_at DESC, snapshot_id ASC);
+
+    CREATE INDEX IF NOT EXISTS idx_replay_intelligence_snapshots_hash
+      ON replay_intelligence_snapshots(deterministic_hash);
+
+    CREATE TABLE IF NOT EXISTS replay_forensic_intelligence_records (
+      record_id                   TEXT PRIMARY KEY,
+      snapshot_id                 TEXT NOT NULL,
+      archive_id                  TEXT,
+      replay_hash                 TEXT,
+      game_id                     TEXT,
+      metric_name                 TEXT NOT NULL,
+      metric_value                REAL NOT NULL,
+      severity                    TEXT NOT NULL,
+      category                    TEXT NOT NULL,
+      observed_at                 TEXT NOT NULL,
+      deterministic_hash          TEXT NOT NULL,
+      details_json                TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_replay_forensic_intelligence_snapshot
+      ON replay_forensic_intelligence_records(snapshot_id, observed_at DESC, record_id ASC);
+
+    CREATE INDEX IF NOT EXISTS idx_replay_forensic_intelligence_archive
+      ON replay_forensic_intelligence_records(archive_id, observed_at DESC, record_id ASC);
+
+    CREATE INDEX IF NOT EXISTS idx_replay_forensic_intelligence_replay
+      ON replay_forensic_intelligence_records(replay_hash, observed_at DESC, record_id ASC);
+
+    CREATE TABLE IF NOT EXISTS replay_evolution_metrics (
+      metric_id                   TEXT PRIMARY KEY,
+      snapshot_id                 TEXT NOT NULL,
+      archive_id                  TEXT NOT NULL,
+      game_id                     TEXT NOT NULL,
+      replay_hash                 TEXT,
+      score                       REAL NOT NULL,
+      band                        TEXT NOT NULL,
+      drift_count                 INTEGER NOT NULL,
+      mutation_count              INTEGER NOT NULL,
+      lineage_depth               INTEGER NOT NULL,
+      critical_mismatch_count     INTEGER NOT NULL,
+      computed_at                 TEXT NOT NULL,
+      deterministic_hash          TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_replay_evolution_metrics_archive
+      ON replay_evolution_metrics(archive_id, computed_at DESC, metric_id ASC);
+
+    CREATE INDEX IF NOT EXISTS idx_replay_evolution_metrics_game
+      ON replay_evolution_metrics(game_id, score DESC, archive_id ASC);
+
+    CREATE TABLE IF NOT EXISTS replay_lineage_intelligence_metrics (
+      metric_id                   TEXT PRIMARY KEY,
+      snapshot_id                 TEXT NOT NULL,
+      root_archive_id             TEXT,
+      archive_id                  TEXT,
+      max_depth                   INTEGER NOT NULL,
+      average_depth               REAL NOT NULL,
+      root_archive_count          INTEGER NOT NULL,
+      leaf_archive_count          INTEGER NOT NULL,
+      cycle_detected              INTEGER NOT NULL,
+      complete                    INTEGER NOT NULL,
+      computed_at                 TEXT NOT NULL,
+      deterministic_hash          TEXT NOT NULL,
+      details_json                TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_replay_lineage_intelligence_root
+      ON replay_lineage_intelligence_metrics(root_archive_id, computed_at DESC, metric_id ASC);
+
+    CREATE INDEX IF NOT EXISTS idx_replay_lineage_intelligence_archive
+      ON replay_lineage_intelligence_metrics(archive_id, computed_at DESC, metric_id ASC);
+
+    CREATE TABLE IF NOT EXISTS replay_audit_analytics (
+      analytics_id                TEXT PRIMARY KEY,
+      snapshot_id                 TEXT NOT NULL,
+      scope                       TEXT NOT NULL,
+      scope_id                    TEXT NOT NULL,
+      window                      TEXT NOT NULL,
+      window_start                TEXT,
+      window_end                  TEXT,
+      archive_count               INTEGER NOT NULL,
+      replay_count                INTEGER NOT NULL,
+      verified_count              INTEGER NOT NULL,
+      failed_count                INTEGER NOT NULL,
+      diverged_count              INTEGER NOT NULL,
+      mutation_count              INTEGER NOT NULL,
+      drift_count                 INTEGER NOT NULL,
+      critical_mismatch_count     INTEGER NOT NULL,
+      computed_at                 TEXT NOT NULL,
+      deterministic_hash          TEXT NOT NULL,
+      details_json                TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_replay_audit_analytics_scope
+      ON replay_audit_analytics(scope, scope_id, computed_at DESC, analytics_id ASC);
+
+    CREATE INDEX IF NOT EXISTS idx_replay_audit_analytics_snapshot
+      ON replay_audit_analytics(snapshot_id, computed_at DESC, analytics_id ASC);
 
   `);
 
@@ -825,6 +992,730 @@ function buildReplayDivergenceHistoryId(
   analyzedAt: string,
 ): string {
   return `${replayHash}|${comparedAgainst ?? "none"}|${analyzedAt}`;
+}
+
+export function upsertReplayIntelligenceSnapshot(
+  snapshot: ReplayIntelligenceSnapshotContract,
+): ReplayIntelligenceSnapshotRow {
+  const db = getPipelineDb();
+  const payloadJson = stableStoreJsonStringify(snapshot);
+
+  db.prepare(`
+    INSERT INTO replay_intelligence_snapshots (
+      snapshot_id,
+      snapshot_kind,
+      scope,
+      scope_id,
+      generated_at,
+      deterministic_hash,
+      report_version,
+      payload_json
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(snapshot_id) DO UPDATE SET
+      snapshot_kind=excluded.snapshot_kind,
+      scope=excluded.scope,
+      scope_id=excluded.scope_id,
+      generated_at=excluded.generated_at,
+      deterministic_hash=excluded.deterministic_hash,
+      report_version=excluded.report_version,
+      payload_json=excluded.payload_json
+  `).run(
+    snapshot.snapshot_id,
+    snapshot.snapshot_kind,
+    snapshot.scope,
+    snapshot.scope_id,
+    snapshot.generated_at,
+    snapshot.deterministic_hash,
+    snapshot.report_version,
+    payloadJson,
+  );
+
+  return getReplayIntelligenceSnapshot(snapshot.snapshot_id) as ReplayIntelligenceSnapshotRow;
+}
+
+export function getReplayIntelligenceSnapshot(
+  snapshotId: string,
+): ReplayIntelligenceSnapshotRow | null {
+  const row = getPipelineDb().prepare(`
+    SELECT
+      snapshot_id,
+      snapshot_kind,
+      scope,
+      scope_id,
+      generated_at,
+      deterministic_hash,
+      report_version,
+      payload_json
+    FROM replay_intelligence_snapshots
+    WHERE snapshot_id = ?
+    LIMIT 1
+  `).get(snapshotId);
+
+  return row ? deserializeReplayIntelligenceSnapshot(row) : null;
+}
+
+export function listReplayIntelligenceSnapshots(
+  scope: string,
+  scopeId: string,
+): ReplayIntelligenceSnapshotRow[] {
+  const rows = getPipelineDb().prepare(`
+    SELECT
+      snapshot_id,
+      snapshot_kind,
+      scope,
+      scope_id,
+      generated_at,
+      deterministic_hash,
+      report_version,
+      payload_json
+    FROM replay_intelligence_snapshots
+    WHERE scope = ? AND scope_id = ?
+    ORDER BY generated_at DESC, snapshot_id ASC
+  `).all(scope, scopeId);
+
+  return rows.map(deserializeReplayIntelligenceSnapshot);
+}
+
+export function upsertReplayForensicIntelligenceRecord(
+  record: ReplayForensicIntelligenceRecordContract,
+): ReplayForensicIntelligenceRecordRow {
+  const db = getPipelineDb();
+  const detailsJson = stableStoreJsonStringify(record.details);
+
+  db.prepare(`
+    INSERT INTO replay_forensic_intelligence_records (
+      record_id,
+      snapshot_id,
+      archive_id,
+      replay_hash,
+      game_id,
+      metric_name,
+      metric_value,
+      severity,
+      category,
+      observed_at,
+      deterministic_hash,
+      details_json
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(record_id) DO UPDATE SET
+      snapshot_id=excluded.snapshot_id,
+      archive_id=excluded.archive_id,
+      replay_hash=excluded.replay_hash,
+      game_id=excluded.game_id,
+      metric_name=excluded.metric_name,
+      metric_value=excluded.metric_value,
+      severity=excluded.severity,
+      category=excluded.category,
+      observed_at=excluded.observed_at,
+      deterministic_hash=excluded.deterministic_hash,
+      details_json=excluded.details_json
+  `).run(
+    record.record_id,
+    record.snapshot_id,
+    record.archive_id,
+    record.replay_hash,
+    record.game_id,
+    record.metric_name,
+    record.metric_value,
+    record.severity,
+    record.category,
+    record.observed_at,
+    record.deterministic_hash,
+    detailsJson,
+  );
+
+  return getReplayForensicIntelligenceRecord(record.record_id) as ReplayForensicIntelligenceRecordRow;
+}
+
+export function getReplayForensicIntelligenceRecord(
+  recordId: string,
+): ReplayForensicIntelligenceRecordRow | null {
+  const row = getPipelineDb().prepare(`
+    SELECT
+      record_id,
+      snapshot_id,
+      archive_id,
+      replay_hash,
+      game_id,
+      metric_name,
+      metric_value,
+      severity,
+      category,
+      observed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_forensic_intelligence_records
+    WHERE record_id = ?
+    LIMIT 1
+  `).get(recordId);
+
+  return row ? deserializeReplayForensicIntelligenceRecord(row) : null;
+}
+
+export function listReplayForensicIntelligenceBySnapshot(
+  snapshotId: string,
+): ReplayForensicIntelligenceRecordRow[] {
+  const rows = getPipelineDb().prepare(`
+    SELECT
+      record_id,
+      snapshot_id,
+      archive_id,
+      replay_hash,
+      game_id,
+      metric_name,
+      metric_value,
+      severity,
+      category,
+      observed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_forensic_intelligence_records
+    WHERE snapshot_id = ?
+    ORDER BY observed_at DESC, record_id ASC
+  `).all(snapshotId);
+
+  return rows.map(deserializeReplayForensicIntelligenceRecord);
+}
+
+export function listReplayForensicIntelligenceByArchive(
+  archiveId: string,
+): ReplayForensicIntelligenceRecordRow[] {
+  const rows = getPipelineDb().prepare(`
+    SELECT
+      record_id,
+      snapshot_id,
+      archive_id,
+      replay_hash,
+      game_id,
+      metric_name,
+      metric_value,
+      severity,
+      category,
+      observed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_forensic_intelligence_records
+    WHERE archive_id = ?
+    ORDER BY observed_at DESC, record_id ASC
+  `).all(archiveId);
+
+  return rows.map(deserializeReplayForensicIntelligenceRecord);
+}
+
+export function listReplayForensicIntelligenceByReplayHash(
+  replayHash: string,
+): ReplayForensicIntelligenceRecordRow[] {
+  const rows = getPipelineDb().prepare(`
+    SELECT
+      record_id,
+      snapshot_id,
+      archive_id,
+      replay_hash,
+      game_id,
+      metric_name,
+      metric_value,
+      severity,
+      category,
+      observed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_forensic_intelligence_records
+    WHERE replay_hash = ?
+    ORDER BY observed_at DESC, record_id ASC
+  `).all(replayHash);
+
+  return rows.map(deserializeReplayForensicIntelligenceRecord);
+}
+
+export function upsertReplayEvolutionMetric(
+  metric: ReplayEvolutionMetricContract,
+): ReplayEvolutionMetricRow {
+  const db = getPipelineDb();
+
+  db.prepare(`
+    INSERT INTO replay_evolution_metrics (
+      metric_id,
+      snapshot_id,
+      archive_id,
+      game_id,
+      replay_hash,
+      score,
+      band,
+      drift_count,
+      mutation_count,
+      lineage_depth,
+      critical_mismatch_count,
+      computed_at,
+      deterministic_hash
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(metric_id) DO UPDATE SET
+      snapshot_id=excluded.snapshot_id,
+      archive_id=excluded.archive_id,
+      game_id=excluded.game_id,
+      replay_hash=excluded.replay_hash,
+      score=excluded.score,
+      band=excluded.band,
+      drift_count=excluded.drift_count,
+      mutation_count=excluded.mutation_count,
+      lineage_depth=excluded.lineage_depth,
+      critical_mismatch_count=excluded.critical_mismatch_count,
+      computed_at=excluded.computed_at,
+      deterministic_hash=excluded.deterministic_hash
+  `).run(
+    metric.metric_id,
+    metric.snapshot_id,
+    metric.archive_id,
+    metric.game_id,
+    metric.replay_hash,
+    metric.score,
+    metric.band,
+    metric.drift_count,
+    metric.mutation_count,
+    metric.lineage_depth,
+    metric.critical_mismatch_count,
+    metric.computed_at,
+    metric.deterministic_hash,
+  );
+
+  return getReplayEvolutionMetric(metric.metric_id) as ReplayEvolutionMetricRow;
+}
+
+export function getReplayEvolutionMetric(
+  metricId: string,
+): ReplayEvolutionMetricRow | null {
+  return (getPipelineDb().prepare(`
+    SELECT
+      metric_id,
+      snapshot_id,
+      archive_id,
+      game_id,
+      replay_hash,
+      score,
+      band,
+      drift_count,
+      mutation_count,
+      lineage_depth,
+      critical_mismatch_count,
+      computed_at,
+      deterministic_hash
+    FROM replay_evolution_metrics
+    WHERE metric_id = ?
+    LIMIT 1
+  `).get(metricId) as ReplayEvolutionMetricRow | undefined) ?? null;
+}
+
+export function getLatestReplayEvolutionMetricByArchive(
+  archiveId: string,
+): ReplayEvolutionMetricRow | null {
+  return (getPipelineDb().prepare(`
+    SELECT
+      metric_id,
+      snapshot_id,
+      archive_id,
+      game_id,
+      replay_hash,
+      score,
+      band,
+      drift_count,
+      mutation_count,
+      lineage_depth,
+      critical_mismatch_count,
+      computed_at,
+      deterministic_hash
+    FROM replay_evolution_metrics
+    WHERE archive_id = ?
+    ORDER BY computed_at DESC, metric_id ASC
+    LIMIT 1
+  `).get(archiveId) as ReplayEvolutionMetricRow | undefined) ?? null;
+}
+
+export function listReplayEvolutionMetricsByGame(
+  gameId: string,
+): ReplayEvolutionMetricRow[] {
+  return getPipelineDb().prepare(`
+    SELECT
+      metric_id,
+      snapshot_id,
+      archive_id,
+      game_id,
+      replay_hash,
+      score,
+      band,
+      drift_count,
+      mutation_count,
+      lineage_depth,
+      critical_mismatch_count,
+      computed_at,
+      deterministic_hash
+    FROM replay_evolution_metrics
+    WHERE game_id = ?
+    ORDER BY score DESC, archive_id ASC, metric_id ASC
+  `).all(gameId) as ReplayEvolutionMetricRow[];
+}
+
+export function upsertReplayLineageIntelligenceMetric(
+  metric: ReplayLineageIntelligenceMetricContract,
+): ReplayLineageIntelligenceMetricRow {
+  const db = getPipelineDb();
+  const detailsJson = stableStoreJsonStringify(metric.details);
+
+  db.prepare(`
+    INSERT INTO replay_lineage_intelligence_metrics (
+      metric_id,
+      snapshot_id,
+      root_archive_id,
+      archive_id,
+      max_depth,
+      average_depth,
+      root_archive_count,
+      leaf_archive_count,
+      cycle_detected,
+      complete,
+      computed_at,
+      deterministic_hash,
+      details_json
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(metric_id) DO UPDATE SET
+      snapshot_id=excluded.snapshot_id,
+      root_archive_id=excluded.root_archive_id,
+      archive_id=excluded.archive_id,
+      max_depth=excluded.max_depth,
+      average_depth=excluded.average_depth,
+      root_archive_count=excluded.root_archive_count,
+      leaf_archive_count=excluded.leaf_archive_count,
+      cycle_detected=excluded.cycle_detected,
+      complete=excluded.complete,
+      computed_at=excluded.computed_at,
+      deterministic_hash=excluded.deterministic_hash,
+      details_json=excluded.details_json
+  `).run(
+    metric.metric_id,
+    metric.snapshot_id,
+    metric.root_archive_id,
+    metric.archive_id,
+    metric.max_depth,
+    metric.average_depth,
+    metric.root_archive_count,
+    metric.leaf_archive_count,
+    metric.cycle_detected ? 1 : 0,
+    metric.complete ? 1 : 0,
+    metric.computed_at,
+    metric.deterministic_hash,
+    detailsJson,
+  );
+
+  return getReplayLineageIntelligenceMetric(metric.metric_id) as ReplayLineageIntelligenceMetricRow;
+}
+
+export function getReplayLineageIntelligenceMetric(
+  metricId: string,
+): ReplayLineageIntelligenceMetricRow | null {
+  const row = getPipelineDb().prepare(`
+    SELECT
+      metric_id,
+      snapshot_id,
+      root_archive_id,
+      archive_id,
+      max_depth,
+      average_depth,
+      root_archive_count,
+      leaf_archive_count,
+      cycle_detected,
+      complete,
+      computed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_lineage_intelligence_metrics
+    WHERE metric_id = ?
+    LIMIT 1
+  `).get(metricId);
+
+  return row ? deserializeReplayLineageIntelligenceMetric(row) : null;
+}
+
+export function listReplayLineageIntelligenceByRootArchive(
+  rootArchiveId: string,
+): ReplayLineageIntelligenceMetricRow[] {
+  const rows = getPipelineDb().prepare(`
+    SELECT
+      metric_id,
+      snapshot_id,
+      root_archive_id,
+      archive_id,
+      max_depth,
+      average_depth,
+      root_archive_count,
+      leaf_archive_count,
+      cycle_detected,
+      complete,
+      computed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_lineage_intelligence_metrics
+    WHERE root_archive_id = ?
+    ORDER BY computed_at DESC, metric_id ASC
+  `).all(rootArchiveId);
+
+  return rows.map(deserializeReplayLineageIntelligenceMetric);
+}
+
+export function getLatestReplayLineageIntelligenceByArchive(
+  archiveId: string,
+): ReplayLineageIntelligenceMetricRow | null {
+  const row = getPipelineDb().prepare(`
+    SELECT
+      metric_id,
+      snapshot_id,
+      root_archive_id,
+      archive_id,
+      max_depth,
+      average_depth,
+      root_archive_count,
+      leaf_archive_count,
+      cycle_detected,
+      complete,
+      computed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_lineage_intelligence_metrics
+    WHERE archive_id = ?
+    ORDER BY computed_at DESC, metric_id ASC
+    LIMIT 1
+  `).get(archiveId);
+
+  return row ? deserializeReplayLineageIntelligenceMetric(row) : null;
+}
+
+export function upsertReplayAuditAnalytics(
+  analytics: ReplayAuditAnalyticsContract,
+): ReplayAuditAnalyticsRow {
+  const db = getPipelineDb();
+  const detailsJson = stableStoreJsonStringify(analytics.details);
+
+  db.prepare(`
+    INSERT INTO replay_audit_analytics (
+      analytics_id,
+      snapshot_id,
+      scope,
+      scope_id,
+      window,
+      window_start,
+      window_end,
+      archive_count,
+      replay_count,
+      verified_count,
+      failed_count,
+      diverged_count,
+      mutation_count,
+      drift_count,
+      critical_mismatch_count,
+      computed_at,
+      deterministic_hash,
+      details_json
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(analytics_id) DO UPDATE SET
+      snapshot_id=excluded.snapshot_id,
+      scope=excluded.scope,
+      scope_id=excluded.scope_id,
+      window=excluded.window,
+      window_start=excluded.window_start,
+      window_end=excluded.window_end,
+      archive_count=excluded.archive_count,
+      replay_count=excluded.replay_count,
+      verified_count=excluded.verified_count,
+      failed_count=excluded.failed_count,
+      diverged_count=excluded.diverged_count,
+      mutation_count=excluded.mutation_count,
+      drift_count=excluded.drift_count,
+      critical_mismatch_count=excluded.critical_mismatch_count,
+      computed_at=excluded.computed_at,
+      deterministic_hash=excluded.deterministic_hash,
+      details_json=excluded.details_json
+  `).run(
+    analytics.analytics_id,
+    analytics.snapshot_id,
+    analytics.scope,
+    analytics.scope_id,
+    analytics.window,
+    analytics.window_start,
+    analytics.window_end,
+    analytics.archive_count,
+    analytics.replay_count,
+    analytics.verified_count,
+    analytics.failed_count,
+    analytics.diverged_count,
+    analytics.mutation_count,
+    analytics.drift_count,
+    analytics.critical_mismatch_count,
+    analytics.computed_at,
+    analytics.deterministic_hash,
+    detailsJson,
+  );
+
+  return getReplayAuditAnalytics(analytics.analytics_id) as ReplayAuditAnalyticsRow;
+}
+
+export function getReplayAuditAnalytics(
+  analyticsId: string,
+): ReplayAuditAnalyticsRow | null {
+  const row = getPipelineDb().prepare(`
+    SELECT
+      analytics_id,
+      snapshot_id,
+      scope,
+      scope_id,
+      window,
+      window_start,
+      window_end,
+      archive_count,
+      replay_count,
+      verified_count,
+      failed_count,
+      diverged_count,
+      mutation_count,
+      drift_count,
+      critical_mismatch_count,
+      computed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_audit_analytics
+    WHERE analytics_id = ?
+    LIMIT 1
+  `).get(analyticsId);
+
+  return row ? deserializeReplayAuditAnalytics(row) : null;
+}
+
+export function listReplayAuditAnalytics(
+  scope: string,
+  scopeId: string,
+): ReplayAuditAnalyticsRow[] {
+  const rows = getPipelineDb().prepare(`
+    SELECT
+      analytics_id,
+      snapshot_id,
+      scope,
+      scope_id,
+      window,
+      window_start,
+      window_end,
+      archive_count,
+      replay_count,
+      verified_count,
+      failed_count,
+      diverged_count,
+      mutation_count,
+      drift_count,
+      critical_mismatch_count,
+      computed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_audit_analytics
+    WHERE scope = ? AND scope_id = ?
+    ORDER BY computed_at DESC, analytics_id ASC
+  `).all(scope, scopeId);
+
+  return rows.map(deserializeReplayAuditAnalytics);
+}
+
+export function listReplayAuditAnalyticsBySnapshot(
+  snapshotId: string,
+): ReplayAuditAnalyticsRow[] {
+  const rows = getPipelineDb().prepare(`
+    SELECT
+      analytics_id,
+      snapshot_id,
+      scope,
+      scope_id,
+      window,
+      window_start,
+      window_end,
+      archive_count,
+      replay_count,
+      verified_count,
+      failed_count,
+      diverged_count,
+      mutation_count,
+      drift_count,
+      critical_mismatch_count,
+      computed_at,
+      deterministic_hash,
+      details_json
+    FROM replay_audit_analytics
+    WHERE snapshot_id = ?
+    ORDER BY computed_at DESC, analytics_id ASC
+  `).all(snapshotId);
+
+  return rows.map(deserializeReplayAuditAnalytics);
+}
+
+function deserializeReplayIntelligenceSnapshot(row: any): ReplayIntelligenceSnapshotRow {
+  const payload = parseReplayStoreJson(row.payload_json) as ReplayIntelligenceSnapshotContract;
+
+  return {
+    ...payload,
+    snapshot_id: row.snapshot_id,
+    snapshot_kind: row.snapshot_kind,
+    scope: row.scope,
+    scope_id: row.scope_id,
+    generated_at: row.generated_at,
+    deterministic_hash: row.deterministic_hash,
+    report_version: row.report_version,
+    payload_json: row.payload_json,
+  };
+}
+
+function deserializeReplayForensicIntelligenceRecord(row: any): ReplayForensicIntelligenceRecordRow {
+  return {
+    ...row,
+    details: parseReplayStoreJson(row.details_json),
+  };
+}
+
+function deserializeReplayLineageIntelligenceMetric(row: any): ReplayLineageIntelligenceMetricRow {
+  return {
+    ...row,
+    cycle_detected: row.cycle_detected === 1,
+    complete: row.complete === 1,
+    details: parseReplayStoreJson(row.details_json),
+  };
+}
+
+function deserializeReplayAuditAnalytics(row: any): ReplayAuditAnalyticsRow {
+  return {
+    ...row,
+    details: parseReplayStoreJson(row.details_json),
+  };
+}
+
+function stableStoreJsonStringify(value: unknown): string {
+  return JSON.stringify(sortReplayStoreJson(value));
+}
+
+function sortReplayStoreJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortReplayStoreJson);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.keys(value as Record<string, unknown>)
+      .sort()
+      .reduce<Record<string, unknown>>((acc, key) => {
+        acc[key] = sortReplayStoreJson((value as Record<string, unknown>)[key]);
+        return acc;
+      }, {});
+  }
+
+  return value;
+}
+
+function parseReplayStoreJson(value: string): any {
+  return JSON.parse(value);
 }
 export function insertOddsSnapshot(data: {
   game_id: string;

@@ -36,6 +36,17 @@ import {
   getReplayProvenance,
   listReplayLineageChildren,
   listReplayLineageParents,
+  getReplayIntelligenceSnapshot,
+  listReplayIntelligenceSnapshots,
+  listReplayForensicIntelligenceBySnapshot,
+  listReplayForensicIntelligenceByArchive,
+  listReplayForensicIntelligenceByReplayHash,
+  getLatestReplayEvolutionMetricByArchive,
+  listReplayEvolutionMetricsByGame,
+  listReplayLineageIntelligenceByRootArchive,
+  getLatestReplayLineageIntelligenceByArchive,
+  listReplayAuditAnalytics,
+  listReplayAuditAnalyticsBySnapshot,
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
@@ -60,6 +71,25 @@ import type {
   ReplayVerificationHistoryResponse,
   ReplayVerificationLatestResponse,
 } from "./replay-contract";
+import type {
+  ReplayAuditAnalyticsSummaryResponse,
+  ReplayDriftIntelligenceSummaryResponse,
+  ReplayEvolutionAnalyticsResponse,
+  ReplayForensicIntelligenceFilter,
+  ReplayForensicIntelligenceLookupResponse,
+  ReplayIntelligenceApiEnvelope,
+  ReplayIntelligenceApiError,
+  ReplayIntelligenceApiPageInfo,
+  ReplayIntelligenceApiPagination,
+  ReplayIntelligenceSnapshotListResponse,
+  ReplayIntelligenceSnapshotLookupResponse,
+  ReplayLineageIntelligenceAnalyticsResponse,
+  ReplayMutationTrendAnalyticsResponse,
+} from "./replay-intelligence-api-contract";
+import type {
+  ReplayForensicIntelligenceRecordRow,
+  ReplayIntelligenceRecordScope,
+} from "./replay-intelligence-contract";
 import {
   analyzeReplayDivergence,
   getLatestReplayDivergenceAnalysis,
@@ -96,6 +126,108 @@ function latestReplayHashForGame(gameId: string): string | null {
   return listReplayAuditsByGameId(gameId)[0]?.replay_hash ?? null;
 }
 
+function queryString(req: Request, key: string): string | null {
+  const value = req.query[key];
+  if (typeof value === "string") return value;
+  if (Array.isArray(value) && typeof value[0] === "string") return value[0];
+  return null;
+}
+
+function replayIntelligencePagination(req: Request): ReplayIntelligenceApiPagination {
+  const rawLimit = Number(queryString(req, "limit") ?? 50);
+  return {
+    limit: Number.isFinite(rawLimit) ? Math.max(0, Math.min(rawLimit, 500)) : 50,
+    cursor: queryString(req, "cursor"),
+  };
+}
+
+function paginateReplayIntelligenceRows<T>(
+  rows: readonly T[],
+  pagination: ReplayIntelligenceApiPagination,
+  getCursor: (row: T) => string,
+): { rows: readonly T[]; pageInfo: ReplayIntelligenceApiPageInfo } {
+  const start = pagination.cursor
+    ? rows.findIndex((row) => getCursor(row) === pagination.cursor) + 1
+    : 0;
+  const safeStart = Math.max(0, start);
+  const pageRows = rows.slice(safeStart, safeStart + pagination.limit);
+  const end = safeStart + pageRows.length;
+
+  return {
+    rows: pageRows,
+    pageInfo: {
+      limit: pagination.limit,
+      next_cursor:
+        end < rows.length && pageRows.length > 0
+          ? getCursor(pageRows[pageRows.length - 1] as T)
+          : null,
+      has_next_page: end < rows.length,
+    },
+  };
+}
+
+function replayIntelligenceEnvelope<TData>(
+  req: Request,
+  data: TData | null,
+  deterministicHash: string,
+  pageInfo: ReplayIntelligenceApiPageInfo | null = null,
+): ReplayIntelligenceApiEnvelope<TData> {
+  return {
+    status: data ? "ok" : "empty",
+    metadata: {
+      generated_at: queryString(req, "generated_at") ?? "",
+      deterministic_hash: deterministicHash,
+      request_id: queryString(req, "request_id"),
+      page_info: pageInfo,
+    },
+    data,
+    errors: [],
+  };
+}
+
+function replayIntelligenceErrorEnvelope(
+  req: Request,
+  status: "empty" | "error",
+  error: ReplayIntelligenceApiError,
+): ReplayIntelligenceApiEnvelope<null> {
+  return {
+    status,
+    metadata: {
+      generated_at: queryString(req, "generated_at") ?? "",
+      deterministic_hash: error.code,
+      request_id: queryString(req, "request_id"),
+      page_info: null,
+    },
+    data: null,
+    errors: [error],
+  };
+}
+
+function replayIntelligenceError(
+  code: ReplayIntelligenceApiError["code"],
+  message: string,
+  field: string | null,
+): ReplayIntelligenceApiError {
+  return {
+    code,
+    message,
+    field,
+    severity: code === "not_found" ? "warning" : "critical",
+    deterministic: true,
+    details: {},
+  };
+}
+
+function filterForensicIntelligenceRecords(
+  records: readonly ReplayForensicIntelligenceRecordRow[],
+  filter: ReplayForensicIntelligenceFilter,
+): readonly ReplayForensicIntelligenceRecordRow[] {
+  return records.filter((record) =>
+    (!filter.severity || record.severity === filter.severity) &&
+    (!filter.category || record.category === filter.category),
+  );
+}
+
 export function registerPipelineRoutes(app: Express) {
 
   /* ══════════════════════════════════════════════════════
@@ -106,6 +238,297 @@ export function registerPipelineRoutes(app: Express) {
    *
    * Lists persisted replay audits for a game, newest first.
    */
+  app.get("/api/replay/intelligence/snapshot/:snapshotId", (req: Request, res: Response) => {
+    const snapshotId = routeParam(req.params.snapshotId);
+    if (!snapshotId) {
+      return res.status(400).json(replayIntelligenceErrorEnvelope(
+        req,
+        "error",
+        replayIntelligenceError("invalid_request", "snapshotId is required", "snapshotId"),
+      ));
+    }
+
+    const snapshot = getReplayIntelligenceSnapshot(snapshotId);
+    if (!snapshot) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence snapshot not found", "snapshotId"),
+      ));
+    }
+
+    const response: ReplayIntelligenceSnapshotLookupResponse = { snapshot };
+    return res.json(replayIntelligenceEnvelope(req, response, snapshot.deterministic_hash));
+  });
+
+  app.get("/api/replay/intelligence/snapshots/:scope/:scopeId", (req: Request, res: Response) => {
+    const scope = routeParam(req.params.scope) as ReplayIntelligenceRecordScope;
+    const scopeId = routeParam(req.params.scopeId);
+    const pagination = replayIntelligencePagination(req);
+    const snapshots = listReplayIntelligenceSnapshots(scope, scopeId);
+    const page = paginateReplayIntelligenceRows(
+      snapshots,
+      pagination,
+      (snapshot) => snapshot.snapshot_id,
+    );
+    const response: ReplayIntelligenceSnapshotListResponse = {
+      scope,
+      scope_id: scopeId,
+      count: page.rows.length,
+      snapshots: page.rows,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      snapshots.map((snapshot) => snapshot.deterministic_hash).join("|"),
+      page.pageInfo,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/forensic/snapshot/:snapshotId", (req: Request, res: Response) => {
+    const snapshotId = routeParam(req.params.snapshotId);
+    const filter: ReplayForensicIntelligenceFilter = {
+      snapshot_id: snapshotId,
+      archive_id: null,
+      replay_hash: null,
+      severity: queryString(req, "severity") as ReplayForensicIntelligenceFilter["severity"],
+      category: queryString(req, "category"),
+    };
+    const pagination = replayIntelligencePagination(req);
+    const records = filterForensicIntelligenceRecords(
+      listReplayForensicIntelligenceBySnapshot(snapshotId),
+      filter,
+    );
+    const page = paginateReplayIntelligenceRows(records, pagination, (record) => record.record_id);
+    const response: ReplayForensicIntelligenceLookupResponse = {
+      filters: filter,
+      count: page.rows.length,
+      records: page.rows,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      records.map((record) => record.deterministic_hash).join("|"),
+      page.pageInfo,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/forensic/archive/:archiveId", (req: Request, res: Response) => {
+    const archiveId = routeParam(req.params.archiveId);
+    const filter: ReplayForensicIntelligenceFilter = {
+      snapshot_id: null,
+      archive_id: archiveId,
+      replay_hash: null,
+      severity: queryString(req, "severity") as ReplayForensicIntelligenceFilter["severity"],
+      category: queryString(req, "category"),
+    };
+    const pagination = replayIntelligencePagination(req);
+    const records = filterForensicIntelligenceRecords(
+      listReplayForensicIntelligenceByArchive(archiveId),
+      filter,
+    );
+    const page = paginateReplayIntelligenceRows(records, pagination, (record) => record.record_id);
+    const response: ReplayForensicIntelligenceLookupResponse = {
+      filters: filter,
+      count: page.rows.length,
+      records: page.rows,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      records.map((record) => record.deterministic_hash).join("|"),
+      page.pageInfo,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/forensic/replay/:replayHash", (req: Request, res: Response) => {
+    const replayHash = routeParam(req.params.replayHash);
+    const filter: ReplayForensicIntelligenceFilter = {
+      snapshot_id: null,
+      archive_id: null,
+      replay_hash: replayHash,
+      severity: queryString(req, "severity") as ReplayForensicIntelligenceFilter["severity"],
+      category: queryString(req, "category"),
+    };
+    const pagination = replayIntelligencePagination(req);
+    const records = filterForensicIntelligenceRecords(
+      listReplayForensicIntelligenceByReplayHash(replayHash),
+      filter,
+    );
+    const page = paginateReplayIntelligenceRows(records, pagination, (record) => record.record_id);
+    const response: ReplayForensicIntelligenceLookupResponse = {
+      filters: filter,
+      count: page.rows.length,
+      records: page.rows,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      records.map((record) => record.deterministic_hash).join("|"),
+      page.pageInfo,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/evolution/archive/:archiveId/latest", (req: Request, res: Response) => {
+    const archiveId = routeParam(req.params.archiveId);
+    const metric = getLatestReplayEvolutionMetricByArchive(archiveId);
+    const response: ReplayEvolutionAnalyticsResponse = {
+      archive_id: archiveId,
+      game_id: metric?.game_id ?? null,
+      count: metric ? 1 : 0,
+      metrics: metric ? [metric] : [],
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      metric?.deterministic_hash ?? `empty|${archiveId}`,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/evolution/game/:gameId", (req: Request, res: Response) => {
+    const gameId = routeParam(req.params.gameId);
+    const pagination = replayIntelligencePagination(req);
+    const metrics = listReplayEvolutionMetricsByGame(gameId);
+    const page = paginateReplayIntelligenceRows(metrics, pagination, (metric) => metric.metric_id);
+    const response: ReplayEvolutionAnalyticsResponse = {
+      archive_id: null,
+      game_id: gameId,
+      count: page.rows.length,
+      metrics: page.rows,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      metrics.map((metric) => metric.deterministic_hash).join("|"),
+      page.pageInfo,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/lineage/root/:rootArchiveId", (req: Request, res: Response) => {
+    const rootArchiveId = routeParam(req.params.rootArchiveId);
+    const pagination = replayIntelligencePagination(req);
+    const metrics = listReplayLineageIntelligenceByRootArchive(rootArchiveId);
+    const page = paginateReplayIntelligenceRows(metrics, pagination, (metric) => metric.metric_id);
+    const response: ReplayLineageIntelligenceAnalyticsResponse = {
+      root_archive_id: rootArchiveId,
+      archive_id: null,
+      count: page.rows.length,
+      metrics: page.rows,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      metrics.map((metric) => metric.deterministic_hash).join("|"),
+      page.pageInfo,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/lineage/archive/:archiveId/latest", (req: Request, res: Response) => {
+    const archiveId = routeParam(req.params.archiveId);
+    const metric = getLatestReplayLineageIntelligenceByArchive(archiveId);
+    const response: ReplayLineageIntelligenceAnalyticsResponse = {
+      root_archive_id: metric?.root_archive_id ?? null,
+      archive_id: archiveId,
+      count: metric ? 1 : 0,
+      metrics: metric ? [metric] : [],
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      metric?.deterministic_hash ?? `empty|${archiveId}`,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/audit/snapshot/:snapshotId", (req: Request, res: Response) => {
+    const snapshotId = routeParam(req.params.snapshotId);
+    const pagination = replayIntelligencePagination(req);
+    const analytics = listReplayAuditAnalyticsBySnapshot(snapshotId);
+    const page = paginateReplayIntelligenceRows(analytics, pagination, (row) => row.analytics_id);
+    const response: ReplayAuditAnalyticsSummaryResponse = {
+      scope: null,
+      scope_id: null,
+      snapshot_id: snapshotId,
+      count: page.rows.length,
+      analytics: page.rows,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      analytics.map((row) => row.deterministic_hash).join("|"),
+      page.pageInfo,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/audit/:scope/:scopeId", (req: Request, res: Response) => {
+    const scope = routeParam(req.params.scope) as ReplayIntelligenceRecordScope;
+    const scopeId = routeParam(req.params.scopeId);
+    const pagination = replayIntelligencePagination(req);
+    const analytics = listReplayAuditAnalytics(scope, scopeId);
+    const page = paginateReplayIntelligenceRows(analytics, pagination, (row) => row.analytics_id);
+    const response: ReplayAuditAnalyticsSummaryResponse = {
+      scope,
+      scope_id: scopeId,
+      snapshot_id: null,
+      count: page.rows.length,
+      analytics: page.rows,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      analytics.map((row) => row.deterministic_hash).join("|"),
+      page.pageInfo,
+    ));
+  });
+
+  app.get("/api/replay/intelligence/mutations/snapshot/:snapshotId/trends", (req: Request, res: Response) => {
+    const snapshotId = routeParam(req.params.snapshotId);
+    const snapshot = getReplayIntelligenceSnapshot(snapshotId);
+    if (!snapshot) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence snapshot not found", "snapshotId"),
+      ));
+    }
+
+    const response: ReplayMutationTrendAnalyticsResponse = {
+      snapshot_id: snapshotId,
+      count: snapshot.mutation_frequency.length,
+      mutation_frequency: snapshot.mutation_frequency,
+    };
+
+    return res.json(replayIntelligenceEnvelope(req, response, snapshot.deterministic_hash));
+  });
+
+  app.get("/api/replay/intelligence/drift/snapshot/:snapshotId/summary", (req: Request, res: Response) => {
+    const snapshotId = routeParam(req.params.snapshotId);
+    const snapshot = getReplayIntelligenceSnapshot(snapshotId);
+    if (!snapshot) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence snapshot not found", "snapshotId"),
+      ));
+    }
+
+    const response: ReplayDriftIntelligenceSummaryResponse = {
+      snapshot_id: snapshotId,
+      drift_trends: snapshot.drift_trends,
+    };
+
+    return res.json(replayIntelligenceEnvelope(req, response, snapshot.deterministic_hash));
+  });
+
   app.get("/api/replay/audits/:gameId", (req: Request, res: Response) => {
     const gameId = routeParam(req.params.gameId);
     if (!gameId) return res.status(400).json({ error: "gameId is required" });
