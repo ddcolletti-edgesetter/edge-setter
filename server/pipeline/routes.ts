@@ -114,6 +114,13 @@ import {
   buildReplayIntelligenceTrendResult,
   ReplayIntelligenceTimeseriesPoint,
 } from "./replay-intelligence-timeseries";
+import {
+  buildReplayAnomalyClusterSummary,
+  buildDeterministicReplayIntelligenceOrchestrationSnapshot,
+  buildReplayHeatmapSummary,
+  buildReplayIntelligenceConvergenceSummary,
+  buildReplayIntelligenceOrchestrationSnapshot,
+} from "./replay-intelligence-orchestration";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
 
 function requireAdmin(req: Request, res: Response): boolean {
@@ -1396,6 +1403,176 @@ export function registerPipelineRoutes(app: Express) {
       return res.status(500).json({ error: err.message });
     }
   });
+/**
+ * GET /api/replay-intelligence/anomaly-clusters
+ *
+ * Returns deterministic replay intelligence anomaly cluster scaffold data.
+ */
+app.get("/api/replay-intelligence/anomaly-clusters", (req: Request, res: Response) => {
+  try {
+    const generatedAt =
+      queryString(req, "generated_at") ??
+      "2026-01-01T00:00:00.000Z";
+    const snapshot =
+      buildDeterministicReplayIntelligenceOrchestrationSnapshot(generatedAt);
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        generated_at: generatedAt,
+        count: snapshot.anomaly_clusters.length,
+        clusters: snapshot.anomaly_clusters,
+      },
+      snapshot.orchestration_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/anomaly-clusters/summary
+ *
+ * Returns deterministic replay intelligence anomaly cluster summary data.
+ */
+app.get("/api/replay-intelligence/anomaly-clusters/summary", (req: Request, res: Response) => {
+  try {
+    const generatedAt =
+      queryString(req, "generated_at") ??
+      "2026-01-01T00:00:00.000Z";
+    const snapshot =
+      buildDeterministicReplayIntelligenceOrchestrationSnapshot(generatedAt);
+    const summary =
+      buildReplayAnomalyClusterSummary(snapshot.anomaly_clusters, generatedAt);
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      summary,
+      snapshot.orchestration_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/heatmap
+ *
+ * Returns deterministic replay intelligence heatmap scaffold data.
+ */
+app.get("/api/replay-intelligence/heatmap", (req: Request, res: Response) => {
+  try {
+    const generatedAt =
+      queryString(req, "generated_at") ??
+      "2026-01-01T00:00:00.000Z";
+    const snapshot =
+      buildDeterministicReplayIntelligenceOrchestrationSnapshot(generatedAt);
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        generated_at: generatedAt,
+        count: snapshot.heatmap.length,
+        cells: snapshot.heatmap,
+      },
+      snapshot.orchestration_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/heatmap/summary
+ *
+ * Returns deterministic replay intelligence heatmap summary data.
+ */
+app.get("/api/replay-intelligence/heatmap/summary", (req: Request, res: Response) => {
+  try {
+    const generatedAt =
+      queryString(req, "generated_at") ??
+      "2026-01-01T00:00:00.000Z";
+    const snapshot =
+      buildDeterministicReplayIntelligenceOrchestrationSnapshot(generatedAt);
+    const summary =
+      buildReplayHeatmapSummary(snapshot.heatmap, generatedAt);
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      summary,
+      snapshot.orchestration_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/orchestration
+ *
+ * Returns deterministic replay intelligence orchestration scaffold data.
+ */
+app.get("/api/replay-intelligence/orchestration", (req: Request, res: Response) => {
+  try {
+    const generatedAt =
+      queryString(req, "generated_at") ??
+      "2026-01-01T00:00:00.000Z";
+    const scaffold =
+      buildDeterministicReplayIntelligenceOrchestrationSnapshot(generatedAt);
+    const snapshot =
+      buildReplayIntelligenceOrchestrationSnapshot({
+        generated_at: generatedAt,
+        lineage_nodes: scaffold.lineage_nodes,
+        anomaly_clusters: scaffold.anomaly_clusters,
+        forecasts: scaffold.forecasts,
+        heatmap: scaffold.heatmap,
+        orchestration_hash: scaffold.orchestration_hash,
+      });
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      snapshot,
+      snapshot.orchestration_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/orchestration/summary
+ *
+ * Returns deterministic replay intelligence orchestration convergence summary data.
+ */
+app.get("/api/replay-intelligence/orchestration/summary", (req: Request, res: Response) => {
+  try {
+    const generatedAt =
+      queryString(req, "generated_at") ??
+      "2026-01-01T00:00:00.000Z";
+    const scaffold =
+      buildDeterministicReplayIntelligenceOrchestrationSnapshot(generatedAt);
+    const snapshot =
+      buildReplayIntelligenceOrchestrationSnapshot({
+        generated_at: generatedAt,
+        lineage_nodes: scaffold.lineage_nodes,
+        anomaly_clusters: scaffold.anomaly_clusters,
+        forecasts: scaffold.forecasts,
+        heatmap: scaffold.heatmap,
+        orchestration_hash: scaffold.orchestration_hash,
+      });
+    const summary =
+      buildReplayIntelligenceConvergenceSummary(snapshot);
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      summary,
+      snapshot.orchestration_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 /**
  * GET /api/pipeline/replay-intelligence-dashboard
  *
