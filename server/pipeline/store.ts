@@ -786,7 +786,49 @@ function getReplayLineageByReplayHash(replayHash: string): ReplayLineageRecord |
     lineage: parseReplayAuditJson(row.lineage_json),
   };
 }
+export interface ReplayDashboardAggregateRow {
+  replay_id: string;
+  parent_replay_id: string | null;
+  intelligence_hash: string;
+  category: string;
+  timestamp: string;
+  anomaly_score: number;
+  drift_score: number;
+  confidence_score: number;
+}
 
+export function listReplayDashboardAggregateRows(): ReplayDashboardAggregateRow[] {
+  const db = getPipelineDb();
+
+  const rows = db.prepare(`
+    SELECT
+      replay_hash AS replay_id,
+      CASE
+        WHEN lineage_json IS NOT NULL AND json_valid(lineage_json)
+        THEN json_extract(lineage_json, '$.parent_replay_hash')
+        ELSE NULL
+      END AS parent_replay_id,
+      replay_hash AS intelligence_hash,
+      verification_status AS category,
+      created_at AS timestamp,
+      CAST(divergence_count AS REAL) AS anomaly_score,
+      CAST(divergence_count AS REAL) / 10.0 AS drift_score,
+      CASE
+        WHEN verification_status = 'verified' THEN 1.0
+        WHEN verification_status = 'warning' THEN 0.75
+        ELSE 0.5
+      END AS confidence_score
+    FROM replay_audits
+    ORDER BY created_at DESC, replay_hash ASC
+  `).all() as ReplayDashboardAggregateRow[];
+
+  return rows.map((row) => ({
+    ...row,
+    anomaly_score: Number(row.anomaly_score ?? 0),
+    drift_score: Number(row.drift_score ?? 0),
+    confidence_score: Number(row.confidence_score ?? 0),
+  }));
+}
 function parseReplayAuditJson(value: string | null): Record<string, unknown> | null {
   if (!value) return null;
 

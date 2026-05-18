@@ -47,6 +47,7 @@ import {
   getLatestReplayLineageIntelligenceByArchive,
   listReplayAuditAnalytics,
   listReplayAuditAnalyticsBySnapshot,
+  listReplayDashboardAggregateRows, 
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
@@ -105,6 +106,14 @@ import {
   buildReplayConfidenceSummary,
   buildReplayForensicOverview,
 } from "./replay-forensic-report";
+import {
+  buildReplayDashboardAggregationResult,
+  ReplayDashboardSourceRecord,
+} from "./replay-intelligence-dashboard";
+import {
+  buildReplayIntelligenceTrendResult,
+  ReplayIntelligenceTimeseriesPoint,
+} from "./replay-intelligence-timeseries";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
 
 function requireAdmin(req: Request, res: Response): boolean {
@@ -1387,7 +1396,52 @@ export function registerPipelineRoutes(app: Express) {
       return res.status(500).json({ error: err.message });
     }
   });
+/**
+ * GET /api/pipeline/replay-intelligence-dashboard
+ *
+ * Returns deterministic replay intelligence dashboard aggregation data.
+ * Current scaffold uses deterministic source records until persistence wiring is added.
+ */
+app.get("/api/pipeline/replay-intelligence-dashboard", (_req: Request, res: Response) => {
+  try {
+    const records = listReplayDashboardAggregateRows().map(
+  (row): ReplayDashboardSourceRecord => ({
+    replay_id: row.replay_id,
+    parent_replay_id: row.parent_replay_id,
+    intelligence_hash: row.intelligence_hash,
+    category: row.category,
+    timestamp: row.timestamp,
+    anomaly_score: row.anomaly_score,
+    drift_score: row.drift_score,
+    confidence_score: row.confidence_score,
+  }),
+);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+app.get(
+  "/api/pipeline/replay-intelligence-timeseries",
+  (_req: Request, res: Response) => {
+    try {
+      const points: ReplayIntelligenceTimeseriesPoint[] =
+        listReplayDashboardAggregateRows().map((row) => ({
+          timestamp: row.timestamp,
+          anomaly_score: row.anomaly_score,
+          drift_score: row.drift_score,
+          confidence_score: row.confidence_score,
+        }));
 
+      return res.json(
+        buildReplayIntelligenceTrendResult(points, 10),
+      );
+    } catch (err: any) {
+      return res.status(500).json({
+        error: err.message,
+      });
+    }
+  },
+);
   /* ══════════════════════════════════════════════════════
      CALIBRATION — admin-gated
      ══════════════════════════════════════════════════════ */
