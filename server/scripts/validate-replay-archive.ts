@@ -4,14 +4,18 @@ import {
   createReplayArchiveSnapshot,
 } from "../pipeline/replay-archive";
 
-const forensicMetadata = {
-  forensic_export_version: 1,
+import type {
+  ReplayForensicBundleMetadata,
+} from "../pipeline/replay-forensic-contract";
+
+const forensicMetadata: ReplayForensicBundleMetadata = {
+  forensic_export_version: 1 as const,
   replay_hash: "test-replay-hash",
   game_id: "nba_test_game",
   as_of: "2026-05-17T00:00:00.000Z",
   generated_at: "2026-05-17T00:00:00.000Z",
-  export_source: "pipeline.sqlite",
-  export_kind: "archival_manifest",
+  export_source: "pipeline.sqlite" as const,
+  export_kind: "archival_manifest" as const,
   integrity_status: "verified",
   replay_version: 1,
   reconstruction_version: "1",
