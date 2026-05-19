@@ -103,11 +103,14 @@ export function buildReplayIntelligenceRestorationSnapshot(
     kind: "replay_intelligence_restoration_snapshot",
     ...base,
   });
-  const replayTimelineHash = computeReplayIntelligenceRestorationHash({
-    kind: "replay_intelligence_replay_timeline",
-    restoration_id: restorationId,
-    ...base,
-  });
+  const timelineEvents = buildReplayTimelineEvents(
+    restorationId,
+    base.recovery_hash,
+    base.rollback_candidate_hash,
+    orchestrationSnapshot.generated_at,
+    restored_at,
+  );
+  const replayTimelineHash = buildReplayTimelineHash(restorationId, timelineEvents);
   const checkpointHash = computeReplayIntelligenceRestorationHash({
     kind: "replay_intelligence_restoration_checkpoint",
     restoration_id: restorationId,
@@ -151,26 +154,13 @@ export function buildReplayIntelligenceRestorationResult(
 export function buildReplayIntelligenceReplayTimeline(
   restorationSnapshot: ReplayIntelligenceRestorationSnapshot,
 ): ReplayIntelligenceReplayTimeline {
-  const timelineEvents: ReplayIntelligenceReplayTimelineEvent[] = [
-    {
-      event_index: 0,
-      event_type: "recovery_snapshot",
-      event_hash: restorationSnapshot.recovery_hash,
-      occurred_at: restorationSnapshot.orchestration_snapshot.generated_at,
-    },
-    {
-      event_index: 1,
-      event_type: "rollback_candidate",
-      event_hash: restorationSnapshot.rollback_candidate_hash,
-      occurred_at: restorationSnapshot.restored_at,
-    },
-    {
-      event_index: 2,
-      event_type: "restoration_snapshot",
-      event_hash: restorationSnapshot.restoration_id,
-      occurred_at: restorationSnapshot.restored_at,
-    },
-  ];
+  const timelineEvents = buildReplayTimelineEvents(
+    restorationSnapshot.restoration_id,
+    restorationSnapshot.recovery_hash,
+    restorationSnapshot.rollback_candidate_hash,
+    restorationSnapshot.orchestration_snapshot.generated_at,
+    restorationSnapshot.restored_at,
+  );
 
   return {
     restoration_id: restorationSnapshot.restoration_id,
@@ -184,11 +174,10 @@ export function buildReplayIntelligenceReplayTimeline(
     anomaly_cluster_count: restorationSnapshot.anomaly_cluster_count,
     forecast_count: restorationSnapshot.forecast_count,
     heatmap_cell_count: restorationSnapshot.heatmap_cell_count,
-    replay_timeline_hash: computeReplayIntelligenceRestorationHash({
-      kind: "replay_intelligence_replay_timeline_record",
-      restoration_id: restorationSnapshot.restoration_id,
-      events: timelineEvents,
-    }),
+    replay_timeline_hash: buildReplayTimelineHash(
+      restorationSnapshot.restoration_id,
+      timelineEvents,
+    ),
     timeline_events: timelineEvents,
   };
 }
@@ -277,6 +266,46 @@ function buildRestorationBase(
     forecast_count: orchestrationSnapshot.forecasts.length,
     heatmap_cell_count: orchestrationSnapshot.heatmap.length,
   };
+}
+
+function buildReplayTimelineEvents(
+  restorationId: string,
+  recoveryHash: string,
+  rollbackCandidateHash: string,
+  generatedAt: string,
+  restoredAt: string,
+): readonly ReplayIntelligenceReplayTimelineEvent[] {
+  return [
+    {
+      event_index: 0,
+      event_type: "recovery_snapshot",
+      event_hash: recoveryHash,
+      occurred_at: generatedAt,
+    },
+    {
+      event_index: 1,
+      event_type: "rollback_candidate",
+      event_hash: rollbackCandidateHash,
+      occurred_at: restoredAt,
+    },
+    {
+      event_index: 2,
+      event_type: "restoration_snapshot",
+      event_hash: restorationId,
+      occurred_at: restoredAt,
+    },
+  ];
+}
+
+function buildReplayTimelineHash(
+  restorationId: string,
+  timelineEvents: readonly ReplayIntelligenceReplayTimelineEvent[],
+): string {
+  return computeReplayIntelligenceRestorationHash({
+    kind: "replay_intelligence_replay_timeline_record",
+    restoration_id: restorationId,
+    events: timelineEvents,
+  });
 }
 
 function buildReplayIntelligenceRestorationId(value: unknown): string {
