@@ -116,12 +116,36 @@ import {
 } from "./replay-intelligence-timeseries";
 import {
   buildReplayAnomalyClusterSummary,
+  buildDeterministicReplayIntelligenceOrchestrationScaffold,
   buildDeterministicReplayIntelligenceOrchestrationSnapshot,
   buildReplayHeatmapSummary,
   buildReplayIntelligenceConvergenceSummary,
   buildReplayIntelligenceOrchestrationSnapshot,
 } from "./replay-intelligence-orchestration";
+import {
+  buildReplayIntelligencePersistentSnapshot,
+  buildReplayIntelligenceRecoveryMetadata,
+} from "./replay-intelligence-persistence";
+import {
+  buildReplayIntelligenceRecoveryResult,
+  buildReplayIntelligenceRecoverySnapshot,
+  buildReplayIntelligenceRollbackCandidate,
+} from "./replay-intelligence-recovery";
+import {
+  buildReplayIntelligenceReplayTimeline,
+  buildReplayIntelligenceRestorationCheckpoint,
+  buildReplayIntelligenceRestorationResult,
+  buildReplayIntelligenceRestorationSnapshot,
+} from "./replay-intelligence-restoration";
+import {
+  buildReplayIntelligenceReplayTimelineApiResponse,
+  buildReplayIntelligenceRestorationApiResponse,
+  buildReplayIntelligenceRollbackApiResponse,
+} from "./replay-intelligence-restoration-api";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
+const REPLAY_INTELLIGENCE_RESTORATION_PERSISTED_AT = "2026-01-03T00:00:00.000Z";
+const REPLAY_INTELLIGENCE_RESTORATION_RECOVERED_AT = "2026-01-04T00:00:00.000Z";
+const REPLAY_INTELLIGENCE_RESTORATION_RESTORED_AT = "2026-01-05T00:00:00.000Z";
 
 function requireAdmin(req: Request, res: Response): boolean {
   const authHeader = req.headers.authorization ?? "";
@@ -231,6 +255,58 @@ function replayIntelligenceError(
     severity: code === "not_found" ? "warning" : "critical",
     deterministic: true,
     details: {},
+  };
+}
+
+function buildReplayIntelligenceRestorationApiScaffold() {
+  const orchestrationSnapshot =
+    buildDeterministicReplayIntelligenceOrchestrationScaffold();
+  const persistentSnapshot =
+    buildReplayIntelligencePersistentSnapshot(
+      orchestrationSnapshot,
+      REPLAY_INTELLIGENCE_RESTORATION_PERSISTED_AT,
+    );
+  const recoveryMetadata =
+    buildReplayIntelligenceRecoveryMetadata(
+      orchestrationSnapshot,
+      REPLAY_INTELLIGENCE_RESTORATION_PERSISTED_AT,
+    );
+  const recoverySnapshot =
+    buildReplayIntelligenceRecoverySnapshot(
+      orchestrationSnapshot,
+      persistentSnapshot,
+      recoveryMetadata,
+      REPLAY_INTELLIGENCE_RESTORATION_RECOVERED_AT,
+    );
+  const recoveryResult =
+    buildReplayIntelligenceRecoveryResult(recoverySnapshot);
+  const rollbackCandidate =
+    buildReplayIntelligenceRollbackCandidate(recoverySnapshot);
+  const restorationSnapshot =
+    buildReplayIntelligenceRestorationSnapshot(
+      orchestrationSnapshot,
+      recoverySnapshot,
+      rollbackCandidate,
+      REPLAY_INTELLIGENCE_RESTORATION_RESTORED_AT,
+    );
+  const restorationResult =
+    buildReplayIntelligenceRestorationResult(restorationSnapshot);
+  const replayTimeline =
+    buildReplayIntelligenceReplayTimeline(restorationSnapshot);
+  const checkpoint =
+    buildReplayIntelligenceRestorationCheckpoint(restorationSnapshot);
+
+  return {
+    orchestrationSnapshot,
+    persistentSnapshot,
+    recoveryMetadata,
+    recoverySnapshot,
+    recoveryResult,
+    rollbackCandidate,
+    restorationSnapshot,
+    restorationResult,
+    replayTimeline,
+    checkpoint,
   };
 }
 
@@ -1567,6 +1643,106 @@ app.get("/api/replay-intelligence/orchestration/summary", (req: Request, res: Re
       req,
       summary,
       snapshot.orchestration_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/restoration
+ *
+ * Returns deterministic replay intelligence restoration scaffold response data.
+ */
+app.get("/api/replay-intelligence/restoration", (req: Request, res: Response) => {
+  try {
+    const scaffold =
+      buildReplayIntelligenceRestorationApiScaffold();
+    const response =
+      buildReplayIntelligenceRestorationApiResponse(
+        scaffold.restorationSnapshot,
+        scaffold.restorationResult,
+        scaffold.checkpoint,
+      );
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      scaffold.restorationSnapshot.restoration_id,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/restoration/checkpoint
+ *
+ * Returns deterministic replay intelligence restoration checkpoint scaffold data.
+ */
+app.get("/api/replay-intelligence/restoration/checkpoint", (req: Request, res: Response) => {
+  try {
+    const scaffold =
+      buildReplayIntelligenceRestorationApiScaffold();
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        ...scaffold.checkpoint,
+        recovery_restored: scaffold.recoveryResult.restored,
+        restoration_restored: scaffold.restorationResult.restored,
+      },
+      scaffold.checkpoint.checkpoint_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/restoration/rollback
+ *
+ * Returns deterministic replay intelligence rollback scaffold response data.
+ */
+app.get("/api/replay-intelligence/restoration/rollback", (req: Request, res: Response) => {
+  try {
+    const scaffold =
+      buildReplayIntelligenceRestorationApiScaffold();
+    const response =
+      buildReplayIntelligenceRollbackApiResponse(
+        scaffold.rollbackCandidate,
+        scaffold.restorationSnapshot,
+      );
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      scaffold.rollbackCandidate.rollback_candidate_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/restoration/timeline
+ *
+ * Returns deterministic replay intelligence restoration replay timeline data.
+ */
+app.get("/api/replay-intelligence/restoration/timeline", (req: Request, res: Response) => {
+  try {
+    const scaffold =
+      buildReplayIntelligenceRestorationApiScaffold();
+    const response =
+      buildReplayIntelligenceReplayTimelineApiResponse(
+        scaffold.replayTimeline,
+        scaffold.restorationSnapshot,
+      );
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      scaffold.replayTimeline.replay_timeline_hash,
     ));
   } catch (err: any) {
     return res.status(500).json({ error: err.message });

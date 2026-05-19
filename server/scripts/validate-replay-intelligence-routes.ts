@@ -19,6 +19,10 @@ const routes = extractRegisteredRoutes(source);
 const requiredPaths = [
   "/api/replay-intelligence/orchestration",
   "/api/replay-intelligence/orchestration/summary",
+  "/api/replay-intelligence/restoration",
+  "/api/replay-intelligence/restoration/checkpoint",
+  "/api/replay-intelligence/restoration/rollback",
+  "/api/replay-intelligence/restoration/timeline",
 ];
 
 for (const routePath of requiredPaths) {
@@ -30,6 +34,9 @@ for (const routePath of requiredPaths) {
 const summaries: RouteGroupSummary[] = [
   buildRouteGroupSummary("orchestration", routes, (routePath) =>
     routePath.startsWith("/api/replay-intelligence/orchestration"),
+  ),
+  buildRouteGroupSummary("restoration", routes, (routePath) =>
+    routePath.startsWith("/api/replay-intelligence/restoration"),
   ),
   buildRouteGroupSummary("lineage", routes, (routePath) =>
     routePath.includes("/lineage/") || routePath.includes("/lineage"),
@@ -53,6 +60,7 @@ const summaries: RouteGroupSummary[] = [
 
 const expectedPresentGroups = [
   "orchestration",
+  "restoration",
   "lineage",
   "anomaly_cluster",
   "heatmap",
