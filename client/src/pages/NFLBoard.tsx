@@ -46,21 +46,21 @@ const NFL_PLAYER_HEADSHOTS: Record<string, string> = {
 
 /* ── Design tokens (dark) ── */
 const T = {
-  bg:       "#0C0B09",
-  surface1: "#111317",
-  surface2: "#16191E",
-  surface3: "#1B1F25",
-  gold:     "#F5A623",
-  goldBright:"#FFB84D",
-  goldDim:  "rgba(245,166,35,0.15)",
-  border:   "rgba(245,166,35,0.12)",
-  text:     "#F3EFE6",
-  textMuted:"#B7AFA0",
-  textFaint:"#7E776A",
-  green:    "#4CAF82",
-  orange:   "#D98A42",
-  cyan:     "#4AA8C8",
-  danger:   "#D94B4B",
+  bg:       "#050505",
+  surface1: "#0A0F1A",
+  surface2: "#101827",
+  surface3: "#101827",
+  gold:     "#F5B841",
+  goldBright:"#F5B841",
+  goldDim:  "rgba(245,184,65,0.15)",
+  border:   "rgba(245,184,65,0.12)",
+  text:     "#F8FAFC",
+  textMuted:"#94A3B8",
+  textFaint:"#64748B",
+  green:    "#00E676",
+  orange:   "#FF8A00",
+  cyan:     "#00B7FF",
+  danger:   "#FF5252",
 };
 
 /* ── Verdict colors ── */
@@ -414,11 +414,11 @@ function NFLBoardInner() {
     surface1:  darkMode ? T.surface1  : "#FFFFFF",
     surface2:  darkMode ? T.surface2  : "#F5F1EB",
     surface3:  darkMode ? T.surface3  : "#EDE9E2",
-    goldDim:   darkMode ? T.goldDim   : "rgba(245,166,35,0.2)",
+    goldDim:   darkMode ? T.goldDim   : "rgba(245,184,65,0.2)",
     border:    darkMode ? T.border    : "rgba(0,0,0,0.08)",
     text:      darkMode ? T.text      : "#1A1712",
-    textMuted: darkMode ? T.textMuted : "#4A443C",
-    textFaint: darkMode ? T.textFaint : "#8C8277",
+    textMuted: darkMode ? T.textMuted : "#94A3B8",
+    textFaint: darkMode ? T.textFaint : "#64748B",
   };
 
   const [activeFilter, setActiveFilter] = useState<NFLFilter>("Today");
@@ -667,7 +667,7 @@ function NFLBoardInner() {
         <div style={{ padding: "16px 24px", borderBottom: `1px solid ${TH.goldDim}` }}>
           <div style={{
             background: darkMode
-              ? "linear-gradient(135deg, #111317 0%, #16191E 100%)"
+              ? "linear-gradient(135deg, #0A0F1A 0%, #101827 100%)"
               : "linear-gradient(135deg, #FFFFFF 0%, #F5F1EB 100%)",
             border: `1px solid ${TH.goldDim}`,
             borderRadius: 5, overflow: "hidden", position: "relative",
@@ -761,7 +761,7 @@ function NFLBoardInner() {
                         )}
                       </div>
                       {sc.urgencyReason && (
-                        <div style={{ fontSize: 11, color: "#7E776A", marginTop: 4, fontStyle: "italic", textAlign: "right" }}>
+                        <div style={{ fontSize: 11, color: "#64748B", marginTop: 4, fontStyle: "italic", textAlign: "right" }}>
                           {sc.urgencyReason}
                         </div>
                       )}
@@ -861,7 +861,7 @@ function NFLBoardInner() {
                         pointerEvents: isFree ? "auto" : "auto",
                       }}
                       onMouseEnter={e => {
-                        if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = darkMode ? "rgba(202,168,90,0.04)" : "rgba(202,168,90,0.06)";
+                        if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = darkMode ? "rgba(245,184,65,0.04)" : "rgba(245,184,65,0.06)";
                       }}
                       onMouseLeave={e => {
                         if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = "transparent";

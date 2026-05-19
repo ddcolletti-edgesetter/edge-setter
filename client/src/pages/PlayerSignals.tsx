@@ -6,19 +6,19 @@ import type { V2Signal } from "@/data/v2MockData";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:        "#0C0B09",
-  surface1:  "#131110",
-  surface2:  "#1A1714",
-  gold:      "#F5A623",
-  goldDim:   "rgba(245,166,35,0.14)",
-  green:     "#39FF14",
-  red:       "#FF5555",
-  blue:      "#4A9EFF",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  gold:      "#F5B841",
+  goldDim:   "rgba(245,184,65,0.14)",
+  green:     "#00E676",
+  red:       "#FF5252",
+  blue:      "#00B7FF",
   purple:    "#B06EFF",
   text:      "#F0EDE6",
   textMuted: "#8A8278",
-  textFaint: "#4A4235",
-  border:    "rgba(245,166,35,0.12)",
+  textFaint: "#64748B",
+  border:    "rgba(245,184,65,0.12)",
   borderMid: "rgba(255,255,255,0.07)",
 };
 
@@ -73,17 +73,17 @@ function confColor(score: number) {
 }
 
 const TYPE_COLORS: Record<string, { bg: string; color: string }> = {
-  injury:     { bg: "rgba(255,85,85,0.12)",   color: "#FF5555" },
-  lineup:     { bg: "rgba(74,158,255,0.12)",  color: "#4A9EFF" },
+  injury:     { bg: "rgba(255,85,85,0.12)",   color: "#FF5252" },
+  lineup:     { bg: "rgba(74,158,255,0.12)",  color: "#00B7FF" },
   line_move:  { bg: "rgba(176,110,255,0.12)", color: "#B06EFF" },
   line_moves: { bg: "rgba(176,110,255,0.12)", color: "#B06EFF" },
-  prop:       { bg: "rgba(57,255,20,0.10)",   color: "#39FF14" },
-  props:      { bg: "rgba(57,255,20,0.10)",   color: "#39FF14" },
-  trend:      { bg: "rgba(74,158,255,0.10)",  color: "#4A9EFF" },
+  prop:       { bg: "rgba(0,230,118,0.10)",   color: "#00E676" },
+  props:      { bg: "rgba(0,230,118,0.10)",   color: "#00E676" },
+  trend:      { bg: "rgba(74,158,255,0.10)",  color: "#00B7FF" },
 };
 
 function typeBadge(type: string) {
-  const c = TYPE_COLORS[(type ?? "").toLowerCase()] ?? { bg: "rgba(245,166,35,0.10)", color: T.gold };
+  const c = TYPE_COLORS[(type ?? "").toLowerCase()] ?? { bg: "rgba(245,184,65,0.10)", color: T.gold };
   return (
     <span style={{
       padding: "2px 8px", borderRadius: 3,
@@ -128,7 +128,7 @@ function PlayerSignalCard({ signal, sport }: { signal: Signal; sport: string }) 
         {typeBadge(signal.signalType)}
         <span style={{
           padding: "2px 7px", borderRadius: 3,
-          background: sport === "NBA" ? "rgba(245,166,35,0.1)" : "rgba(57,255,20,0.08)",
+          background: sport === "NBA" ? "rgba(245,184,65,0.1)" : "rgba(0,230,118,0.08)",
           color: sport === "NBA" ? T.gold : T.green,
           fontFamily: "'Barlow Condensed', sans-serif",
           fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
@@ -179,7 +179,7 @@ function PlayerSignalCard({ signal, sport }: { signal: Signal; sport: string }) 
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 7,
               padding: "8px 12px", borderRadius: 5,
-              background: T.goldDim, border: `1px solid rgba(245,166,35,0.2)`,
+              background: T.goldDim, border: `1px solid rgba(245,184,65,0.2)`,
             }}>
               <Zap size={11} style={{ color: T.gold, flexShrink: 0 }} />
               <span style={{ fontSize: 13, color: T.gold, lineHeight: 1.5 }}>{signal.actionTakeaway}</span>
@@ -312,7 +312,7 @@ export default function PlayerSignals() {
                 onClick={() => setSport(s)}
                 style={{
                   padding: "6px 16px", borderRadius: 4,
-                  border: sport === s ? `1px solid rgba(245,166,35,0.5)` : `1px solid ${T.borderMid}`,
+                  border: sport === s ? `1px solid rgba(245,184,65,0.5)` : `1px solid ${T.borderMid}`,
                   background: sport === s ? T.goldDim : "transparent",
                   color: sport === s ? T.gold : T.textMuted,
                   fontFamily: "'Barlow Condensed', sans-serif",

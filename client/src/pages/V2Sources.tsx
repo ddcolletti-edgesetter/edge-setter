@@ -5,19 +5,19 @@ import V2Shell from "../components/V2Shell";
 import { Award, ExternalLink, TrendingUp, Clock } from "lucide-react";
 
 const T = {
-  bg:        "#0A0B0D",
-  surface1:  "#111317",
-  surface2:  "#16191E",
-  gold:      "#CAA85A",
-  goldDim:   "rgba(202,168,90,0.16)",
-  goldBorder:"rgba(202,168,90,0.12)",
-  text:      "#F3EFE6",
-  textMuted: "#B7AFA0",
-  textFaint: "#7E776A",
-  green:     "#4CAF82",
-  cyan:      "#4AA8C8",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  gold:      "#F5B841",
+  goldDim:   "rgba(245,184,65,0.16)",
+  goldBorder:"rgba(245,184,65,0.12)",
+  text:      "#F8FAFC",
+  textMuted: "#94A3B8",
+  textFaint: "#64748B",
+  green:     "#00E676",
+  cyan:      "#00B7FF",
   purple:    "#A778DC",
-  red:       "#E05C5C",
+  red:       "#FF5252",
   border:    "rgba(255,255,255,0.06)",
 };
 
@@ -39,10 +39,10 @@ function tierLabel(tier: string): string {
 
 function tierColors(tier: string): { bg: string; border: string; color: string } {
   switch (tier) {
-    case "tier1": return { bg: "rgba(202,168,90,0.14)", border: "rgba(202,168,90,0.48)", color: T.gold };
-    case "tier2": return { bg: "rgba(74,168,200,0.12)", border: "rgba(74,168,200,0.38)", color: T.cyan };
-    case "tier3": return { bg: "rgba(76,175,130,0.10)", border: "rgba(76,175,130,0.34)", color: T.green };
-    default:      return { bg: "rgba(126,119,106,0.08)", border: "rgba(126,119,106,0.28)", color: T.textFaint };
+    case "tier1": return { bg: "rgba(245,184,65,0.14)", border: "rgba(245,184,65,0.48)", color: T.gold };
+    case "tier2": return { bg: "rgba(0,183,255,0.12)", border: "rgba(0,183,255,0.38)", color: T.cyan };
+    case "tier3": return { bg: "rgba(0,230,118,0.10)", border: "rgba(0,230,118,0.34)", color: T.green };
+    default:      return { bg: "rgba(100,116,139,0.08)", border: "rgba(100,116,139,0.28)", color: T.textFaint };
   }
 }
 
@@ -104,9 +104,9 @@ function TierBadge({ tier }: { tier: string }) {
 function SportBadge({ sport }: { sport: string }) {
   if (sport === "ALL") return null;
   const colors: Record<string, { bg: string; color: string }> = {
-    NBA: { bg: "rgba(202,168,90,0.10)", color: T.gold },
-    MLB: { bg: "rgba(76,175,130,0.10)", color: T.green },
-    NFL: { bg: "rgba(74,168,200,0.10)", color: T.cyan },
+    NBA: { bg: "rgba(245,184,65,0.10)", color: T.gold },
+    MLB: { bg: "rgba(0,230,118,0.10)", color: T.green },
+    NFL: { bg: "rgba(0,183,255,0.10)", color: T.cyan },
     CFB: { bg: "rgba(167,120,220,0.10)", color: T.purple },
   };
   const c = colors[sport] ?? { bg: "rgba(255,255,255,0.05)", color: T.textFaint };
@@ -235,8 +235,8 @@ function V2SourcesInner() {
             return (
               <button key={s} onClick={() => setSport(s)} style={{
                 padding: "5px 14px", borderRadius: 3,
-                border: `1px solid ${active ? "rgba(202,168,90,0.50)" : "rgba(255,255,255,0.10)"}`,
-                background: active ? "rgba(202,168,90,0.12)" : "transparent",
+                border: `1px solid ${active ? "rgba(245,184,65,0.50)" : "rgba(255,255,255,0.10)"}`,
+                background: active ? "rgba(245,184,65,0.12)" : "transparent",
                 color: active ? T.gold : T.textMuted,
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
@@ -255,8 +255,8 @@ function V2SourcesInner() {
               return (
                 <button key={o.key} onClick={() => setSortKey(o.key)} style={{
                   padding: "4px 10px", borderRadius: 2,
-                  border: `1px solid ${active ? "rgba(202,168,90,0.40)" : "rgba(255,255,255,0.07)"}`,
-                  background: active ? "rgba(202,168,90,0.08)" : "transparent",
+                  border: `1px solid ${active ? "rgba(245,184,65,0.40)" : "rgba(255,255,255,0.07)"}`,
+                  background: active ? "rgba(245,184,65,0.08)" : "transparent",
                   color: active ? T.gold : T.textFaint,
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
@@ -324,7 +324,7 @@ function V2SourcesInner() {
                     borderBottom: "1px solid rgba(255,255,255,0.04)",
                     transition: "background 0.1s",
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(202,168,90,0.025)"; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(245,184,65,0.025)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
                 >
                   {/* Rank */}
@@ -365,7 +365,7 @@ function V2SourcesInner() {
 
                   {/* Consensus weight bar (accuracy proxy) */}
                   <div>
-                    <Bar value={acc} color="rgba(202,168,90,0.55)" />
+                    <Bar value={acc} color="rgba(245,184,65,0.55)" />
                   </div>
 
                   {/* FP Rate */}

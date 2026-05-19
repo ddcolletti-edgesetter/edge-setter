@@ -98,7 +98,7 @@ export function FeaturedEdge({
     <div
       style={{
         background: 'var(--color-surface-elevated, #0f172a)',
-        border: `1px solid ${open ? 'rgba(34,197,94,0.2)' : 'var(--color-border, rgba(255,255,255,0.08))'}`,
+        border: `1px solid ${open ? 'rgba(0,230,118,0.2)' : 'var(--color-border, rgba(255,255,255,0.08))'}`,
         borderRadius: 12,
         overflow: 'hidden',
         transition: 'border-color 0.25s',
@@ -131,7 +131,7 @@ export function FeaturedEdge({
             flexShrink: 0,
             width: 28,
             height: 28,
-            background: 'rgba(34,197,94,0.12)',
+            background: 'rgba(0,230,118,0.12)',
             borderRadius: 8,
             display: 'flex',
             alignItems: 'center',
@@ -141,7 +141,7 @@ export function FeaturedEdge({
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path
               d="M7 1l1.545 3.09L12 4.635l-2.5 2.41.59 3.41L7 8.9l-3.09 1.555.59-3.41L2 4.635l3.455-.545L7 1z"
-              fill="#22c55e"
+              fill="#00E676"
             />
           </svg>
         </span>
@@ -154,7 +154,7 @@ export function FeaturedEdge({
               fontWeight: 700,
               letterSpacing: '0.04em',
               textTransform: 'uppercase',
-              color: 'var(--color-accent, #22c55e)',
+              color: 'var(--color-accent, #00E676)',
               lineHeight: 1,
               marginBottom: 3,
             }}
@@ -188,7 +188,7 @@ export function FeaturedEdge({
                   fontSize: 12,
                   fontWeight: 700,
                   color: m.highlight
-                    ? 'var(--color-accent, #22c55e)'
+                    ? 'var(--color-accent, #00E676)'
                     : 'var(--color-text-secondary, #94a3b8)',
                   fontVariantNumeric: 'tabular-nums',
                 }}
@@ -292,7 +292,7 @@ export function FeaturedEdge({
                   fontSize: 13,
                   fontWeight: 700,
                   color: m.highlight
-                    ? 'var(--color-accent, #22c55e)'
+                    ? 'var(--color-accent, #00E676)'
                     : 'var(--color-text-primary, #f1f5f9)',
                   fontVariantNumeric: 'tabular-nums',
                   letterSpacing: '-0.01em',

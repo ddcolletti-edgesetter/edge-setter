@@ -17,9 +17,9 @@ const LOGO_URL = "/edgesetter-logo-transparent_6b7a9796.png";
 
 // ── Sport tab config ─────────────────────────────────────────────────────────
 const SPORT_TABS = [
-  { key: "nba", label: "NBA", path: "/nba", dot: "#F5A623" },
-  { key: "mlb", label: "MLB", path: "/mlb", dot: "#39FF14" },
-  { key: "nfl", label: "NFL", path: "/nfl", dot: "#4A9EFF" },
+  { key: "nba", label: "NBA", path: "/nba", dot: "#F5B841" },
+  { key: "mlb", label: "MLB", path: "/mlb", dot: "#00E676" },
+  { key: "nfl", label: "NFL", path: "/nfl", dot: "#00B7FF" },
   { key: "cfb", label: "CFB", path: "/cfb", dot: "#B06EFF" },
 ];
 
@@ -153,17 +153,18 @@ function Sidebar({
                 const p = el.parentElement!;
                 const fb = document.createElement("div");
                 fb.style.cssText =
-                  "font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;color:#F5A623;letter-spacing:0.04em";
+                  "font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;color:#F5B841;letter-spacing:0.04em";
                 fb.textContent = "EDGE SETTER";
                 p.prepend(fb);
               }}
             />
             <div style={{ flex: 1 }} />
             <button
+              className="ux-button-interactive"
               onClick={onToggle}
               style={{
                 background: "none", border: "none", padding: "4px",
-                cursor: "pointer", color: "#555A66", borderRadius: "4px", flexShrink: 0,
+                cursor: "pointer", color: "#94A3B8", borderRadius: "4px", flexShrink: 0,
               }}
             >
               <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} />
@@ -179,7 +180,7 @@ function Sidebar({
           <div
             style={{
               display: "flex", alignItems: "center", gap: "10px", padding: "9px 16px",
-              background: isActive("/") ? "rgba(245,166,35,0.08)" : "transparent",
+              background: isActive("/") ? "rgba(245,184,65,0.08)" : "transparent",
               color: isActive("/") ? "var(--es-gold)" : "var(--es-text-muted)",
               fontSize: "0.82rem", fontWeight: isActive("/") ? 700 : 500,
               cursor: "pointer", transition: "all 0.1s",
@@ -191,7 +192,7 @@ function Sidebar({
               if (!isActive("/")) (e.currentTarget as HTMLElement).style.color = "var(--es-text-muted)";
             }}
           >
-            <Home size={15} style={{ flexShrink: 0, color: isActive("/") ? "#F5A623" : "#555A66" }} />
+            <Home size={15} style={{ flexShrink: 0, color: isActive("/") ? "#F5B841" : "#94A3B8" }} />
             {!collapsed && <span>Home</span>}
           </div>
         </Link>
@@ -208,7 +209,7 @@ function Sidebar({
           onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--es-text-secondary)")}
           onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--es-text-muted)")}
         >
-          <LayoutGrid size={15} style={{ flexShrink: 0, color: "#555A66" }} />
+          <LayoutGrid size={15} style={{ flexShrink: 0, color: "#94A3B8" }} />
           {!collapsed && (
             <>
               <span style={{ flex: 1 }}>Boards</span>
@@ -216,7 +217,7 @@ function Sidebar({
                 size={13}
                 style={{
                   transform: openSections["Boards"] ? "rotate(180deg)" : "rotate(0deg)",
-                  transition: "transform 0.15s", color: "#3A3F4E",
+                  transition: "transform 0.15s", color: "#64748B",
                 }}
               />
             </>
@@ -231,7 +232,7 @@ function Sidebar({
                 style={{
                   display: "flex", alignItems: "center", gap: "8px", padding: "7px 12px 7px 28px",
                   borderLeft: location.startsWith("/nba") ? "2px solid var(--es-gold)" : "2px solid transparent",
-                  background: location.startsWith("/nba") ? "rgba(245,166,35,0.06)" : "transparent",
+                  background: location.startsWith("/nba") ? "rgba(245,184,65,0.06)" : "transparent",
                   color: location.startsWith("/nba") ? "var(--es-gold)" : "var(--es-text-muted)",
                   fontSize: "0.82rem", fontWeight: location.startsWith("/nba") ? 700 : 500,
                   cursor: "pointer", transition: "all 0.1s",
@@ -249,7 +250,7 @@ function Sidebar({
                 <span
                   style={{
                     fontSize: "0.58rem", fontWeight: 800, padding: "1px 5px", borderRadius: "3px",
-                    background: "rgba(57,255,20,0.15)", color: "#39FF14", letterSpacing: "0.06em",
+                    background: "rgba(0,230,118,0.15)", color: "#00E676", letterSpacing: "0.06em",
                   }}
                 >
                   LIVE
@@ -343,8 +344,8 @@ function Sidebar({
               <div
                 style={{
                   display: "flex", alignItems: "center", gap: "8px", padding: "7px 12px 7px 28px",
-                  borderLeft: location.startsWith("/mlb") ? "2px solid #39FF14" : "2px solid transparent",
-                  background: location.startsWith("/mlb") ? "rgba(57,255,20,0.04)" : "transparent",
+                  borderLeft: location.startsWith("/mlb") ? "2px solid #00E676" : "2px solid transparent",
+                  background: location.startsWith("/mlb") ? "rgba(0,230,118,0.04)" : "transparent",
                   color: location.startsWith("/mlb") ? "var(--es-green)" : "var(--es-text-muted)",
                   fontSize: "0.82rem", fontWeight: location.startsWith("/mlb") ? 700 : 500,
                   cursor: "pointer", transition: "all 0.1s",
@@ -362,7 +363,7 @@ function Sidebar({
                 <span
                   style={{
                     fontSize: "0.58rem", fontWeight: 800, padding: "1px 5px", borderRadius: "3px",
-                    background: "rgba(57,255,20,0.15)", color: "#39FF14", letterSpacing: "0.06em",
+                    background: "rgba(0,230,118,0.15)", color: "#00E676", letterSpacing: "0.06em",
                   }}
                 >
                   LIVE
@@ -470,7 +471,7 @@ function Sidebar({
                   <span
                     style={{
                       fontSize: "0.58rem", fontWeight: 800, padding: "1px 5px", borderRadius: "3px",
-                      background: "rgba(245,166,35,0.15)", color: "#F5A623", letterSpacing: "0.06em",
+                      background: "rgba(245,184,65,0.15)", color: "#F5B841", letterSpacing: "0.06em",
                     }}
                   >
                     {b.badge}
@@ -501,7 +502,7 @@ function Sidebar({
             <div
               style={{
                 display: "flex", alignItems: "center", gap: "10px", padding: "9px 16px",
-                background: isActive(item.path) ? "rgba(245,166,35,0.08)" : "transparent",
+                background: isActive(item.path) ? "rgba(245,184,65,0.08)" : "transparent",
                 color: isActive(item.path) ? "var(--es-gold)" : "var(--es-text-muted)",
                 fontSize: "0.82rem", fontWeight: isActive(item.path) ? 700 : 500,
                 cursor: "pointer", transition: "all 0.1s",
@@ -515,7 +516,7 @@ function Sidebar({
                   (e.currentTarget as HTMLElement).style.color = "var(--es-text-muted)";
               }}
             >
-              <span style={{ flexShrink: 0, color: isActive(item.path) ? "#F5A623" : "#555A66" }}>
+              <span style={{ flexShrink: 0, color: isActive(item.path) ? "#F5B841" : "#555A66" }}>
                 {item.icon}
               </span>
               {!collapsed && <span>{item.label}</span>}
@@ -530,15 +531,15 @@ function Sidebar({
           style={{
             margin: "8px 12px 12px",
             padding: "12px 14px",
-            background: "linear-gradient(135deg, rgba(245,166,35,0.12), rgba(245,166,35,0.04))",
-            border: "1px solid rgba(245,166,35,0.25)",
+            background: "linear-gradient(135deg, rgba(245,184,65,0.12), rgba(245,184,65,0.04))",
+            border: "1px solid rgba(245,184,65,0.25)",
             borderRadius: "8px",
             flexShrink: 0,
           }}
         >
           <div
             style={{
-              fontSize: "0.72rem", fontWeight: 700, color: "#F5A623",
+              fontSize: "0.72rem", fontWeight: 700, color: "#F5B841",
               textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px",
             }}
           >
@@ -660,17 +661,17 @@ function TopTabBar({
                 textTransform: "uppercase",
                 cursor: "pointer",
                 background: isActive ? "rgba(255,255,255,0.06)" : "transparent",
-                color: isActive ? "#F0F0F0" : "#555A66",
+                color: isActive ? "#F8FAFC" : "#94A3B8",
                 border: `1px solid ${isActive ? "#2A2F3E" : "transparent"}`,
                 transition: "all 0.15s ease",
                 flexShrink: 0,
                 whiteSpace: "nowrap",
               }}
               onMouseEnter={(e) => {
-                if (!isActive) (e.currentTarget as HTMLElement).style.color = "#A0A5B0";
+                if (!isActive) (e.currentTarget as HTMLElement).style.color = "#CBD5E1";
               }}
               onMouseLeave={(e) => {
-                if (!isActive) (e.currentTarget as HTMLElement).style.color = "#555A66";
+                if (!isActive) (e.currentTarget as HTMLElement).style.color = "#94A3B8";
               }}
             >
               <span
@@ -678,7 +679,7 @@ function TopTabBar({
                   width: "6px",
                   height: "6px",
                   borderRadius: "50%",
-                  background: isActive ? tab.dot : "#3A3F4E",
+                  background: isActive ? tab.dot : "#64748B",
                   flexShrink: 0,
                   boxShadow: isActive ? `0 0 6px ${tab.dot}` : "none",
                 }}
@@ -705,9 +706,9 @@ function TopTabBar({
           letterSpacing: "0.06em",
           textTransform: "uppercase",
           cursor: "pointer",
-          background: "linear-gradient(135deg, rgba(245,166,35,0.15), rgba(245,166,35,0.05))",
-          color: "#F5A623",
-          border: "1px solid rgba(245,166,35,0.3)",
+          background: "linear-gradient(135deg, rgba(245,184,65,0.15), rgba(245,184,65,0.05))",
+          color: "#F5B841",
+          border: "1px solid rgba(245,184,65,0.3)",
           transition: "all 0.15s ease",
           marginLeft: isMobile ? "2px" : "8px",
           opacity: proLoading ? 0.7 : 1,
@@ -735,8 +736,8 @@ function TopTabBar({
           letterSpacing: "0.06em",
           textTransform: "uppercase",
           cursor: "pointer",
-          background: isDark ? "transparent" : "rgba(139,105,20,0.1)",
-          color: isDark ? "#555A66" : "#8B6914",
+          background: isDark ? "transparent" : "rgba(245,184,65,0.1)",
+          color: isDark ? "#555A66" : "#F5B841",
           border: `1px solid ${isDark ? "#1A1E2A" : "#C8BB9A"}`,
           marginLeft: "2px",
           transition: "all 0.2s ease",
@@ -801,8 +802,8 @@ export default function AppShell({
           flexDirection: "column",
           height: "100vh",
           overflow: "hidden",
-          background: "#0C0B09",
-          color: "#F3EFE6",
+          background: "#050505",
+          color: "#F8FAFC",
           fontFamily: "'Barlow Condensed', sans-serif",
         }}
       >
@@ -818,7 +819,7 @@ export default function AppShell({
         display: "flex",
         height: "100vh",
         overflow: "hidden",
-        background: isLight ? "var(--es-bg)" : "#0C0B09",
+        background: isLight ? "var(--es-bg)" : "#050505",
         backgroundImage: isLight ? "var(--es-paper-texture)" : "none",
         backgroundSize: isLight ? "300px 300px" : "auto",
         color: "var(--es-text-primary)",
@@ -906,7 +907,7 @@ export function useShellTheme(): boolean {
  */
 export function SportBadge({ status }: { status: string }) {
   const isLive = status === "LIVE";
-  const color = isLive ? "#39FF14" : "#F5A623";
+  const color = isLive ? "#00E676" : "#F5B841";
   return (
     <span
       style={{

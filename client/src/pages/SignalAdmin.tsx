@@ -8,10 +8,10 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Signal, Waitlist, User } from "@shared/schema";
 
 const C = {
-  void: "#080706", shell: "#0C0A08", panel: "#111009", lift: "#181410",
+  void: "#080706", shell: "#050505", panel: "#111009", lift: "#181410",
   gold: "#C9A84C", goldBright: "#E2BE6A", goldDim: "#6A5218",
   ivory: "#F0E8D6", ivoryMid: "#B8AD98", ivoryDim: "#6E6458", ivoryFaint: "#242018",
-  green: "#3DAE72", red: "#C04040", amber: "#D4932A",
+  green: "#3DAE72", red: "#C04040", amber: "#FF8A00",
 };
 
 const ADMIN_PASS = "edgesetter-admin-2026";

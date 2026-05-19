@@ -4,22 +4,22 @@
  */
 
 export const T = {
-  bg:         "#0C0B09",
-  surface1:   "#131110",
-  surface2:   "#1A1714",
-  surface3:   "#201D19",
-  gold:       "#C4A24A",
-  goldBright: "#E0BB6A",
-  goldDim:    "rgba(196,162,74,0.15)",
-  goldGlow:   "rgba(196,162,74,0.07)",
-  text:       "#EDE5D4",
-  textMuted:  "#8A7A62",
-  textFaint:  "#4A4235",
-  green:      "#3EBA6A",
-  orange:     "#D98A42",
-  cyan:       "#4AA8C8",
-  danger:     "#D94B4B",
-  border:     "rgba(196,162,74,0.12)",
+  bg:         "#050505",
+  surface1:   "#0A0F1A",
+  surface2:   "#101827",
+  surface3:   "#101827",
+  gold:       "#F5B841",
+  goldBright: "#FFD166",
+  goldDim:    "rgba(245,184,65,0.15)",
+  goldGlow:   "rgba(245,184,65,0.07)",
+  text:       "#F8FAFC",
+  textMuted:  "#94A3B8",
+  textFaint:  "#64748B",
+  green:      "#00E676",
+  orange:     "#FF8A00",
+  cyan:       "#00B7FF",
+  danger:     "#FF5252",
+  border:     "rgba(245,184,65,0.12)",
 };
 
 export const TEAM_COLORS: Record<string, { primary: string; secondary: string }> = {
@@ -48,7 +48,7 @@ export const TEAM_COLORS: Record<string, { primary: string; secondary: string }>
   CHC: { primary: "#0E3386", secondary: "#CC3433" },
   HOU: { primary: "#002D62", secondary: "#EB6E1F" },
   NYM: { primary: "#002D72", secondary: "#FF5910" },
-  DEFAULT: { primary: "#1A1714", secondary: "#C4A24A" },
+  DEFAULT: { primary: "#101827", secondary: "#F5B841" },
 };
 
 export function getTeamColors(abbr: string) {
@@ -318,7 +318,7 @@ export function PlayerHeadshot({ name, team, position = "generic", size = 48, sh
 }
 
 export function ConfidenceBar({ value, width = 60, height = 4 }: { value: number; width?: number|string; height?: number }) {
-  const color = value >= 85 ? T.gold : value >= 70 ? "#D8B86A" : value >= 55 ? T.orange : T.textFaint;
+  const color = value >= 85 ? T.gold : value >= 70 ? "#FFD166" : value >= 55 ? T.orange : T.textFaint;
   return (
     <div style={{ width, height, background: "rgba(255,255,255,0.08)", borderRadius: height }}>
       <div style={{ width: `${Math.min(value, 100)}%`, height: "100%", background: color, borderRadius: height, transition: "width 0.4s ease" }} />
@@ -341,24 +341,24 @@ export function VerdictBadge({ verdict }: { verdict: string }) {
 }
 
 export const TYPE_COLORS: Record<string, { bg: string; color: string; label: string }> = {
-  injury:           { bg: "rgba(217,75,75,0.16)",   color: "#FF6B6B", label: "INJURY"    },
-  injury_update:    { bg: "rgba(217,75,75,0.16)",   color: "#FF6B6B", label: "INJURY"    },
-  line_move:        { bg: "rgba(62,186,106,0.14)",  color: "#3EBA6A", label: "LINE MOVE" },
-  matchup_edge:     { bg: "rgba(196,162,74,0.14)",  color: "#C4A24A", label: "MATCHUP"   },
-  rotation:         { bg: "rgba(74,168,200,0.14)",  color: "#4AA8C8", label: "ROTATION"  },
-  prop:             { bg: "rgba(217,138,66,0.16)",  color: "#D98A42", label: "PROP"      },
-  news:             { bg: "rgba(138,122,98,0.14)",  color: "#8A7A62", label: "NEWS"      },
-  trend:            { bg: "rgba(74,168,200,0.12)",  color: "#4AA8C8", label: "TREND"     },
-  lineup:           { bg: "rgba(74,168,200,0.12)",  color: "#4AA8C8", label: "LINEUP"    },
-  batting_order:    { bg: "rgba(74,168,200,0.12)",  color: "#4AA8C8", label: "LINEUP"    },
-  lineup_confirm:   { bg: "rgba(74,168,200,0.12)",  color: "#4AA8C8", label: "LINEUP"    },
-  pitcher:          { bg: "rgba(58,143,224,0.14)",  color: "#3A8FE0", label: "PITCHER"   },
-  starting_pitcher: { bg: "rgba(58,143,224,0.14)",  color: "#3A8FE0", label: "PITCHER"   },
-  bullpen:          { bg: "rgba(58,143,224,0.12)",  color: "#3A8FE0", label: "BULLPEN"   },
-  weather:          { bg: "rgba(74,168,200,0.10)",  color: "#4AA8C8", label: "WEATHER"   },
-  sharp:            { bg: "rgba(196,162,74,0.14)",  color: "#C4A24A", label: "SHARP"     },
-  matchup:          { bg: "rgba(196,162,74,0.14)",  color: "#C4A24A", label: "MATCHUP"   },
-  transfer:         { bg: "rgba(136,68,204,0.14)",  color: "#AA66EE", label: "TRANSFER"  },
+  injury:           { bg: "rgba(255,82,82,0.16)",   color: "#FF5252", label: "INJURY"    },
+  injury_update:    { bg: "rgba(255,82,82,0.16)",   color: "#FF5252", label: "INJURY"    },
+  line_move:        { bg: "rgba(0,230,118,0.14)",  color: "#00E676", label: "LINE MOVE" },
+  matchup_edge:     { bg: "rgba(245,184,65,0.14)",  color: "#F5B841", label: "MATCHUP"   },
+  rotation:         { bg: "rgba(0,183,255,0.14)",  color: "#00B7FF", label: "ROTATION"  },
+  prop:             { bg: "rgba(255,138,0,0.16)",  color: "#FF8A00", label: "PROP"      },
+  news:             { bg: "rgba(100,116,139,0.14)",  color: "#94A3B8", label: "NEWS"      },
+  trend:            { bg: "rgba(0,183,255,0.12)",  color: "#00B7FF", label: "TREND"     },
+  lineup:           { bg: "rgba(0,183,255,0.12)",  color: "#00B7FF", label: "LINEUP"    },
+  batting_order:    { bg: "rgba(0,183,255,0.12)",  color: "#00B7FF", label: "LINEUP"    },
+  lineup_confirm:   { bg: "rgba(0,183,255,0.12)",  color: "#00B7FF", label: "LINEUP"    },
+  pitcher:          { bg: "rgba(0,183,255,0.14)",  color: "#00B7FF", label: "PITCHER"   },
+  starting_pitcher: { bg: "rgba(0,183,255,0.14)",  color: "#00B7FF", label: "PITCHER"   },
+  bullpen:          { bg: "rgba(0,183,255,0.12)",  color: "#00B7FF", label: "BULLPEN"   },
+  weather:          { bg: "rgba(0,183,255,0.10)",  color: "#00B7FF", label: "WEATHER"   },
+  sharp:            { bg: "rgba(245,184,65,0.14)",  color: "#F5B841", label: "SHARP"     },
+  matchup:          { bg: "rgba(245,184,65,0.14)",  color: "#F5B841", label: "MATCHUP"   },
+  transfer:         { bg: "rgba(0,183,255,0.14)",  color: "#AA66EE", label: "TRANSFER"  },
 };
 
 export function TypeChip({ type }: { type: string }) {
@@ -376,9 +376,9 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
   const homeColors = getTeamColors(home);
   const isLive = status === "live";
   return (
-    <div onClick={onClick} data-testid={`game-card-${away}-${home}`} style={{ background: T.surface2, border: `1px solid ${isLive ? "rgba(62,186,106,0.32)" : T.border}`, borderRadius: 5, overflow: "hidden", cursor: onClick ? "pointer" : "default", transition: "border-color 0.15s, transform 0.12s", position: "relative", flexShrink: 0 }}
-      onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = "rgba(196,162,74,0.4)"; el.style.transform = "translateY(-1px)"; }}
-      onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = isLive ? "rgba(62,186,106,0.32)" : T.border; el.style.transform = "translateY(0)"; }}
+    <div onClick={onClick} data-testid={`game-card-${away}-${home}`} style={{ background: T.surface2, border: `1px solid ${isLive ? "rgba(0,230,118,0.32)" : T.border}`, borderRadius: 5, overflow: "hidden", cursor: onClick ? "pointer" : "default", transition: "border-color 0.15s, transform 0.12s", position: "relative", flexShrink: 0 }}
+      onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = "rgba(245,184,65,0.4)"; el.style.transform = "translateY(-1px)"; }}
+      onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = isLive ? "rgba(0,230,118,0.32)" : T.border; el.style.transform = "translateY(0)"; }}
     >
       <div style={{ height: 3, background: `linear-gradient(90deg, ${awayColors.secondary}BB, ${awayColors.primary}66 40%, ${homeColors.primary}66 60%, ${homeColors.secondary}BB)` }} />
       <div style={{ padding: compact ? "10px 12px" : "14px 16px" }}>
@@ -402,9 +402,9 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
             <TeamLogoImg abbr={home} size={compact ? 28 : 34} shape="circle" />
           </div>
         </div>
-        {series && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.gold, fontWeight: 700, textAlign: "center", marginBottom: 8, background: "rgba(196,162,74,0.06)", borderRadius: 2, padding: "2px 6px" }}>{series}</div>}
+        {series && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.gold, fontWeight: 700, textAlign: "center", marginBottom: 8, background: "rgba(245,184,65,0.06)", borderRadius: 2, padding: "2px 6px" }}>{series}</div>}
         <div style={{ display: "flex", gap: 6 }}>
-          {[{ label: "Spread", val: spread, color: T.gold, bg: "rgba(196,162,74,0.06)", border: "rgba(196,162,74,0.14)" }, { label: "Total", val: `O/U ${total}`, color: T.text, bg: "rgba(255,255,255,0.04)", border: T.border }, { label: "Time", val: time, color: T.textMuted, bg: "rgba(255,255,255,0.03)", border: "transparent" }].map(s => (
+          {[{ label: "Spread", val: spread, color: T.gold, bg: "rgba(245,184,65,0.06)", border: "rgba(245,184,65,0.14)" }, { label: "Total", val: `O/U ${total}`, color: T.text, bg: "rgba(255,255,255,0.04)", border: T.border }, { label: "Time", val: time, color: T.textMuted, bg: "rgba(255,255,255,0.03)", border: "transparent" }].map(s => (
             <div key={s.label} style={{ flex: 1, textAlign: "center", padding: "5px 8px", background: s.bg, borderRadius: 3, border: `1px solid ${s.border}` }}>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: compact ? 11 : 13, fontWeight: 700, color: s.color }}>{s.val}</div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textFaint, textTransform: "uppercase", marginTop: 1 }}>{s.label}</div>
@@ -429,7 +429,7 @@ interface FeaturedEdgeProps {
 export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
   const teamColors = getTeamColors(signal.team);
   const vColor = VERDICT_COLORS[signal.verdict] ?? T.textFaint;
-  const accentColor = sport === "NBA" ? "#E87C2A" : "#3A8FE0";
+  const accentColor = sport === "NBA" ? "#00B7FF" : "#00B7FF";
 
   return (
     <div data-testid="featured-edge-card" style={{ position: "relative", overflow: "hidden", borderRadius: 0, background: T.surface2, border: "none" }}>
@@ -482,7 +482,7 @@ export function FeaturedEdgeCard({ signal, sport = "NBA" }: FeaturedEdgeProps) {
             {signal.detail.slice(0, 130)}…
           </div>
 
-          <div style={{ background: "rgba(196,162,74,0.07)", border: "1px solid rgba(196,162,74,0.2)", borderRadius: 2, padding: "7px 10px", marginBottom: 9 }}>
+          <div style={{ background: "rgba(245,184,65,0.07)", border: "1px solid rgba(245,184,65,0.2)", borderRadius: 2, padding: "7px 10px", marginBottom: 9 }}>
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.gold, marginRight: 6 }}>Action →</span>
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.text }}>{signal.action_takeaway.slice(0, 100)}</span>
           </div>
@@ -506,7 +506,7 @@ export function MatchupCard({ away, home, time, spread, total, series, signalCou
   const homeC = getTeamColors(home);
   const isLive = status === "live";
   return (
-    <div onClick={onClick} data-testid={`matchup-card-${away}-${home}`} style={{ background: T.surface2, borderRadius: 6, overflow: "hidden", border: `1px solid ${isLive ? "rgba(196,162,74,0.45)" : T.border}`, cursor: onClick ? "pointer" : "default", transition: "transform 0.12s", flexShrink: 0 }}
+    <div onClick={onClick} data-testid={`matchup-card-${away}-${home}`} style={{ background: T.surface2, borderRadius: 6, overflow: "hidden", border: `1px solid ${isLive ? "rgba(245,184,65,0.45)" : T.border}`, cursor: onClick ? "pointer" : "default", transition: "transform 0.12s", flexShrink: 0 }}
       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.transform = "translateY(-2px)"; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.transform = "translateY(0)"; }}
     >
@@ -525,7 +525,7 @@ export function MatchupCard({ away, home, time, spread, total, series, signalCou
       <div style={{ padding: "10px 12px" }}>
         {series && <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, color: accentColor, textAlign: "center", marginBottom: 8 }}>{series}</div>}
         <div style={{ display: "flex", gap: 5 }}>
-          {[{ label: "SPREAD", val: spread, color: T.gold, bg: "rgba(196,162,74,0.07)" }, { label: "TOTAL", val: `O/U ${total}`, color: T.text, bg: "rgba(255,255,255,0.04)" }, { label: "TIME", val: time, color: T.textMuted, bg: "rgba(255,255,255,0.03)" }].map(s => (
+          {[{ label: "SPREAD", val: spread, color: T.gold, bg: "rgba(245,184,65,0.07)" }, { label: "TOTAL", val: `O/U ${total}`, color: T.text, bg: "rgba(255,255,255,0.04)" }, { label: "TIME", val: time, color: T.textMuted, bg: "rgba(255,255,255,0.03)" }].map(s => (
             <div key={s.label} style={{ flex: 1, textAlign: "center", padding: "5px 6px", background: s.bg, borderRadius: 3, border: "1px solid rgba(255,255,255,0.06)" }}>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, color: s.color, lineHeight: 1.1 }}>{s.val}</div>
               <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, textTransform: "uppercase", marginTop: 2 }}>{s.label}</div>
@@ -542,7 +542,7 @@ interface IntelCardProps { headline: string; detail: string; action?: string; ve
 export function IntelCard({ headline, detail, action, verdict, confidence, sources, player, team, opponent, timestamp, tags = [], sport = "NBA", accentColor }: IntelCardProps) {
   const teamColors = getTeamColors(team);
   const oppColors = opponent ? getTeamColors(opponent) : null;
-  const accent = accentColor ?? (sport === "NBA" ? T.gold : "#3A8FE0");
+  const accent = accentColor ?? (sport === "NBA" ? T.gold : "#00B7FF");
   const vColor = verdict ? (VERDICT_COLORS[verdict] ?? T.textFaint) : null;
   return (
     <div style={{ background: T.surface1, borderRadius: 6, overflow: "hidden", border: "1px solid rgba(255,255,255,0.07)", boxShadow: "0 4px 20px rgba(0,0,0,0.4)" }}>

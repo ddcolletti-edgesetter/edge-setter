@@ -121,19 +121,19 @@ export const CFB_TEAM_COLORS: Record<string, { primary: string; secondary: strin
 
 /* ── Signal type meta ── */
 export const CFB_TYPE_META: Record<CFBSignalType, { label: string; color: string }> = {
-  transfer:    { label: "TRANSFER",    color: "#D8B86A" },
-  injury:      { label: "INJURY",      color: "#D94B4B" },
-  depth:       { label: "DEPTH",       color: "#CAA85A" },
-  line_move:   { label: "LINE MOVE",   color: "#4CAF82" },
-  matchup:     { label: "MATCHUP",     color: "#CAA85A" },
-  sharp:       { label: "SHARP",       color: "#4CAF82" },
-  coaching:    { label: "COACHING",    color: "#D98A42" },
-  weather:     { label: "WEATHER",     color: "#4AA8C8" },
-  prop:        { label: "PROP",        color: "#D98A42" },
-  trend:       { label: "TREND",       color: "#4AA8C8" },
-  portal:      { label: "PORTAL",      color: "#D8B86A" },
-  scheme:      { label: "SCHEME",      color: "#D98A42" },
-  transaction: { label: "TRANSACTION", color: "#4AA8C8" },
+  transfer:    { label: "TRANSFER",    color: "#FFD166" },
+  injury:      { label: "INJURY",      color: "#FF5252" },
+  depth:       { label: "DEPTH",       color: "#F5B841" },
+  line_move:   { label: "LINE MOVE",   color: "#00E676" },
+  matchup:     { label: "MATCHUP",     color: "#F5B841" },
+  sharp:       { label: "SHARP",       color: "#00E676" },
+  coaching:    { label: "COACHING",    color: "#FF8A00" },
+  weather:     { label: "WEATHER",     color: "#00B7FF" },
+  prop:        { label: "PROP",        color: "#FF8A00" },
+  trend:       { label: "TREND",       color: "#00B7FF" },
+  portal:      { label: "PORTAL",      color: "#FFD166" },
+  scheme:      { label: "SCHEME",      color: "#FF8A00" },
+  transaction: { label: "TRANSACTION", color: "#00B7FF" },
 };
 
 /* ── Slate ── */

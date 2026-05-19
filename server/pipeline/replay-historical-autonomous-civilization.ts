@@ -1,3 +1,7 @@
+/**
+ * @deprecated Experimental product-drift compatibility layer.
+ * Prefer validator cluster stress runtime and manipulation resistance modules for new work.
+ */
 import crypto from "node:crypto";
 
 import type Database from "better-sqlite3";
@@ -10,7 +14,9 @@ import type {
   ReplayBlackSwanCollapseEvent,
   ReplayCivilWarGovernanceFractureRecord,
   ReplayCivilizationPromotionGate,
+  ReplayCivilizationRecoveryRecord,
   ReplayCivilizationScaleAnalyticsRecord,
+  ReplayCivilizationStateTransitionLineage,
   ReplayCivilizationWarfareRecord,
   ReplayCorruptionPropagationRecord,
   ReplayDistributedIntelligenceMigrationRecord,
@@ -45,12 +51,14 @@ const SUPPORTED_ACTIONS: readonly ReplayHistoricalAutonomousCivilizationAction[]
   "form_treaty_alliance",
   "simulate_civil_war_fracture",
   "inject_black_swan_collapse",
+  "recover_from_civilization_collapse",
   "score_dynasty_survival",
   "track_validator_species_divergence",
   "run_autonomous_diplomacy",
   "model_self_preserving_swarms",
   "model_corruption_propagation",
   "emit_civilization_replay_analytics",
+  "record_civilization_state_lineage",
 ];
 
 const SUPPORTED_QUERIES: readonly ReplayHistoricalAutonomousCivilizationQuery[] = [
@@ -63,6 +71,7 @@ const SUPPORTED_QUERIES: readonly ReplayHistoricalAutonomousCivilizationQuery[] 
   "get_treaty_alliances",
   "get_civil_war_fractures",
   "get_black_swan_collapse_events",
+  "get_civilization_recovery",
   "get_dynasty_survival_scores",
   "get_species_divergence",
   "get_runtime_diplomacy",
@@ -70,6 +79,7 @@ const SUPPORTED_QUERIES: readonly ReplayHistoricalAutonomousCivilizationQuery[] 
   "get_corruption_propagation",
   "get_civilization_replay_analytics",
   "get_civilization_promotion_gates",
+  "get_civilization_state_lineage",
 ];
 
 export function initializeReplayHistoricalAutonomousCivilizationSchema(db: SqliteDatabase): void {
@@ -114,13 +124,33 @@ export function buildReplayHistoricalAutonomousCivilizationSnapshot(
   const treaties = buildTreaties(empires, migrations);
   const fractures = buildCivilWarFractures(league, ideologies, pressure);
   const blackSwans = buildBlackSwanEvents(league, catastrophes, collapseThreshold);
-  const dynasty = buildDynastySurvival(league, blackSwans);
+  const recovery = buildCivilizationRecovery(blackSwans, treaties, migrations, league);
+  const dynasty = buildDynastySurvival(league, blackSwans, recovery);
   const species = buildSpeciesDivergence(league);
   const diplomacy = buildDiplomacy(empires, treaties, warfare);
   const swarms = buildSwarms(league, dynasty);
   const corruption = buildCorruptionPropagation(league, fractures, blackSwans);
-  const analytics = buildCivilizationAnalytics(league, dynasty, treaties, corruption, blackSwans);
+  const analytics = buildCivilizationAnalytics(league, dynasty, treaties, corruption, blackSwans, recovery);
   const gates = buildPromotionGates(analytics, league, promotionThreshold);
+  const stateLineage = buildStateTransitionLineage(league, {
+    warfare,
+    ideologies,
+    empires,
+    spawns,
+    catastrophes,
+    migrations,
+    treaties,
+    fractures,
+    blackSwans,
+    recovery,
+    dynasty,
+    species,
+    diplomacy,
+    swarms,
+    corruption,
+    analytics,
+    gates,
+  });
   const state = classifyCivilizationState(gates, blackSwans, fractures, migrations, warfare);
   const seed = {
     generated_at: input.generated_at,
@@ -136,6 +166,7 @@ export function buildReplayHistoricalAutonomousCivilizationSnapshot(
     treaty_hashes: treaties.map((record) => record.treaty_hash),
     fracture_hashes: fractures.map((record) => record.fracture_hash),
     black_swan_hashes: blackSwans.map((record) => record.event_hash),
+    recovery_hashes: recovery.map((record) => record.recovery_hash),
     dynasty_hashes: dynasty.map((record) => record.dynasty_hash),
     species_hashes: species.map((record) => record.species_hash),
     diplomacy_hashes: diplomacy.map((record) => record.diplomacy_hash),
@@ -143,6 +174,7 @@ export function buildReplayHistoricalAutonomousCivilizationSnapshot(
     corruption_hashes: corruption.map((record) => record.corruption_hash),
     analytics_hashes: analytics.map((record) => record.analytics_hash),
     gate_hashes: gates.map((record) => record.gate_hash),
+    state_lineage_hashes: stateLineage.map((record) => record.transition_hash),
   };
   const deterministicHash = computeReplayHistoricalAutonomousCivilizationHash(seed);
   const snapshot = deepFreeze({
@@ -160,6 +192,7 @@ export function buildReplayHistoricalAutonomousCivilizationSnapshot(
     treaty_alliances: treaties,
     civil_war_fractures: fractures,
     black_swan_events: blackSwans,
+    civilization_recovery: recovery,
     dynasty_survival: dynasty,
     species_divergence: species,
     runtime_diplomacy: diplomacy,
@@ -167,6 +200,7 @@ export function buildReplayHistoricalAutonomousCivilizationSnapshot(
     corruption_propagation: corruption,
     civilization_analytics: analytics,
     promotion_gates: gates,
+    civilization_state_lineage: stateLineage,
     supported_actions: SUPPORTED_ACTIONS,
     supported_queries: SUPPORTED_QUERIES,
     deterministic_hash: deterministicHash,
@@ -203,6 +237,9 @@ export function getCivilWarFractures(db: SqliteDatabase, civilizationId: string)
 export function getBlackSwanCollapseEvents(db: SqliteDatabase, civilizationId: string): readonly ReplayBlackSwanCollapseEvent[] {
   return getCivilizationViewList(db, civilizationId, "black_swan_events");
 }
+export function getCivilizationRecovery(db: SqliteDatabase, civilizationId: string): readonly ReplayCivilizationRecoveryRecord[] {
+  return getCivilizationViewList(db, civilizationId, "civilization_recovery");
+}
 export function getDynastySurvivalScores(db: SqliteDatabase, civilizationId: string): readonly ReplayDynastySurvivalScore[] {
   return getCivilizationViewList(db, civilizationId, "dynasty_survival");
 }
@@ -223,6 +260,9 @@ export function getCivilizationReplayAnalytics(db: SqliteDatabase, civilizationI
 }
 export function getCivilizationPromotionGates(db: SqliteDatabase, civilizationId: string): readonly ReplayCivilizationPromotionGate[] {
   return getCivilizationViewList(db, civilizationId, "promotion_gates");
+}
+export function getCivilizationStateLineage(db: SqliteDatabase, civilizationId: string): readonly ReplayCivilizationStateTransitionLineage[] {
+  return getCivilizationViewList(db, civilizationId, "civilization_state_lineage");
 }
 
 export function serializeReplayHistoricalAutonomousCivilizationSnapshot(snapshot: ReplayHistoricalAutonomousCivilizationSnapshot): string {
@@ -430,18 +470,47 @@ function buildBlackSwanEvents(
   }));
 }
 
+function buildCivilizationRecovery(
+  blackSwans: readonly ReplayBlackSwanCollapseEvent[],
+  treaties: readonly ReplayTreatyAllianceRecord[],
+  migrations: readonly ReplayDistributedIntelligenceMigrationRecord[],
+  league: ReplayHistoricalAutonomousLeagueSnapshot,
+): readonly ReplayCivilizationRecoveryRecord[] {
+  return deepFreeze(blackSwans.map((event) => {
+    const treatySupport = average(treaties.filter((record) => record.league_a === event.league || record.league_b === event.league).map((record) => record.treaty_durability));
+    const migrationRestore = average(migrations.filter((record) => record.to_league === event.league).map((record) => record.migration_gain));
+    const swarmSupport = league.intelligence_hierarchy.filter((record) => record.league === event.league && record.tier !== "extinct").length / Math.max(1, league.ecosystem.find((record) => record.league === event.league)?.population_count ?? 1);
+    const repair = average(league.governance_forks.filter((record) => record.league === event.league).map((record) => record.fork_survival_score));
+    const strategies: readonly ReplayCivilizationRecoveryRecord["recovery_strategy"][] = ["swarm_redundancy", "treaty_support", "migration_restore", "governance_repair"];
+    const scores = [swarmSupport, treatySupport, migrationRestore, repair] as const;
+    const bestIndex = scores.reduce((best, score, index) => score > scores[best] ? index : best, 0);
+    const recoveryScore = clamp01((event.containment_score * 0.42) + (scores[bestIndex] * 0.58));
+    const seed = {
+      league: event.league,
+      collapse_event_hash: event.event_hash,
+      recovery_strategy: strategies[bestIndex] ?? "swarm_redundancy",
+      recovery_score: round(recoveryScore),
+      recovered: recoveryScore >= 0.52,
+    };
+    const hash = computeReplayHistoricalAutonomousCivilizationHash(seed);
+    return { recovery_id: `historical-civilization-recovery:${hash}`, ...seed, recovery_hash: hash };
+  }));
+}
+
 function buildDynastySurvival(
   league: ReplayHistoricalAutonomousLeagueSnapshot,
   blackSwans: readonly ReplayBlackSwanCollapseEvent[],
+  recovery: readonly ReplayCivilizationRecoveryRecord[],
 ): readonly ReplayDynastySurvivalScore[] {
   return deepFreeze(league.evolutionary_memory.map((memory) => {
     const promoted = league.live_promotion_criteria.filter((record) => record.league === memory.league && record.promoted).length;
     const containment = blackSwans.find((record) => record.league === memory.league)?.containment_score ?? 0;
+    const recoveryScore = recovery.find((record) => record.league === memory.league)?.recovery_score ?? 0;
     const seed = {
       league: memory.league,
       elite_lineage_count: memory.elite_lineage_count,
       promoted_network_count: promoted,
-      dynasty_score: round(clamp01(memory.memory_fitness * 0.45 + containment * 0.25 + promoted / Math.max(1, memory.elite_lineage_count + promoted) * 0.3)),
+      dynasty_score: round(clamp01(memory.memory_fitness * 0.4 + containment * 0.18 + recoveryScore * 0.18 + promoted / Math.max(1, memory.elite_lineage_count + promoted) * 0.24)),
     };
     const hash = computeReplayHistoricalAutonomousCivilizationHash(seed);
     return { dynasty_id: `historical-dynasty-survival:${hash}`, ...seed, dynasty_hash: hash };
@@ -532,22 +601,79 @@ function buildCivilizationAnalytics(
   treaties: readonly ReplayTreatyAllianceRecord[],
   corruption: readonly ReplayCorruptionPropagationRecord[],
   blackSwans: readonly ReplayBlackSwanCollapseEvent[],
+  recovery: readonly ReplayCivilizationRecoveryRecord[],
 ): readonly ReplayCivilizationScaleAnalyticsRecord[] {
   return deepFreeze(league.ecosystem.map((ecosystem) => {
     const dynastyScore = dynasty.find((record) => record.league === ecosystem.league)?.dynasty_score ?? 0;
     const cooperation = average(treaties.filter((record) => record.league_a === ecosystem.league || record.league_b === ecosystem.league).map((record) => record.cooperation_score));
     const corruptionRisk = average(corruption.filter((record) => record.league === ecosystem.league).map((record) => record.corruption_risk));
     const collapse = blackSwans.find((record) => record.league === ecosystem.league)?.collapse_pressure ?? 0;
+    const recoveryScore = recovery.find((record) => record.league === ecosystem.league)?.recovery_score ?? 0;
     const promotion = average(league.live_promotion_criteria.filter((record) => record.league === ecosystem.league).map((record) => record.promotion_score));
     const seed = {
       league: ecosystem.league,
-      civilization_fitness: round(clamp01(ecosystem.ecosystem_fitness * 0.32 + dynastyScore * 0.34 + cooperation * 0.18 + (1 - corruptionRisk) * 0.16)),
-      collapse_risk: round(clamp01(collapse * 0.62 + corruptionRisk * 0.38)),
+      civilization_fitness: round(clamp01(ecosystem.ecosystem_fitness * 0.28 + dynastyScore * 0.3 + cooperation * 0.16 + recoveryScore * 0.14 + (1 - corruptionRisk) * 0.12)),
+      collapse_risk: round(clamp01(collapse * 0.54 + corruptionRisk * 0.34 + (1 - recoveryScore) * 0.12)),
       cooperation_index: round(cooperation),
       promotion_readiness: round(clamp01(promotion * 0.65 + dynastyScore * 0.35)),
     };
     const hash = computeReplayHistoricalAutonomousCivilizationHash(seed);
     return { analytics_id: `historical-civilization-analytics:${hash}`, ...seed, analytics_hash: hash };
+  }));
+}
+
+function buildStateTransitionLineage(
+  league: ReplayHistoricalAutonomousLeagueSnapshot,
+  records: {
+    readonly warfare: readonly ReplayCivilizationWarfareRecord[];
+    readonly ideologies: readonly ReplayGovernanceIdeologyRecord[];
+    readonly empires: readonly ReplayValidatorEmpireRecord[];
+    readonly spawns: readonly ReplayRecursiveValidatorSpawnRecord[];
+    readonly catastrophes: readonly ReplayEvolutionaryCatastropheRecord[];
+    readonly migrations: readonly ReplayDistributedIntelligenceMigrationRecord[];
+    readonly treaties: readonly ReplayTreatyAllianceRecord[];
+    readonly fractures: readonly ReplayCivilWarGovernanceFractureRecord[];
+    readonly blackSwans: readonly ReplayBlackSwanCollapseEvent[];
+    readonly recovery: readonly ReplayCivilizationRecoveryRecord[];
+    readonly dynasty: readonly ReplayDynastySurvivalScore[];
+    readonly species: readonly ReplayValidatorSpeciesDivergenceRecord[];
+    readonly diplomacy: readonly ReplayAutonomousRuntimeDiplomacyRecord[];
+    readonly swarms: readonly ReplaySelfPreservingValidatorSwarmRecord[];
+    readonly corruption: readonly ReplayCorruptionPropagationRecord[];
+    readonly analytics: readonly ReplayCivilizationScaleAnalyticsRecord[];
+    readonly gates: readonly ReplayCivilizationPromotionGate[];
+  },
+): readonly ReplayCivilizationStateTransitionLineage[] {
+  const refs: readonly { readonly league: string | null; readonly kind: ReplayCivilizationStateTransitionLineage["transition_kind"]; readonly hash: string }[] = [
+    { league: null, kind: "league_seed", hash: league.deterministic_hash },
+    ...records.warfare.map((record) => ({ league: record.attacker_league, kind: "warfare" as const, hash: record.warfare_hash })),
+    ...records.ideologies.map((record) => ({ league: record.league, kind: "ideology" as const, hash: record.ideology_hash })),
+    ...records.empires.map((record) => ({ league: record.league, kind: "empire" as const, hash: record.empire_hash })),
+    ...records.spawns.map((record) => ({ league: record.league, kind: "spawn" as const, hash: record.spawn_hash })),
+    ...records.catastrophes.map((record) => ({ league: record.league, kind: "catastrophe" as const, hash: record.catastrophe_hash })),
+    ...records.migrations.map((record) => ({ league: record.to_league, kind: "migration" as const, hash: record.migration_hash })),
+    ...records.treaties.map((record) => ({ league: record.league_a, kind: "treaty" as const, hash: record.treaty_hash })),
+    ...records.fractures.map((record) => ({ league: record.league, kind: "fracture" as const, hash: record.fracture_hash })),
+    ...records.blackSwans.map((record) => ({ league: record.league, kind: "black_swan" as const, hash: record.event_hash })),
+    ...records.recovery.map((record) => ({ league: record.league, kind: "recovery" as const, hash: record.recovery_hash })),
+    ...records.dynasty.map((record) => ({ league: record.league, kind: "dynasty" as const, hash: record.dynasty_hash })),
+    ...records.species.map((record) => ({ league: record.league, kind: "species" as const, hash: record.species_hash })),
+    ...records.diplomacy.map((record) => ({ league: record.league, kind: "diplomacy" as const, hash: record.diplomacy_hash })),
+    ...records.swarms.map((record) => ({ league: record.league, kind: "swarm" as const, hash: record.swarm_hash })),
+    ...records.corruption.map((record) => ({ league: record.league, kind: "corruption" as const, hash: record.corruption_hash })),
+    ...records.analytics.map((record) => ({ league: record.league, kind: "analytics" as const, hash: record.analytics_hash })),
+    ...records.gates.map((record) => ({ league: record.league, kind: "promotion_gate" as const, hash: record.gate_hash })),
+  ];
+  return deepFreeze(refs.map((ref, index) => {
+    const seed = {
+      league: ref.league,
+      transition_kind: ref.kind,
+      source_hash: index === 0 ? league.deterministic_hash : refs[index - 1]?.hash ?? league.deterministic_hash,
+      target_hash: ref.hash,
+      lineage_depth: index,
+    };
+    const hash = computeReplayHistoricalAutonomousCivilizationHash(seed);
+    return { transition_id: `historical-civilization-transition:${hash}`, ...seed, transition_hash: hash };
   }));
 }
 
@@ -606,6 +732,7 @@ function persistReplayHistoricalAutonomousCivilizationSnapshot(
     for (const record of snapshot.treaty_alliances) persistView(db, snapshot, "treaty_alliances", record.treaty_id, record.treaty_hash, record);
     for (const record of snapshot.civil_war_fractures) persistView(db, snapshot, "civil_war_fractures", record.fracture_id, record.fracture_hash, record);
     for (const record of snapshot.black_swan_events) persistView(db, snapshot, "black_swan_events", record.event_id, record.event_hash, record);
+    for (const record of snapshot.civilization_recovery) persistView(db, snapshot, "civilization_recovery", record.recovery_id, record.recovery_hash, record);
     for (const record of snapshot.dynasty_survival) persistView(db, snapshot, "dynasty_survival", record.dynasty_id, record.dynasty_hash, record);
     for (const record of snapshot.species_divergence) persistView(db, snapshot, "species_divergence", record.species_id, record.species_hash, record);
     for (const record of snapshot.runtime_diplomacy) persistView(db, snapshot, "runtime_diplomacy", record.diplomacy_id, record.diplomacy_hash, record);
@@ -613,6 +740,7 @@ function persistReplayHistoricalAutonomousCivilizationSnapshot(
     for (const record of snapshot.corruption_propagation) persistView(db, snapshot, "corruption_propagation", record.corruption_id, record.corruption_hash, record);
     for (const record of snapshot.civilization_analytics) persistView(db, snapshot, "civilization_analytics", record.analytics_id, record.analytics_hash, record);
     for (const record of snapshot.promotion_gates) persistView(db, snapshot, "promotion_gates", record.gate_id, record.gate_hash, record);
+    for (const record of snapshot.civilization_state_lineage) persistView(db, snapshot, "civilization_state_lineage", record.transition_id, record.transition_hash, record);
   });
   write();
 }

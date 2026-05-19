@@ -21,18 +21,18 @@ interface Props { theme: Theme; toggleTheme: () => void; }
 const ADMIN_PASS = "edgesetter-admin-2026";
 
 const T = {
-  bg:          "#0A0B0D",
-  surface1:    "#111317",
-  surface2:    "#16191E",
-  surface3:    "#1B1F25",
-  gold:        "#CAA85A",
-  goldDim:     "rgba(202,168,90,0.20)",
-  text:        "#F3EFE6",
-  textMuted:   "#B7AFA0",
-  textFaint:   "#7E776A",
+  bg:          "#050505",
+  surface1:    "#0A0F1A",
+  surface2:    "#101827",
+  surface3:    "#101827",
+  gold:        "#F5B841",
+  goldDim:     "rgba(245,184,65,0.20)",
+  text:        "#F8FAFC",
+  textMuted:   "#94A3B8",
+  textFaint:   "#64748B",
   green:       "#3DAE72",
-  red:         "#D94B4B",
-  amber:       "#D4932A",
+  red:         "#FF5252",
+  amber:       "#FF8A00",
 };
 
 function confColor(score: number) {
@@ -172,7 +172,7 @@ export default function SignalOpsQueue({ theme, toggleTheme }: Props) {
             value={ingestInput}
             onChange={e => setIngestInput(e.target.value)}
             placeholder={`{\n  "source_name": "Adam Schefter",\n  "source_url": "https://twitter.com/...",\n  "timestamp": "2026-04-23T09:00:00Z",\n  "headline": "Jets visiting Arvell Reese today...",\n  "body": "...",\n  "player_tags": ["Arvell Reese"],\n  "team_tags": ["Jets"]\n}`}
-            style={{ width: "100%", boxSizing: "border-box", height: 140, background: T.bg, border: `1px solid rgba(202,168,90,0.25)`, color: T.text, fontSize: 11, fontFamily: "monospace", padding: "10px 12px", resize: "vertical", borderRadius: 2, outline: "none" }}
+            style={{ width: "100%", boxSizing: "border-box", height: 140, background: T.bg, border: `1px solid rgba(245,184,65,0.25)`, color: T.text, fontSize: 11, fontFamily: "monospace", padding: "10px 12px", resize: "vertical", borderRadius: 2, outline: "none" }}
           />
           <button
             onClick={handleIngest}
@@ -263,14 +263,14 @@ export default function SignalOpsQueue({ theme, toggleTheme }: Props) {
                     <button
                       onClick={() => approveMutation.mutate(item.id)}
                       disabled={approveMutation.isPending}
-                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: T.green, color: "#0A0B0D", border: "none", cursor: "pointer", fontFamily: "'Barlow Condensed'", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", borderRadius: 2 }}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: T.green, color: "#050505", border: "none", cursor: "pointer", fontFamily: "'Barlow Condensed'", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", borderRadius: 2 }}
                     >
                       <CheckCircle size={12} /> Approve & Publish
                     </button>
                     <button
                       onClick={() => rejectMutation.mutate({ id: item.id, reason: "Human review rejected" })}
                       disabled={rejectMutation.isPending}
-                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: T.surface3, color: T.red, border: `1px solid rgba(217,75,75,0.30)`, cursor: "pointer", fontFamily: "'Barlow Condensed'", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", borderRadius: 2 }}
+                      style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", background: T.surface3, color: T.red, border: `1px solid rgba(255,82,82,0.30)`, cursor: "pointer", fontFamily: "'Barlow Condensed'", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", borderRadius: 2 }}
                     >
                       <XCircle size={12} /> Reject
                     </button>

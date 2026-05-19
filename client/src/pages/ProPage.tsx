@@ -13,18 +13,18 @@ import { useAuth } from "@/context/AuthContext";
 import { CheckCircle2, Zap, BarChart2, Filter, BookOpen, ChevronRight } from "lucide-react";
 
 const C = {
-  bg:         "#0A0B0D",
-  surface1:   "#111317",
-  surface2:   "#16191E",
-  gold:       "#CAA85A",
-  goldBright: "#D8B86A",
-  goldDim:    "rgba(202,168,90,0.14)",
-  text:       "#F3EFE6",
-  textMuted:  "#B7AFA0",
-  textFaint:  "#7E776A",
+  bg:         "#050505",
+  surface1:   "#0A0F1A",
+  surface2:   "#101827",
+  gold:       "#F5B841",
+  goldBright: "#FFD166",
+  goldDim:    "rgba(245,184,65,0.14)",
+  text:       "#F8FAFC",
+  textMuted:  "#94A3B8",
+  textFaint:  "#64748B",
   green:      "#3DAE72",
   red:        "#C04040",
-  amber:      "#D4932A",
+  amber:      "#FF8A00",
 };
 
 const FEATURES = [
@@ -86,7 +86,7 @@ function CheckoutForm({ initialEmail = "" }: { initialEmail?: string }) {
       <div style={{
         display: "grid",
         gridTemplateColumns: "1fr auto",
-        border: `1px solid rgba(202,168,90,0.35)`,
+        border: `1px solid rgba(245,184,65,0.35)`,
         borderRadius: 4,
         overflow: "hidden",
       }}>
@@ -100,7 +100,7 @@ function CheckoutForm({ initialEmail = "" }: { initialEmail?: string }) {
           style={{
             background: C.surface2,
             border: "none",
-            borderRight: `1px solid rgba(202,168,90,0.20)`,
+            borderRight: `1px solid rgba(245,184,65,0.20)`,
             color: C.text,
             fontSize: 16,
             padding: "14px 18px",
@@ -275,8 +275,8 @@ export default function ProPage() {
       {/* Nav */}
       <div style={{
         background: C.surface1,
-        borderBottom: `1px solid rgba(202,168,90,0.14)`,
-        borderTop: "2px solid rgba(202,168,90,0.60)",
+        borderBottom: `1px solid rgba(245,184,65,0.14)`,
+        borderTop: "2px solid rgba(245,184,65,0.60)",
       }}>
         <div style={{
           maxWidth: 1440, margin: "0 auto",
@@ -287,11 +287,11 @@ export default function ProPage() {
           <Link href="/">
             <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
               <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-                <rect width="32" height="32" rx="3" fill="#111317" />
-                <rect x="6" y="7" width="20" height="2.5" rx="0.5" fill="#CAA85A" />
-                <rect x="6" y="14.75" width="13" height="2.5" rx="0.5" fill="#CAA85A" />
-                <rect x="6" y="22.5" width="20" height="2.5" rx="0.5" fill="#CAA85A" />
-                <rect x="21" y="14.75" width="5" height="2.5" rx="0.5" fill="#D8B86A" opacity="0.6" />
+                <rect width="32" height="32" rx="3" fill="#0A0F1A" />
+                <rect x="6" y="7" width="20" height="2.5" rx="0.5" fill="#F5B841" />
+                <rect x="6" y="14.75" width="13" height="2.5" rx="0.5" fill="#F5B841" />
+                <rect x="6" y="22.5" width="20" height="2.5" rx="0.5" fill="#F5B841" />
+                <rect x="21" y="14.75" width="5" height="2.5" rx="0.5" fill="#FFD166" opacity="0.6" />
               </svg>
               <span style={{
                 fontFamily: "'Playfair Display',Georgia,serif",
@@ -359,8 +359,8 @@ export default function ProPage() {
             {/* Draft Week urgency banner */}
             <div style={{
               display: "flex", alignItems: "flex-start", gap: 10,
-              background: "rgba(202,168,90,0.07)",
-              border: "1px solid rgba(202,168,90,0.30)",
+              background: "rgba(245,184,65,0.07)",
+              border: "1px solid rgba(245,184,65,0.30)",
               borderLeft: `3px solid ${C.gold}`,
               borderRadius: 4, padding: "12px 16px",
               marginBottom: 36,
@@ -423,7 +423,7 @@ export default function ProPage() {
               {FEATURES.map(({ icon: Icon, label, detail }) => (
                 <div key={label} style={{
                   background: C.surface1,
-                  border: "1px solid rgba(202,168,90,0.12)",
+                  border: "1px solid rgba(245,184,65,0.12)",
                   borderRadius: 4,
                   padding: "18px 20px",
                   display: "flex", gap: 14, alignItems: "flex-start",
@@ -431,7 +431,7 @@ export default function ProPage() {
                   <div style={{
                     width: 32, height: 32, flexShrink: 0,
                     background: C.goldDim,
-                    border: "1px solid rgba(202,168,90,0.22)",
+                    border: "1px solid rgba(245,184,65,0.22)",
                     borderRadius: 4,
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}>
@@ -505,7 +505,7 @@ export default function ProPage() {
                   style={{
                     padding: "8px 16px",
                     background: "transparent",
-                    border: "1px solid rgba(202,168,90,0.25)",
+                    border: "1px solid rgba(245,184,65,0.25)",
                     color: C.gold,
                     cursor: checking || !email ? "default" : "pointer",
                     fontFamily: "'Barlow Condensed',Arial,sans-serif",

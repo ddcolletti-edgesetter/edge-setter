@@ -18,8 +18,8 @@ interface DataBadgeProps {
 
 const CONFIG: Record<DataBadgeType, { dot: string; text: string; bg: string; border: string; pulse: boolean; default: string }> = {
   live:    { dot: "#3DAE72", text: "#3DAE72", bg: "rgba(61,174,114,0.08)",  border: "rgba(61,174,114,0.28)",  pulse: true,  default: "Live" },
-  demo:    { dot: "#CAA85A", text: "#CAA85A", bg: "rgba(202,168,90,0.08)", border: "rgba(202,168,90,0.28)", pulse: false, default: "Demo Data" },
-  archive: { dot: "#7E776A", text: "#7E776A", bg: "rgba(126,119,106,0.08)", border: "rgba(126,119,106,0.22)", pulse: false, default: "Archive" },
+  demo:    { dot: "#F5B841", text: "#F5B841", bg: "rgba(245,184,65,0.08)", border: "rgba(245,184,65,0.28)", pulse: false, default: "Demo Data" },
+  archive: { dot: "#64748B", text: "#64748B", bg: "rgba(100,116,139,0.08)", border: "rgba(100,116,139,0.22)", pulse: false, default: "Archive" },
 };
 
 export default function DataBadge({ type, label, className }: DataBadgeProps) {

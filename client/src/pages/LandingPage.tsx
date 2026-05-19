@@ -2,7 +2,7 @@
  * Edge Setter — LandingPage v6 (Luxury Film Ledger)
  *
  * Primary reference: luxury_film_ledger_dark.jpg (Kane card style)
- * Palette: #0A0B0D bg, #CAA85A gold, #F3EFE6 text
+ * Palette: #050505 bg, #F5B841 gold, #F8FAFC text
  * Philosophy: premium intelligence terminal — sell product first, dashboard second
  */
 import { useState, useRef, useEffect } from "react";
@@ -19,17 +19,17 @@ interface Props { theme: Theme; toggleTheme: () => void; }
 
 /* ── Design tokens ── */
 const T = {
-  bg:        "#0A0B0D",
-  surface1:  "#111317",
-  surface2:  "#16191E",
-  surface3:  "#1B1F25",
-  gold:      "#CAA85A",
-  goldBright:"#D8B86A",
-  goldDim:   "rgba(202,168,90,0.16)",
-  text:      "#F3EFE6",
-  textMuted: "#B7AFA0",
-  textFaint: "#7E776A",
-  danger:    "#D94B4B",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  surface3:  "#101827",
+  gold:      "#F5B841",
+  goldBright:"#FFD166",
+  goldDim:   "rgba(245,184,65,0.16)",
+  text:      "#F8FAFC",
+  textMuted: "#94A3B8",
+  textFaint: "#64748B",
+  danger:    "#FF5252",
   green:     "#3DAE72",
   cyan:      "#38AACB",
 };
@@ -64,7 +64,7 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
 function VerdictPill({ type }: { type: string }) {
   const map: Record<string, { bg: string; color: string; label: string }> = {
     confirmed:    { bg: "rgba(56,170,203,0.12)", color: "#5AC8E0", label: "Confirmed" },
-    likely:       { bg: "rgba(202,168,90,0.12)", color: "#D8B86A", label: "Likely" },
+    likely:       { bg: "rgba(245,184,65,0.12)", color: "#FFD166", label: "Likely" },
     rumor:        { bg: "rgba(120,80,176,0.12)", color: "#A07ACC", label: "Rumor" },
     contradicted: { bg: "rgba(207,74,74,0.12)", color: "#E08080", label: "Contradicted" },
     review:       { bg: "rgba(78,111,160,0.12)", color: "#7A9CC8", label: "In Review" },
@@ -114,8 +114,8 @@ function ChalkField() {
   const ydLine   = "rgba(255,255,255,0.45)";  // interior yard lines
   const midLine  = "rgba(255,255,255,0.85)";  // 50-yd — the hero line
   const hashC    = "rgba(255,255,255,0.55)";  // hash marks
-  const routeC   = "rgba(202,168,90,0.90)";   // gold routes
-  const arrowC   = "rgba(202,168,90,0.85)";   // gold arrowheads
+  const routeC   = "rgba(245,184,65,0.90)";   // gold routes
+  const arrowC   = "rgba(245,184,65,0.85)";   // gold arrowheads
 
   // Hash spacing: every YD interval
   const hashXArr = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(i => i * YD);
@@ -215,14 +215,14 @@ function YardlineDivider() {
       >
         {/* Main yard line — gold, low opacity */}
         <line x1="0" y1="14" x2="1200" y2="14"
-          stroke="rgba(202,168,90,0.22)" strokeWidth="1.2" />
+          stroke="rgba(245,184,65,0.22)" strokeWidth="1.2" />
 
         {/* Hash marks — evenly spaced, like painted yard-line hashes */}
         {Array.from({ length: 25 }, (_, i) => {
           const x = 24 + i * 48;
           const isMid = i === 12;
           const h = isMid ? 10 : 6;
-          const col = isMid ? "rgba(202,168,90,0.40)" : "rgba(202,168,90,0.18)";
+          const col = isMid ? "rgba(245,184,65,0.40)" : "rgba(245,184,65,0.18)";
           return (
             <line key={i}
               x1={x} y1={14 - h} x2={x} y2={14 + h}
@@ -237,11 +237,11 @@ function YardlineDivider() {
 function LandingLogo() {
   return (
     <svg width="42" height="42" viewBox="0 0 32 32" fill="none" aria-label="Edge Setter">
-      <rect width="32" height="32" rx="3" fill="#111317" />
-      <rect x="6" y="7" width="20" height="2.5" rx="0.5" fill="#CAA85A" />
-      <rect x="6" y="14.75" width="13" height="2.5" rx="0.5" fill="#CAA85A" />
-      <rect x="6" y="22.5" width="20" height="2.5" rx="0.5" fill="#CAA85A" />
-      <rect x="21" y="14.75" width="5" height="2.5" rx="0.5" fill="#D8B86A" opacity="0.6" />
+      <rect width="32" height="32" rx="3" fill="#0A0F1A" />
+      <rect x="6" y="7" width="20" height="2.5" rx="0.5" fill="#F5B841" />
+      <rect x="6" y="14.75" width="13" height="2.5" rx="0.5" fill="#F5B841" />
+      <rect x="6" y="22.5" width="20" height="2.5" rx="0.5" fill="#F5B841" />
+      <rect x="21" y="14.75" width="5" height="2.5" rx="0.5" fill="#FFD166" opacity="0.6" />
     </svg>
   );
 }
@@ -263,7 +263,7 @@ function FeaturedCard({ signal }: { signal: any }) {
     <div
       style={{
         background: T.surface1,
-        border: `1px solid rgba(202,168,90,0.28)`,
+        border: `1px solid rgba(245,184,65,0.28)`,
         borderRadius: 6,
         overflow: "hidden",
         minWidth: 320,
@@ -274,7 +274,7 @@ function FeaturedCard({ signal }: { signal: any }) {
       {/* Header eyebrow */}
       <div style={{
         padding: "12px 20px",
-        borderBottom: `1px solid rgba(202,168,90,0.12)`,
+        borderBottom: `1px solid rgba(245,184,65,0.12)`,
         display: "flex", alignItems: "center", justifyContent: "space-between",
         background: T.surface2,
       }}>
@@ -307,7 +307,7 @@ function FeaturedCard({ signal }: { signal: any }) {
       {/* Player + confidence strip */}
       <div style={{
         padding: "16px 20px 14px",
-        borderBottom: `1px solid rgba(202,168,90,0.10)`,
+        borderBottom: `1px solid rgba(245,184,65,0.10)`,
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
       }}>
         <div>
@@ -352,7 +352,7 @@ function FeaturedCard({ signal }: { signal: any }) {
         }}>{summary}</p>
         <div style={{
           background: T.surface2,
-          border: `1px solid rgba(202,168,90,0.12)`,
+          border: `1px solid rgba(245,184,65,0.12)`,
           borderLeft: `3px solid ${T.gold}`,
           borderRadius: 3,
           padding: "10px 14px",
@@ -378,7 +378,7 @@ function FeaturedCard({ signal }: { signal: any }) {
           }}>Live · 2026</div>
         </div>
         {/* View in Signal Board link */}
-        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(202,168,90,0.10)" }}>
+        <div style={{ marginTop: 16, paddingTop: 14, borderTop: "1px solid rgba(245,184,65,0.10)" }}>
           <Link href={signalId ? `/dashboard?highlight=${signalId}` : "/dashboard"}>
             <div style={{
               display: "inline-flex", alignItems: "center", gap: 6,
@@ -405,8 +405,8 @@ function FeaturedCard({ signal }: { signal: any }) {
 function StatBox({ value, label, highlight = false }: { value: string; label: string; highlight?: boolean }) {
   return (
     <div style={{
-      background: highlight ? "rgba(202,168,90,0.10)" : "#16191E",
-      border: `1px solid ${highlight ? "rgba(202,168,90,0.35)" : "rgba(255,255,255,0.08)"}`,
+      background: highlight ? "rgba(245,184,65,0.10)" : "#101827",
+      border: `1px solid ${highlight ? "rgba(245,184,65,0.35)" : "rgba(255,255,255,0.08)"}`,
       borderRadius: 3,
       padding: "6px 10px",
       textAlign: "center",
@@ -484,7 +484,7 @@ function SignalTile({ signal }: { signal: any }) {
     <div
       style={{
         background: T.surface2,
-        border: `1px solid rgba(202,168,90,0.10)`,
+        border: `1px solid rgba(245,184,65,0.10)`,
         borderRadius: 4,
         overflow: "hidden",
         transition: "border-color 0.15s, background 0.15s",
@@ -497,7 +497,7 @@ function SignalTile({ signal }: { signal: any }) {
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLDivElement;
-        el.style.borderColor = "rgba(202,168,90,0.10)";
+        el.style.borderColor = "rgba(245,184,65,0.10)";
         el.style.background = T.surface2;
       }}
     >
@@ -542,7 +542,7 @@ function SignalTile({ signal }: { signal: any }) {
       )}
       <div style={{
         display: "flex", alignItems: "center", gap: 10, marginTop: 12,
-        paddingTop: 10, borderTop: "1px solid rgba(202,168,90,0.08)",
+        paddingTop: 10, borderTop: "1px solid rgba(245,184,65,0.08)",
       }}>
         <div style={{
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -740,8 +740,8 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       <header style={{
         position: "sticky", top: 0, zIndex: 50,
         background: "rgba(10,11,13,0.96)",
-        borderBottom: "1px solid rgba(202,168,90,0.14)",
-        borderTop: "2px solid rgba(202,168,90,0.60)",
+        borderBottom: "1px solid rgba(245,184,65,0.14)",
+        borderTop: "2px solid rgba(245,184,65,0.60)",
         backdropFilter: "blur(16px)",
       }}>
         <div style={{
@@ -807,7 +807,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               alignItems: "center", gap: 4,
               padding: "3px 8px",
               borderRadius: 3,
-              border: "1px solid rgba(202,168,90,0.16)",
+              border: "1px solid rgba(245,184,65,0.16)",
               color: T.textFaint,
             }}>
               <Moon size={10} />
@@ -834,7 +834,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                 <div style={{
                   position: "absolute", top: "calc(100% + 8px)", right: 0,
                   background: T.surface1,
-                  border: `1px solid rgba(202,168,90,0.22)`,
+                  border: `1px solid rgba(245,184,65,0.22)`,
                   borderRadius: 4, minWidth: 180,
                   zIndex: 100, overflow: "hidden",
                 }}>
@@ -853,12 +853,12 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                           fontSize: 12, fontWeight: 700,
                           letterSpacing: "0.14em", textTransform: "uppercase",
                           color: item.href === "/pro" ? T.gold : T.textMuted,
-                          borderBottom: "1px solid rgba(202,168,90,0.08)",
+                          borderBottom: "1px solid rgba(245,184,65,0.08)",
                           cursor: "pointer",
                           transition: "background 0.12s, color 0.12s",
                         }}
                         onMouseEnter={e => {
-                          (e.currentTarget as HTMLDivElement).style.background = "rgba(202,168,90,0.06)";
+                          (e.currentTarget as HTMLDivElement).style.background = "rgba(245,184,65,0.06)";
                           (e.currentTarget as HTMLDivElement).style.color = T.gold;
                         }}
                         onMouseLeave={e => {
@@ -966,8 +966,8 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             display: "flex", alignItems: "flex-start", gap: 8,
             marginBottom: 28,
             padding: "10px 14px",
-            background: "rgba(202,168,90,0.07)",
-            border: "1px solid rgba(202,168,90,0.28)",
+            background: "rgba(245,184,65,0.07)",
+            border: "1px solid rgba(245,184,65,0.28)",
             borderRadius: 4,
             maxWidth: 480,
           }}>
@@ -1007,7 +1007,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             display: "flex", alignItems: "center", gap: 24,
             marginTop: 36,
             paddingTop: 28,
-            borderTop: "1px solid rgba(202,168,90,0.12)",
+            borderTop: "1px solid rgba(245,184,65,0.12)",
             flexWrap: "wrap", rowGap: 12,
           }}>
             {[
@@ -1089,8 +1089,8 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               <div style={{
                 marginTop: 14,
                 display: "inline-flex", alignItems: "center", gap: 6,
-                background: "rgba(202,168,90,0.10)",
-                border: "1px solid rgba(202,168,90,0.22)",
+                background: "rgba(245,184,65,0.10)",
+                border: "1px solid rgba(245,184,65,0.22)",
                 borderRadius: 3, padding: "4px 10px",
               }}>
                 <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.gold, display: "inline-block", flexShrink: 0 }} />
@@ -1133,8 +1133,8 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           <Link href="/leaderboard">
             <div style={{
               background: T.surface1,
-              border: `1px solid rgba(202,168,90,0.22)`,
-              borderTop: `3px solid rgba(202,168,90,0.55)`,
+              border: `1px solid rgba(245,184,65,0.22)`,
+              borderTop: `3px solid rgba(245,184,65,0.55)`,
               borderRadius: 6,
               padding: "24px 28px",
               cursor: "pointer",
@@ -1161,7 +1161,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       <section style={{ maxWidth: 1440, margin: "0 auto", padding: "0 32px 56px" }}>
         <div style={{
           background: T.surface1,
-          border: `1px solid rgba(202,168,90,0.14)`,
+          border: `1px solid rgba(245,184,65,0.14)`,
           borderRadius: 6,
           padding: "22px 28px",
           display: "flex", alignItems: "center", flexWrap: "wrap", gap: 12,
@@ -1185,8 +1185,8 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               href={`#/dashboard?topic=${topic}`}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
-                background: hot ? "rgba(202,168,90,0.12)" : "rgba(255,255,255,0.04)",
-                border: hot ? "1px solid rgba(202,168,90,0.35)" : "1px solid rgba(255,255,255,0.09)",
+                background: hot ? "rgba(245,184,65,0.12)" : "rgba(255,255,255,0.04)",
+                border: hot ? "1px solid rgba(245,184,65,0.35)" : "1px solid rgba(255,255,255,0.09)",
                 borderRadius: 3,
                 padding: "6px 14px",
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -1198,11 +1198,11 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                 transition: "background 0.15s, color 0.15s, border-color 0.15s",
               }}
               onMouseEnter={e => {
-                (e.currentTarget as HTMLAnchorElement).style.background = hot ? "rgba(202,168,90,0.20)" : "rgba(255,255,255,0.08)";
+                (e.currentTarget as HTMLAnchorElement).style.background = hot ? "rgba(245,184,65,0.20)" : "rgba(255,255,255,0.08)";
                 (e.currentTarget as HTMLAnchorElement).style.color = hot ? T.goldBright : T.text;
               }}
               onMouseLeave={e => {
-                (e.currentTarget as HTMLAnchorElement).style.background = hot ? "rgba(202,168,90,0.12)" : "rgba(255,255,255,0.04)";
+                (e.currentTarget as HTMLAnchorElement).style.background = hot ? "rgba(245,184,65,0.12)" : "rgba(255,255,255,0.04)";
                 (e.currentTarget as HTMLAnchorElement).style.color = hot ? T.gold : T.textMuted;
               }}
             >
@@ -1273,14 +1273,14 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           ].map(step => (
             <div key={step.n} style={{
               background: T.surface1,
-              border: "1px solid rgba(202,168,90,0.10)",
+              border: "1px solid rgba(245,184,65,0.10)",
               padding: "28px 24px",
               position: "relative",
             }}>
               <div style={{
                 fontFamily: "'Playfair Display', Georgia, serif",
                 fontSize: 56, fontWeight: 700,
-                color: "rgba(202,168,90,0.10)",
+                color: "rgba(245,184,65,0.10)",
                 lineHeight: 1,
                 position: "absolute", top: 16, right: 20,
                 letterSpacing: "-0.04em",
@@ -1369,7 +1369,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           {/* Pro tier */}
           <div style={{
             background: T.surface1,
-            border: `1px solid rgba(202,168,90,0.40)`,
+            border: `1px solid rgba(245,184,65,0.40)`,
             borderRadius: 4,
             padding: "32px 28px",
             position: "relative",
@@ -1392,9 +1392,9 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
                 textTransform: "uppercase",
-                background: "rgba(202,168,90,0.15)",
+                background: "rgba(245,184,65,0.15)",
                 color: T.gold,
-                border: "1px solid rgba(202,168,90,0.30)",
+                border: "1px solid rgba(245,184,65,0.30)",
                 padding: "3px 8px", borderRadius: 2,
               }}>
                 Most Popular
@@ -1490,7 +1490,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
       </section>
 
       {/* ══ DAILY DIGEST ══════════════════════════════════════════════ */}
-      <section style={{ background: "rgba(202,168,90,0.04)", borderTop: "1px solid rgba(202,168,90,0.14)", borderBottom: "1px solid rgba(202,168,90,0.14)" }}>
+      <section style={{ background: "rgba(245,184,65,0.04)", borderTop: "1px solid rgba(245,184,65,0.14)", borderBottom: "1px solid rgba(245,184,65,0.14)" }}>
         <div style={{ maxWidth: 1440, margin: "0 auto", padding: "56px 32px" }}>
           {digestDone ? (
             <div style={{
@@ -1549,7 +1549,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
 
       {/* ══ FOOTER ═══════════════════════════════════════════════════ */}
       <footer style={{
-        borderTop: "1px solid rgba(202,168,90,0.14)",
+        borderTop: "1px solid rgba(245,184,65,0.14)",
         background: T.surface1,
       }}>
         <div style={{
@@ -1621,7 +1621,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
         </div>
 
         <div style={{
-          borderTop: "1px solid rgba(202,168,90,0.08)",
+          borderTop: "1px solid rgba(245,184,65,0.08)",
           padding: "18px 32px",
           maxWidth: 1440, margin: "0 auto",
           display: "flex", alignItems: "center", justifyContent: "space-between",

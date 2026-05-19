@@ -11,22 +11,22 @@ import { useSignalGate } from "@/context/SignalGate";
 import { Lock } from "lucide-react";
 
 const T = {
-  bg:        "#0A0B0D",
-  surface1:  "#111317",
-  surface2:  "#16191E",
-  gold:      "#CAA85A",
-  goldBright:"#D8B86A",
-  text:      "#F3EFE6",
-  textMuted: "#B7AFA0",
-  textFaint: "#7E776A",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  gold:      "#F5B841",
+  goldBright:"#FFD166",
+  text:      "#F8FAFC",
+  textMuted: "#94A3B8",
+  textFaint: "#64748B",
   green:     "#3DAE72",
-  amber:     "#D4932A",
+  amber:     "#FF8A00",
 };
 
 function VerdictPillBlurred({ type }: { type: string }) {
   const map: Record<string, { color: string; label: string }> = {
     confirmed:    { color: "#5AC8E0", label: "Confirmed" },
-    likely:       { color: "#D8B86A", label: "Likely" },
+    likely:       { color: "#FFD166", label: "Likely" },
     rumor:        { color: "#A07ACC", label: "Rumor" },
     contradicted: { color: "#E08080", label: "Contradicted" },
     review:       { color: "#7A9CC8", label: "In Review" },
@@ -65,8 +65,8 @@ export default function LockedSignalCard({ signal, index }: Props) {
       style={{
         position: "relative",
         background: T.surface1,
-        border: "1px solid rgba(202,168,90,0.08)",
-        borderLeft: "3px solid rgba(202,168,90,0.18)",
+        border: "1px solid rgba(245,184,65,0.08)",
+        borderLeft: "3px solid rgba(245,184,65,0.18)",
         borderRadius: 4,
         marginBottom: 12,
         overflow: "hidden",
@@ -75,12 +75,12 @@ export default function LockedSignalCard({ signal, index }: Props) {
       }}
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLDivElement;
-        el.style.borderLeftColor = "rgba(202,168,90,0.50)";
-        el.style.boxShadow = "0 0 0 1px rgba(202,168,90,0.12)";
+        el.style.borderLeftColor = "rgba(245,184,65,0.50)";
+        el.style.boxShadow = "0 0 0 1px rgba(245,184,65,0.12)";
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLDivElement;
-        el.style.borderLeftColor = "rgba(202,168,90,0.18)";
+        el.style.borderLeftColor = "rgba(245,184,65,0.18)";
         el.style.boxShadow = "none";
       }}
     >
@@ -157,7 +157,7 @@ export default function LockedSignalCard({ signal, index }: Props) {
       }}>
         {/* Fake confidence bar */}
         <div style={{
-          height: 3, background: "rgba(202,168,90,0.30)",
+          height: 3, background: "rgba(245,184,65,0.30)",
           borderRadius: 2, marginBottom: 14,
           width: "100%",
         }}>
@@ -171,8 +171,8 @@ export default function LockedSignalCard({ signal, index }: Props) {
           {signal.summary?.slice(0, 80) ?? "Signal details available to Pro subscribers."}…
         </div>
         <div style={{
-          height: 48, background: "rgba(202,168,90,0.06)",
-          border: "1px solid rgba(202,168,90,0.12)",
+          height: 48, background: "rgba(245,184,65,0.06)",
+          border: "1px solid rgba(245,184,65,0.12)",
           borderRadius: 3,
         }} />
       </div>
@@ -194,8 +194,8 @@ export default function LockedSignalCard({ signal, index }: Props) {
         }}>
           <div style={{
             width: 26, height: 26,
-            background: "rgba(202,168,90,0.12)",
-            border: "1px solid rgba(202,168,90,0.30)",
+            background: "rgba(245,184,65,0.12)",
+            border: "1px solid rgba(245,184,65,0.30)",
             borderRadius: "50%",
             display: "flex", alignItems: "center", justifyContent: "center",
             flexShrink: 0,

@@ -81,8 +81,8 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       // Flash-highlight: gold ring that fades out
       el.style.transition = "box-shadow 0.3s ease, border-color 0.3s ease";
-      el.style.boxShadow = "0 0 0 2px #CAA85A, 0 0 24px rgba(202,168,90,0.35)";
-      el.style.borderLeftColor = "#CAA85A";
+      el.style.boxShadow = "0 0 0 2px #F5B841, 0 0 24px rgba(245,184,65,0.35)";
+      el.style.borderLeftColor = "#F5B841";
       setTimeout(() => {
         el.style.boxShadow = "";
         el.style.borderLeftColor = "";
@@ -152,8 +152,8 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
             display: "flex", alignItems: "center", gap: 10,
             marginBottom: 20,
             padding: "9px 14px",
-            background: liveCount > 0 ? "rgba(61,174,114,0.05)" : "rgba(202,168,90,0.05)",
-            border: liveCount > 0 ? "1px solid rgba(61,174,114,0.18)" : "1px solid rgba(202,168,90,0.14)",
+            background: liveCount > 0 ? "rgba(61,174,114,0.05)" : "rgba(245,184,65,0.05)",
+            border: liveCount > 0 ? "1px solid rgba(61,174,114,0.18)" : "1px solid rgba(245,184,65,0.14)",
             borderRadius: 3,
             flexWrap: "wrap",
           }}
@@ -164,7 +164,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
               <DataBadge type="live" label="Live · 2026 Season" />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, color: "#7E776A", letterSpacing: "0.06em",
+                fontSize: 12, color: "#64748B", letterSpacing: "0.06em",
               }}>
                 {liveCount} verified signal{liveCount !== 1 ? "s" : ""} from the 2026 NFL offseason.
                 {hasDemoSignals && ` ${totalCount - liveCount} older signal${totalCount - liveCount !== 1 ? "s" : ""} shown as archive reference.`}
@@ -175,7 +175,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
               <DataBadge type="demo" />
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                fontSize: 12, color: "#7E776A", letterSpacing: "0.06em",
+                fontSize: 12, color: "#64748B", letterSpacing: "0.06em",
               }}>
                 Sample intelligence shown. Live 2026 signals post automatically when published via the admin panel.
               </span>
@@ -289,24 +289,24 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
                 }}>
                   <div style={{
                     width: 40, height: 40,
-                    background: "rgba(202,168,90,0.10)",
-                    border: "1px solid rgba(202,168,90,0.30)",
+                    background: "rgba(245,184,65,0.10)",
+                    border: "1px solid rgba(245,184,65,0.30)",
                     borderRadius: "50%",
                     display: "flex", alignItems: "center", justifyContent: "center",
                     flexShrink: 0,
                   }}>
-                    <Lock size={16} style={{ color: "#CAA85A" }} />
+                    <Lock size={16} style={{ color: "#F5B841" }} />
                   </div>
 
                   <div>
                     <p style={{
                       fontFamily: "'Playfair Display', Georgia, serif",
                       fontSize: 20, fontWeight: 700,
-                      color: "#F3EFE6", margin: "0 0 8px", lineHeight: 1.2,
+                      color: "#F8FAFC", margin: "0 0 8px", lineHeight: 1.2,
                     }}>
                       Stop chasing tweets.
                     </p>
-                    <p style={{ fontSize: 14, color: "#B7AFA0", margin: "0 0 20px", lineHeight: 1.55, maxWidth: 400 }}>
+                    <p style={{ fontSize: 14, color: "#94A3B8", margin: "0 0 20px", lineHeight: 1.55, maxWidth: 400 }}>
                       Pro unlocks the full live feed, 2026 Draft Board, archive search, and topic filters — all in one place.
                     </p>
                   </div>
@@ -316,8 +316,8 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
                       data-testid="paywall-upgrade-cta"
                       style={{
                         display: "inline-flex", alignItems: "center", gap: 8,
-                        background: "#CAA85A",
-                        color: "#0A0B0D",
+                        background: "#F5B841",
+                        color: "#050505",
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                         fontSize: 12, fontWeight: 700,
                         letterSpacing: "0.16em", textTransform: "uppercase",
@@ -326,14 +326,14 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
                         cursor: "pointer",
                         transition: "background 0.15s",
                       }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "#D8B86A"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "#CAA85A"; }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "#FFD166"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "#F5B841"; }}
                     >
                       Go Pro · $19/mo
                     </div>
                   </Link>
 
-                  <p style={{ fontSize: 12, color: "#7E776A", margin: 0 }}>
+                  <p style={{ fontSize: 12, color: "#64748B", margin: 0 }}>
                     {feed.length - FREE_SIGNAL_LIMIT} more signal{feed.length - FREE_SIGNAL_LIMIT !== 1 ? "s" : ""} in this feed
                   </p>
                 </div>
@@ -352,15 +352,15 @@ function StatCard({ label, value, accentColor }: { label: string; value: number;
     <div
       className="rounded"
       style={{
-        background: "#16191E",
-        border: "1px solid rgba(202,168,90,0.12)",
+        background: "#101827",
+        border: "1px solid rgba(245,184,65,0.12)",
         padding: "18px 18px 14px",
         position: "relative",
         overflow: "hidden",
       }}
       data-testid={`stat-card-${label.toLowerCase().replace(/\s+/g, "-")}`}
     >
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "rgba(202,168,90,0.45)", pointerEvents: "none" }} />
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "rgba(245,184,65,0.45)", pointerEvents: "none" }} />
       <p
         className="stat-num-display"
         style={{ color: accentColor, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 32, fontWeight: 700, lineHeight: 1, marginBottom: 6 }}
@@ -377,8 +377,8 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
   const conf = parseFloat(item.confidence_score ?? "0");
   const confColor =
     conf >= 88 ? "#3DAE72" :
-    conf >= 75 ? "#CAA85A" :
-    "#B7AFA0";
+    conf >= 75 ? "#F5B841" :
+    "#94A3B8";
 
   const live = isLive2026(item.created_at);
 
@@ -386,14 +386,14 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
     <div
       className="signal-card rounded"
       style={{
-        background: "#16191E",
-        border: "1px solid rgba(202,168,90,0.10)",
-        borderLeft: `3px solid ${live ? "rgba(61,174,114,0.50)" : "rgba(202,168,90,0.35)"}`,
+        background: "#101827",
+        border: "1px solid rgba(245,184,65,0.10)",
+        borderLeft: `3px solid ${live ? "rgba(61,174,114,0.50)" : "rgba(245,184,65,0.35)"}`,
         padding: "18px 20px",
       }}
       data-testid={`signal-card-${item.id}`}
-      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = live ? "#3DAE72" : "#CAA85A"; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = live ? "rgba(61,174,114,0.50)" : "rgba(202,168,90,0.35)"; }}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = live ? "#3DAE72" : "#F5B841"; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = live ? "rgba(61,174,114,0.50)" : "rgba(245,184,65,0.35)"; }}
     >
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <VerdictBadge verdict={item.verdict} />
@@ -405,7 +405,7 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
             textTransform: "uppercase",
             background: "rgba(255,255,255,0.04)",
             border: "1px solid rgba(255,255,255,0.08)",
-            color: "#7E776A", padding: "2px 7px", borderRadius: 2,
+            color: "#64748B", padding: "2px 7px", borderRadius: 2,
           }}>
             {item.league}
           </span>
@@ -421,10 +421,10 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
           : <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
-              color: "#7E776A",
+              color: "#64748B",
             }}>Demo</span>
         }
-        <span style={{ fontSize: 12, color: "#7E776A", marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
+        <span style={{ fontSize: 12, color: "#64748B", marginLeft: "auto", fontVariantNumeric: "tabular-nums" }}>
           {item.created_at ? new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
         </span>
       </div>
@@ -435,7 +435,7 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
               style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
-                textTransform: "uppercase", color: "#CAA85A",
+                textTransform: "uppercase", color: "#F5B841",
                 marginBottom: 6,
               }}
             >
@@ -443,18 +443,18 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
             </p>
           )}
           <p
-            style={{ fontSize: 17, lineHeight: 1.5, color: "#F3EFE6", marginBottom: item.rationale ? 8 : 0 }}
+            style={{ fontSize: 17, lineHeight: 1.5, color: "#F8FAFC", marginBottom: item.rationale ? 8 : 0 }}
             data-testid={`signal-text-${item.id}`}
           >
             {item.normalized_claim}
           </p>
           {cleanRationale(item.rationale) && (
-            <p style={{ fontSize: 15, color: "#B7AFA0", lineHeight: 1.6, margin: 0 }}>{cleanRationale(item.rationale)}</p>
+            <p style={{ fontSize: 15, color: "#94A3B8", lineHeight: 1.6, margin: 0 }}>{cleanRationale(item.rationale)}</p>
           )}
         </div>
         <div
           className="flex-shrink-0 text-right"
-          style={{ borderLeft: "1px solid rgba(202,168,90,0.10)", paddingLeft: 16, marginLeft: 4 }}
+          style={{ borderLeft: "1px solid rgba(245,184,65,0.10)", paddingLeft: 16, marginLeft: 4 }}
         >
           <div
             className="stat-num-display"
@@ -471,10 +471,10 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
               <span style={{
                 display: "inline-block", marginTop: 5,
                 padding: "2px 6px", borderRadius: 3,
-                border: "1px solid rgba(202,168,90,0.35)",
-                background: "rgba(202,168,90,0.10)",
+                border: "1px solid rgba(245,184,65,0.35)",
+                background: "rgba(245,184,65,0.10)",
                 fontSize: 9, fontWeight: 700, letterSpacing: "0.13em",
-                textTransform: "uppercase", color: "#CAA85A",
+                textTransform: "uppercase", color: "#F5B841",
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               }}>PFF</span>
             );
@@ -500,7 +500,7 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               }}>College</span>
             );
-            return <p style={{ fontSize: 11, color: "#7E776A", marginTop: 4, maxWidth: 88 }} className="truncate">{item.source_name}</p>;
+            return <p style={{ fontSize: 11, color: "#64748B", marginTop: 4, maxWidth: 88 }} className="truncate">{item.source_name}</p>;
           })()}
         </div>
       </div>

@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 
-import { buildReplayHistoricalAutonomousCivilizationSnapshot, computeReplayHistoricalAutonomousCivilizationHash, getBlackSwanCollapseEvents, getCivilWarFractures, getCivilizationPromotionGates, getCivilizationReplayAnalytics, getCivilizationWarfare, getCorruptionPropagation, getDynastySurvivalScores, getEvolutionaryCatastrophes, getGovernanceIdeologies, getIntelligenceMigrations, getRecursiveValidatorSpawns, getRuntimeDiplomacy, getSelfPreservingSwarms, getSpeciesDivergence, getTreatyAlliances, getValidatorEmpires, serializeReplayHistoricalAutonomousCivilizationSnapshot } from "../pipeline/replay-historical-autonomous-civilization";
+import { buildReplayHistoricalAutonomousCivilizationSnapshot, computeReplayHistoricalAutonomousCivilizationHash, getBlackSwanCollapseEvents, getCivilWarFractures, getCivilizationPromotionGates, getCivilizationRecovery, getCivilizationReplayAnalytics, getCivilizationStateLineage, getCivilizationWarfare, getCorruptionPropagation, getDynastySurvivalScores, getEvolutionaryCatastrophes, getGovernanceIdeologies, getIntelligenceMigrations, getRecursiveValidatorSpawns, getRuntimeDiplomacy, getSelfPreservingSwarms, getSpeciesDivergence, getTreatyAlliances, getValidatorEmpires, serializeReplayHistoricalAutonomousCivilizationSnapshot } from "../pipeline/replay-historical-autonomous-civilization";
 import type { ReplayHistoricalAutonomousCivilizationAction, ReplayHistoricalAutonomousCivilizationQuery, ReplayHistoricalAutonomousCivilizationState } from "../pipeline/replay-historical-autonomous-civilization-contract";
 import { buildReplayHistoricalAutonomousLeagueSnapshot } from "../pipeline/replay-historical-autonomous-league";
 import { buildReplayHistoricalCalibrationSnapshot } from "../pipeline/replay-historical-calibration";
@@ -79,6 +79,7 @@ try {
   assertEqual(civilization.treaty_alliances.length, league.ecosystem.length * (league.ecosystem.length - 1) / 2, "treaty/alliance infrastructure missing");
   assertEqual(civilization.civil_war_fractures.length, league.ecosystem.length, "civil war fracture simulation missing");
   assertEqual(civilization.black_swan_events.length, league.ecosystem.length, "black-swan collapse events missing");
+  assertEqual(civilization.civilization_recovery.length, civilization.black_swan_events.length, "civilization recovery modeling missing");
   assertEqual(civilization.dynasty_survival.length, league.ecosystem.length, "dynasty survival scoring missing");
   assertEqual(civilization.species_divergence.length, league.specialization_markets.length, "validator species divergence tracking missing");
   assertEqual(civilization.runtime_diplomacy.length, league.ecosystem.length * (league.ecosystem.length - 1), "autonomous runtime diplomacy missing");
@@ -86,6 +87,7 @@ try {
   assertEqual(civilization.corruption_propagation.length, league.coalition_collusion_detection.length, "corruption propagation modeling missing");
   assertEqual(civilization.civilization_analytics.length, league.ecosystem.length, "civilization-scale analytics missing");
   assertEqual(civilization.promotion_gates.length, league.ecosystem.length, "simulation-to-live civilization gates missing");
+  assertEqual(civilization.civilization_state_lineage.length > civilization.promotion_gates.length, true, "civilization state lineage missing");
 
   assertEqual(civilization.warfare.some((record) => record.warfare_outcome === "attacker_advantage" || record.warfare_outcome === "defender_holds"), true, "warfare outcomes not exercised");
   assertEqual(civilization.governance_ideologies.every((record) => record.ideology_hash.length === 64), true, "ideology lineage hashes invalid");
@@ -96,6 +98,7 @@ try {
   assertEqual(civilization.treaty_alliances.some((record) => record.cooperation_score > 0), true, "treaty cooperation missing");
   assertEqual(civilization.civil_war_fractures.every((record) => record.civil_war_risk >= 0 && record.civil_war_risk <= 1), true, "civil war risk out of range");
   assertEqual(civilization.black_swan_events.every((record) => record.containment_score >= 0 && record.containment_score <= 1), true, "black-swan containment out of range");
+  assertEqual(civilization.civilization_recovery.some((record) => record.recovered), true, "civilization recovery not exercised");
   assertEqual(civilization.dynasty_survival.some((record) => record.dynasty_score > 0), true, "dynasty scoring missing");
   assertEqual(civilization.species_divergence.some((record) => record.species_name.includes("market_reaction")), true, "market species divergence missing");
   assertEqual(civilization.runtime_diplomacy.some((record) => record.diplomatic_posture === "ally" || record.diplomatic_posture === "rival" || record.diplomatic_posture === "neutral"), true, "diplomacy posture missing");
@@ -103,6 +106,8 @@ try {
   assertEqual(civilization.corruption_propagation.every((record) => record.corruption_hash.length === 64), true, "corruption hashes invalid");
   assertEqual(civilization.civilization_analytics.every((record) => record.promotion_readiness >= 0 && record.collapse_risk <= 1), true, "civilization analytics out of range");
   assertEqual(civilization.promotion_gates.some((record) => record.promoted), true, "no civilization passed live promotion gates");
+  assertEqual(civilization.civilization_state_lineage.every((record) => record.transition_hash.length === 64 && record.source_hash.length === 64 && record.target_hash.length === 64), true, "state lineage hashes invalid");
+  assertEqual(civilization.civilization_state_lineage.some((record) => record.transition_kind === "recovery"), true, "recovery lineage missing");
 
   assertEqual(getCivilizationWarfare(db, civilization.civilization_id).length, civilization.warfare.length, "warfare query mismatch");
   assertEqual(getGovernanceIdeologies(db, civilization.civilization_id).length, civilization.governance_ideologies.length, "ideology query mismatch");
@@ -113,6 +118,7 @@ try {
   assertEqual(getTreatyAlliances(db, civilization.civilization_id).length, civilization.treaty_alliances.length, "treaty query mismatch");
   assertEqual(getCivilWarFractures(db, civilization.civilization_id).length, civilization.civil_war_fractures.length, "fracture query mismatch");
   assertEqual(getBlackSwanCollapseEvents(db, civilization.civilization_id).length, civilization.black_swan_events.length, "black-swan query mismatch");
+  assertEqual(getCivilizationRecovery(db, civilization.civilization_id).length, civilization.civilization_recovery.length, "recovery query mismatch");
   assertEqual(getDynastySurvivalScores(db, civilization.civilization_id).length, civilization.dynasty_survival.length, "dynasty query mismatch");
   assertEqual(getSpeciesDivergence(db, civilization.civilization_id).length, civilization.species_divergence.length, "species query mismatch");
   assertEqual(getRuntimeDiplomacy(db, civilization.civilization_id).length, civilization.runtime_diplomacy.length, "diplomacy query mismatch");
@@ -120,6 +126,7 @@ try {
   assertEqual(getCorruptionPropagation(db, civilization.civilization_id).length, civilization.corruption_propagation.length, "corruption query mismatch");
   assertEqual(getCivilizationReplayAnalytics(db, civilization.civilization_id).length, civilization.civilization_analytics.length, "analytics query mismatch");
   assertEqual(getCivilizationPromotionGates(db, civilization.civilization_id).length, civilization.promotion_gates.length, "promotion gate query mismatch");
+  assertEqual(getCivilizationStateLineage(db, civilization.civilization_id).length, civilization.civilization_state_lineage.length, "state lineage query mismatch");
 
   assertActionSupported("simulate_adversarial_civilization_warfare");
   assertActionSupported("simulate_governance_ideology");
@@ -130,12 +137,14 @@ try {
   assertActionSupported("form_treaty_alliance");
   assertActionSupported("simulate_civil_war_fracture");
   assertActionSupported("inject_black_swan_collapse");
+  assertActionSupported("recover_from_civilization_collapse");
   assertActionSupported("score_dynasty_survival");
   assertActionSupported("track_validator_species_divergence");
   assertActionSupported("run_autonomous_diplomacy");
   assertActionSupported("model_self_preserving_swarms");
   assertActionSupported("model_corruption_propagation");
   assertActionSupported("emit_civilization_replay_analytics");
+  assertActionSupported("record_civilization_state_lineage");
   assertQuerySupported("get_civilization_warfare");
   assertQuerySupported("get_governance_ideologies");
   assertQuerySupported("get_validator_empires");
@@ -145,6 +154,7 @@ try {
   assertQuerySupported("get_treaty_alliances");
   assertQuerySupported("get_civil_war_fractures");
   assertQuerySupported("get_black_swan_collapse_events");
+  assertQuerySupported("get_civilization_recovery");
   assertQuerySupported("get_dynasty_survival_scores");
   assertQuerySupported("get_species_divergence");
   assertQuerySupported("get_runtime_diplomacy");
@@ -152,6 +162,7 @@ try {
   assertQuerySupported("get_corruption_propagation");
   assertQuerySupported("get_civilization_replay_analytics");
   assertQuerySupported("get_civilization_promotion_gates");
+  assertQuerySupported("get_civilization_state_lineage");
   assertStateSupported("warring");
   assertStateSupported("fracturing");
   assertStateSupported("migrating");
@@ -168,7 +179,9 @@ try {
     warfare: civilization.warfare.length,
     empires: civilization.validator_empires.length,
     treaties: civilization.treaty_alliances.length,
+    recovery: civilization.civilization_recovery.length,
     promoted_civilizations: civilization.promotion_gates.filter((record) => record.promoted).length,
+    state_lineage: civilization.civilization_state_lineage.length,
     immutable_outputs: {
       snapshot: Object.isFrozen(civilization),
       analytics: Object.isFrozen(civilization.civilization_analytics),

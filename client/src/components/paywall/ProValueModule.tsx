@@ -8,14 +8,14 @@ import { useSignalGate, FREE_LIMIT } from "@/context/SignalGate";
 import { Zap, BarChart2, Filter, BookOpen, CheckCircle2 } from "lucide-react";
 
 const C = {
-  surface1:   "#111317",
-  surface2:   "#16191E",
-  gold:       "#CAA85A",
-  goldBright: "#D8B86A",
-  goldDim:    "rgba(202,168,90,0.12)",
-  text:       "#F3EFE6",
-  textMuted:  "#B7AFA0",
-  textFaint:  "#7E776A",
+  surface1:   "#0A0F1A",
+  surface2:   "#101827",
+  gold:       "#F5B841",
+  goldBright: "#FFD166",
+  goldDim:    "rgba(245,184,65,0.12)",
+  text:       "#F8FAFC",
+  textMuted:  "#94A3B8",
+  textFaint:  "#64748B",
   green:      "#3DAE72",
 };
 
@@ -36,7 +36,7 @@ export default function ProValueModule() {
       data-testid="pro-value-module"
       style={{
         background: C.surface1,
-        border: "1px solid rgba(202,168,90,0.28)",
+        border: "1px solid rgba(245,184,65,0.28)",
         borderTop: `3px solid ${C.gold}`,
         borderRadius: 4,
         padding: "22px 22px 20px",
@@ -47,7 +47,7 @@ export default function ProValueModule() {
       {/* Subtle gold shimmer strip */}
       <div style={{
         position: "absolute", top: 3, left: 0, right: 0, height: 40,
-        background: "linear-gradient(to bottom, rgba(202,168,90,0.04), transparent)",
+        background: "linear-gradient(to bottom, rgba(245,184,65,0.04), transparent)",
         pointerEvents: "none",
       }} />
 
@@ -111,7 +111,7 @@ export default function ProValueModule() {
             <div style={{
               height: 3,
               width: `${Math.min(100, (freeCount / FREE_LIMIT) * 100)}%`,
-              background: isGated ? C.gold : "rgba(202,168,90,0.50)",
+              background: isGated ? C.gold : "rgba(245,184,65,0.50)",
               borderRadius: 2,
               transition: "width 0.3s ease",
             }} />
@@ -155,7 +155,7 @@ export default function ProValueModule() {
           style={{
             width: "100%",
             padding: "11px 0",
-            background: C.gold, color: "#0A0B0D",
+            background: C.gold, color: "#050505",
             border: "none", borderRadius: 3, cursor: "pointer",
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
             fontSize: 11, fontWeight: 700,

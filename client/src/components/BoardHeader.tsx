@@ -117,20 +117,20 @@ export function BoardHeader({
                 alignItems: 'center',
                 gap: 5,
                 padding: '3px 8px',
-                background: 'rgba(34,197,94,0.12)',
-                border: '1px solid rgba(34,197,94,0.25)',
+                background: 'rgba(0,230,118,0.12)',
+                border: '1px solid rgba(0,230,118,0.25)',
                 borderRadius: 999,
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: '0.02em',
-                color: 'var(--color-accent, #22c55e)',
+                color: 'var(--color-accent, #00E676)',
               }}
             >
               <span
                 style={{
                   width: 6,
                   height: 6,
-                  background: 'var(--color-accent, #22c55e)',
+                  background: 'var(--color-accent, #00E676)',
                   borderRadius: '50%',
                   flexShrink: 0,
                   animation: 'headerPulse 1.5s ease-in-out infinite',
@@ -197,6 +197,7 @@ export function BoardHeader({
             return (
               <button
                 key={filter}
+                className="ux-tab-interactive"
                 data-active={isActive}
                 onClick={() => onFilterChange?.(filter)}
                 style={{
@@ -204,7 +205,7 @@ export function BoardHeader({
                   height: isMobile ? 44 : 34,
                   padding: '0 14px',
                   background: isActive
-                    ? 'var(--color-accent, #22c55e)'
+                    ? 'var(--color-accent, #00E676)'
                     : 'rgba(255,255,255,0.05)',
                   border: isActive
                     ? '1px solid transparent'
@@ -212,10 +213,10 @@ export function BoardHeader({
                   borderRadius: 999,
                   color: isActive
                     ? '#000'
-                    : 'var(--color-text-secondary, #94a3b8)',
+                    : '#CBD5E1',
                   fontSize: 13,
-                  fontWeight: isActive ? 700 : 500,
-                  letterSpacing: '-0.01em',
+                  fontWeight: isActive ? 800 : 650,
+                  letterSpacing: 0,
                   cursor: 'pointer',
                   transition: 'background 0.15s, color 0.15s, border-color 0.15s',
                   WebkitTapHighlightColor: 'transparent',

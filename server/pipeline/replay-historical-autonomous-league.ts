@@ -1,3 +1,7 @@
+/**
+ * @deprecated Experimental validator civilization terminology. Prefer product-aligned
+ * validator cohort / validator cluster selection modules for new work.
+ */
 import crypto from "node:crypto";
 
 import type Database from "better-sqlite3";

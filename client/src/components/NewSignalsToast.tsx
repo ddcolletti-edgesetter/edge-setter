@@ -124,7 +124,7 @@ export function NewSignalsToast({ count, onView, board, scrollContainerRef }: Ne
           alignItems: 'center',
           gap: 8,
           padding: '11px 18px',
-          background: 'var(--color-accent, #22c55e)',
+          background: 'var(--color-accent, #00E676)',
           color: '#000',
           border: 'none',
           borderRadius: 999,
@@ -133,7 +133,7 @@ export function NewSignalsToast({ count, onView, board, scrollContainerRef }: Ne
           fontSize: 14,
           letterSpacing: '-0.01em',
           whiteSpace: 'nowrap',
-          boxShadow: '0 4px 20px rgba(34,197,94,0.45), 0 1px 4px rgba(0,0,0,0.4)',
+          boxShadow: '0 4px 20px rgba(0,230,118,0.45), 0 1px 4px rgba(0,0,0,0.4)',
           WebkitTapHighlightColor: 'transparent',
           transition: 'transform 0.1s, box-shadow 0.1s',
           // 44px minimum touch target

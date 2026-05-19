@@ -60,10 +60,10 @@ export default function TrackRecordStrip({ league, darkMode }: Props) {
   const { overall, by_signal_type } = data;
 
   // Colors — inherit from board's token set (dark or light)
-  const textFaint  = darkMode ? "#7E776A" : "#9E9890";
-  const textMuted  = darkMode ? "#B7AFA0" : "#7E776A";
-  const numEmphasis = darkMode ? "#C5BDB2" : "#4A4540"; // slightly stronger, not gold
-  const borderColor = darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.08)";
+  const textFaint  = darkMode ? "#94A3B8" : "#64748B";
+  const textMuted  = darkMode ? "#CBD5E1" : "#475569";
+  const numEmphasis = darkMode ? "#F8FAFC" : "#0F172A";
+  const borderColor = darkMode ? "rgba(148,163,184,0.14)" : "rgba(15,23,42,0.12)";
 
   const FONT = "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif";
   const hasData = overall.total_signals > 0;
@@ -78,15 +78,16 @@ export default function TrackRecordStrip({ league, darkMode }: Props) {
       {/* Primary line */}
       <div style={{
         fontFamily: FONT,
-        fontSize: 12,
-        letterSpacing: "0.03em",
+        fontSize: 12.5,
+        letterSpacing: "0.02em",
         color: textMuted,
+        fontWeight: 600,
         display: "flex",
         alignItems: "center",
         gap: 6,
         flexWrap: "wrap",
       }}>
-        <span style={{ color: textFaint, textTransform: "uppercase", letterSpacing: "0.1em", fontSize: 10 }}>
+        <span style={{ color: textFaint, textTransform: "uppercase", letterSpacing: "0.06em", fontSize: 10.5, fontWeight: 800 }}>
           Track record
         </span>
         <span style={{ color: textFaint }}>·</span>
@@ -131,8 +132,9 @@ export default function TrackRecordStrip({ league, darkMode }: Props) {
       {hasData && by_signal_type.length > 1 && (
         <div style={{
           fontFamily: FONT,
-          fontSize: 11,
+          fontSize: 11.5,
           color: textFaint,
+          fontWeight: 600,
           marginTop: 2,
           display: "flex",
           gap: 10,

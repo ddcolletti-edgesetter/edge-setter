@@ -26,17 +26,17 @@ interface Props { theme: Theme; toggleTheme: () => void; }
 const ADMIN_PASSWORD = "edgesetter-admin-2026";
 
 const T = {
-  bg:        "#0A0B0D",
-  surface1:  "#111317",
-  surface2:  "#16191E",
-  surface3:  "#1B1F25",
-  gold:      "#CAA85A",
-  goldDim:   "rgba(202,168,90,0.16)",
-  text:      "#F3EFE6",
-  textMuted: "#B7AFA0",
-  textFaint: "#7E776A",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  surface3:  "#101827",
+  gold:      "#F5B841",
+  goldDim:   "rgba(245,184,65,0.16)",
+  text:      "#F8FAFC",
+  textMuted: "#94A3B8",
+  textFaint: "#64748B",
   green:     "#4CAF7D",
-  red:       "#D94B4B",
+  red:       "#FF5252",
   yellow:    "#E0A830",
   cyan:      "hsl(194 56% 55%)",
 };
@@ -249,9 +249,9 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
                 onClick={() => setChannel(c.key)}
                 style={{
                   padding: "6px 12px",
-                  background: channel === c.key ? "rgba(202,168,90,0.12)" : T.surface2,
+                  background: channel === c.key ? "rgba(245,184,65,0.12)" : T.surface2,
                   color: channel === c.key ? T.gold : T.textMuted,
-                  border: `1px solid ${channel === c.key ? "rgba(202,168,90,0.4)" : T.goldDim}`,
+                  border: `1px solid ${channel === c.key ? "rgba(245,184,65,0.4)" : T.goldDim}`,
                   borderRadius: 3, cursor: "pointer",
                   fontFamily: "'Barlow Condensed', sans-serif",
                   fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
@@ -285,7 +285,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
                   data-testid={`draft-card-${draft.id}`}
                   style={{
                     background: T.surface1,
-                    border: `1px solid ${isOpen ? "rgba(202,168,90,0.3)" : T.goldDim}`,
+                    border: `1px solid ${isOpen ? "rgba(245,184,65,0.3)" : T.goldDim}`,
                     borderLeft: `3px solid ${STATUS_COLORS[draft.status] ?? T.textFaint}`,
                     borderRadius: 4,
                     overflow: "hidden",
@@ -417,8 +417,8 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
                             style={{
                               display: "flex", alignItems: "center", gap: 5,
                               padding: "7px 14px",
-                              background: "rgba(217,75,75,0.10)", color: T.red,
-                              border: `1px solid rgba(217,75,75,0.25)`,
+                              background: "rgba(255,82,82,0.10)", color: T.red,
+                              border: `1px solid rgba(255,82,82,0.25)`,
                               borderRadius: 3, cursor: "pointer",
                               fontFamily: "'Barlow Condensed', sans-serif",
                               fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
@@ -433,8 +433,8 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
                             style={{
                               display: "flex", alignItems: "center", gap: 5,
                               padding: "7px 14px",
-                              background: "rgba(202,168,90,0.08)", color: T.gold,
-                              border: `1px solid rgba(202,168,90,0.25)`,
+                              background: "rgba(245,184,65,0.08)", color: T.gold,
+                              border: `1px solid rgba(245,184,65,0.25)`,
                               borderRadius: 3, cursor: "pointer",
                               fontFamily: "'Barlow Condensed', sans-serif",
                               fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",

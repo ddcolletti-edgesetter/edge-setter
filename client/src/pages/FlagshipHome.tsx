@@ -19,20 +19,20 @@ import { Zap, ArrowRight, TrendingUp, Shield, BarChart3, ChevronRight, ChevronDo
 
 // Local token override — warm LFL values
 const T = {
-  bg:        "#0C0B09", surface1: "#131110", surface2: "#1A1714",
-  gold:      "#C4A24A", goldBright: "#E0BB6A",
-  goldDim:   "rgba(196,162,74,0.14)", goldGlow: "rgba(196,162,74,0.07)",
-  goldStrong:"rgba(196,162,74,0.38)",
-  text:      "#EDE5D4", textMuted: "#8A7A62", textFaint: "#4A4235",
-  green:     "#3EBA6A", cyan: "#4AA8C8", danger: "#D94B4B",
-  border:    "rgba(196,162,74,0.12)", borderMid: "rgba(196,162,74,0.22)",
+  bg:        "#050505", surface1: "#0A0F1A", surface2: "#101827",
+  gold:      "#F5B841", goldBright: "#FFD166",
+  goldDim:   "rgba(245,184,65,0.14)", goldGlow: "rgba(245,184,65,0.07)",
+  goldStrong:"rgba(245,184,65,0.38)",
+  text:      "#F8FAFC", textMuted: "#94A3B8", textFaint: "#64748B",
+  green:     "#00E676", cyan: "#00B7FF", danger: "#FF5252",
+  border:    "rgba(245,184,65,0.12)", borderMid: "rgba(245,184,65,0.22)",
 };
 
 const SPORT_CONFIG = [
-  { label: "NBA", status: "LIVE",   color: "#E87C2A", dot: "#3EBA6A", href: "/nba", desc: "Playoffs live — injury flags, line movement, rotation intel",          logo: "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png" },
-  { label: "MLB", status: "ACTIVE", color: "#3A8FE0", dot: "#4AA8C8", href: "/mlb", desc: "Regular season — pitcher updates, lineup cards, sharp tracking",        logo: "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png" },
-  { label: "NFL", status: "ACTIVE", color: "#C4301A", dot: "#C4301A", href: "/nfl", desc: "Active — injuries, depth charts, line shifts, matchup intel",           logo: "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" },
-  { label: "CFB", status: "ACTIVE", color: "#8844CC", dot: "#8844CC", href: "/cfb", desc: "Active — transfer intel, QB battles, coaching scheme edges",            logo: "https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png" },
+  { label: "NBA", status: "LIVE",   color: "#00B7FF", dot: "#00E676", href: "/nba", desc: "Playoffs live — injury flags, line movement, rotation intel",          logo: "https://a.espncdn.com/i/teamlogos/leagues/500/nba.png" },
+  { label: "MLB", status: "ACTIVE", color: "#00B7FF", dot: "#00B7FF", href: "/mlb", desc: "Regular season — pitcher updates, lineup cards, sharp tracking",        logo: "https://a.espncdn.com/i/teamlogos/leagues/500/mlb.png" },
+  { label: "NFL", status: "ACTIVE", color: "#FF5252", dot: "#FF5252", href: "/nfl", desc: "Active — injuries, depth charts, line shifts, matchup intel",           logo: "https://a.espncdn.com/i/teamlogos/leagues/500/nfl.png" },
+  { label: "CFB", status: "ACTIVE", color: "#00B7FF", dot: "#00B7FF", href: "/cfb", desc: "Active — transfer intel, QB battles, coaching scheme edges",            logo: "https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png" },
 ] as const;
 
 const HERO_SIGNAL  = NBA_SIGNALS.find(s => s.confidence >= 84) ?? NBA_SIGNALS[0];
@@ -45,10 +45,10 @@ const MLB_GAMES = [
 ];
 
 /* ── Four-quadrant chalk background — inline styles, no CSS class dependency ── */
-const CHALK_NBA = "repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(232,124,42,0.28) 39px,rgba(232,124,42,0.28) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(232,124,42,0.18) 39px,rgba(232,124,42,0.18) 40px)";
-const CHALK_MLB = "repeating-linear-gradient(45deg,transparent,transparent 28px,rgba(58,143,224,0.26) 28px,rgba(58,143,224,0.26) 29px),repeating-linear-gradient(-45deg,transparent,transparent 28px,rgba(58,143,224,0.18) 28px,rgba(58,143,224,0.18) 29px)";
-const CHALK_NFL = "repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(196,48,26,0.28) 19px,rgba(196,48,26,0.28) 20px)";
-const CHALK_CFB = "repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(136,68,204,0.24) 19px,rgba(136,68,204,0.24) 20px)";
+const CHALK_NBA = "repeating-linear-gradient(0deg,transparent,transparent 39px,rgba(0,183,255,0.16) 39px,rgba(0,183,255,0.16) 40px),repeating-linear-gradient(90deg,transparent,transparent 39px,rgba(0,183,255,0.10) 39px,rgba(0,183,255,0.10) 40px)";
+const CHALK_MLB = "repeating-linear-gradient(45deg,transparent,transparent 28px,rgba(0,183,255,0.26) 28px,rgba(0,183,255,0.26) 29px),repeating-linear-gradient(-45deg,transparent,transparent 28px,rgba(0,183,255,0.18) 28px,rgba(0,183,255,0.18) 29px)";
+const CHALK_NFL = "repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(255,82,82,0.28) 19px,rgba(255,82,82,0.28) 20px)";
+const CHALK_CFB = "repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(0,183,255,0.24) 19px,rgba(0,183,255,0.24) 20px)";
 
 function ChalkBg() {
   return (
@@ -62,9 +62,9 @@ function ChalkBg() {
       {/* SE — CFB hash marks */}
       <div style={{ position: "absolute", bottom: 0, right: 0, width: "56%", height: "48%", backgroundImage: CHALK_CFB, backgroundSize: "100% 20px" }} />
       {/* Radial vignette — pulls all four to dark center */}
-      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 65% 60% at 50% 50%, transparent 10%, rgba(12,11,9,0.45) 55%, rgba(12,11,9,0.65) 100%)" }} />
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 65% 60% at 50% 50%, transparent 10%, rgba(5,5,5,0.45) 55%, rgba(5,5,5,0.65) 100%)" }} />
       {/* Hairline gold cross — subtle quadrant divider */}
-      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,transparent 49.2%,rgba(196,162,74,0.08) 49.8%,rgba(196,162,74,0.08) 50.2%,transparent 50.8%),linear-gradient(180deg,transparent 49.2%,rgba(196,162,74,0.08) 49.8%,rgba(196,162,74,0.08) 50.2%,transparent 50.8%)" }} />
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,transparent 49.2%,rgba(245,184,65,0.08) 49.8%,rgba(245,184,65,0.08) 50.2%,transparent 50.8%),linear-gradient(180deg,transparent 49.2%,rgba(245,184,65,0.08) 49.8%,rgba(245,184,65,0.08) 50.2%,transparent 50.8%)" }} />
     </div>
   );
 }
@@ -106,31 +106,31 @@ export default function FlagshipHome() {
         @keyframes tickScroll{ from{transform:translateX(0)} to{transform:translateX(-50%)} }
         @keyframes fadeUp    { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes esShimmer { 0%{background-position:200% center} 100%{background-position:-200% center} }
-        .board-card:hover  { border-color: rgba(196,162,74,0.35) !important; transform: translateY(-2px); transition: all 0.15s; }
+        .board-card:hover  { border-color: rgba(245,184,65,0.35) !important; transform: translateY(-2px); transition: all 0.15s; }
         .sport-card:hover  { transform: translateY(-3px); filter: brightness(1.06); transition: all 0.15s; }
-        .sig-tick:hover    { background: rgba(196,162,74,0.08) !important; border-color: rgba(196,162,74,0.3) !important; }
+        .sig-tick:hover    { background: rgba(245,184,65,0.08) !important; border-color: rgba(245,184,65,0.3) !important; }
         .cta-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
         .cta-btn:hover     { filter: brightness(1.1); transform: translateY(-1px); }
         .es-chalk-nba {
           background-image:
-            repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(196,162,74,0.18) 39px, rgba(196,162,74,0.18) 40px),
-            repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(196,162,74,0.10) 39px, rgba(196,162,74,0.10) 40px);
+            repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(245,184,65,0.18) 39px, rgba(245,184,65,0.18) 40px),
+            repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(245,184,65,0.10) 39px, rgba(245,184,65,0.10) 40px);
           background-size: 40px 40px;
         }
         .es-chalk-mlb {
           background-image:
-            repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(58,143,224,0.14) 28px, rgba(58,143,224,0.14) 29px),
-            repeating-linear-gradient(-45deg, transparent, transparent 28px, rgba(58,143,224,0.10) 28px, rgba(58,143,224,0.10) 29px);
+            repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(0,183,255,0.14) 28px, rgba(0,183,255,0.14) 29px),
+            repeating-linear-gradient(-45deg, transparent, transparent 28px, rgba(0,183,255,0.10) 28px, rgba(0,183,255,0.10) 29px);
           background-size: 40px 40px;
         }
         .es-chalk-nfl {
           background-image:
-            repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(196,48,26,0.14) 19px, rgba(196,48,26,0.14) 20px);
+            repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(255,82,82,0.14) 19px, rgba(255,82,82,0.14) 20px);
           background-size: 100% 20px;
         }
         .es-chalk-cfb {
           background-image:
-            repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(136,68,204,0.12) 19px, rgba(136,68,204,0.12) 20px);
+            repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(0,183,255,0.12) 19px, rgba(0,183,255,0.12) 20px);
           background-size: 100% 20px;
         }
       `}</style>
@@ -138,7 +138,7 @@ export default function FlagshipHome() {
       <ChalkBg />
 
       {/* ══════════════════════ LIVE TICKER STRIP ══════════════════════ */}
-      <div style={{ position: "relative", zIndex: 5, background: "rgba(10,9,7,0.96)", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", height: 44 }}>
+      <div style={{ position: "relative", zIndex: 5, background: "rgba(5,5,5,0.96)", borderBottom: `1px solid ${T.border}`, display: "flex", alignItems: "center", height: 44 }}>
         <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 6, padding: "0 14px", borderRight: `1px solid ${T.border}`, height: "100%" }}>
           <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.gold, display: "inline-block", animation: "navPulse 2s ease-in-out infinite" }} />
           <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "2px", color: T.gold, textTransform: "uppercase" }}>Live Signals</span>
@@ -152,7 +152,7 @@ export default function FlagshipHome() {
                   const name = sig.player_name ?? sig.player ?? sig.team ?? "";
                   const headline = sig.headline ?? sig.title ?? "";
                   const sport = sig.league ?? "NBA";
-                  const sportColor = sport === "MLB" ? "#3A8FE0" : sport === "NFL" ? "#C4301A" : sport === "CFB" ? "#8844CC" : "#E87C2A";
+                  const sportColor = sport === "MLB" ? "#00B7FF" : sport === "NFL" ? "#FF5252" : sport === "CFB" ? "#64748B" : "#00B7FF";
                   return (
                     <span key={i} style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textMuted, display: "inline-flex", alignItems: "center", gap: 8 }}>
                       <span style={{ padding: "1px 5px", borderRadius: 2, background: `${sportColor}22`, color: sportColor, fontWeight: 700, fontSize: 10, letterSpacing: "0.1em" }}>{sport}</span>
@@ -202,7 +202,7 @@ export default function FlagshipHome() {
                     font-size:${isMobile ? "1.8rem" : "2.4rem"};
                     letter-spacing:0.06em;
                     line-height:1;
-                    color:#F5A623;
+                    color:#F5B841;
                     text-transform:uppercase;
                   `;
                   fallback.textContent = "EDGE SETTER";
@@ -213,7 +213,7 @@ export default function FlagshipHome() {
 
             {/* Eyebrow */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 11px", borderRadius: 2, background: "rgba(62,186,106,0.1)", border: "1px solid rgba(62,186,106,0.28)" }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 11px", borderRadius: 2, background: "rgba(0,230,118,0.1)", border: "1px solid rgba(0,230,118,0.28)" }}>
                 <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite", boxShadow: `0 0 6px ${T.green}` }} />
                 <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green }}>NBA Playoffs Live</span>
               </div>
@@ -224,21 +224,21 @@ export default function FlagshipHome() {
 
             {/* Headline — Bebas, full impact */}
             <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? "clamp(36px, 9vw, 52px)" : "clamp(52px, 6.5vw, 84px)", fontWeight: 400, lineHeight: 0.90, letterSpacing: "2px", color: T.text, margin: "0 0 20px" }}>
-              THE MULTI-SPORT<br />
-              <span style={{ color: T.gold }}>INTELLIGENCE</span><br />
-              TERMINAL
+              Real-Time Sports<br />
+              <span style={{ color: T.gold }}>Intelligence</span><br />
+              Before The Market Moves
             </h1>
 
             <p style={{ fontFamily: "'Barlow', sans-serif", fontSize: 16, fontStyle: "italic", fontWeight: 300, color: T.text, lineHeight: 1.65, margin: "0 0 30px", maxWidth: 500, opacity: 0.7 }}>
-              Injury signals, lineup changes, line moves, and scheme intel — verified by a Yuma-style consensus engine before the market moves.
+              Track injuries, lineup changes, sharp line movement, and verified betting signals across NBA, MLB, NFL, and CFB.
             </p>
 
             {/* CTAs */}
             <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 10, marginBottom: 32 }}>
-              <button className="cta-primary" onClick={() => navigate("/nba")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 24px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #8A6A28 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
+              <button className="cta-primary" onClick={() => navigate("/nba")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 24px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #F5B841 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
                 <Zap size={14} /> NBA BOARD
               </button>
-              <button className="cta-btn" onClick={() => navigate("/mlb")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "rgba(58,143,224,0.1)", border: "1px solid rgba(58,143,224,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
+              <button className="cta-btn" onClick={() => navigate("/mlb")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "rgba(0,183,255,0.1)", border: "1px solid rgba(0,183,255,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
                 MLB BOARD
               </button>
               <button className="cta-btn" onClick={() => navigate("/accuracy")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "transparent", border: `1px solid ${T.border}`, color: T.textMuted, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
@@ -257,7 +257,7 @@ export default function FlagshipHome() {
                     width: '100%', display: 'flex', alignItems: 'center',
                     justifyContent: 'space-between', gap: 8,
                     padding: '11px 14px',
-                    background: `linear-gradient(90deg, rgba(196,162,74,0.10) 0%, ${T.surface1} 100%)`,
+                    background: `linear-gradient(90deg, rgba(245,184,65,0.10) 0%, ${T.surface1} 100%)`,
                     border: `1px solid ${T.borderMid}`,
                     borderLeft: `3px solid ${T.gold}`,
                     borderRadius: 3, cursor: 'pointer',
@@ -265,8 +265,8 @@ export default function FlagshipHome() {
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                    <div style={{ flexShrink: 0, width: 24, height: 24, background: 'rgba(196,162,74,0.12)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.545 3.09L12 4.635l-2.5 2.41.59 3.41L7 8.9l-3.09 1.555.59-3.41L2 4.635l3.455-.545L7 1z" fill="#C4A24A" /></svg>
+                    <div style={{ flexShrink: 0, width: 24, height: 24, background: 'rgba(245,184,65,0.12)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><path d="M7 1l1.545 3.09L12 4.635l-2.5 2.41.59 3.41L7 8.9l-3.09 1.555.59-3.41L2 4.635l3.455-.545L7 1z" fill="#F5B841" /></svg>
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: '0.22em', textTransform: 'uppercase', color: T.gold, lineHeight: 1, marginBottom: 2 }}>Featured Edge</div>
@@ -293,7 +293,7 @@ export default function FlagshipHome() {
                           </div>
                           <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em" }}>NBA Playoffs · Tonight</div>
                         </div>
-                        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 2, background: "rgba(62,186,106,0.14)", border: "1px solid rgba(62,186,106,0.3)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 2, background: "rgba(0,230,118,0.14)", border: "1px solid rgba(0,230,118,0.3)" }}>
                           <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 2s ease-in-out infinite" }} />
                           <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green }}>Live</span>
                         </div>
@@ -313,7 +313,7 @@ export default function FlagshipHome() {
                       <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, fontWeight: 600, color: T.text, lineHeight: 1.4, marginBottom: 12 }}>
                         {HERO_SIGNAL.headline}
                       </div>
-                      <div style={{ background: T.goldGlow, border: `1px solid rgba(196,162,74,0.2)`, borderRadius: 2, padding: "10px 12px", marginBottom: 12 }}>
+                      <div style={{ background: T.goldGlow, border: `1px solid rgba(245,184,65,0.2)`, borderRadius: 2, padding: "10px 12px", marginBottom: 12 }}>
                         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold, marginBottom: 4 }}>⚡ Action</div>
                         <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 13, color: T.text, lineHeight: 1.6 }}>{HERO_SIGNAL.action_takeaway}</div>
                       </div>
@@ -321,7 +321,7 @@ export default function FlagshipHome() {
                         <ConfidenceBar value={HERO_SIGNAL.confidence} width="100%" height={4} />
                         <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: T.gold, flexShrink: 0 }}>{HERO_SIGNAL.confidence}%</span>
                       </div>
-                      <button onClick={() => navigate("/nba")} style={{ width: "100%", padding: "10px", background: `linear-gradient(135deg, ${T.gold}, #8A6A28)`, border: "none", color: T.bg, borderRadius: 2, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "2.5px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                      <button onClick={() => navigate("/nba")} style={{ width: "100%", padding: "10px", background: `linear-gradient(135deg, ${T.gold}, #F5B841)`, border: "none", color: T.bg, borderRadius: 2, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "2.5px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                         FULL NBA BOARD <ArrowRight size={12} />
                       </button>
                     </div>
@@ -366,7 +366,7 @@ export default function FlagshipHome() {
                     </div>
                     <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em" }}>NBA Playoffs · Tonight</div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 2, background: "rgba(62,186,106,0.14)", border: "1px solid rgba(62,186,106,0.3)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 2, background: "rgba(0,230,118,0.14)", border: "1px solid rgba(0,230,118,0.3)" }}>
                     <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 2s ease-in-out infinite" }} />
                     <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green }}>Live</span>
                   </div>
@@ -389,7 +389,7 @@ export default function FlagshipHome() {
                   {HERO_SIGNAL.headline}
                 </div>
 
-                <div style={{ background: T.goldGlow, border: `1px solid rgba(196,162,74,0.2)`, borderRadius: 2, padding: "10px 12px", marginBottom: 12 }}>
+                <div style={{ background: T.goldGlow, border: `1px solid rgba(245,184,65,0.2)`, borderRadius: 2, padding: "10px 12px", marginBottom: 12 }}>
                   <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold, marginBottom: 4 }}>⚡ Action</div>
                   <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 13, color: T.text, lineHeight: 1.6 }}>{HERO_SIGNAL.action_takeaway}</div>
                 </div>
@@ -399,7 +399,7 @@ export default function FlagshipHome() {
                   <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, color: T.gold, flexShrink: 0 }}>{HERO_SIGNAL.confidence}%</span>
                 </div>
 
-                <button onClick={() => navigate("/nba")} style={{ width: "100%", padding: "10px", background: `linear-gradient(135deg, ${T.gold}, #8A6A28)`, border: "none", color: T.bg, borderRadius: 2, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "2.5px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+                <button onClick={() => navigate("/nba")} style={{ width: "100%", padding: "10px", background: `linear-gradient(135deg, ${T.gold}, #F5B841)`, border: "none", color: T.bg, borderRadius: 2, fontFamily: "'Bebas Neue', sans-serif", fontSize: 14, letterSpacing: "2.5px", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                   FULL NBA BOARD <ArrowRight size={12} />
                 </button>
               </div>
@@ -414,7 +414,7 @@ export default function FlagshipHome() {
         <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "14px 20px" : "20px 40px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint }}>Tonight's NBA Slate</span>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(62,186,106,0.08)", border: "1px solid rgba(62,186,106,0.22)" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(0,230,118,0.08)", border: "1px solid rgba(0,230,118,0.22)" }}>
               <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block" }} />
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green }}>Playoffs</span>
             </div>
@@ -490,7 +490,7 @@ export default function FlagshipHome() {
         <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "14px 20px" : "20px 40px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint }}>MLB Today</span>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(74,168,200,0.08)", border: "1px solid rgba(74,168,200,0.2)" }}>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(0,183,255,0.08)", border: "1px solid rgba(0,183,255,0.2)" }}>
               <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
               <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.cyan }}>Active</span>
             </div>
@@ -509,7 +509,7 @@ export default function FlagshipHome() {
       </section>
 
       {/* ══════════════════════ PRO BAND ══════════════════════ */}
-      <section style={{ background: `linear-gradient(135deg, rgba(196,162,74,0.07), rgba(196,162,74,0.02))`, borderBottom: `1px solid rgba(196,162,74,0.2)`, position: "relative", zIndex: 2 }}>
+      <section style={{ background: `linear-gradient(135deg, rgba(245,184,65,0.07), rgba(245,184,65,0.02))`, borderBottom: `1px solid rgba(245,184,65,0.2)`, position: "relative", zIndex: 2 }}>
         <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "32px 20px" : "48px 40px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap: isMobile ? 24 : 40, alignItems: "center" }}>
           <div>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 12, letterSpacing: "3px", color: T.gold, marginBottom: 10 }}>PRO INTELLIGENCE</div>
@@ -531,7 +531,7 @@ export default function FlagshipHome() {
           <div style={{ textAlign: "center", flexShrink: 0 }}>
             <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 58, color: T.gold, lineHeight: 1, marginBottom: 2 }}>$19</div>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.textFaint, marginBottom: 18 }}>per month</div>
-            <button onClick={() => navigate("/pro")} style={{ display: "block", width: "100%", padding: "13px 36px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #8A6A28 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "3px", cursor: "pointer" }}>
+            <button onClick={() => navigate("/pro")} style={{ display: "block", width: "100%", padding: "13px 36px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #F5B841 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "3px", cursor: "pointer" }}>
               UNLOCK PRO
             </button>
           </div>
@@ -554,7 +554,7 @@ export default function FlagshipHome() {
             position: "fixed", top: 0, right: 0, zIndex: 110,
             width: 56, height: 44,
             display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(10,9,7,0.96)",
+            background: "rgba(5,5,5,0.96)",
           }}
         >
           <HamburgerButton open={drawerOpen} onToggle={() => setDrawerOpen(o => !o)} />

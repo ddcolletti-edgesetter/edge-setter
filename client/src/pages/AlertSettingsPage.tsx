@@ -194,8 +194,8 @@ export default function AlertSettingsPage() {
 
   if (authLoading || loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#0A0B0D", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <p style={{ color: "#7E776A", fontFamily: "'Arial Narrow', Arial, sans-serif", letterSpacing: "0.12em" }}>Loading…</p>
+      <div style={{ minHeight: "100vh", background: "#050505", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <p style={{ color: "#64748B", fontFamily: "'Arial Narrow', Arial, sans-serif", letterSpacing: "0.12em" }}>Loading…</p>
       </div>
     );
   }
@@ -203,39 +203,39 @@ export default function AlertSettingsPage() {
   if (!isPro) return null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0A0B0D", padding: "40px 20px", fontFamily: "'Arial Narrow', Arial, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#050505", padding: "40px 20px", fontFamily: "'Arial Narrow', Arial, sans-serif" }}>
       <div style={{ maxWidth: 600, margin: "0 auto" }}>
 
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
-          <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "#CAA85A" }}>
+          <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "#F5B841" }}>
             Pro — Alert Settings
           </p>
-          <h1 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: "#F3EFE6", lineHeight: 1.15 }}>
+          <h1 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: "#F8FAFC", lineHeight: 1.15 }}>
             Signal Alerts
           </h1>
-          <p style={{ margin: "8px 0 0", fontSize: 14, color: "#7E776A", lineHeight: 1.5 }}>
+          <p style={{ margin: "8px 0 0", fontSize: 14, color: "#64748B", lineHeight: 1.5 }}>
             Get notified when high-confidence signals match your criteria.
           </p>
         </div>
 
         {/* Master toggle */}
-        <div style={{ background: "#111317", border: "1px solid #1B1F25", borderRadius: 3, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ background: "#0A0F1A", border: "1px solid #101827", borderRadius: 3, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#F3EFE6", letterSpacing: "0.08em" }}>Alerts enabled</p>
-            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#7E776A" }}>Turn off to pause all notifications without losing settings.</p>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#F8FAFC", letterSpacing: "0.08em" }}>Alerts enabled</p>
+            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748B" }}>Turn off to pause all notifications without losing settings.</p>
           </div>
           <button
             onClick={() => setPrefs(p => ({ ...p, is_active: !p.is_active }))}
             style={{
               width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
-              background: prefs.is_active ? "#CAA85A" : "#2A2620",
+              background: prefs.is_active ? "#F5B841" : "#2A2620",
               position: "relative", transition: "background 0.2s",
             }}
           >
             <span style={{
               position: "absolute", top: 3, left: prefs.is_active ? 23 : 3,
-              width: 18, height: 18, borderRadius: "50%", background: "#F3EFE6",
+              width: 18, height: 18, borderRadius: "50%", background: "#F8FAFC",
               transition: "left 0.2s",
             }} />
           </button>
@@ -319,7 +319,7 @@ export default function AlertSettingsPage() {
         {/* Error */}
         {error && (
           <div style={{ marginBottom: 16, padding: "10px 14px", background: "#1A0F0F", border: "1px solid #4A2020", borderRadius: 3 }}>
-            <p style={{ margin: 0, fontSize: 13, color: "#D94B4B" }}>{error}</p>
+            <p style={{ margin: 0, fontSize: 13, color: "#FF5252" }}>{error}</p>
           </div>
         )}
 
@@ -329,8 +329,8 @@ export default function AlertSettingsPage() {
             onClick={handleSave}
             disabled={saving}
             style={{
-              padding: "11px 28px", background: saving ? "#7E776A" : "#CAA85A",
-              color: "#0A0B0D", border: "none", borderRadius: 2,
+              padding: "11px 28px", background: saving ? "#64748B" : "#F5B841",
+              color: "#050505", border: "none", borderRadius: 2,
               fontFamily: "'Arial Narrow', Arial, sans-serif", fontSize: 11,
               fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
               cursor: saving ? "not-allowed" : "pointer",
@@ -352,11 +352,11 @@ export default function AlertSettingsPage() {
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "#111317", border: "1px solid #1B1F25", borderRadius: 3, padding: "20px", marginBottom: 16 }}>
-      <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#7E776A" }}>
+    <div style={{ background: "#0A0F1A", border: "1px solid #101827", borderRadius: 3, padding: "20px", marginBottom: 16 }}>
+      <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#64748B" }}>
         {title}
       </p>
-      {subtitle && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#5A5448" }}>{subtitle}</p>}
+      {subtitle && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748B" }}>{subtitle}</p>}
       {!subtitle && <div style={{ marginTop: 12 }} />}
       {children}
     </div>
@@ -368,9 +368,9 @@ function Toggle({ active, onClick, label }: { active: boolean; onClick: () => vo
     <button
       onClick={onClick}
       style={{
-        padding: "6px 14px", border: `1px solid ${active ? "#CAA85A" : "#2A2620"}`,
-        background: active ? "rgba(202,168,90,0.12)" : "transparent",
-        color: active ? "#CAA85A" : "#7E776A", borderRadius: 2,
+        padding: "6px 14px", border: `1px solid ${active ? "#F5B841" : "#2A2620"}`,
+        background: active ? "rgba(245,184,65,0.12)" : "transparent",
+        color: active ? "#F5B841" : "#64748B", borderRadius: 2,
         fontFamily: "'Arial Narrow', Arial, sans-serif", fontSize: 11,
         fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
         cursor: "pointer", transition: "all 0.15s",
@@ -388,10 +388,10 @@ function ChannelRow({
   onClick: () => void; loading?: boolean; disabled?: boolean;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid #1B1F25" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid #101827" }}>
       <div>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: disabled ? "#5A5448" : "#F3EFE6" }}>{label}</p>
-        <p style={{ margin: "2px 0 0", fontSize: 12, color: "#7E776A" }}>{description}</p>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: disabled ? "#64748B" : "#F8FAFC" }}>{label}</p>
+        <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748B" }}>{description}</p>
       </div>
       <button
         onClick={disabled ? undefined : onClick}
@@ -399,14 +399,14 @@ function ChannelRow({
         style={{
           width: 44, height: 24, borderRadius: 12, border: "none",
           cursor: disabled || loading ? "not-allowed" : "pointer",
-          background: active ? "#CAA85A" : "#2A2620",
+          background: active ? "#F5B841" : "#2A2620",
           position: "relative", transition: "background 0.2s", flexShrink: 0, marginLeft: 16,
           opacity: disabled ? 0.4 : 1,
         }}
       >
         <span style={{
           position: "absolute", top: 3, left: active ? 23 : 3,
-          width: 18, height: 18, borderRadius: "50%", background: "#F3EFE6",
+          width: 18, height: 18, borderRadius: "50%", background: "#F8FAFC",
           transition: "left 0.2s",
         }} />
       </button>

@@ -6,20 +6,20 @@ import type { V2Signal } from "@/data/v2MockData";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:        "#0C0B09",
-  surface1:  "#131110",
-  surface2:  "#1A1714",
-  surface3:  "#201D19",
-  gold:      "#F5A623",
-  goldDim:   "rgba(245,166,35,0.14)",
-  green:     "#39FF14",
-  red:       "#FF5555",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  surface3:  "#101827",
+  gold:      "#F5B841",
+  goldDim:   "rgba(245,184,65,0.14)",
+  green:     "#00E676",
+  red:       "#FF5252",
   purple:    "#B06EFF",
-  cyan:      "#4AA8C8",
+  cyan:      "#00B7FF",
   text:      "#F0EDE6",
   textMuted: "#8A8278",
-  textFaint: "#4A4235",
-  border:    "rgba(245,166,35,0.12)",
+  textFaint: "#64748B",
+  border:    "rgba(245,184,65,0.12)",
   borderMid: "rgba(255,255,255,0.07)",
 };
 
@@ -130,7 +130,7 @@ function MoveCard({ signal, sport }: { signal: Signal; sport: string }) {
           }}>LINE MOVE</span>
           <span style={{
             padding: "2px 7px", borderRadius: 3,
-            background: sport === "NBA" ? "rgba(245,166,35,0.1)" : "rgba(57,255,20,0.08)",
+            background: sport === "NBA" ? "rgba(245,184,65,0.1)" : "rgba(0,230,118,0.08)",
             color: sport === "NBA" ? T.gold : T.green,
             fontFamily: "'Barlow Condensed', sans-serif",
             fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
@@ -216,7 +216,7 @@ function MoveCard({ signal, sport }: { signal: Signal; sport: string }) {
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: 7,
                 padding: "8px 12px", borderRadius: 5,
-                background: T.goldDim, border: `1px solid rgba(245,166,35,0.2)`,
+                background: T.goldDim, border: `1px solid rgba(245,184,65,0.2)`,
               }}>
                 <Zap size={11} style={{ color: T.gold, flexShrink: 0 }} />
                 <span style={{ fontSize: 13, color: T.gold, lineHeight: 1.5 }}>{signal.actionTakeaway}</span>

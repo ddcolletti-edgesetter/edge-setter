@@ -1,6 +1,7 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, type KeyboardEvent } from "react";
 import AppShell from "@/components/V2Shell";
 import { BoardHeader } from "@/components/BoardHeader";
+import { SignalDetailDrawer } from "@/components/SignalDetailDrawer";
 import { useMLBSignals } from "@/hooks/useSignals";
 import { useSearch } from "wouter";
 import { getTeamLogo, getPlayerHeadshot, getInitialsAvatar } from "@/lib/espnAssets";
@@ -21,16 +22,16 @@ function timeAgo(ts: Date | string) {
 }
 
 function urgencyColor(score: number) {
-  if (score >= 8) return "#FF5555";
-  if (score >= 6) return "#F5A623";
-  if (score >= 4) return "#39FF14";
+  if (score >= 8) return "#FF5252";
+  if (score >= 6) return "#F5B841";
+  if (score >= 4) return "#00E676";
   return "#3A3F4E";
 }
 
 function confColor(score: number) {
-  if (score >= 80) return "#39FF14";
-  if (score >= 60) return "#F5A623";
-  return "#FF5555";
+  if (score >= 80) return "#00E676";
+  if (score >= 60) return "#F5B841";
+  return "#FF5252";
 }
 
 // ── Team abbreviation → color ─────────────────────────────────────────────
@@ -54,8 +55,8 @@ const MLB_COLORS: Record<string, [string, string]> = {
   SF:  ["#FD5A1E", "#27251F"],
 };
 function getTeamColors(abbr: string | null): [string, string] {
-  if (!abbr) return ["#1A1714", "#8A9099"];
-  return MLB_COLORS[abbr.toUpperCase()] ?? ["#1A1714", "#8A9099"];
+  if (!abbr) return ["#101827", "#8A9099"];
+  return MLB_COLORS[abbr.toUpperCase()] ?? ["#101827", "#8A9099"];
 }
 
 // ── Player Avatar with ESPN headshot ─────────────────────────────────────────
@@ -67,7 +68,7 @@ function PlayerAvatar({ name, size = 48 }: { name: string; size?: number }) {
       <div style={{
         width: size, height: size, borderRadius: "50%",
         overflow: "hidden", flexShrink: 0,
-        border: "2px solid #2A2F3E", background: "#131110",
+        border: "2px solid #2A2F3E", background: "#0A0F1A",
       }}>
         <img src={headshotUrl} alt={name}
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
@@ -158,7 +159,7 @@ function ConfBar({ score }: { score: number | null }) {
   const color = confColor(pct);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <div style={{ width: "60px", height: "3px", background: "#1A1714", borderRadius: "2px", overflow: "hidden" }}>
+      <div style={{ width: "60px", height: "3px", background: "#101827", borderRadius: "2px", overflow: "hidden" }}>
         <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: "2px" }} />
       </div>
       <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.7rem", color, minWidth: "28px" }}>{pct}%</span>
@@ -170,10 +171,10 @@ function ConfBar({ score }: { score: number | null }) {
 function VerdictBadge({ status }: { status: string | null }) {
   if (!status) return null;
   const map: Record<string, [string, string]> = {
-    verified: ["#39FF14", "rgba(57,255,20,0.12)"],
-    confirmed: ["#39FF14", "rgba(57,255,20,0.12)"],
-    official: ["#F5A623", "rgba(245,166,35,0.12)"],
-    developing: ["#F5A623", "rgba(245,166,35,0.12)"],
+    verified: ["#00E676", "rgba(0,230,118,0.12)"],
+    confirmed: ["#00E676", "rgba(0,230,118,0.12)"],
+    official: ["#F5B841", "rgba(245,184,65,0.12)"],
+    developing: ["#F5B841", "rgba(245,184,65,0.12)"],
     unconfirmed: ["#8A9099", "rgba(138,144,153,0.12)"],
   };
   const [color, bg] = map[status.toLowerCase()] ?? ["#8A9099", "rgba(138,144,153,0.12)"];
@@ -237,14 +238,14 @@ function GameCard({ game, active, onClick, signalCount }: {
       onClick={onClick}
       style={{
         minWidth: "200px", maxWidth: "220px",
-        background: active ? "#1A1714" : "#131110",
-        border: `1px solid ${active ? "#F5A623" : "#1A1714"}`,
+        background: active ? "#101827" : "#0A0F1A",
+        border: `1px solid ${active ? "#F5B841" : "#101827"}`,
         borderRadius: "10px", overflow: "hidden",
         cursor: "pointer", flexShrink: 0,
         transition: "all 0.15s ease",
       }}
       onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = "#2A2F3E"; }}
-      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = "#1A1714"; }}
+      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = "#101827"; }}
     >
       {/* Team color bar */}
       <div style={{ height: "3px", background: `linear-gradient(90deg, ${awayBg}, ${homeBg})` }} />
@@ -258,7 +259,7 @@ function GameCard({ game, active, onClick, signalCount }: {
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
             <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.8rem", color: "#3A3F4E", fontWeight: 700 }}>@</span>
-            {isLive && <span style={{ fontSize: "0.55rem", fontWeight: 800, color: "#39FF14", textTransform: "uppercase", letterSpacing: "0.06em" }}>LIVE</span>}
+            {isLive && <span style={{ fontSize: "0.55rem", fontWeight: 800, color: "#00E676", textTransform: "uppercase", letterSpacing: "0.06em" }}>LIVE</span>}
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
             <TeamBadge teamName={homeFull} size={48} />
@@ -270,9 +271,9 @@ function GameCard({ game, active, onClick, signalCount }: {
       {/* Score if live/final */}
       {(game.homeScore !== null || game.awayScore !== null) && (
         <div style={{ padding: "0 16px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5A623" }}>{game.awayScore ?? "-"}</span>
+          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5B841" }}>{game.awayScore ?? "-"}</span>
           <span style={{ fontSize: "0.6rem", color: "#555A66" }}>SCORE</span>
-          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5A623" }}>{game.homeScore ?? "-"}</span>
+          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5B841" }}>{game.homeScore ?? "-"}</span>
         </div>
       )}
       {/* Stats */}
@@ -290,8 +291,8 @@ function GameCard({ game, active, onClick, signalCount }: {
 
       {/* Signal count */}
       <div style={{ borderTop: "1px solid #1A1E2A", padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
-        <Zap size={12} style={{ color: "#F5A623" }} />
-        <span style={{ fontSize: "0.78rem", color: "#F5A623", fontWeight: 700 }}>{signalCount ?? 0} signals</span>
+        <Zap size={12} style={{ color: "#F5B841" }} />
+        <span style={{ fontSize: "0.78rem", color: "#F5B841", fontWeight: 700 }}>{signalCount ?? 0} signals</span>
       </div>
     </div>
   );
@@ -312,30 +313,44 @@ function SignalRow({
   isPro = false,
   userIsPro = false,
   isMobile = false,
+  onOpenDetails,
 }: {
   signal: Signal;
   isPro?: boolean;
   userIsPro?: boolean;
   isMobile?: boolean;
+  onOpenDetails?: (signal: Signal) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [alerted, setAlerted] = useState(false);
+  const openDetails = () => {
+    if (!isPro) onOpenDetails?.(signal);
+  };
+  const toggleExpanded = () => {
+    if (!isPro) setExpanded(e => !e);
+  };
+  const handleRowKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      toggleExpanded();
+    }
+  };
 
 
   // Shared type badge
   const typeBadge = (() => {
     const t = (signal.type ?? "").toLowerCase();
     const colors: Record<string, { bg: string; color: string; border: string }> = {
-      injury:     { bg: "rgba(255,85,85,0.1)",   color: "#FF5555", border: "rgba(255,85,85,0.25)" },
-      lineup:     { bg: "rgba(74,158,255,0.1)",  color: "#4A9EFF", border: "rgba(74,158,255,0.25)" },
+      injury:     { bg: "rgba(255,85,85,0.1)",   color: "#FF5252", border: "rgba(255,85,85,0.25)" },
+      lineup:     { bg: "rgba(74,158,255,0.1)",  color: "#00B7FF", border: "rgba(74,158,255,0.25)" },
       line_move:  { bg: "rgba(176,110,255,0.1)", color: "#B06EFF", border: "rgba(176,110,255,0.25)" },
       line_moves: { bg: "rgba(176,110,255,0.1)", color: "#B06EFF", border: "rgba(176,110,255,0.25)" },
       scheme:     { bg: "rgba(0,210,190,0.1)",   color: "#00D2BE", border: "rgba(0,210,190,0.25)" },
       weather:    { bg: "rgba(0,220,255,0.1)",   color: "#00DCFF", border: "rgba(0,220,255,0.25)" },
-      pitcher:    { bg: "rgba(245,166,35,0.1)",  color: "#F5A623", border: "rgba(245,166,35,0.25)" },
-      props:      { bg: "rgba(57,255,20,0.08)",  color: "#39FF14", border: "rgba(57,255,20,0.2)" },
+      pitcher:    { bg: "rgba(245,184,65,0.1)",  color: "#F5B841", border: "rgba(245,184,65,0.25)" },
+      props:      { bg: "rgba(0,230,118,0.08)",  color: "#00E676", border: "rgba(0,230,118,0.2)" },
     };
-    const c = colors[t] ?? { bg: "rgba(57,255,20,0.08)", color: "#39FF14", border: "rgba(57,255,20,0.2)" };
+    const c = colors[t] ?? { bg: "rgba(0,230,118,0.08)", color: "#00E676", border: "rgba(0,230,118,0.2)" };
     return (
       <span style={{
         fontSize: "0.62rem", fontWeight: 800,
@@ -350,10 +365,17 @@ function SignalRow({
   // ── MOBILE CARD LAYOUT ────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ borderBottom: "1px solid #1A1E2A", position: "relative" }}>
+      <div
+        className={!isPro ? "ux-card-interactive" : undefined}
+        role={!isPro ? "button" : undefined}
+        tabIndex={!isPro ? 0 : undefined}
+        onKeyDown={!isPro ? handleRowKeyDown : undefined}
+        onClick={toggleExpanded}
+        style={{ borderBottom: "1px solid #1A1E2A", position: "relative" }}
+      >
         {isPro && (
           <div style={{ position: "absolute", inset: 0, background: "rgba(10,12,16,0.7)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "14px", zIndex: 2 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "5px", background: "rgba(245,166,35,0.12)", border: "1px solid rgba(245,166,35,0.3)", fontSize: "0.7rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "5px", background: "rgba(245,184,65,0.12)", border: "1px solid rgba(245,184,65,0.3)", fontSize: "0.7rem", fontWeight: 800, color: "#F5B841", textTransform: "uppercase", letterSpacing: "0.06em" }}>
               <Lock size={10} /> PRO
             </span>
           </div>
@@ -362,7 +384,7 @@ function SignalRow({
           {/* Row 1: type badge (left) + timestamp (right) */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
             {typeBadge}
-            <span style={{ fontSize: "0.75rem", color: "#3A3F4E" }}>{signal.timestamp}</span>
+            <span style={{ fontSize: "0.75rem", color: "#94A3B8", fontWeight: 600 }}>{signal.timestamp}</span>
           </div>
           {/* Row 2: player name — 16px, 500 weight */}
           {(signal.player || signal.team) && (
@@ -379,7 +401,7 @@ function SignalRow({
           {/* Row 3: headline — 14px, 2-line clamp */}
           <div style={{
             fontSize: "0.875rem", fontWeight: 400,
-            color: isPro ? "#3A3F4E" : "#9A9FAA",
+            color: isPro ? "#64748B" : "#CBD5E1",
             lineHeight: 1.45,
             overflow: "hidden",
             display: "-webkit-box",
@@ -397,8 +419,9 @@ function SignalRow({
           <VerdictBadge status={signal.verdict} />
           {!isPro && (
             <button
-              onClick={() => setExpanded(e => !e)}
-              style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "transparent", border: "none", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600, color: "#39FF14", minHeight: "44px", padding: "0", WebkitTapHighlightColor: "transparent" }}
+              onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+              className="ux-button-interactive"
+              style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "transparent", border: "none", cursor: "pointer", fontSize: "0.8rem", fontWeight: 600, color: "#00E676", minHeight: "44px", padding: "0", WebkitTapHighlightColor: "transparent" }}
             >
               {expanded ? "Close" : "View Detail"} <ChevronRight size={13} />
             </button>
@@ -407,13 +430,16 @@ function SignalRow({
         {/* Expanded */}
         {expanded && !isPro && (
           <div style={{ padding: "10px 16px 14px", borderTop: "1px solid #1A1E2A" }}>
-            {signal.detail && <p style={{ color: "#8A9099", fontSize: "0.85rem", lineHeight: 1.6, margin: "0 0 8px" }}>{signal.detail}</p>}
+            {signal.detail && <p style={{ color: "#CBD5E1", fontSize: "0.85rem", lineHeight: 1.6, margin: "0 0 8px" }}>{signal.detail}</p>}
             {signal.action_takeaway && (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(57,255,20,0.06)", border: "1px solid rgba(57,255,20,0.15)" }}>
-                <Zap size={11} style={{ color: "#39FF14" }} />
-                <span style={{ fontSize: "0.8rem", color: "#39FF14" }}>{signal.action_takeaway}</span>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(0,230,118,0.06)", border: "1px solid rgba(0,230,118,0.15)" }}>
+                <Zap size={11} style={{ color: "#00E676" }} />
+                <span style={{ fontSize: "0.8rem", color: "#00E676" }}>{signal.action_takeaway}</span>
               </div>
             )}
+            <button type="button" className="ux-button-interactive" onClick={(e) => { e.stopPropagation(); openDetails(); }} style={{ display: "block", marginTop: "10px", padding: "7px 10px", borderRadius: "6px", border: "1px solid rgba(0,183,255,0.28)", background: "rgba(0,183,255,0.08)", color: "#00B7FF", fontSize: "0.78rem", fontWeight: 800, cursor: "pointer" }}>
+              Open Detail Drawer
+            </button>
           </div>
         )}
       </div>
@@ -423,15 +449,17 @@ function SignalRow({
   // ── DESKTOP TABLE ROW LAYOUT ──────────────────────────────────────────────
   return (
     <div
-      onClick={() => !isPro && setExpanded(e => !e)}
+      className={!isPro ? "ux-row-interactive" : undefined}
+      role={!isPro ? "button" : undefined}
+      tabIndex={!isPro ? 0 : undefined}
+      onKeyDown={!isPro ? handleRowKeyDown : undefined}
+      onClick={toggleExpanded}
       style={{
         borderBottom: "1px solid #1A1E2A",
         cursor: isPro ? "default" : "pointer",
-        transition: "background 0.1s",
+        transition: "background 0.14s, box-shadow 0.14s",
         position: "relative",
       }}
-      onMouseEnter={e => { if (!isPro) (e.currentTarget as HTMLElement).style.background = "#131110"; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
     >
       {isPro && (
         <div style={{
@@ -444,8 +472,8 @@ function SignalRow({
           <span style={{
             display: "inline-flex", alignItems: "center", gap: "6px",
             padding: "4px 10px", borderRadius: "5px",
-            background: "rgba(245,166,35,0.12)", border: "1px solid rgba(245,166,35,0.3)",
-            fontSize: "0.7rem", fontWeight: 800, color: "#F5A623",
+            background: "rgba(245,184,65,0.12)", border: "1px solid rgba(245,184,65,0.3)",
+            fontSize: "0.7rem", fontWeight: 800, color: "#F5B841",
             textTransform: "uppercase", letterSpacing: "0.06em",
           }}>
             <Lock size={10} /> PRO
@@ -457,7 +485,7 @@ function SignalRow({
       <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px" }}>
         {signal.player
           ? <PlayerAvatar name={signal.player} size={48} />
-          : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#1A1714", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={18} style={{ color: "#3A3F4E" }} /></div>
+          : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#101827", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={18} style={{ color: "#94A3B8" }} /></div>
         }
 
         <div style={{ minWidth: "80px" }}>{typeBadge}</div>
@@ -466,20 +494,20 @@ function SignalRow({
           <div style={{
             fontFamily: "'Barlow Condensed', sans-serif",
             fontSize: "1.15rem", fontWeight: 700,
-            color: isPro ? "#3A3F4E" : "#E8E8E8",
+            color: isPro ? "#64748B" : "#F8FAFC",
             lineHeight: 1.3, marginBottom: "5px",
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap",
           }}>{signal.headline}</div>
           {signal.player && (
-            <div style={{ fontSize: "0.82rem", color: "#6A7080", display: "flex", alignItems: "center", gap: "6px" }}>
+            <div style={{ fontSize: "0.82rem", color: "#94A3B8", display: "flex", alignItems: "center", gap: "6px" }}>
               {signal.team && (
                 <img src={getTeamLogo(signal.team, "mlb") ?? ""} alt={signal.team}
                   style={{ width: 16, height: 16, objectFit: "contain" }}
                   onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
                 />
               )}
-              <span style={{ fontWeight: 600, color: "#9A9FAA" }}>{signal.player}</span>
-              {signal.team && <span style={{ color: "#3A3F4E" }}>· {signal.team}</span>}
+              <span style={{ fontWeight: 700, color: "#CBD5E1" }}>{signal.player}</span>
+              {signal.team && <span style={{ color: "#94A3B8", fontWeight: 600 }}>· {signal.team}</span>}
             </div>
           )}
         </div>
@@ -493,7 +521,7 @@ function SignalRow({
         </div>
 
         <div style={{ minWidth: "60px", textAlign: "right" }}>
-          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.65rem", color: "#3A3F4E" }}>
+          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.68rem", color: "#94A3B8", fontWeight: 700 }}>
             {signal.timestamp}
           </span>
         </div>
@@ -504,8 +532,8 @@ function SignalRow({
               setAlerted(a => !a);
             }}
             title={alerted ? "Remove alert" : "Get alerted for similar signals"}
-            style={{ display: "inline-flex", alignItems: "center", padding: "4px", borderRadius: "4px", background: "transparent", border: "none", cursor: "pointer", color: alerted ? "#F5A623" : "#3A3F4E", transition: "color 0.15s" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#F5A623"; }}
+            style={{ display: "inline-flex", alignItems: "center", padding: "4px", borderRadius: "4px", background: "transparent", border: "none", cursor: "pointer", color: alerted ? "#F5B841" : "#3A3F4E", transition: "color 0.15s" }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#F5B841"; }}
             onMouseLeave={e => { if (!alerted) (e.currentTarget as HTMLElement).style.color = "#3A3F4E"; }}
           >
             {alerted ? <Bell size={14} /> : <BellOff size={14} />}
@@ -516,14 +544,17 @@ function SignalRow({
       {expanded && !isPro && (
         <div style={{ padding: "0 16px 14px 64px", borderTop: "1px solid #1A1E2A" }}>
           {signal.detail && (
-            <p style={{ color: "#8A9099", fontSize: "0.85rem", lineHeight: 1.6, margin: "10px 0 8px" }}>{signal.detail}</p>
+            <p style={{ color: "#CBD5E1", fontSize: "0.85rem", lineHeight: 1.6, margin: "10px 0 8px" }}>{signal.detail}</p>
           )}
           {signal.action_takeaway && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(57,255,20,0.06)", border: "1px solid rgba(57,255,20,0.15)" }}>
-              <Zap size={11} style={{ color: "#39FF14" }} />
-              <span style={{ fontSize: "0.8rem", color: "#39FF14" }}>{signal.action_takeaway}</span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(0,230,118,0.06)", border: "1px solid rgba(0,230,118,0.15)" }}>
+              <Zap size={11} style={{ color: "#00E676" }} />
+              <span style={{ fontSize: "0.8rem", color: "#00E676" }}>{signal.action_takeaway}</span>
             </div>
           )}
+          <button type="button" className="ux-button-interactive" onClick={(e) => { e.stopPropagation(); openDetails(); }} style={{ marginLeft: "10px", padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(0,183,255,0.28)", background: "rgba(0,183,255,0.08)", color: "#00B7FF", fontSize: "0.76rem", fontWeight: 800, cursor: "pointer" }}>
+            Open Detail Drawer
+          </button>
         </div>
       )}
     </div>
@@ -565,17 +596,17 @@ function RightPanel() {
       {/* Pitcher Alerts */}
       <div style={{ borderBottom: "1px solid #1A1E2A" }}>
         <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#F5A623", boxShadow: "0 0 8px #F5A623", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.08em" }}>Pitcher Alerts</span>
+          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#F5B841", boxShadow: "0 0 8px #F5B841", flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#F5B841", textTransform: "uppercase", letterSpacing: "0.08em" }}>Pitcher Alerts</span>
         </div>
         {PITCHER_ALERTS.map(p => {
-          const statusColor = p.status === "OUT" ? "#FF5555" : p.status === "IL" ? "#F5A623" : "#39FF14";
+          const statusColor = p.status === "OUT" ? "#FF5252" : p.status === "IL" ? "#F5B841" : "#00E676";
           const headshotUrl = getPlayerHeadshot(p.full, "mlb");
           const { initials, color } = getInitialsAvatar(p.full);
           return (
-            <div key={p.name} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 18px", borderTop: "1px solid #1A1E2A" }}>
+            <div key={p.name} className="ux-rail-item" tabIndex={0} role="button" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 18px", borderTop: "1px solid #1A1E2A" }}>
               {/* Player headshot */}
-              <div style={{ width: 42, height: 42, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: "2px solid #2A2F3E", background: headshotUrl ? "#131110" : color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 42, height: 42, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: "2px solid #2A2F3E", background: headshotUrl ? "#0A0F1A" : color, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {headshotUrl
                   ? <img src={headshotUrl} alt={p.full} style={{ width: "100%", height: "100%", objectFit: "cover" }}
                       onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
@@ -589,9 +620,9 @@ function RightPanel() {
                   <img src={getTeamLogo(p.team, "mlb") ?? ""} alt={p.team} style={{ width: 16, height: 16, objectFit: "contain" }}
                     onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
                   />
-                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.95rem", fontWeight: 700, color: "#D8D8D8" }}>{p.name}</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.95rem", fontWeight: 700, color: "#F8FAFC" }}>{p.name}</span>
                 </div>
-                <div style={{ fontSize: "0.75rem", color: "#555A66", lineHeight: 1.3 }}>{p.detail}</div>
+                <div style={{ fontSize: "0.76rem", color: "#94A3B8", fontWeight: 500, lineHeight: 1.35 }}>{p.detail}</div>
               </div>
               <span style={{
                 fontSize: "0.65rem", fontWeight: 800, padding: "3px 7px", borderRadius: "3px",
@@ -606,15 +637,15 @@ function RightPanel() {
       {/* Lineup Movement */}
       <div style={{ borderBottom: "1px solid #1A1E2A" }}>
         <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#39FF14", boxShadow: "0 0 8px #39FF14", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#39FF14", textTransform: "uppercase", letterSpacing: "0.08em" }}>Lineup Movement</span>
+          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#00E676", boxShadow: "0 0 8px #00E676", flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#00E676", textTransform: "uppercase", letterSpacing: "0.08em" }}>Lineup Movement</span>
         </div>
         {LINEUP_MOVES.map(m => {
           const headshotUrl = getPlayerHeadshot(m.player, "mlb");
           const { initials, color } = getInitialsAvatar(m.player);
           return (
-            <div key={m.player} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
-              <div style={{ width: 38, height: 38, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: "2px solid #2A2F3E", background: headshotUrl ? "#131110" : color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div key={m.player} className="ux-rail-item" tabIndex={0} role="button" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
+              <div style={{ width: 38, height: 38, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: "2px solid #2A2F3E", background: headshotUrl ? "#0A0F1A" : color, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 {headshotUrl
                   ? <img src={headshotUrl} alt={m.player} style={{ width: "100%", height: "100%", objectFit: "cover" }}
                       onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
@@ -627,13 +658,13 @@ function RightPanel() {
                   <img src={getTeamLogo(m.team, "mlb") ?? ""} alt={m.team} style={{ width: 14, height: 14, objectFit: "contain" }}
                     onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
                   />
-                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "#D0D0D0" }}>{m.player}</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "#F8FAFC" }}>{m.player}</span>
                 </div>
-                <div style={{ fontSize: "0.72rem", color: "#555A66" }}>{m.detail}</div>
+                <div style={{ fontSize: "0.74rem", color: "#94A3B8", fontWeight: 500 }}>{m.detail}</div>
               </div>
               {m.trend === "up"
-                ? <TrendingUp size={15} style={{ color: "#39FF14", flexShrink: 0 }} />
-                : <TrendingDown size={15} style={{ color: "#FF5555", flexShrink: 0 }} />
+                ? <TrendingUp size={15} style={{ color: "#00E676", flexShrink: 0 }} />
+                : <TrendingDown size={15} style={{ color: "#FF5252", flexShrink: 0 }} />
               }
             </div>
           );
@@ -643,18 +674,18 @@ function RightPanel() {
       {/* Team Trends */}
       <div>
         <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#4A9EFF", boxShadow: "0 0 8px #4A9EFF", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#4A9EFF", textTransform: "uppercase", letterSpacing: "0.08em" }}>Team Trends</span>
+          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#00B7FF", boxShadow: "0 0 8px #00B7FF", flexShrink: 0 }} />
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#00B7FF", textTransform: "uppercase", letterSpacing: "0.08em" }}>Team Trends</span>
         </div>
         {TEAM_TRENDS.map(t => (
-          <div key={t.team + t.trend} style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
+          <div key={t.team + t.trend} className="ux-rail-item" tabIndex={0} role="button" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
             <TeamBadge teamName={t.team} size={36} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.88rem", fontWeight: 600, color: "#D0D0D0" }}>{t.trend}</div>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "#CBD5E1" }}>{t.trend}</div>
             </div>
             {t.dir === "up"
-              ? <TrendingUp size={14} style={{ color: "#39FF14", flexShrink: 0 }} />
-              : <TrendingDown size={14} style={{ color: "#FF5555", flexShrink: 0 }} />
+              ? <TrendingUp size={14} style={{ color: "#00E676", flexShrink: 0 }} />
+              : <TrendingDown size={14} style={{ color: "#FF5252", flexShrink: 0 }} />
             }
           </div>
         ))}
@@ -726,6 +757,7 @@ const TAB_SIGNAL_TYPE: Record<string, string | null> = {
 // ── Main Board ───────────────────────────────────────────────────────────────
 export default function MLBBoard() {
   const [activeGame, setActiveGame] = useState<number | null>(null);
+  const [drawerSignal, setDrawerSignal] = useState<Signal | null>(null);
   // FIX: mobile detection
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   useEffect(() => {
@@ -808,7 +840,7 @@ export default function MLBBoard() {
           <div style={{
             padding: "20px 24px 0",
             borderBottom: "1px solid #1A1E2A",
-            background: "linear-gradient(180deg, rgba(57,255,20,0.04) 0%, transparent 100%)",
+            background: "linear-gradient(180deg, rgba(0,230,118,0.04) 0%, transparent 100%)",
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "4px" }}>
               <h1 style={{
@@ -819,8 +851,8 @@ export default function MLBBoard() {
               <span style={{
                 display: "inline-flex", alignItems: "center", gap: "5px",
                 padding: "3px 10px", borderRadius: "20px",
-                background: "rgba(57,255,20,0.1)", border: "1px solid rgba(57,255,20,0.25)",
-                fontSize: "0.65rem", fontWeight: 800, color: "#39FF14",
+                background: "rgba(0,230,118,0.1)", border: "1px solid rgba(0,230,118,0.25)",
+                fontSize: "0.65rem", fontWeight: 800, color: "#00E676",
                 textTransform: "uppercase", letterSpacing: "0.08em",
               }}>
                 <span className="live-dot" style={{ width: "5px", height: "5px" }} />
@@ -828,39 +860,39 @@ export default function MLBBoard() {
               </span>
               <div style={{ flex: 1 }} />
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.4rem", fontWeight: 700, color: "#F5A623", lineHeight: 1 }}>{allSignals.length}</div>
-                <div style={{ fontSize: "0.6rem", color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.06em" }}>SIGNALS</div>
+                <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.4rem", fontWeight: 700, color: "#F5B841", lineHeight: 1 }}>{allSignals.length}</div>
+                <div style={{ fontSize: "0.66rem", color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>SIGNALS</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.4rem", fontWeight: 700, color: "#39FF14", lineHeight: 1 }}>{allSignals.filter(s => s.verdict === "confirmed").length}</div>
-                <div style={{ fontSize: "0.6rem", color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.06em" }}>CONFIRMED</div>
+                <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.4rem", fontWeight: 700, color: "#00E676", lineHeight: 1 }}>{allSignals.filter(s => s.verdict === "confirmed").length}</div>
+                <div style={{ fontSize: "0.66rem", color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>CONFIRMED</div>
               </div>
             </div>
-            <div style={{ fontSize: "0.78rem", color: "#555A66", marginBottom: "16px" }}>
+            <div style={{ fontSize: "0.82rem", color: "#94A3B8", fontWeight: 600, marginBottom: "16px" }}>
               Live · {allSignals.length} signals · Updated continuously
             </div>
 
             {/* Track record */}
             <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <Shield size={13} style={{ color: "#3A3F4E" }} />
-              <span style={{ fontSize: "0.72rem", color: "#3A3F4E" }}>TRACK RECORD</span>
-              <ChevronRight size={12} style={{ color: "#3A3F4E" }} />
-              <span style={{ fontSize: "0.72rem", color: "#555A66" }}>No settled outcomes yet.</span>
+              <Shield size={13} style={{ color: "#94A3B8" }} />
+              <span style={{ fontSize: "0.74rem", color: "#94A3B8", fontWeight: 700 }}>TRACK RECORD</span>
+              <ChevronRight size={12} style={{ color: "#64748B" }} />
+              <span style={{ fontSize: "0.74rem", color: "#CBD5E1", fontWeight: 500 }}>No settled outcomes yet.</span>
             </div>
 
             {/* Today's Games */}
             <div id="games-section" style={{ marginBottom: "16px" }}>
               <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
-                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#F5A623", flexShrink: 0 }} />
-                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.72rem", fontWeight: 800, color: "#F5A623", textTransform: "uppercase", letterSpacing: "0.1em" }}>Today's Games</span>
+                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#F5B841", flexShrink: 0 }} />
+                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.72rem", fontWeight: 800, color: "#F5B841", textTransform: "uppercase", letterSpacing: "0.1em" }}>Today's Games</span>
               </div>
               <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "4px" }}>
                 {gamesLoading ? (
                   [...Array(4)].map((_, i) => (
-                    <div key={i} style={{ minWidth: "200px", height: "160px", background: "#131110", borderRadius: "10px", opacity: 0.3 + i * 0.1 }} />
+                    <div key={i} style={{ minWidth: "200px", height: "160px", background: "#0A0F1A", borderRadius: "10px", opacity: 0.3 + i * 0.1 }} />
                   ))
                 ) : liveGames.length === 0 ? (
-                  <div style={{ padding: "20px", color: "#555A66", fontSize: "0.85rem" }}>No games scheduled today.</div>
+                  <div style={{ padding: "20px", color: "#94A3B8", fontSize: "0.85rem", fontWeight: 500 }}>No games scheduled today.</div>
                 ) : (
                   liveGames.map(game => {
                     const away = (game.awayTeam ?? "");
@@ -901,12 +933,12 @@ export default function MLBBoard() {
               <div style={{
                 display: "flex", alignItems: "center", gap: "10px",
                 padding: "10px 16px",
-                background: "rgba(245,166,35,0.04)",
+                background: "rgba(245,184,65,0.04)",
                 borderBottom: "1px solid #1A1E2A",
               }}>
-                <Lock size={13} style={{ color: "#F5A623" }} />
-                <span style={{ fontSize: "0.78rem", color: "#8A9099" }}>
-                  <strong style={{ color: "#F5A623" }}>{Math.max(0, filteredSignals.length - PRO_THRESHOLD)} signals locked</strong> — Pro members see the full feed
+                <Lock size={13} style={{ color: "#F5B841" }} />
+                <span style={{ fontSize: "0.8rem", color: "#CBD5E1", fontWeight: 500 }}>
+                  <strong style={{ color: "#F5B841" }}>{Math.max(0, filteredSignals.length - PRO_THRESHOLD)} signals locked</strong> — Pro members see the full feed
                 </span>
                 <div style={{ flex: 1 }} />
                 <button className="btn-gold" onClick={handleUpgrade} disabled={checkout.isPending} style={{ padding: "5px 14px", fontSize: "0.72rem" }}>{checkout.isPending ? "Loading…" : "UNLOCK PRO"}</button>
@@ -922,11 +954,11 @@ export default function MLBBoard() {
                 background: "#0A0C10",
               }}>
                 <div style={{ width: "48px" }} />
-                <div style={{ minWidth: "90px", fontSize: "0.65rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>TYPE</div>
-                <div style={{ flex: 1, fontSize: "0.65rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>SIGNAL</div>
-                <div style={{ minWidth: "100px", textAlign: "right", fontSize: "0.65rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>VERDICT</div>
-                <div style={{ minWidth: "110px", fontSize: "0.65rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>CONF</div>
-                <div style={{ minWidth: "70px", textAlign: "right", fontSize: "0.65rem", fontWeight: 700, color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em" }}>TIME</div>
+                <div style={{ minWidth: "90px", fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>TYPE</div>
+                <div style={{ flex: 1, fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>SIGNAL</div>
+                <div style={{ minWidth: "100px", textAlign: "right", fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>VERDICT</div>
+                <div style={{ minWidth: "110px", fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>CONF</div>
+                <div style={{ minWidth: "70px", textAlign: "right", fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>TIME</div>
               </div>
             )}
 
@@ -934,8 +966,8 @@ export default function MLBBoard() {
               [...Array(5)].map((_, i) => <SignalSkeleton key={i} isMobile={isMobile} />)
             ) : filteredSignals.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px 24px" }}>
-                <Activity size={40} style={{ color: "#1A1714", margin: "0 auto 12px" }} />
-                <p style={{ color: "#555A66", fontSize: "0.9rem" }}>No {activeTab} signals yet. Agents are collecting data.</p>
+                <Activity size={40} style={{ color: "#101827", margin: "0 auto 12px" }} />
+                <p style={{ color: "#94A3B8", fontSize: "0.9rem", fontWeight: 500 }}>No {activeTab} signals yet. Agents are collecting data.</p>
               </div>
             ) : (
               // FIX: pass isMobile to SignalRow
@@ -946,6 +978,7 @@ export default function MLBBoard() {
                   isPro={idx >= PRO_THRESHOLD}
                   userIsPro={false}
                   isMobile={isMobile}
+                  onOpenDetails={setDrawerSignal}
                 />
               ))
             )}
@@ -953,6 +986,12 @@ export default function MLBBoard() {
         </div>
         {!isMobile && <RightPanel />}
       </div>
+      <SignalDetailDrawer
+        open={!!drawerSignal}
+        signal={drawerSignal}
+        sport="MLB"
+        onClose={() => setDrawerSignal(null)}
+      />
     </AppShell>
   );
 }

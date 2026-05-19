@@ -39,17 +39,17 @@ const opsNavGroups = [
 
 /* ── Design tokens ── */
 const T = {
-  bg:        "#0A0B0D",
-  surface1:  "#111317",
-  surface2:  "#16191E",
-  gold:      "#CAA85A",
-  goldBright:"#D8B86A",
-  goldDim:   "rgba(202,168,90,0.16)",
-  text:      "#F3EFE6",
-  textMuted: "#B7AFA0",
-  textFaint: "#7E776A",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  gold:      "#F5B841",
+  goldBright:"#FFD166",
+  goldDim:   "rgba(245,184,65,0.16)",
+  text:      "#F8FAFC",
+  textMuted: "#94A3B8",
+  textFaint: "#64748B",
   cyan:      "hsl(194 56% 55%)",
-  danger:    "#D94B4B",
+  danger:    "#FF5252",
 };
 
 interface Props {
@@ -178,7 +178,7 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                           marginBottom: 2,
                           borderRadius: 3,
                           borderLeft: `2px solid ${active ? T.gold : "transparent"}`,
-                          background: active ? "rgba(202,168,90,0.08)" : "transparent",
+                          background: active ? "rgba(245,184,65,0.08)" : "transparent",
                           color: active ? T.gold : T.textMuted,
                           cursor: "pointer",
                           transition: "background 0.12s, color 0.12s",
@@ -188,7 +188,7 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                         onMouseEnter={e => {
                           if (!active) {
                             const el = e.currentTarget as HTMLDivElement;
-                            el.style.background = "rgba(202,168,90,0.05)";
+                            el.style.background = "rgba(245,184,65,0.05)";
                             el.style.color = T.text;
                           }
                         }}
@@ -218,8 +218,8 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                               marginLeft: "auto",
                               fontSize: 11, fontWeight: 700,
                               padding: "2px 7px", borderRadius: 2,
-                              background: "rgba(217,75,75,0.15)",
-                              color: "#E07070",
+                              background: "rgba(255,82,82,0.15)",
+                              color: "#FF5252",
                               fontVariantNumeric: "tabular-nums",
                             }}
                           >
@@ -239,9 +239,9 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
         <div style={{ padding: "0 12px 12px" }}>
           <div
             style={{
-              border: `1px solid rgba(202,168,90,0.28)`,
+              border: `1px solid rgba(245,184,65,0.28)`,
               borderRadius: 4,
-              background: "rgba(202,168,90,0.05)",
+              background: "rgba(245,184,65,0.05)",
               position: "relative",
               overflow: "hidden",
             }}
@@ -406,7 +406,7 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 13, fontWeight: 700,
                     letterSpacing: "0.10em", textTransform: "uppercase",
-                    color: "#E07070",
+                    color: "#FF5252",
                   }}
                 >
                   {stats.review_queue} Pending Review
@@ -427,7 +427,7 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                 display: "flex", alignItems: "center", gap: 4,
                 padding: "4px 8px",
                 borderRadius: 3,
-                border: "1px solid rgba(202,168,90,0.16)",
+                border: "1px solid rgba(245,184,65,0.16)",
                 color: T.textFaint,
               }}
             >
@@ -444,7 +444,7 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                 data-testid="button-go-home"
                 style={{
                   background: "transparent",
-                  border: `1px solid rgba(202,168,90,0.32)`,
+                  border: `1px solid rgba(245,184,65,0.32)`,
                   borderRadius: 3,
                   color: T.gold,
                   cursor: "pointer",
@@ -456,13 +456,13 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                 }}
                 onMouseEnter={e => {
                   const b = e.currentTarget as HTMLButtonElement;
-                  b.style.background = "rgba(202,168,90,0.08)";
-                  b.style.borderColor = "rgba(202,168,90,0.55)";
+                  b.style.background = "rgba(245,184,65,0.08)";
+                  b.style.borderColor = "rgba(245,184,65,0.55)";
                 }}
                 onMouseLeave={e => {
                   const b = e.currentTarget as HTMLButtonElement;
                   b.style.background = "transparent";
-                  b.style.borderColor = "rgba(202,168,90,0.32)";
+                  b.style.borderColor = "rgba(245,184,65,0.32)";
                 }}
               >
                 Home
@@ -494,15 +494,15 @@ function EdgeSetterLogo() {
       style={{ flexShrink: 0 }}
     >
       {/* Background */}
-      <rect width="32" height="32" rx="3" fill="#111317" />
+      <rect width="32" height="32" rx="3" fill="#0A0F1A" />
       {/* Top gold rule — full */}
-      <rect x="6" y="7"  width="20" height="2.5" rx="0.5" fill="#CAA85A" />
+      <rect x="6" y="7"  width="20" height="2.5" rx="0.5" fill="#F5B841" />
       {/* Middle gold rule — short */}
-      <rect x="6" y="14.75" width="13" height="2.5" rx="0.5" fill="#CAA85A" />
+      <rect x="6" y="14.75" width="13" height="2.5" rx="0.5" fill="#F5B841" />
       {/* Bottom gold rule — full */}
-      <rect x="6" y="22.5" width="20" height="2.5" rx="0.5" fill="#CAA85A" />
+      <rect x="6" y="22.5" width="20" height="2.5" rx="0.5" fill="#F5B841" />
       {/* Gold accent right tick */}
-      <rect x="21" y="14.75" width="5" height="2.5" rx="0.5" fill="#D8B86A" opacity="0.55" />
+      <rect x="21" y="14.75" width="5" height="2.5" rx="0.5" fill="#FFD166" opacity="0.55" />
     </svg>
   );
 }

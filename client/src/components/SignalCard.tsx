@@ -36,7 +36,7 @@ const TYPE_META: Record<
   SignalData['type'],
   { label: string; color: string; bg: string }
 > = {
-  sharp: { label: 'SHARP', color: '#22c55e', bg: 'rgba(34,197,94,0.10)' },
+  sharp: { label: 'SHARP', color: '#00E676', bg: 'rgba(0,230,118,0.10)' },
   public: { label: 'PUBLIC', color: '#60a5fa', bg: 'rgba(96,165,250,0.10)' },
   steam: { label: 'STEAM', color: '#f97316', bg: 'rgba(249,115,22,0.10)' },
   reverse: { label: 'REVERSE', color: '#a78bfa', bg: 'rgba(167,139,250,0.10)' },
@@ -45,7 +45,7 @@ const TYPE_META: Record<
 };
 
 const CONF_META = {
-  high: { label: '▲▲▲', color: '#22c55e' },
+  high: { label: '▲▲▲', color: '#00E676' },
   medium: { label: '▲▲', color: '#fbbf24' },
   low: { label: '▲', color: '#94a3b8' },
 };
@@ -70,7 +70,7 @@ function DesktopRow({ signal }: { signal: SignalData }) {
         padding: '12px 20px',
         borderBottom: '1px solid var(--color-border, rgba(255,255,255,0.06))',
         background: signal.isNew
-          ? 'rgba(34,197,94,0.03)'
+          ? 'rgba(0,230,118,0.03)'
           : 'transparent',
         transition: 'background 0.3s',
       }}
@@ -100,7 +100,7 @@ function DesktopRow({ signal }: { signal: SignalData }) {
       </div>
       {signal.odds && <span style={{ fontSize: 13, color: 'var(--color-text-secondary, #94a3b8)' }}>{signal.odds}</span>}
       {signal.sharpPct != null && (
-        <BarStat label="Sharp" value={signal.sharpPct} color="#22c55e" />
+        <BarStat label="Sharp" value={signal.sharpPct} color="#00E676" />
       )}
       {signal.publicPct != null && (
         <BarStat label="Public" value={signal.publicPct} color="#60a5fa" />
@@ -124,10 +124,10 @@ function MobileCard({ signal, onBookmark, onExpand, isBookmarked }: SignalCardPr
       style={{
         background: 'var(--color-surface-elevated, #0f172a)',
         borderRadius: 12,
-        border: `1px solid ${signal.isNew ? 'rgba(34,197,94,0.25)' : 'var(--color-border, rgba(255,255,255,0.07))'}`,
+        border: `1px solid ${signal.isNew ? 'rgba(0,230,118,0.25)' : 'var(--color-border, rgba(255,255,255,0.07))'}`,
         overflow: 'hidden',
         // New signal glow
-        boxShadow: signal.isNew ? '0 0 0 1px rgba(34,197,94,0.15)' : 'none',
+        boxShadow: signal.isNew ? '0 0 0 1px rgba(0,230,118,0.15)' : 'none',
         transition: 'border-color 0.5s, box-shadow 0.5s',
         marginBottom: 8,
       }}
@@ -238,7 +238,7 @@ function MobileCard({ signal, onBookmark, onExpand, isBookmarked }: SignalCardPr
         }}
       >
         {signal.sharpPct != null && (
-          <StatCell label="Sharp" value={`${signal.sharpPct}%`} accent="#22c55e" />
+          <StatCell label="Sharp" value={`${signal.sharpPct}%`} accent="#00E676" />
         )}
         {signal.publicPct != null && (
           <StatCell label="Public" value={`${signal.publicPct}%`} accent="#60a5fa" />
@@ -299,7 +299,7 @@ function MobileCard({ signal, onBookmark, onExpand, isBookmarked }: SignalCardPr
       >
         <div style={{ padding: '12px 12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {signal.sharpPct != null && (
-            <BarDetail label="Sharp money" value={signal.sharpPct} color="#22c55e" />
+            <BarDetail label="Sharp money" value={signal.sharpPct} color="#00E676" />
           )}
           {signal.moneyPct != null && (
             <BarDetail label="Total money" value={signal.moneyPct} color="#60a5fa" />

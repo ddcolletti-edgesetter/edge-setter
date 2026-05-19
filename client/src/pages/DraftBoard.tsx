@@ -304,9 +304,9 @@ function BuzzTag({ label }: { label: string }) {
       display: "inline-flex", alignItems: "center", gap: 3,
       fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
       fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
-      color: isAlert ? "#D4932A" : "#CAA85A",
-      background: isAlert ? "rgba(212,147,42,0.08)" : "rgba(202,168,90,0.08)",
-      border: `1px solid ${isAlert ? "rgba(212,147,42,0.25)" : "rgba(202,168,90,0.20)"}`,
+      color: isAlert ? "#FF8A00" : "#F5B841",
+      background: isAlert ? "rgba(212,147,42,0.08)" : "rgba(245,184,65,0.08)",
+      border: `1px solid ${isAlert ? "rgba(212,147,42,0.25)" : "rgba(245,184,65,0.20)"}`,
       borderRadius: 3, padding: "3px 8px",
       minHeight: 28,
     }}>
@@ -337,13 +337,13 @@ function MobileProspectCard({
   const deltaColor = delta > 1 ? "#3DAE72" : delta < -1 ? "#C04040" : "#C9A84C";
   const deltaSign = delta > 0 ? "+" : "";
 
-  const scoreColor = p.conf >= 90 ? "#3DAE72" : p.conf >= 80 ? "#D8B86A" : "#7E776A";
+  const scoreColor = p.conf >= 90 ? "#3DAE72" : p.conf >= 80 ? "#FFD166" : "#64748B";
 
   return (
     <div
       style={{
         borderBottom: "1px solid rgba(255,255,255,0.06)",
-        background: isOpen ? "rgba(202,168,90,0.04)" : "transparent",
+        background: isOpen ? "rgba(245,184,65,0.04)" : "transparent",
       }}
       data-testid={`mobile-card-${p.rank}`}
     >
@@ -371,7 +371,7 @@ function MobileProspectCard({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          color: "#7E776A",
+          color: "#64748B",
           fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
           fontSize: 15,
           fontWeight: 700,
@@ -394,7 +394,7 @@ function MobileProspectCard({
           <p style={{
             fontSize: 18,
             fontWeight: 700,
-            color: "#F3EFE6",
+            color: "#F8FAFC",
             lineHeight: 1.25,
             margin: 0,
             whiteSpace: "nowrap",
@@ -405,7 +405,7 @@ function MobileProspectCard({
           </p>
           <p style={{
             fontSize: 14,
-            color: "#B7AFA0",
+            color: "#94A3B8",
             margin: 0,
             letterSpacing: "0.04em",
           }}>
@@ -430,7 +430,7 @@ function MobileProspectCard({
           padding: "0 14px",
           gap: 2,
           minWidth: 68,
-          borderLeft: isOpen ? "2px solid rgba(202,168,90,0.40)" : "2px solid transparent",
+          borderLeft: isOpen ? "2px solid rgba(245,184,65,0.40)" : "2px solid transparent",
           transition: "border-color 0.15s",
         }}>
           <span style={{
@@ -448,7 +448,7 @@ function MobileProspectCard({
             fontWeight: 700,
             letterSpacing: "0.12em",
             textTransform: "uppercase",
-            color: "#7E776A",
+            color: "#64748B",
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
           }}>
             Score
@@ -462,14 +462,14 @@ function MobileProspectCard({
             gap: 1,
           }}>
             {isOpen
-              ? <ChevronUp size={16} style={{ color: "#CAA85A" }} />
-              : <ChevronDown size={16} style={{ color: "#B7AFA0" }} />}
+              ? <ChevronUp size={16} style={{ color: "#F5B841" }} />
+              : <ChevronDown size={16} style={{ color: "#94A3B8" }} />}
             <span style={{
               fontSize: 9,
               fontWeight: 700,
               letterSpacing: "0.10em",
               textTransform: "uppercase",
-              color: isOpen ? "#CAA85A" : "#7E776A",
+              color: isOpen ? "#F5B841" : "#64748B",
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               transition: "color 0.15s",
             }}>
@@ -483,7 +483,7 @@ function MobileProspectCard({
       {isOpen && (
         <div style={{
           padding: "0 0 24px 0",
-          borderTop: "1px solid rgba(202,168,90,0.22)",
+          borderTop: "1px solid rgba(245,184,65,0.22)",
         }}>
 
           {/* Quick stats row: School · Projection · 7D trend */}
@@ -494,15 +494,15 @@ function MobileProspectCard({
             marginBottom: 20,
           }}>
             <div style={{ flex: 1, padding: "12px 14px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>School</p>
-              <p style={{ fontSize: 15, color: "#F3EFE6", margin: 0, fontWeight: 600 }}>{p.school}</p>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#64748B", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>School</p>
+              <p style={{ fontSize: 15, color: "#F8FAFC", margin: 0, fontWeight: 600 }}>{p.school}</p>
             </div>
             <div style={{ flex: 1, padding: "12px 14px", borderRight: "1px solid rgba(255,255,255,0.05)" }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Projection</p>
-              <p style={{ fontSize: 14, color: "#F3EFE6", margin: 0, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{p.projected}</p>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#64748B", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Projection</p>
+              <p style={{ fontSize: 14, color: "#F8FAFC", margin: 0, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>{p.projected}</p>
             </div>
             <div style={{ padding: "12px 14px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>7D</p>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#64748B", margin: "0 0 4px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>7D</p>
               <Sparkline data={p.trend} width={40} height={18} />
               <span style={{ fontSize: 12, fontWeight: 700, color: deltaColor, fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
                 {deltaSign}{delta}
@@ -512,7 +512,7 @@ function MobileProspectCard({
 
           {/* Profile section */}
           <div style={{ padding: "0 16px", marginBottom: 20 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 12px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#64748B", margin: "0 0 12px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
               Prospect Profile
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -523,14 +523,14 @@ function MobileProspectCard({
                 { label: "Proj. Team", value: p.team },
               ].map(({ label, value }) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#7E776A", whiteSpace: "nowrap", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>{label}</span>
-                  <span style={{ fontSize: 16, color: "#F3EFE6", fontWeight: 600, textAlign: "right" }}>{value}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#64748B", whiteSpace: "nowrap", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>{label}</span>
+                  <span style={{ fontSize: 16, color: "#F8FAFC", fontWeight: 600, textAlign: "right" }}>{value}</span>
                 </div>
               ))}
               {p.teamFitWatch && (
                 <div style={{ marginTop: 8, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 5px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Team Fit Watch</p>
-                  <p style={{ fontSize: 16, color: "#CAA85A", fontWeight: 600, margin: 0, lineHeight: 1.45 }}>{p.teamFitWatch}</p>
+                  <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#64748B", margin: "0 0 5px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Team Fit Watch</p>
+                  <p style={{ fontSize: 16, color: "#F5B841", fontWeight: 600, margin: 0, lineHeight: 1.45 }}>{p.teamFitWatch}</p>
                 </div>
               )}
             </div>
@@ -544,14 +544,14 @@ function MobileProspectCard({
             borderRadius: 4,
             padding: "14px 16px",
           }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 12px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#64748B", margin: "0 0 12px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
               Edge Score Breakdown
             </p>
             <div style={{ display: "flex", flexDirection: "column", gap: 11 }}>
               {p.breakdown.map(({ label, score }) => (
                 <div key={label}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.09em", color: "#B7AFA0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>{label}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.09em", color: "#94A3B8", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>{label}</span>
                     <span style={{ fontSize: 14, fontWeight: 700, color: confBarColor(score) }}>{score}</span>
                   </div>
                   <div style={{ height: 3, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
@@ -562,7 +562,7 @@ function MobileProspectCard({
               {/* Overall */}
               <div style={{ paddingTop: 10, borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.09em", color: "#F3EFE6", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Overall</span>
+                  <span style={{ fontSize: 13, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.09em", color: "#F8FAFC", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>Overall</span>
                   <span style={{ fontSize: 16, fontWeight: 800, color: scoreColor }}>{p.conf}</span>
                 </div>
                 <div style={{ height: 4, borderRadius: 99, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
@@ -575,25 +575,25 @@ function MobileProspectCard({
           {/* Latest Intel */}
           {p.latestUpdate && (
             <div style={{ padding: "0 16px", marginBottom: 20 }}>
-              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 10px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+              <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#64748B", margin: "0 0 10px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
                 Latest Intel
               </p>
-              <p style={{ fontSize: 16, color: "#F3EFE6", lineHeight: 1.68, margin: 0 }}>{p.latestUpdate}</p>
+              <p style={{ fontSize: 16, color: "#F8FAFC", lineHeight: 1.68, margin: 0 }}>{p.latestUpdate}</p>
             </div>
           )}
 
           {/* Scout note */}
           <div style={{ padding: "0 16px", marginBottom: 20 }}>
-            <p style={{ fontSize: 15, color: "#B7AFA0", lineHeight: 1.68, fontStyle: "italic", margin: 0 }}>{p.note}</p>
+            <p style={{ fontSize: 15, color: "#94A3B8", lineHeight: 1.68, fontStyle: "italic", margin: 0 }}>{p.note}</p>
           </div>
 
           {/* Linked Signals */}
           <div style={{ padding: "0 16px" }}>
-            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#7E776A", margin: "0 0 12px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
-              Linked Signals{signals.length > 0 && <span style={{ color: "#CAA85A" }}> · {signals.length}</span>}
+            <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: "#64748B", margin: "0 0 12px 0", fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif" }}>
+              Linked Signals{signals.length > 0 && <span style={{ color: "#F5B841" }}> · {signals.length}</span>}
             </p>
             {signals.length === 0 ? (
-              <p style={{ fontSize: 15, color: "#7E776A", fontStyle: "italic" }}>No signals found for this prospect in current cycle.</p>
+              <p style={{ fontSize: 15, color: "#64748B", fontStyle: "italic" }}>No signals found for this prospect in current cycle.</p>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {signals.map(s => (
@@ -605,10 +605,10 @@ function MobileProspectCard({
                   }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
                       <VerdictBadge verdict={s.verdict} />
-                      <span style={{ fontSize: 13, color: "#B7AFA0", marginLeft: "auto" }}>{s.source_name}</span>
+                      <span style={{ fontSize: 13, color: "#94A3B8", marginLeft: "auto" }}>{s.source_name}</span>
                     </div>
-                    <p style={{ fontSize: 16, color: "#F3EFE6", lineHeight: 1.65, margin: "0 0 10px 0" }}>{s.normalized_claim}</p>
-                    <p style={{ fontSize: 13, color: "#7E776A", fontWeight: 700, margin: 0 }}>{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
+                    <p style={{ fontSize: 16, color: "#F8FAFC", lineHeight: 1.65, margin: "0 0 10px 0" }}>{s.normalized_claim}</p>
+                    <p style={{ fontSize: 13, color: "#64748B", fontWeight: 700, margin: 0 }}>{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
                   </div>
                 ))}
               </div>
@@ -689,7 +689,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
     c >= 90 ? "text-[#3DAE72]" : c >= 80 ? "text-primary" : "text-muted-foreground";
 
   const confBarColor = (c: number) =>
-    c >= 90 ? "#3DAE72" : c >= 80 ? "#D8B86A" : "#7E776A";
+    c >= 90 ? "#3DAE72" : c >= 80 ? "#FFD166" : "#64748B";
 
   const linkedSignals = (name: string): SignalFeedItem[] => {
     if (!allSignals) return [];
@@ -734,7 +734,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
               style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 11, fontWeight: 700, letterSpacing: "0.18em",
-                textTransform: "uppercase", color: "#7E776A",
+                textTransform: "uppercase", color: "#64748B",
                 marginBottom: 2,
               }}
             >
@@ -755,12 +755,12 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                     minHeight: 44,
                     borderRadius: 3, cursor: "pointer",
                     border: activeSeason === season
-                      ? "1px solid rgba(202,168,90,0.55)"
-                      : "1px solid rgba(202,168,90,0.18)",
+                      ? "1px solid rgba(245,184,65,0.55)"
+                      : "1px solid rgba(245,184,65,0.18)",
                     background: activeSeason === season
-                      ? "rgba(202,168,90,0.12)"
+                      ? "rgba(245,184,65,0.12)"
                       : "transparent",
-                    color: activeSeason === season ? "#CAA85A" : "#7E776A",
+                    color: activeSeason === season ? "#F5B841" : "#64748B",
                     transition: "all 0.15s",
                   }}
                 >
@@ -772,7 +772,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
-                color: "#7E776A",
+                color: "#64748B",
                 display: "flex", alignItems: "center", gap: 4,
               }}>
                 Archive · Read only
@@ -827,12 +827,12 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                     padding: "0 14px",
                     borderRadius: 3,
                     border: posFilter === pos
-                      ? "1px solid rgba(202,168,90,0.55)"
+                      ? "1px solid rgba(245,184,65,0.55)"
                       : "1px solid rgba(255,255,255,0.1)",
                     background: posFilter === pos
-                      ? "rgba(202,168,90,0.12)"
+                      ? "rgba(245,184,65,0.12)"
                       : "transparent",
-                    color: posFilter === pos ? "#CAA85A" : "#7E776A",
+                    color: posFilter === pos ? "#F5B841" : "#64748B",
                     cursor: "pointer",
                     transition: "all 0.15s",
                     flexShrink: 0,
@@ -1128,18 +1128,18 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
         {activeSeason === "2026" && (
           <div style={{
             display: "flex", alignItems: "center", gap: 8,
-            background: "rgba(202,168,90,0.06)",
-            border: "1px solid rgba(202,168,90,0.22)",
+            background: "rgba(245,184,65,0.06)",
+            border: "1px solid rgba(245,184,65,0.22)",
             borderRadius: 4, padding: "9px 14px", marginBottom: 16,
             flexWrap: "wrap", rowGap: 4,
           }}>
-            <Zap size={12} style={{ color: "#CAA85A", flexShrink: 0 }} />
+            <Zap size={12} style={{ color: "#F5B841", flexShrink: 0 }} />
             <span style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
-              color: "#CAA85A",
+              color: "#F5B841",
             }}>Draft Week Live · Apr 24–26</span>
-            <span style={{ fontSize: 15, color: "#B7AFA0", marginLeft: 4 }}>
+            <span style={{ fontSize: 15, color: "#94A3B8", marginLeft: 4 }}>
               Prospect risers/fallers, medical flags, team-fit confirmations — updated in real time.
             </span>
           </div>

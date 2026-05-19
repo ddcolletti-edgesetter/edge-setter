@@ -1,3 +1,7 @@
+/**
+ * @deprecated Experimental validator civilization terminology. Prefer product-aligned
+ * validator cohort / validator cluster selection contracts for new work.
+ */
 import type {
   ReplayHistoricalSimulationRuntimeSnapshot,
 } from "./replay-historical-simulation-runtime-contract";
@@ -206,3 +210,14 @@ export interface ReplayHistoricalAutonomousLeagueSnapshot {
   readonly supported_queries: readonly ReplayHistoricalAutonomousLeagueQuery[];
   readonly deterministic_hash: string;
 }
+
+export type ReplayValidatorCohortTournamentState = ReplayHistoricalAutonomousLeagueState;
+export type ReplayValidatorCohortTournamentAction = ReplayHistoricalAutonomousLeagueAction;
+export type ReplayValidatorCohortTournamentQuery = ReplayHistoricalAutonomousLeagueQuery;
+export type ReplayValidatorCohortTournamentInput = ReplayHistoricalAutonomousLeagueInput;
+export type ReplayValidatorCohortEcosystemRecord = ReplayValidatorLeagueEcosystemRecord;
+export type ReplayValidatorCohortLineageRecord = ReplayValidatorPopulationLineageRecord;
+export type ReplayValidatorRetirementCycle = ReplayValidatorSurvivalExtinctionCycle;
+export type ReplaySpecializationProfileMarketSimulation = ReplaySpecializationMarketSimulation;
+export type ReplayValidatorCohortLiveEligibility = ReplaySimulationToLivePromotionCriteria;
+export type ReplayValidatorCohortTournamentSnapshot = ReplayHistoricalAutonomousLeagueSnapshot;

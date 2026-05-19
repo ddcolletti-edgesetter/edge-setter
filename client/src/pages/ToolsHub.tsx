@@ -7,23 +7,23 @@ import { TeamLogo, T, getTeamColors } from "../components/v2/SportVisuals";
 
 /* ── Sport badge config ── */
 const SPORT_ACCENT: Record<string, string> = {
-  NBA: "#CAA85A",
-  MLB: "#4AA8C8",
-  NFL: "#D98A42",
-  CFB: "#4CAF82",
+  NBA: "#F5B841",
+  MLB: "#00B7FF",
+  NFL: "#FF8A00",
+  CFB: "#00E676",
 };
 
 const SPORT_BG: Record<string, string> = {
-  NBA: "rgba(202,168,90,0.12)",
-  MLB: "rgba(74,168,200,0.12)",
-  NFL: "rgba(217,138,66,0.12)",
-  CFB: "rgba(76,175,130,0.12)",
+  NBA: "rgba(245,184,65,0.12)",
+  MLB: "rgba(0,183,255,0.12)",
+  NFL: "rgba(255,138,0,0.12)",
+  CFB: "rgba(0,230,118,0.12)",
 };
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; border: string; label: string }> = {
-  "Live":        { bg: "rgba(76,175,130,0.12)",  color: "#4CAF82", border: "rgba(76,175,130,0.28)",  label: "LIVE" },
-  "Beta":        { bg: "rgba(202,168,90,0.1)",   color: "#CAA85A", border: "rgba(202,168,90,0.28)",  label: "BETA" },
-  "Coming Soon": { bg: "rgba(126,119,106,0.08)", color: "#7E776A", border: "rgba(126,119,106,0.18)", label: "SOON" },
+  "Live":        { bg: "rgba(0,230,118,0.12)",  color: "#00E676", border: "rgba(0,230,118,0.28)",  label: "LIVE" },
+  "Beta":        { bg: "rgba(245,184,65,0.1)",   color: "#F5B841", border: "rgba(245,184,65,0.28)",  label: "BETA" },
+  "Coming Soon": { bg: "rgba(100,116,139,0.08)", color: "#64748B", border: "rgba(100,116,139,0.18)", label: "SOON" },
 };
 
 /* Map tool icon strings to lucide-react components */
@@ -179,19 +179,19 @@ function FeaturedToolBanner() {
       style={{
         position: "relative", overflow: "hidden",
         borderRadius: 6, padding: "22px 24px",
-        background: "linear-gradient(135deg, rgba(202,168,90,0.1) 0%, rgba(202,168,90,0.03) 60%, transparent 100%)",
-        border: `1px solid ${hovered ? "rgba(202,168,90,0.4)" : "rgba(202,168,90,0.22)"}`,
+        background: "linear-gradient(135deg, rgba(245,184,65,0.1) 0%, rgba(245,184,65,0.03) 60%, transparent 100%)",
+        border: `1px solid ${hovered ? "rgba(245,184,65,0.4)" : "rgba(245,184,65,0.22)"}`,
         marginBottom: 32, cursor: "pointer",
         transition: "border-color 0.15s",
       }}
     >
       {/* Gold top bar */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, #CAA85A, #D8B86A55)" }} />
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, #F5B841, #FFD16655)" }} />
 
       {/* Background orb */}
       <div style={{
         position: "absolute", right: -40, top: -40, width: 200, height: 200, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(202,168,90,0.07), transparent 70%)",
+        background: "radial-gradient(circle, rgba(245,184,65,0.07), transparent 70%)",
         pointerEvents: "none",
       }} />
 
@@ -264,8 +264,8 @@ export default function ToolsHub() {
         {/* ── Status summary pills ── */}
         <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
           {[
-            { label: "Live",        count: liveTools.length,  color: T.green,     bg: "rgba(76,175,130,0.1)",   border: "rgba(76,175,130,0.2)" },
-            { label: "Beta",        count: betaTools.length,  color: T.gold,      bg: "rgba(202,168,90,0.08)",  border: "rgba(202,168,90,0.2)" },
+            { label: "Live",        count: liveTools.length,  color: T.green,     bg: "rgba(0,230,118,0.1)",   border: "rgba(0,230,118,0.2)" },
+            { label: "Beta",        count: betaTools.length,  color: T.gold,      bg: "rgba(245,184,65,0.08)",  border: "rgba(245,184,65,0.2)" },
             { label: "Coming Soon", count: comingTools.length,color: T.textFaint, bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)" },
           ].map(s => (
             <div key={s.label} style={{
@@ -355,7 +355,7 @@ export default function ToolsHub() {
           border: `1px solid ${T.goldDim}`, borderRadius: 5, marginTop: 8,
           position: "relative", overflow: "hidden",
         }}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, rgba(202,168,90,0.5), transparent)" }} />
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, rgba(245,184,65,0.5), transparent)" }} />
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, fontWeight: 700, color: T.gold, marginBottom: 6 }}>
             Product Roadmap
           </div>

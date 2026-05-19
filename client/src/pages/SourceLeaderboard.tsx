@@ -5,14 +5,14 @@ import { Trophy, Clock, TrendingDown } from "lucide-react";
 import V2Shell from "../components/V2Shell";
 const C = {
   bgBase:       "hsl(22 10%  9%)",
-  panelBase:    "#111317",
-  panelLift:    "#16191E",
-  panelElev:    "#1B1F25",
-  ivoryPrimary: "#F3EFE6",
-  ivorySecond:  "#B7AFA0",
-  ivoryMuted:   "#7E776A",
+  panelBase:    "#0A0F1A",
+  panelLift:    "#101827",
+  panelElev:    "#101827",
+  ivoryPrimary: "#F8FAFC",
+  ivorySecond:  "#94A3B8",
+  ivoryMuted:   "#64748B",
   ivorySub:     "hsl(25  9% 37%)",
-  borderSub:    "rgba(202,168,90,0.12)",
+  borderSub:    "rgba(245,184,65,0.12)",
   borderMid:    "hsl(22 10% 22%)",
   anaCyan:      "hsl(194 56% 58%)",
   anaAmber:     "hsl(42  61% 57%)",
@@ -42,7 +42,7 @@ function TierBadge({ tier }: { tier: string | null }) {
 
 function SourceTypeBadge({ sourceType }: { sourceType?: string | null }) {
   const configs: Record<string, { border: string; bg: string; color: string; label: string }> = {
-    analytics:      { border: "rgba(202,168,90,0.30)",  bg: "rgba(202,168,90,0.08)",  color: "#CAA85A", label: "Analytics" },
+    analytics:      { border: "rgba(245,184,65,0.30)",  bg: "rgba(245,184,65,0.08)",  color: "#F5B841", label: "Analytics" },
     analyst:        { border: "rgba(56,170,203,0.25)",  bg: "rgba(56,170,203,0.07)",  color: "#38AACB", label: "Analyst" },
     scouting:       { border: "rgba(61,174,114,0.28)",  bg: "rgba(61,174,114,0.08)",  color: "#3DAE72", label: "Scouting" },
     college_analyst:{ border: "rgba(167,120,220,0.28)", bg: "rgba(167,120,220,0.08)", color: "#A778DC", label: "College" },
@@ -205,9 +205,9 @@ function SourceLeaderboardInner() {
                 onClick={() => setActiveLeague(league)}
                 style={{
                   padding: "5px 14px", borderRadius: 3,
-                  border: active ? "1px solid rgba(202,168,90,0.50)" : `1px solid ${C.borderMid}`,
-                  background: active ? "rgba(202,168,90,0.12)" : "transparent",
-                  color: active ? "#CAA85A" : C.ivoryMuted,
+                  border: active ? "1px solid rgba(245,184,65,0.50)" : `1px solid ${C.borderMid}`,
+                  background: active ? "rgba(245,184,65,0.12)" : "transparent",
+                  color: active ? "#F5B841" : C.ivoryMuted,
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
                   textTransform: "uppercase" as const,
@@ -237,9 +237,9 @@ function SourceLeaderboardInner() {
           {FILTER_CHIPS.map(c => {
             const active = activeFilter === c.id;
             const activeStyles: Record<FilterChip, { border: string; bg: string; color: string }> = {
-              all:       { border: "rgba(202,168,90,0.50)",  bg: "rgba(202,168,90,0.14)",  color: "#CAA85A" },
+              all:       { border: "rgba(245,184,65,0.50)",  bg: "rgba(245,184,65,0.14)",  color: "#F5B841" },
               insider:   { border: "rgba(56,170,203,0.45)",  bg: "rgba(56,170,203,0.10)",  color: "#38AACB" },
-              analytics: { border: "rgba(202,168,90,0.45)",  bg: "rgba(202,168,90,0.12)",  color: "#CAA85A" },
+              analytics: { border: "rgba(245,184,65,0.45)",  bg: "rgba(245,184,65,0.12)",  color: "#F5B841" },
               scouting:  { border: "rgba(61,174,114,0.45)",  bg: "rgba(61,174,114,0.10)",  color: "#3DAE72" },
               college:   { border: "rgba(167,120,220,0.45)", bg: "rgba(167,120,220,0.10)", color: "#A778DC" },
             };

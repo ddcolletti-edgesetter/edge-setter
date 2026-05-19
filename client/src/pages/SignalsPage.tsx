@@ -16,25 +16,25 @@ import ProValueModule from "@/components/paywall/ProValueModule";
 import { trackSignalsVisit, trackCheckoutClick } from "@/lib/analytics";
 
 const T = {
-  bg:        "#0A0B0D",
-  surface1:  "#111317",
-  surface2:  "#16191E",
-  surface3:  "#1B1F25",
-  gold:      "#CAA85A",
-  goldBright:"#D8B86A",
-  text:      "#F3EFE6",
-  textMuted: "#B7AFA0",
-  textFaint: "#7E776A",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  surface3:  "#101827",
+  gold:      "#F5B841",
+  goldBright:"#FFD166",
+  text:      "#F8FAFC",
+  textMuted: "#94A3B8",
+  textFaint: "#64748B",
   green:     "#3DAE72",
   cyan:      "#38AACB",
-  red:       "#D94B4B",
-  amber:     "#D4932A",
+  red:       "#FF5252",
+  amber:     "#FF8A00",
 };
 
 function VerdictPill({ type }: { type: string }) {
   const map: Record<string, { bg: string; color: string; label: string }> = {
     confirmed:    { bg: "rgba(56,170,203,0.12)", color: "#5AC8E0", label: "Confirmed" },
-    likely:       { bg: "rgba(202,168,90,0.12)", color: "#D8B86A", label: "Likely" },
+    likely:       { bg: "rgba(245,184,65,0.12)", color: "#FFD166", label: "Likely" },
     rumor:        { bg: "rgba(120,80,176,0.12)", color: "#A07ACC", label: "Rumor" },
     contradicted: { bg: "rgba(207,74,74,0.12)",  color: "#E08080", label: "Contradicted" },
     review:       { bg: "rgba(78,111,160,0.12)", color: "#7A9CC8", label: "In Review" },
@@ -80,8 +80,8 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
       data-testid={`signal-card-${signal.id}`}
       style={{
         background: featured ? T.surface2 : T.surface1,
-        border: featured ? `1px solid rgba(202,168,90,0.30)` : `1px solid rgba(202,168,90,0.10)`,
-        borderLeft: `3px solid ${featured ? T.gold : "rgba(202,168,90,0.35)"}`,
+        border: featured ? `1px solid rgba(245,184,65,0.30)` : `1px solid rgba(245,184,65,0.10)`,
+        borderLeft: `3px solid ${featured ? T.gold : "rgba(245,184,65,0.35)"}`,
         borderRadius: 4,
         padding: featured ? "24px 24px 20px" : "20px 20px 16px",
         position: "relative",
@@ -90,7 +90,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
         marginBottom: 12,
       }}
       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = T.gold; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = featured ? T.gold : "rgba(202,168,90,0.35)"; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = featured ? T.gold : "rgba(245,184,65,0.35)"; }}
     >
       {featured && (
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold, pointerEvents: "none" }} />
@@ -166,8 +166,8 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
         <div style={{
           display: "flex", gap: 10, alignItems: "flex-start",
           padding: "12px 14px",
-          background: "rgba(202,168,90,0.05)",
-          border: "1px solid rgba(202,168,90,0.12)",
+          background: "rgba(245,184,65,0.05)",
+          border: "1px solid rgba(245,184,65,0.12)",
           borderRadius: 3,
           marginBottom: 12,
         }}>
@@ -294,8 +294,8 @@ export default function SignalsPage() {
       {/* Top bar */}
       <div style={{
         background: T.surface1,
-        borderBottom: "1px solid rgba(202,168,90,0.14)",
-        borderTop: "2px solid rgba(202,168,90,0.60)",
+        borderBottom: "1px solid rgba(245,184,65,0.14)",
+        borderTop: "2px solid rgba(245,184,65,0.60)",
         padding: "0 16px",
       }}>
         <div style={{
@@ -383,8 +383,8 @@ export default function SignalsPage() {
           <div style={{
             display: "flex", alignItems: "flex-start", gap: 8,
             padding: "10px 14px",
-            background: "rgba(202,168,90,0.06)",
-            border: "1px solid rgba(202,168,90,0.22)",
+            background: "rgba(245,184,65,0.06)",
+            border: "1px solid rgba(245,184,65,0.22)",
             borderRadius: 3,
             marginBottom: 18,
           }}>
@@ -398,13 +398,13 @@ export default function SignalsPage() {
             <span style={{ fontSize: 15, color: T.textMuted, lineHeight: 1.5 }}>
               You can fully read the {FREE_LIMIT} most recent signals.{" "}
               <Link href="/pro">
-                <span style={{ color: T.gold, cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(202,168,90,0.40)" }}>
+                <span style={{ color: T.gold, cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(245,184,65,0.40)" }}>
                   Pro unlocks the full live feed for draft week.
                 </span>
               </Link>
             </span>
           </div>
-          <div style={{ height: 1, background: "rgba(202,168,90,0.18)" }} />
+          <div style={{ height: 1, background: "rgba(245,184,65,0.18)" }} />
         </div>
 
         {isLoading ? (
@@ -439,7 +439,7 @@ export default function SignalsPage() {
               {/* Waitlist */}
               <div style={{
                 background: T.surface1,
-                border: "1px solid rgba(202,168,90,0.22)",
+                border: "1px solid rgba(245,184,65,0.22)",
                 borderRadius: 4,
                 padding: "24px 22px",
                 position: "relative", overflow: "hidden",

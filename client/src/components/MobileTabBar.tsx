@@ -2,10 +2,10 @@ import { useLocation } from "wouter";
 import { Home, Star } from "lucide-react";
 import { useBreakpoint } from "../hooks/useBreakpoint";
 
-const ACCENT = "#C4A24A";
-const MUTED = "#4A4235";
-const SURFACE = "rgba(12,11,9,0.97)";
-const BORDER = "rgba(196,162,74,0.14)";
+const ACCENT = "#F5B841";
+const MUTED = "#64748B";
+const SURFACE = "rgba(5,5,5,0.97)";
+const BORDER = "rgba(245,184,65,0.14)";
 
 function BasketballIcon({ active }: { active: boolean }) {
   const c = active ? ACCENT : MUTED;

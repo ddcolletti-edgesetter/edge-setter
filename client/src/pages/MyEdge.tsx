@@ -7,8 +7,8 @@ import {
 } from "lucide-react";
 import { TeamLogo, PlayerAvatar, T as _T, getTeamColors } from "../components/v2/SportVisuals";
 
-// Override warm-brown gold with site-wide orange-gold
-const T = { ..._T, gold: "#F5A623", goldBright: "#FFB84D", goldDim: "rgba(245,166,35,0.15)" };
+// Override legacy accent with site-wide clean gold
+const T = { ..._T, gold: "#F5B841", goldBright: "#F5B841", goldDim: "rgba(245,184,65,0.15)" };
 
 /* ── Feature card data ── */
 interface FeatureCard {
@@ -56,7 +56,7 @@ const FEATURES: FeatureCard[] = [
     detail: "NBA + MLB team following now. NFL + CFB follow at season launch.",
     timeline: "Q3 2026",
     status: "coming",
-    accentColor: "#4AA8C8",
+    accentColor: "#00B7FF",
   },
   {
     icon: <Bookmark size={18} />,
@@ -79,9 +79,9 @@ const FEATURES: FeatureCard[] = [
 ];
 
 const TIMELINE_STYLE: Record<string, { color: string; bg: string; border: string }> = {
-  coming:  { color: T.gold,      bg: "rgba(202,168,90,0.1)",   border: "rgba(202,168,90,0.25)" },
-  soon:    { color: T.green,     bg: "rgba(76,175,130,0.1)",   border: "rgba(76,175,130,0.25)" },
-  planned: { color: T.textFaint, bg: "rgba(126,119,106,0.08)", border: "rgba(126,119,106,0.18)" },
+  coming:  { color: T.gold,      bg: "rgba(245,184,65,0.1)",   border: "rgba(245,184,65,0.25)" },
+  soon:    { color: T.green,     bg: "rgba(0,230,118,0.1)",   border: "rgba(0,230,118,0.25)" },
+  planned: { color: T.textFaint, bg: "rgba(100,116,139,0.08)", border: "rgba(100,116,139,0.18)" },
 };
 
 /* ── Stat cockpit card ── */
@@ -202,16 +202,16 @@ export default function MyEdge() {
         <div style={{
           position: "relative", overflow: "hidden",
           borderRadius: 6, padding: "28px 28px 24px",
-          background: "linear-gradient(135deg, rgba(202,168,90,0.08) 0%, rgba(202,168,90,0.02) 50%, transparent 100%)",
-          border: `1px solid rgba(202,168,90,0.22)`,
+          background: "linear-gradient(135deg, rgba(245,184,65,0.08) 0%, rgba(245,184,65,0.02) 50%, transparent 100%)",
+          border: `1px solid rgba(245,184,65,0.22)`,
           marginBottom: 28,
         }}>
           {/* Top gold bar */}
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, #CAA85A, #D8B86A44)" }} />
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, #F5B841, #FFD16644)" }} />
           {/* Background orb */}
           <div style={{
             position: "absolute", right: -60, top: -60, width: 280, height: 280, borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(202,168,90,0.05), transparent 70%)",
+            background: "radial-gradient(circle, rgba(245,184,65,0.05), transparent 70%)",
             pointerEvents: "none",
           }} />
 
@@ -242,14 +242,14 @@ export default function MyEdge() {
         <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
           <CockpitStat label="Features Planned" value="6" color={T.gold} />
           <CockpitStat label="Launching" value="Q3" sub="2026" color={T.green} />
-          <CockpitStat label="Sports Covered" value="4" color="#4AA8C8" />
+          <CockpitStat label="Sports Covered" value="4" color="#00B7FF" />
           <CockpitStat label="Pro Early Access" value="✓" color={T.gold} />
         </div>
 
         {/* ── Status development banner ── */}
         <div style={{
           padding: "14px 18px",
-          background: "rgba(202,168,90,0.04)", border: `1px solid rgba(202,168,90,0.18)`,
+          background: "rgba(245,184,65,0.04)", border: `1px solid rgba(245,184,65,0.18)`,
           borderRadius: 5, marginBottom: 32, display: "flex", alignItems: "flex-start", gap: 12,
         }}>
           <div style={{
@@ -313,14 +313,14 @@ export default function MyEdge() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
             {[
               { label: "NBA Board",          desc: "Live signal stream. Playoff intel.",  href: "/v2/nba",         color: T.gold,      dotColor: T.gold },
-              { label: "MLB Board",          desc: "Regular season. Pitcher and lineup.", href: "/v2/mlb",         color: "#4AA8C8",   dotColor: "#4AA8C8" },
+              { label: "MLB Board",          desc: "Regular season. Pitcher and lineup.", href: "/v2/mlb",         color: "#00B7FF",   dotColor: "#00B7FF" },
               { label: "Tools Hub",          desc: "All current + upcoming tools.",       href: "/v2/tools",       color: T.gold,      dotColor: T.green },
               { label: "Source Leaderboard", desc: "Track source reliability.",           href: "/sources",    color: T.textMuted, dotColor: T.textFaint },
             ].map(item => (
               <Link key={item.label} href={item.href}>
                 <div
                   style={{ padding: "13px 16px", background: T.surface1, border: `1px solid rgba(255,255,255,0.07)`, borderRadius: 4, cursor: "pointer", transition: "border-color 0.12s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(202,168,90,0.22)"; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(245,184,65,0.22)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.07)"; }}
                 >
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
@@ -347,12 +347,12 @@ export default function MyEdge() {
         {/* ── Pro CTA ── */}
         <div style={{
           padding: "24px 24px",
-          background: "linear-gradient(135deg, rgba(202,168,90,0.07) 0%, transparent 70%)",
-          border: `1px solid rgba(202,168,90,0.3)`,
+          background: "linear-gradient(135deg, rgba(245,184,65,0.07) 0%, transparent 70%)",
+          border: `1px solid rgba(245,184,65,0.3)`,
           borderRadius: 5, position: "relative", overflow: "hidden",
         }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold }} />
-          <div style={{ position: "absolute", bottom: -30, right: -30, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(202,168,90,0.05), transparent 70%)", pointerEvents: "none" }} />
+          <div style={{ position: "absolute", bottom: -30, right: -30, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,184,65,0.05), transparent 70%)", pointerEvents: "none" }} />
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <Zap size={13} style={{ color: T.gold }} />

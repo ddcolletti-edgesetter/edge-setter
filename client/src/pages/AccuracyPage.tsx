@@ -5,20 +5,20 @@ import V2Shell from "../components/V2Shell";
 import { Award, TrendingUp, Clock, AlertCircle, CheckCircle } from "lucide-react";
 
 const T = {
-  bg:         "#0C0B09",
-  surface1:   "#111317",
-  surface2:   "#16191E",
-  gold:       "#F5A623",
-  goldDim:    "rgba(245,166,35,0.16)",
-  goldBorder: "rgba(245,166,35,0.12)",
-  text:       "#F3EFE6",
-  textMuted:  "#B7AFA0",
-  textFaint:  "#7E776A",
-  green:      "#4CAF82",
-  cyan:       "#4AA8C8",
+  bg:         "#050505",
+  surface1:   "#0A0F1A",
+  surface2:   "#101827",
+  gold:       "#F5B841",
+  goldDim:    "rgba(245,184,65,0.16)",
+  goldBorder: "rgba(245,184,65,0.12)",
+  text:       "#F8FAFC",
+  textMuted:  "#94A3B8",
+  textFaint:  "#64748B",
+  green:      "#00E676",
+  cyan:       "#00B7FF",
   purple:     "#A778DC",
-  red:        "#E05C5C",
-  orange:     "#E87040",
+  red:        "#FF5252",
+  orange:     "#FF5252",
   border:     "rgba(255,255,255,0.06)",
 };
 
@@ -71,19 +71,19 @@ function statusBadge(acc: number, verifiedCount: number): StatusBadge {
 
 function statusBadgeStyle(badge: StatusBadge): { bg: string; border: string; color: string } {
   switch (badge) {
-    case "ELITE":      return { bg: "rgba(245,166,35,0.14)", border: "rgba(245,166,35,0.50)", color: T.gold };
-    case "TRUSTED":    return { bg: "rgba(74,168,200,0.12)", border: "rgba(74,168,200,0.40)", color: T.cyan };
-    case "TRACKED":    return { bg: "rgba(76,175,130,0.10)", border: "rgba(76,175,130,0.36)", color: T.green };
-    case "UNVERIFIED": return { bg: "rgba(126,119,106,0.08)", border: "rgba(126,119,106,0.28)", color: T.textFaint };
+    case "ELITE":      return { bg: "rgba(245,184,65,0.14)", border: "rgba(245,184,65,0.50)", color: T.gold };
+    case "TRUSTED":    return { bg: "rgba(0,183,255,0.12)", border: "rgba(0,183,255,0.40)", color: T.cyan };
+    case "TRACKED":    return { bg: "rgba(0,230,118,0.10)", border: "rgba(0,230,118,0.36)", color: T.green };
+    case "UNVERIFIED": return { bg: "rgba(100,116,139,0.08)", border: "rgba(100,116,139,0.28)", color: T.textFaint };
   }
 }
 
 // ── Sport badge colors ────────────────────────────────────────────────────────
 function sportPillStyle(sport: string): { bg: string; color: string } {
   switch (sport) {
-    case "NBA": return { bg: "rgba(232,112,64,0.14)", color: T.orange };
-    case "MLB": return { bg: "rgba(74,168,200,0.14)", color: T.cyan };
-    case "NFL": return { bg: "rgba(76,175,130,0.14)", color: T.green };
+    case "NBA": return { bg: "rgba(255,82,82,0.14)", color: T.orange };
+    case "MLB": return { bg: "rgba(0,183,255,0.14)", color: T.cyan };
+    case "NFL": return { bg: "rgba(0,230,118,0.14)", color: T.green };
     case "CFB": return { bg: "rgba(167,120,220,0.14)", color: T.purple };
     default:    return { bg: "rgba(255,255,255,0.05)", color: T.textFaint };
   }
@@ -273,7 +273,7 @@ function AccuracyPageInner() {
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
                 appearance: "none", cursor: "pointer", outline: "none",
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237E776A'/%3E%3C/svg%3E")`,
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748B'/%3E%3C/svg%3E")`,
                 backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center",
               }}
             >
@@ -297,7 +297,7 @@ function AccuracyPageInner() {
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 12, fontWeight: 600, letterSpacing: "0.06em",
                 appearance: "none", cursor: "pointer", outline: "none",
-                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%237E776A'/%3E%3C/svg%3E")`,
+                backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2364748B'/%3E%3C/svg%3E")`,
                 backgroundRepeat: "no-repeat", backgroundPosition: "right 8px center",
               }}
             >
@@ -344,8 +344,8 @@ function AccuracyPageInner() {
                   display: "flex", alignItems: "center", gap: 3,
                   justifyContent: h.right ? "flex-end" : "flex-start",
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                  fontSize: 9, fontWeight: 700, letterSpacing: "0.16em",
-                  textTransform: "uppercase", color: T.textFaint,
+                  fontSize: 10, fontWeight: 800, letterSpacing: "0.08em",
+                  textTransform: "uppercase", color: T.textMuted,
                 }}>
                   {h.icon}{h.label}
                 </div>
@@ -367,10 +367,17 @@ function AccuracyPageInner() {
                     display: "grid", gridTemplateColumns: COL,
                     padding: "11px 16px", alignItems: "center",
                     borderBottom: "1px solid rgba(255,255,255,0.04)",
-                    transition: "background 0.1s",
+                    transition: "background 0.14s, box-shadow 0.14s",
+                    cursor: "default",
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(202,168,90,0.025)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
+                  onMouseEnter={e => {
+                    (e.currentTarget as HTMLDivElement).style.background = "rgba(16,24,39,0.72)";
+                    (e.currentTarget as HTMLDivElement).style.boxShadow = "inset 1px 0 0 rgba(0,183,255,0.18)";
+                  }}
+                  onMouseLeave={e => {
+                    (e.currentTarget as HTMLDivElement).style.background = "transparent";
+                    (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
+                  }}
                 >
                   {/* Rank */}
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -381,7 +388,7 @@ function AccuracyPageInner() {
                     ) : (
                       <span style={{
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 12, fontWeight: 700, color: T.textFaint,
+                        fontSize: 12, fontWeight: 800, color: T.textMuted,
                         fontVariantNumeric: "tabular-nums",
                       }}>{i + 1}</span>
                     )}
@@ -399,7 +406,7 @@ function AccuracyPageInner() {
                         display: "inline-flex", alignItems: "center",
                         padding: "1px 6px", borderRadius: 2,
                         border: `1px solid ${bs.border}`, background: bs.bg,
-                        fontSize: 9, fontWeight: 700, letterSpacing: "0.13em",
+                        fontSize: 9, fontWeight: 800, letterSpacing: "0.08em",
                         textTransform: "uppercase", color: bs.color,
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                         whiteSpace: "nowrap",
@@ -407,7 +414,7 @@ function AccuracyPageInner() {
                     </div>
                     <div style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                      fontSize: 10, color: T.textFaint, letterSpacing: "0.06em",
+                      fontSize: 10.5, color: T.textMuted, fontWeight: 600, letterSpacing: "0.03em",
                     }}>{sourceSubtitle(s.source_type)}</div>
                   </div>
 
@@ -436,7 +443,7 @@ function AccuracyPageInner() {
                     }}>
                       {s._weight}<span style={{ fontSize: 10, color: T.textFaint }}>/100</span>
                     </div>
-                    <Bar value={s._weight} color="rgba(245,166,35,0.50)" />
+                    <Bar value={s._weight} color="rgba(245,184,65,0.50)" />
                   </div>
 
                   {/* Lead Time */}

@@ -44,8 +44,8 @@ function runHighlightEffect(id: string): ReturnType<typeof setTimeout> | null {
     el.scrollIntoView({ behavior: "smooth", block: "center" });
 
     el.style.transition = "box-shadow 0.3s ease, border-color 0.3s ease";
-    el.style.boxShadow = "0 0 0 2px #CAA85A, 0 0 24px rgba(202,168,90,0.35)";
-    el.style.borderLeftColor = "#CAA85A";
+    el.style.boxShadow = "0 0 0 2px #F5B841, 0 0 24px rgba(245,184,65,0.35)";
+    el.style.borderLeftColor = "#F5B841";
 
     setTimeout(() => {
       el.style.boxShadow = "";

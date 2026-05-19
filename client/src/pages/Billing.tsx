@@ -36,7 +36,7 @@ export default function Billing() {
         {/* Header */}
         <div style={{ marginBottom: "36px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-            <CreditCard size={20} style={{ color: "#F5A623" }} />
+            <CreditCard size={20} style={{ color: "#F5B841" }} />
             <h1 style={{
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: "1.8rem", fontWeight: 900,
@@ -56,7 +56,7 @@ export default function Billing() {
           </div>
         ) : !user ? (
           <div className="es-card" style={{ padding: "32px", textAlign: "center" }}>
-            <AlertCircle size={32} style={{ color: "#F5A623", margin: "0 auto 12px" }} />
+            <AlertCircle size={32} style={{ color: "#F5B841", margin: "0 auto 12px" }} />
             <p style={{ color: "var(--es-text-muted)" }}>Please log in to view your billing details.</p>
           </div>
         ) : (
@@ -65,20 +65,20 @@ export default function Billing() {
             {/* Plan Status Card */}
             <div className="es-card" style={{
               padding: "28px 28px",
-              borderLeft: `3px solid ${isPro ? "#39FF14" : "#F5A623"}`,
+              borderLeft: `3px solid ${isPro ? "#00E676" : "#F5B841"}`,
             }}>
               <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "6px" }}>
                     {isPro ? (
-                      <CheckCircle size={16} style={{ color: "#39FF14" }} />
+                      <CheckCircle size={16} style={{ color: "#00E676" }} />
                     ) : (
-                      <Zap size={16} style={{ color: "#F5A623" }} />
+                      <Zap size={16} style={{ color: "#F5B841" }} />
                     )}
                     <span style={{
                       fontFamily: "'Barlow Condensed', sans-serif",
                       fontSize: "1.1rem", fontWeight: 900,
-                      color: isPro ? "#39FF14" : "#F5A623",
+                      color: isPro ? "#00E676" : "#F5B841",
                       letterSpacing: "0.06em",
                     }}>
                       {isPro ? "PRO — ACTIVE" : "FREE PLAN"}
@@ -101,9 +101,9 @@ export default function Billing() {
                       fontSize: "0.85rem", fontWeight: 800,
                       letterSpacing: "0.06em", textTransform: "uppercase",
                       cursor: "pointer", whiteSpace: "nowrap",
-                      background: "linear-gradient(135deg, #F5A623, #E8941A)",
+                      background: "linear-gradient(135deg, #F5B841, #F5B841)",
                       color: "#0A0C10", border: "none",
-                      boxShadow: "0 4px 16px rgba(245,166,35,0.3)",
+                      boxShadow: "0 4px 16px rgba(245,184,65,0.3)",
                       opacity: checkoutMutation.isPending ? 0.7 : 1,
                     }}
                   >
@@ -137,7 +137,7 @@ export default function Billing() {
                   </div>
                   <div>
                     <div style={{ fontSize: "0.75rem", color: "var(--es-text-muted)", marginBottom: "4px", letterSpacing: "0.08em" }}>STATUS</div>
-                    <div style={{ fontWeight: 700, color: subDetails?.status === "active" ? "#39FF14" : "#F5A623", fontSize: "0.95rem", textTransform: "capitalize" }}>
+                    <div style={{ fontWeight: 700, color: subDetails?.status === "active" ? "#00E676" : "#F5B841", fontSize: "0.95rem", textTransform: "capitalize" }}>
                       {subDetails?.cancelAtPeriodEnd ? "Cancels at period end" : (subDetails?.status ?? "inactive")}
                     </div>
                   </div>
@@ -154,8 +154,8 @@ export default function Billing() {
                 {subDetails?.cancelAtPeriodEnd && (
                   <div style={{
                     marginTop: "20px", padding: "12px 16px",
-                    background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.2)",
-                    borderRadius: "8px", fontSize: "0.85rem", color: "#F5A623",
+                    background: "rgba(245,184,65,0.08)", border: "1px solid rgba(245,184,65,0.2)",
+                    borderRadius: "8px", fontSize: "0.85rem", color: "#F5B841",
                   }}>
                     Your subscription is set to cancel on {formatDate(subDetails.currentPeriodEnd)}. You'll retain Pro access until then.
                   </div>
@@ -186,8 +186,8 @@ export default function Billing() {
                     letterSpacing: "0.06em", textTransform: "uppercase",
                     cursor: "pointer",
                     background: "transparent",
-                    color: "#F5A623",
-                    border: "1px solid rgba(245,166,35,0.4)",
+                    color: "#F5B841",
+                    border: "1px solid rgba(245,184,65,0.4)",
                     opacity: portalMutation.isPending ? 0.7 : 1,
                   }}
                 >
@@ -217,7 +217,7 @@ export default function Billing() {
                   "Early access to new features",
                 ].map((feature) => (
                   <div key={feature} style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
-                    <CheckCircle size={13} style={{ color: "#39FF14", flexShrink: 0, marginTop: "2px" }} />
+                    <CheckCircle size={13} style={{ color: "#00E676", flexShrink: 0, marginTop: "2px" }} />
                     <span style={{ fontSize: "0.85rem", color: "var(--es-text-muted)", lineHeight: 1.4 }}>{feature}</span>
                   </div>
                 ))}

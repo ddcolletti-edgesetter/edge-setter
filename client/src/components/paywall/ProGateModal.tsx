@@ -9,15 +9,15 @@ import { X, Zap, BarChart2, CheckCircle2, BookOpen, Filter } from "lucide-react"
 import { trackPaywallModalOpen } from "@/lib/analytics";
 
 const C = {
-  bg:         "#0A0B0D",
-  surface1:   "#111317",
-  surface2:   "#16191E",
-  gold:       "#CAA85A",
-  goldBright: "#D8B86A",
-  goldDim:    "rgba(202,168,90,0.15)",
-  text:       "#F3EFE6",
-  textMuted:  "#B7AFA0",
-  textFaint:  "#7E776A",
+  bg:         "#050505",
+  surface1:   "#0A0F1A",
+  surface2:   "#101827",
+  gold:       "#F5B841",
+  goldBright: "#FFD166",
+  goldDim:    "rgba(245,184,65,0.15)",
+  text:       "#F8FAFC",
+  textMuted:  "#94A3B8",
+  textFaint:  "#64748B",
   green:      "#3DAE72",
 };
 
@@ -63,7 +63,7 @@ export default function ProGateModal() {
           zIndex: 9001,
           width: "min(540px, calc(100vw - 40px))",
           background: C.surface1,
-          border: "1px solid rgba(202,168,90,0.28)",
+          border: "1px solid rgba(245,184,65,0.28)",
           borderTop: `3px solid ${C.gold}`,
           borderRadius: 6,
           padding: "32px 32px 28px",
@@ -127,7 +127,7 @@ export default function ProGateModal() {
               <div style={{
                 width: 26, height: 26, flexShrink: 0,
                 background: C.goldDim,
-                border: "1px solid rgba(202,168,90,0.20)",
+                border: "1px solid rgba(245,184,65,0.20)",
                 borderRadius: 4,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 marginTop: 1,
@@ -143,8 +143,8 @@ export default function ProGateModal() {
 
         {/* Draft week note */}
         <div style={{
-          background: "rgba(202,168,90,0.06)",
-          border: "1px solid rgba(202,168,90,0.22)",
+          background: "rgba(245,184,65,0.06)",
+          border: "1px solid rgba(245,184,65,0.22)",
           borderLeft: `3px solid ${C.gold}`,
           borderRadius: 3,
           padding: "10px 14px",

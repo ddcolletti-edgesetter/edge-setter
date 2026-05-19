@@ -209,6 +209,6 @@ export function getInitialsAvatar(name: string | null | undefined): { initials: 
     : parts[0].slice(0, 2).toUpperCase();
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  const colors = ["#1D428A","#CE1141","#007A33","#F5A623","#552583","#006BB6","#E03A3E","#00471B","#0E2240","#C8102E"];
+  const colors = ["#1D428A","#CE1141","#007A33","#F5B841","#552583","#006BB6","#E03A3E","#00471B","#0E2240","#C8102E"];
   return { initials, color: colors[Math.abs(hash) % colors.length] };
 }

@@ -44,7 +44,7 @@ function ageName(iso: string | null): string {
 }
 
 function statusColor(s: "green" | "yellow" | "red" | "grey"): string {
-  return { green: "#3DAE72", yellow: "#D4932A", red: "#D94B4B", grey: "#5A5448" }[s];
+  return { green: "#3DAE72", yellow: "#FF8A00", red: "#FF5252", grey: "#64748B" }[s];
 }
 
 function statusLabel(s: "green" | "yellow" | "red" | "grey"): string {
@@ -68,9 +68,9 @@ function getHealthStatus(h: PipelineHealth | undefined): "green" | "yellow" | "r
 }
 
 function severityColor(s: string): string {
-  if (s === "error")   return "#D94B4B";
-  if (s === "warning") return "#D4932A";
-  return "#7E776A";
+  if (s === "error")   return "#FF5252";
+  if (s === "warning") return "#FF8A00";
+  return "#64748B";
 }
 
 function fmt(n: number): string {
@@ -89,12 +89,12 @@ function fmtTime(iso: string): string {
 function KpiCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div style={{
-      flex: 1, minWidth: 120, background: "#111317", border: "1px solid #1B1F25",
+      flex: 1, minWidth: 120, background: "#0A0F1A", border: "1px solid #101827",
       borderRadius: 3, padding: "16px 20px",
     }}>
-      <p style={{ margin: "0 0 4px", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#7E776A" }}>{label}</p>
-      <p style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 28, fontWeight: 900, color: "#F3EFE6", lineHeight: 1 }}>{value}</p>
-      {sub && <p style={{ margin: "4px 0 0", fontSize: 11, color: "#5A5448" }}>{sub}</p>}
+      <p style={{ margin: "0 0 4px", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#64748B" }}>{label}</p>
+      <p style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 28, fontWeight: 900, color: "#F8FAFC", lineHeight: 1 }}>{value}</p>
+      {sub && <p style={{ margin: "4px 0 0", fontSize: 11, color: "#64748B" }}>{sub}</p>}
     </div>
   );
 }
@@ -107,26 +107,26 @@ function AgentCard({ name, health }: { name: string; health: PipelineHealth | un
 
   return (
     <div style={{
-      flex: 1, minWidth: 140, background: "#111317", border: `1px solid ${color}30`,
+      flex: 1, minWidth: 140, background: "#0A0F1A", border: `1px solid ${color}30`,
       borderRadius: 3, padding: "14px 16px",
     }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <span style={{ width: 8, height: 8, borderRadius: "50%", background: color, display: "inline-block", flexShrink: 0 }} />
-        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#F3EFE6" }}>{name}</p>
+        <p style={{ margin: 0, fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#F8FAFC" }}>{name}</p>
       </div>
       <p style={{ margin: "0 0 2px", fontSize: 11, color: color, fontWeight: 700 }}>{statusLabel(status)}</p>
-      <p style={{ margin: 0, fontSize: 11, color: "#5A5448" }}>{detail}</p>
+      <p style={{ margin: 0, fontSize: 11, color: "#64748B" }}>{detail}</p>
       {result.processed !== undefined && (
-        <p style={{ margin: "4px 0 0", fontSize: 10, color: "#7E776A" }}>{result.processed} signals processed</p>
+        <p style={{ margin: "4px 0 0", fontSize: 10, color: "#64748B" }}>{result.processed} signals processed</p>
       )}
       {result.dispatched !== undefined && (
-        <p style={{ margin: "4px 0 0", fontSize: 10, color: "#7E776A" }}>{result.dispatched} dispatched → {result.users_notified} users</p>
+        <p style={{ margin: "4px 0 0", fontSize: 10, color: "#64748B" }}>{result.dispatched} dispatched → {result.users_notified} users</p>
       )}
       {result.signals_settled !== undefined && (
-        <p style={{ margin: "4px 0 0", fontSize: 10, color: "#7E776A" }}>{result.signals_settled} outcomes settled</p>
+        <p style={{ margin: "4px 0 0", fontSize: 10, color: "#64748B" }}>{result.signals_settled} outcomes settled</p>
       )}
       {result.elapsed_ms !== undefined && (
-        <p style={{ margin: "4px 0 0", fontSize: 10, color: "#7E776A" }}>{(result.elapsed_ms / 1000).toFixed(1)}s cycle</p>
+        <p style={{ margin: "4px 0 0", fontSize: 10, color: "#64748B" }}>{(result.elapsed_ms / 1000).toFixed(1)}s cycle</p>
       )}
     </div>
   );
@@ -180,18 +180,18 @@ export default function OpsBoard() {
   const maxSignals = Math.max(1, ...(data?.signal_volume ?? []).map(v => v.count));
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0A0B0D", padding: "32px 24px", fontFamily: "'Arial Narrow', Arial, sans-serif" }}>
+    <div style={{ minHeight: "100vh", background: "#050505", padding: "32px 24px", fontFamily: "'Arial Narrow', Arial, sans-serif" }}>
       <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
         {/* ── Header ───────────────────────────────────────── */}
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 28 }}>
           <div>
-            <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "#CAA85A" }}>Owner Only</p>
-            <h1 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: "#F3EFE6", lineHeight: 1.1 }}>Ops Dashboard</h1>
+            <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "#F5B841" }}>Owner Only</p>
+            <h1 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: "#F8FAFC", lineHeight: 1.1 }}>Ops Dashboard</h1>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
             {lastUpdated && (
-              <p style={{ margin: 0, fontSize: 11, color: "#5A5448" }}>
+              <p style={{ margin: 0, fontSize: 11, color: "#64748B" }}>
                 Updated {fmtTime(lastUpdated.toISOString())} · refresh in {countdown}s
               </p>
             )}
@@ -199,11 +199,11 @@ export default function OpsBoard() {
               onClick={load}
               disabled={loading}
               style={{
-                padding: "7px 16px", background: loading ? "#1B1F25" : "#1B1F25",
+                padding: "7px 16px", background: loading ? "#101827" : "#101827",
                 border: "1px solid #2A2620", borderRadius: 2, cursor: loading ? "not-allowed" : "pointer",
                 fontFamily: "'Arial Narrow', Arial, sans-serif", fontSize: 10,
                 fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
-                color: loading ? "#5A5448" : "#CAA85A",
+                color: loading ? "#64748B" : "#F5B841",
               }}
             >
               {loading ? "Loading…" : "Refresh"}
@@ -213,7 +213,7 @@ export default function OpsBoard() {
 
         {error && (
           <div style={{ marginBottom: 20, padding: "10px 16px", background: "#1A0F0F", border: "1px solid #4A2020", borderRadius: 3 }}>
-            <p style={{ margin: 0, fontSize: 13, color: "#D94B4B" }}>Error: {error}</p>
+            <p style={{ margin: 0, fontSize: 13, color: "#FF5252" }}>Error: {error}</p>
           </div>
         )}
 
@@ -241,46 +241,46 @@ export default function OpsBoard() {
           <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
 
             {/* Signal Volume */}
-            <div style={{ flex: "1 1 300px", background: "#111317", border: "1px solid #1B1F25", borderRadius: 3, padding: 20 }}>
-              <p style={{ margin: "0 0 16px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#7E776A" }}>Signal Volume — Last 24h</p>
+            <div style={{ flex: "1 1 300px", background: "#0A0F1A", border: "1px solid #101827", borderRadius: 3, padding: 20 }}>
+              <p style={{ margin: "0 0 16px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#64748B" }}>Signal Volume — Last 24h</p>
               {data.signal_volume.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 12, color: "#5A5448" }}>No signals yet.</p>
+                <p style={{ margin: 0, fontSize: 12, color: "#64748B" }}>No signals yet.</p>
               ) : data.signal_volume.map(v => (
                 <div key={v.league} style={{ marginBottom: 12 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#F3EFE6" }}>{v.league}</span>
-                    <span style={{ fontSize: 11, color: "#CAA85A", fontWeight: 700 }}>{v.count}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#F8FAFC" }}>{v.league}</span>
+                    <span style={{ fontSize: 11, color: "#F5B841", fontWeight: 700 }}>{v.count}</span>
                   </div>
-                  <div style={{ height: 4, background: "#1B1F25", borderRadius: 2 }}>
-                    <div style={{ height: 4, borderRadius: 2, background: "#CAA85A", width: `${(v.count / maxSignals) * 100}%`, transition: "width 0.3s" }} />
+                  <div style={{ height: 4, background: "#101827", borderRadius: 2 }}>
+                    <div style={{ height: 4, borderRadius: 2, background: "#F5B841", width: `${(v.count / maxSignals) * 100}%`, transition: "width 0.3s" }} />
                   </div>
                 </div>
               ))}
             </div>
 
             {/* Source Accuracy */}
-            <div style={{ flex: "1 1 300px", background: "#111317", border: "1px solid #1B1F25", borderRadius: 3, padding: 20 }}>
-              <p style={{ margin: "0 0 16px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#7E776A" }}>Source Accuracy</p>
+            <div style={{ flex: "1 1 300px", background: "#0A0F1A", border: "1px solid #101827", borderRadius: 3, padding: 20 }}>
+              <p style={{ margin: "0 0 16px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#64748B" }}>Source Accuracy</p>
               {data.source_accuracy.length === 0 ? (
-                <p style={{ margin: 0, fontSize: 12, color: "#5A5448" }}>No settled outcomes yet.</p>
+                <p style={{ margin: 0, fontSize: 12, color: "#64748B" }}>No settled outcomes yet.</p>
               ) : (
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
                       {["League", "Type", "Signals", "Hit Rate"].map(h => (
-                        <th key={h} style={{ padding: "0 8px 8px 0", textAlign: "left", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#5A5448" }}>{h}</th>
+                        <th key={h} style={{ padding: "0 8px 8px 0", textAlign: "left", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "#64748B" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {data.source_accuracy.slice(0, 8).map(row => {
                       const hr   = Math.round((row.hit_rate ?? 0) * 100);
-                      const hrColor = hr >= 60 ? "#3DAE72" : hr >= 45 ? "#CAA85A" : "#D94B4B";
+                      const hrColor = hr >= 60 ? "#3DAE72" : hr >= 45 ? "#F5B841" : "#FF5252";
                       return (
-                        <tr key={row.id} style={{ borderTop: "1px solid #1B1F25" }}>
-                          <td style={{ padding: "7px 8px 7px 0", fontSize: 11, color: "#B7AFA0" }}>{row.league}</td>
-                          <td style={{ padding: "7px 8px 7px 0", fontSize: 11, color: "#7E776A" }}>{row.signal_type ?? "All"}</td>
-                          <td style={{ padding: "7px 8px 7px 0", fontSize: 11, color: "#7E776A" }}>{row.total_signals}</td>
+                        <tr key={row.id} style={{ borderTop: "1px solid #101827" }}>
+                          <td style={{ padding: "7px 8px 7px 0", fontSize: 11, color: "#94A3B8" }}>{row.league}</td>
+                          <td style={{ padding: "7px 8px 7px 0", fontSize: 11, color: "#64748B" }}>{row.signal_type ?? "All"}</td>
+                          <td style={{ padding: "7px 8px 7px 0", fontSize: 11, color: "#64748B" }}>{row.total_signals}</td>
                           <td style={{ padding: "7px 0 7px 0", fontSize: 12, fontWeight: 700, color: hrColor }}>{hr}%</td>
                         </tr>
                       );
@@ -295,7 +295,7 @@ export default function OpsBoard() {
           {/* ── Action Log ────────────────────────────────────── */}
           <Section title="Action Log">
             {data.action_log.length === 0 ? (
-              <p style={{ margin: 0, fontSize: 12, color: "#5A5448" }}>No anomalies or warnings recorded.</p>
+              <p style={{ margin: 0, fontSize: 12, color: "#64748B" }}>No anomalies or warnings recorded.</p>
             ) : (
               <div>
                 {data.action_log.map((entry, i) => (
@@ -303,7 +303,7 @@ export default function OpsBoard() {
                     key={i}
                     style={{
                       display: "flex", gap: 12, padding: "10px 0",
-                      borderTop: i > 0 ? "1px solid #1B1F25" : undefined,
+                      borderTop: i > 0 ? "1px solid #101827" : undefined,
                       alignItems: "flex-start",
                     }}
                   >
@@ -312,8 +312,8 @@ export default function OpsBoard() {
                       background: severityColor(entry.severity), flexShrink: 0,
                     }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ margin: "0 0 2px", fontSize: 12, color: "#F3EFE6", lineHeight: 1.5 }}>{entry.message}</p>
-                      <p style={{ margin: 0, fontSize: 10, color: "#5A5448" }}>
+                      <p style={{ margin: "0 0 2px", fontSize: 12, color: "#F8FAFC", lineHeight: 1.5 }}>{entry.message}</p>
+                      <p style={{ margin: 0, fontSize: 10, color: "#64748B" }}>
                         {entry.component} · {fmtTime(entry.timestamp)}
                       </p>
                     </div>
@@ -327,7 +327,7 @@ export default function OpsBoard() {
 
         {loading && !data && (
           <div style={{ padding: 40, textAlign: "center" }}>
-            <p style={{ margin: 0, fontSize: 12, color: "#7E776A", letterSpacing: "0.12em" }}>Loading…</p>
+            <p style={{ margin: 0, fontSize: 12, color: "#64748B", letterSpacing: "0.12em" }}>Loading…</p>
           </div>
         )}
 
@@ -338,8 +338,8 @@ export default function OpsBoard() {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "#111317", border: "1px solid #1B1F25", borderRadius: 3, padding: 20, marginBottom: 16 }}>
-      <p style={{ margin: "0 0 16px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#7E776A" }}>{title}</p>
+    <div style={{ background: "#0A0F1A", border: "1px solid #101827", borderRadius: 3, padding: 20, marginBottom: 16 }}>
+      <p style={{ margin: "0 0 16px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#64748B" }}>{title}</p>
       {children}
     </div>
   );

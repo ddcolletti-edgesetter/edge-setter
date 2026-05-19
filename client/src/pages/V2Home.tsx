@@ -73,24 +73,24 @@ function BoardCard({
       <div
         data-testid={`board-card-${sport.toLowerCase()}`}
         style={{
-          border: primary ? `1px solid rgba(202,168,90,0.45)` : `1px solid ${borderInactive}`,
+          border: primary ? `1px solid rgba(245,184,65,0.45)` : `1px solid ${borderInactive}`,
           borderRadius: 5, overflow: "hidden",
           background: primary
-            ? `linear-gradient(135deg, rgba(202,168,90,0.08) 0%, ${cardBg} 60%)`
+            ? `linear-gradient(135deg, rgba(245,184,65,0.08) 0%, ${cardBg} 60%)`
             : cardBg,
           cursor: disabled ? "default" : "pointer",
           transition: "border-color 0.15s, transform 0.12s",
           position: "relative",
           opacity: disabled ? 0.55 : 1,
         }}
-        onMouseEnter={e => { if (!disabled) { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(-2px)"; el.style.borderColor = primary ? "rgba(202,168,90,0.65)" : "rgba(202,168,90,0.28)"; } }}
-        onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(0)"; el.style.borderColor = primary ? "rgba(202,168,90,0.45)" : borderInactive; }}
+        onMouseEnter={e => { if (!disabled) { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(-2px)"; el.style.borderColor = primary ? "rgba(245,184,65,0.65)" : "rgba(245,184,65,0.28)"; } }}
+        onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.transform = "translateY(0)"; el.style.borderColor = primary ? "rgba(245,184,65,0.45)" : borderInactive; }}
       >
         {primary && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: T.gold }} />}
 
         {/* Visual band — taller, logo in own lane */}
         <div style={{
-          height: 68, background: accentBg ?? `rgba(202,168,90,0.03)`,
+          height: 68, background: accentBg ?? `rgba(245,184,65,0.03)`,
           borderBottom: `1px solid rgba(255,255,255,0.05)`,
           display: "flex", alignItems: "center", padding: "0 18px", gap: 12,
           position: "relative", overflow: "hidden",
@@ -189,7 +189,7 @@ const URGENCY_COLORS_FEED: Record<UrgencyLabel, string> = { LIVE: T.danger, URGE
 function FeedRow({ sig, feedBorder, darkMode }: { sig: typeof NBA_SIGNALS[0] & { _score?: SignalScore }; feedBorder: string; darkMode: boolean }) {
   const sportColor = sig.sport === "NBA" ? T.gold : T.cyan;
   const textColor = darkMode ? T.text : "#1A1712";
-  const textFaintColor = darkMode ? T.textFaint : "#8C8277";
+  const textFaintColor = darkMode ? T.textFaint : "#64748B";
   return (
     <div
       style={{
@@ -197,7 +197,7 @@ function FeedRow({ sig, feedBorder, darkMode }: { sig: typeof NBA_SIGNALS[0] & {
         borderBottom: `1px solid ${feedBorder}`,
         transition: "background 0.12s", cursor: "pointer",
       }}
-      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(202,168,90,0.03)"; }}
+      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = "rgba(245,184,65,0.03)"; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = "transparent"; }}
     >
       {/* Sport accent bar */}
@@ -233,13 +233,13 @@ function FeedRow({ sig, feedBorder, darkMode }: { sig: typeof NBA_SIGNALS[0] & {
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 14, color: textFaintColor,
           }}>{sig.confidence}% conf · {sig.sources} src{sig.confirmationStrength === "consensus" ? " ✓" : sig.confirmationStrength === "corroborated" ? " ◎" : ""}</span>
-          {sig.bettingRelevance && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: darkMode ? T.gold : "#8B6914", background: darkMode ? "rgba(202,168,90,0.10)" : "rgba(202,168,90,0.15)", borderRadius: 3, padding: "1px 6px" }}>Bet</span>}
-          {sig.fantasyRelevance && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: darkMode ? T.cyan : "#2A6980", background: darkMode ? "rgba(74,168,200,0.10)" : "rgba(74,168,200,0.15)", borderRadius: 3, padding: "1px 6px" }}>DFS</span>}
+          {sig.bettingRelevance && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: darkMode ? T.gold : "#F5B841", background: darkMode ? "rgba(245,184,65,0.10)" : "rgba(245,184,65,0.15)", borderRadius: 3, padding: "1px 6px" }}>Bet</span>}
+          {sig.fantasyRelevance && <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: darkMode ? T.cyan : "#2A6980", background: darkMode ? "rgba(0,183,255,0.10)" : "rgba(0,183,255,0.15)", borderRadius: 3, padding: "1px 6px" }}>DFS</span>}
           {sig._score && sig._score.urgencyLabel !== "NOTE" && (
             <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.10em", textTransform: "uppercase", color: URGENCY_COLORS_FEED[sig._score.urgencyLabel], background: `${URGENCY_COLORS_FEED[sig._score.urgencyLabel]}18`, borderRadius: 3, padding: "1px 6px", border: `1px solid ${URGENCY_COLORS_FEED[sig._score.urgencyLabel]}40` }}>{sig._score.urgencyLabel}</span>
           )}
           {sig._score && (
-            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: darkMode ? T.textFaint : "#8C8277", fontVariantNumeric: "tabular-nums" }}>{sig._score.totalScore}/100</span>
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, color: darkMode ? T.textFaint : "#64748B", fontVariantNumeric: "tabular-nums" }}>{sig._score.totalScore}/100</span>
           )}
         </div>
       </div>
@@ -255,12 +255,12 @@ function V2HomeInner() {
   const cardSurface      = darkMode ? T.surface1  : "#FFFFFF";
   const cardBorderMuted  = darkMode ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.10)";
   const heroBg           = darkMode
-    ? `linear-gradient(135deg, rgba(202,168,90,0.04) 0%, transparent 50%)`
-    : `linear-gradient(135deg, rgba(202,168,90,0.06) 0%, transparent 50%)`;
-  const goldDimTH        = darkMode ? T.goldDim : "rgba(202,168,90,0.25)";
+    ? `linear-gradient(135deg, rgba(245,184,65,0.04) 0%, transparent 50%)`
+    : `linear-gradient(135deg, rgba(245,184,65,0.06) 0%, transparent 50%)`;
+  const goldDimTH        = darkMode ? T.goldDim : "rgba(245,184,65,0.25)";
   const textTH           = darkMode ? T.text    : "#1A1712";
-  const textMutedTH      = darkMode ? T.textMuted : "#4A443C";
-  const textFaintTH      = darkMode ? T.textFaint : "#8C8277";
+  const textMutedTH      = darkMode ? T.textMuted : "#94A3B8";
+  const textFaintTH      = darkMode ? T.textFaint : "#64748B";
   const feedBorder       = darkMode ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.07)";
   const surfaceMini      = darkMode ? T.surface1 : "#FFFFFF";
 
@@ -329,7 +329,7 @@ function V2HomeInner() {
                     fontSize: 14, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
                     padding: "12px 26px", cursor: "pointer",
                     display: "flex", alignItems: "center", gap: 6,
-                    boxShadow: `0 4px 20px rgba(202,168,90,0.3)`,
+                    boxShadow: `0 4px 20px rgba(245,184,65,0.3)`,
                   }}>
                     Open NBA Board <ArrowRight size={13} />
                   </button>
@@ -337,7 +337,7 @@ function V2HomeInner() {
                 <Link href="/v2/tools">
                   <button style={{
                     background: "transparent", color: darkMode ? T.text : "#1A1712",
-                    border: `1px solid rgba(202,168,90,0.28)`, borderRadius: 3,
+                    border: `1px solid rgba(245,184,65,0.28)`, borderRadius: 3,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 14, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
                     padding: "12px 24px", cursor: "pointer",
@@ -394,7 +394,7 @@ function V2HomeInner() {
               </div>
               {/* Top featured edge mini */}
               <div style={{
-                background: surfaceMini, border: `1px solid rgba(202,168,90,0.2)`,
+                background: surfaceMini, border: `1px solid rgba(245,184,65,0.2)`,
                 borderRadius: 4, padding: "14px 16px",
                 borderLeft: `3px solid ${T.gold}`,
               }}>
@@ -444,7 +444,7 @@ function V2HomeInner() {
                   description="Playoffs live. Injury flags, line movement, matchup edges, rotation intel."
                   href="/v2/nba" status="LIVE" primary signalCount={allLiveSignals.filter(s => s.sport === "NBA").length || NBA_SIGNALS.length}
                   color={T.gold} league="NBA"
-                  accentBg="linear-gradient(135deg, rgba(202,168,90,0.08) 0%, rgba(85,37,131,0.1) 100%)"
+                  accentBg="linear-gradient(135deg, rgba(245,184,65,0.08) 0%, rgba(85,37,131,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
                   textColor={textTH} textMutedColor={textMutedTH}
                 />
@@ -453,7 +453,7 @@ function V2HomeInner() {
                   description="Regular season active. Pitcher news, lineup movement, team trends."
                   href="/v2/mlb" status="ACTIVE" signalCount={allLiveSignals.filter(s => s.sport === "MLB").length || MLB_SIGNALS.length}
                   color={T.cyan} league="MLB"
-                  accentBg="linear-gradient(135deg, rgba(74,168,200,0.08) 0%, rgba(0,42,98,0.1) 100%)"
+                  accentBg="linear-gradient(135deg, rgba(0,183,255,0.08) 0%, rgba(0,42,98,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
                   textColor={textTH} textMutedColor={textMutedTH}
                 />
@@ -462,7 +462,7 @@ function V2HomeInner() {
                   description="Active board. Injuries, depth chart movement, line shifts, and matchup intel — every week."
                   href="/v2/nfl" status="ACTIVE" league="NFL"
                   color={T.orange}
-                  accentBg="linear-gradient(135deg, rgba(217,138,66,0.07) 0%, rgba(30,20,10,0.1) 100%)"
+                  accentBg="linear-gradient(135deg, rgba(255,138,0,0.07) 0%, rgba(30,20,10,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
                   textColor={textTH} textMutedColor={textMutedTH}
                 />
@@ -471,7 +471,7 @@ function V2HomeInner() {
                   description="Active board. Transfer intel, QB battles, sharp line movement, and coaching/scheme edges."
                   href="/v2/cfb" status="ACTIVE" league="CFB"
                   color={T.green}
-                  accentBg="linear-gradient(135deg, rgba(76,175,130,0.07) 0%, rgba(0,30,15,0.1) 100%)"
+                  accentBg="linear-gradient(135deg, rgba(0,230,118,0.07) 0%, rgba(0,30,15,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
                   textColor={textTH} textMutedColor={textMutedTH}
                 />
@@ -551,7 +551,7 @@ function V2HomeInner() {
                           cursor: "pointer", display: "flex", alignItems: "center", gap: 9,
                           transition: "border-color 0.12s, transform 0.1s",
                         }}
-                        onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = "rgba(202,168,90,0.25)"; el.style.transform = "translateX(2px)"; }}
+                        onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = "rgba(245,184,65,0.25)"; el.style.transform = "translateX(2px)"; }}
                         onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.borderColor = darkMode ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.07)"; el.style.transform = "translateX(0)"; }}
                       >
                         <span style={{ fontSize: 16 }}>{tool.icon}</span>
@@ -633,7 +633,7 @@ function V2HomeInner() {
             </div>
 
             {/* Stub notice */}
-            <div style={{ margin: "20px 20px 0", padding: "10px 14px", background: "rgba(202,168,90,0.03)", border: `1px solid rgba(202,168,90,0.1)`, borderRadius: 4 }}>
+            <div style={{ margin: "20px 20px 0", padding: "10px 14px", background: "rgba(245,184,65,0.03)", border: `1px solid rgba(245,184,65,0.1)`, borderRadius: 4 }}>
               <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: textFaintTH, lineHeight: 1.5 }}>
                 <strong style={{ color: T.gold }}>STUB DATA</strong> — Signals + odds are realistic placeholders.
               </div>

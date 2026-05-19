@@ -33,29 +33,29 @@ const CFB_LOGO_URLS: Record<string, string> = {
 
 /* ── Design tokens (dark) ── */
 const T = {
-  bg:       "#0C0B09",
-  surface1: "#111317",
-  surface2: "#16191E",
-  surface3: "#1B1F25",
-  gold:     "#F5A623",
-  goldBright:"#FFB84D",
-  goldDim:  "rgba(245,166,35,0.15)",
-  text:     "#F3EFE6",
-  textMuted:"#B7AFA0",
-  textFaint:"#7E776A",
-  green:    "#4CAF82",
-  orange:   "#D98A42",
-  cyan:     "#4AA8C8",
-  danger:   "#D94B4B",
+  bg:       "#050505",
+  surface1: "#0A0F1A",
+  surface2: "#101827",
+  surface3: "#101827",
+  gold:     "#F5B841",
+  goldBright:"#F5B841",
+  goldDim:  "rgba(245,184,65,0.15)",
+  text:     "#F8FAFC",
+  textMuted:"#94A3B8",
+  textFaint:"#64748B",
+  green:    "#00E676",
+  orange:   "#FF8A00",
+  cyan:     "#00B7FF",
+  danger:   "#FF5252",
 };
 
 /* ── Verdict badge ── */
 const VERDICT_COLORS: Record<Verdict, { bg: string; text: string; label: string }> = {
-  confirmed:    { bg: "rgba(76,175,130,0.12)", text: "#4CAF82", label: "CONFIRMED" },
-  likely:       { bg: "rgba(202,168,90,0.12)", text: "#CAA85A", label: "LIKELY" },
-  rumor:        { bg: "rgba(217,138,66,0.12)", text: "#D98A42", label: "RUMOR" },
-  contradicted: { bg: "rgba(217,75,75,0.12)",  text: "#D94B4B", label: "CONTRADICTED" },
-  review:       { bg: "rgba(74,168,200,0.12)", text: "#4AA8C8", label: "REVIEW" },
+  confirmed:    { bg: "rgba(0,230,118,0.12)", text: "#00E676", label: "CONFIRMED" },
+  likely:       { bg: "rgba(245,184,65,0.12)", text: "#F5B841", label: "LIKELY" },
+  rumor:        { bg: "rgba(255,138,0,0.12)", text: "#FF8A00", label: "RUMOR" },
+  contradicted: { bg: "rgba(255,82,82,0.12)",  text: "#FF5252", label: "CONTRADICTED" },
+  review:       { bg: "rgba(0,183,255,0.12)", text: "#00B7FF", label: "REVIEW" },
 };
 
 function VerdictBadge({ verdict }: { verdict: Verdict }) {
@@ -284,7 +284,7 @@ function CFBDetailPanel({ sig, onClose, TH, darkMode }: {
           <div>
             {sig.injuryDesignation && (
               <div style={{ marginBottom: 6 }}>
-                <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: T.danger, background: "rgba(217,75,75,0.1)", borderRadius: 3, padding: "2px 8px" }}>Designation: {sig.injuryDesignation}</span>
+                <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: T.danger, background: "rgba(255,82,82,0.1)", borderRadius: 3, padding: "2px 8px" }}>Designation: {sig.injuryDesignation}</span>
               </div>
             )}
             {sig.schemeNote && (
@@ -304,7 +304,7 @@ function CFBDetailPanel({ sig, onClose, TH, darkMode }: {
 
         {/* ── Line movement ── */}
         {sig.lineMovement && (
-          <div style={{ background: "rgba(76,175,130,0.07)", border: "1px solid rgba(76,175,130,0.18)", borderRadius: 4, padding: "10px 12px" }}>
+          <div style={{ background: "rgba(0,230,118,0.07)", border: "1px solid rgba(0,230,118,0.18)", borderRadius: 4, padding: "10px 12px" }}>
             <div style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.green, marginBottom: 6 }}>Line Movement</div>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <span style={{ fontSize: 13, color: TH.textMuted }}><span style={{ color: TH.textFaint }}>Open:</span> {sig.lineMovement.open}</span>
@@ -318,8 +318,8 @@ function CFBDetailPanel({ sig, onClose, TH, darkMode }: {
         {/* ── Relevance flags ── */}
         {(sig.bettingRelevance || sig.fantasyRelevance) && (
           <div style={{ display: "flex", gap: 6 }}>
-            {sig.bettingRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.gold, background: "rgba(202,168,90,0.12)", borderRadius: 3, padding: "2px 8px" }}>Betting Signal</span>}
-            {sig.fantasyRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.cyan, background: "rgba(74,168,200,0.12)", borderRadius: 3, padding: "2px 8px" }}>Fantasy Impact</span>}
+            {sig.bettingRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.gold, background: "rgba(245,184,65,0.12)", borderRadius: 3, padding: "2px 8px" }}>Betting Signal</span>}
+            {sig.fantasyRelevance && <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.cyan, background: "rgba(0,183,255,0.12)", borderRadius: 3, padding: "2px 8px" }}>Fantasy Impact</span>}
           </div>
         )}
 
@@ -355,9 +355,9 @@ function CFBBoardInner() {
     surface3:  darkMode ? T.surface3  : "#EDE9E2",
     text:      darkMode ? T.text      : "#1A1712",
     textMuted: darkMode ? T.textMuted : "#3D3830",
-    textFaint: darkMode ? T.textFaint : "#8C8277",
+    textFaint: darkMode ? T.textFaint : "#64748B",
     border:    darkMode ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)",
-    goldDim:   darkMode ? T.goldDim   : "rgba(245,166,35,0.2)",
+    goldDim:   darkMode ? T.goldDim   : "rgba(245,184,65,0.2)",
     surface1TL: darkMode ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.03)",
   };
 
@@ -744,7 +744,7 @@ function CFBBoardInner() {
                     )}
                   </div>
                   {sc.urgencyReason && (
-                    <div style={{ fontSize: 11, color: "#7E776A", marginTop: 4, fontStyle: "italic" }}>
+                    <div style={{ fontSize: 11, color: "#64748B", marginTop: 4, fontStyle: "italic" }}>
                       {sc.urgencyReason}
                     </div>
                   )}
@@ -771,7 +771,7 @@ function CFBBoardInner() {
                 style={{
                   padding: "6px 13px", borderRadius: 2,
                   border: `1px solid ${isActive ? T.gold : "rgba(255,255,255,0.1)"}`,
-                  background: isActive ? "rgba(202,168,90,0.1)" : "transparent",
+                  background: isActive ? "rgba(245,184,65,0.1)" : "transparent",
                   color: isActive ? T.gold : TH.textMuted,
                   fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
                   fontSize: 14, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase",
@@ -854,7 +854,7 @@ function CFBBoardInner() {
                         opacity: isFree ? 1 : 0.55,
                       }}
                       onMouseEnter={e => {
-                        if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = darkMode ? "rgba(202,168,90,0.04)" : "rgba(202,168,90,0.06)";
+                        if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = darkMode ? "rgba(245,184,65,0.04)" : "rgba(245,184,65,0.06)";
                       }}
                       onMouseLeave={e => {
                         if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = "transparent";
@@ -945,7 +945,7 @@ function CFBBoardInner() {
               <span style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}33`, padding: "2px 7px", borderRadius: 2, marginRight: 6 }}>
                 STUB DATA
               </span>
-              {isLive ? <><strong style={{ color: "#4CAF82" }}>LIVE</strong> · {totalSignals} signals from pipeline · {liveError ?? ""}</> : <><strong style={{ color: "#CAA85A" }}>CACHED</strong> · {totalSignals} signals · {liveError ?? "API not returning data — showing mock fallback"}</>}
+              {isLive ? <><strong style={{ color: "#00E676" }}>LIVE</strong> · {totalSignals} signals from pipeline · {liveError ?? ""}</> : <><strong style={{ color: "#F5B841" }}>CACHED</strong> · {totalSignals} signals · {liveError ?? "API not returning data — showing mock fallback"}</>}
             </div>
           </div>
 

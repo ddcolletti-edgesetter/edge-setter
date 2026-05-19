@@ -10,9 +10,9 @@ import { trackSuccessPageLoad } from "@/lib/analytics";
 import { useAuth } from "@/context/AuthContext";
 
 const C = {
-  void: "#0A0B0D", shell: "#111317",
-  gold: "#CAA85A", goldBright: "#D8B86A", goldDim: "rgba(202,168,90,0.15)",
-  ivory: "#F3EFE6", ivoryMid: "#B7AFA0", ivoryDim: "#7E776A", ivoryFaint: "rgba(255,255,255,0.06)",
+  void: "#050505", shell: "#0A0F1A",
+  gold: "#F5B841", goldBright: "#FFD166", goldDim: "rgba(245,184,65,0.15)",
+  ivory: "#F8FAFC", ivoryMid: "#94A3B8", ivoryDim: "#64748B", ivoryFaint: "rgba(255,255,255,0.06)",
   green: "#3DAE72",
 };
 

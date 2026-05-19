@@ -1,3 +1,7 @@
+/**
+ * @deprecated Experimental validator civilization terminology. Prefer product-aligned
+ * validator cluster stress / long-horizon signal reliability contracts for new work.
+ */
 import type {
   ReplayHistoricalAutonomousLeagueSnapshot,
 } from "./replay-historical-autonomous-league-contract";
@@ -21,12 +25,14 @@ export type ReplayHistoricalAutonomousCivilizationAction =
   | "form_treaty_alliance"
   | "simulate_civil_war_fracture"
   | "inject_black_swan_collapse"
+  | "recover_from_civilization_collapse"
   | "score_dynasty_survival"
   | "track_validator_species_divergence"
   | "run_autonomous_diplomacy"
   | "model_self_preserving_swarms"
   | "model_corruption_propagation"
-  | "emit_civilization_replay_analytics";
+  | "emit_civilization_replay_analytics"
+  | "record_civilization_state_lineage";
 
 export type ReplayHistoricalAutonomousCivilizationQuery =
   | "get_civilization_warfare"
@@ -38,13 +44,15 @@ export type ReplayHistoricalAutonomousCivilizationQuery =
   | "get_treaty_alliances"
   | "get_civil_war_fractures"
   | "get_black_swan_collapse_events"
+  | "get_civilization_recovery"
   | "get_dynasty_survival_scores"
   | "get_species_divergence"
   | "get_runtime_diplomacy"
   | "get_self_preserving_swarms"
   | "get_corruption_propagation"
   | "get_civilization_replay_analytics"
-  | "get_civilization_promotion_gates";
+  | "get_civilization_promotion_gates"
+  | "get_civilization_state_lineage";
 
 export interface ReplayHistoricalAutonomousCivilizationInput {
   readonly generated_at: string;
@@ -145,6 +153,16 @@ export interface ReplayBlackSwanCollapseEvent {
   readonly event_hash: string;
 }
 
+export interface ReplayCivilizationRecoveryRecord {
+  readonly recovery_id: string;
+  readonly league: string;
+  readonly collapse_event_hash: string;
+  readonly recovery_strategy: "swarm_redundancy" | "treaty_support" | "migration_restore" | "governance_repair";
+  readonly recovery_score: number;
+  readonly recovered: boolean;
+  readonly recovery_hash: string;
+}
+
 export interface ReplayDynastySurvivalScore {
   readonly dynasty_id: string;
   readonly league: string;
@@ -210,6 +228,34 @@ export interface ReplayCivilizationPromotionGate {
   readonly gate_hash: string;
 }
 
+export interface ReplayCivilizationStateTransitionLineage {
+  readonly transition_id: string;
+  readonly league: string | null;
+  readonly transition_kind:
+    | "league_seed"
+    | "warfare"
+    | "ideology"
+    | "empire"
+    | "spawn"
+    | "catastrophe"
+    | "migration"
+    | "treaty"
+    | "fracture"
+    | "black_swan"
+    | "recovery"
+    | "dynasty"
+    | "species"
+    | "diplomacy"
+    | "swarm"
+    | "corruption"
+    | "analytics"
+    | "promotion_gate";
+  readonly source_hash: string;
+  readonly target_hash: string;
+  readonly lineage_depth: number;
+  readonly transition_hash: string;
+}
+
 export interface ReplayHistoricalAutonomousCivilizationSnapshot {
   readonly civilization_id: string;
   readonly generated_at: string;
@@ -225,6 +271,7 @@ export interface ReplayHistoricalAutonomousCivilizationSnapshot {
   readonly treaty_alliances: readonly ReplayTreatyAllianceRecord[];
   readonly civil_war_fractures: readonly ReplayCivilWarGovernanceFractureRecord[];
   readonly black_swan_events: readonly ReplayBlackSwanCollapseEvent[];
+  readonly civilization_recovery: readonly ReplayCivilizationRecoveryRecord[];
   readonly dynasty_survival: readonly ReplayDynastySurvivalScore[];
   readonly species_divergence: readonly ReplayValidatorSpeciesDivergenceRecord[];
   readonly runtime_diplomacy: readonly ReplayAutonomousRuntimeDiplomacyRecord[];
@@ -232,7 +279,22 @@ export interface ReplayHistoricalAutonomousCivilizationSnapshot {
   readonly corruption_propagation: readonly ReplayCorruptionPropagationRecord[];
   readonly civilization_analytics: readonly ReplayCivilizationScaleAnalyticsRecord[];
   readonly promotion_gates: readonly ReplayCivilizationPromotionGate[];
+  readonly civilization_state_lineage: readonly ReplayCivilizationStateTransitionLineage[];
   readonly supported_actions: readonly ReplayHistoricalAutonomousCivilizationAction[];
   readonly supported_queries: readonly ReplayHistoricalAutonomousCivilizationQuery[];
   readonly deterministic_hash: string;
 }
+
+export type ReplayValidatorClusterStressState = ReplayHistoricalAutonomousCivilizationState;
+export type ReplayValidatorClusterStressAction = ReplayHistoricalAutonomousCivilizationAction;
+export type ReplayValidatorClusterStressQuery = ReplayHistoricalAutonomousCivilizationQuery;
+export type ReplayValidatorClusterStressInput = ReplayHistoricalAutonomousCivilizationInput;
+export type ReplayValidatorClusterWarfareRecord = ReplayCivilizationWarfareRecord;
+export type ReplayConsensusCoordinationIdeologyRecord = ReplayGovernanceIdeologyRecord;
+export type ReplayValidatorClusterFootprintRecord = ReplayValidatorEmpireRecord;
+export type ReplaySpecializationAdjustmentSpawnRecord = ReplayRecursiveValidatorSpawnRecord;
+export type ReplayValidatorRetirementCatastropheRecord = ReplayEvolutionaryCatastropheRecord;
+export type ReplayLongHorizonValidatorCohortScore = ReplayDynastySurvivalScore;
+export type ReplaySpecializationProfileDivergenceRecord = ReplayValidatorSpeciesDivergenceRecord;
+export type ReplayLongHorizonSignalReliabilitySwarmRecord = ReplaySelfPreservingValidatorSwarmRecord;
+export type ReplayValidatorClusterStressSnapshot = ReplayHistoricalAutonomousCivilizationSnapshot;

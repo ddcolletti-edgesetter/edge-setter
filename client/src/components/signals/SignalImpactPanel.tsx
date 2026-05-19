@@ -7,8 +7,8 @@
 import { T } from "../v2/SportVisuals";
 import { computeImpact, type SignalForImpact, type ImpactMetric } from "../../lib/signalImpact";
 
-const DFS_COLOR     = "#4CAF82";
-const BETTING_COLOR = "#4AA8C8";
+const DFS_COLOR     = "#00E676";
+const BETTING_COLOR = "#00B7FF";
 
 interface Props {
   signal: SignalForImpact;
@@ -79,10 +79,10 @@ export default function SignalImpactPanel({ signal, darkMode = true }: Props) {
   if (!impact.dfs && !impact.betting) return null;
 
   const surfaceBg  = darkMode ? T.surface1  : "#FFFFFF";
-  const goldDim    = "rgba(202,168,90,0.15)";
+  const goldDim    = "rgba(245,184,65,0.15)";
   const textColor  = darkMode ? T.text      : "#1A1712";
   const mutedColor = darkMode ? T.textMuted : "#5A544C";
-  const faintColor = darkMode ? T.textFaint : "#8C8277";
+  const faintColor = darkMode ? T.textFaint : "#64748B";
 
   const hasBoth = !!(impact.dfs && impact.betting);
 

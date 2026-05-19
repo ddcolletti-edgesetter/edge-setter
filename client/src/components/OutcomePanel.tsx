@@ -45,8 +45,8 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
     surface2:  darkMode ? T.surface2  : "#F5F1EB",
     border:    darkMode ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)",
     text:      darkMode ? T.text      : "#1A1712",
-    textMuted: darkMode ? T.textMuted : "#4A443C",
-    textFaint: darkMode ? T.textFaint : "#8C8277",
+    textMuted: darkMode ? T.textMuted : "#94A3B8",
+    textFaint: darkMode ? T.textFaint : "#64748B",
   };
 
   const outcome = outcomes[0]; // show most recent outcome

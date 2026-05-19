@@ -8,18 +8,18 @@ interface Props { theme: Theme; toggleTheme: () => void; }
 const ADMIN_PASS = "edgesetter-admin-2026";
 
 const T = {
-  bg:       "#0A0B0D",
-  surface1: "#111317",
-  surface2: "#16191E",
-  surface3: "#1B1F25",
-  gold:     "#CAA85A",
-  goldDim:  "rgba(202,168,90,0.18)",
-  text:     "#F3EFE6",
-  muted:    "#B7AFA0",
-  faint:    "#7E776A",
+  bg:       "#050505",
+  surface1: "#0A0F1A",
+  surface2: "#101827",
+  surface3: "#101827",
+  gold:     "#F5B841",
+  goldDim:  "rgba(245,184,65,0.18)",
+  text:     "#F8FAFC",
+  muted:    "#94A3B8",
+  faint:    "#64748B",
   green:    "#3DAE72",
-  amber:    "#D4932A",
-  red:      "#D94B4B",
+  amber:    "#FF8A00",
+  red:      "#FF5252",
 };
 
 function statusColor(s: string) {
@@ -151,7 +151,7 @@ export default function SiteWatchLogs({ theme, toggleTheme }: Props) {
                   {anomalies.length > 0 && (
                     <div style={{ padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
                       {anomalies.map((a, i) => (
-                        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: a.severity === "critical" ? "rgba(217,75,75,0.08)" : "rgba(212,147,42,0.08)", border: `1px solid ${a.severity === "critical" ? "rgba(217,75,75,0.30)" : "rgba(212,147,42,0.30)"}`, borderRadius: 2, padding: "6px 10px" }}>
+                        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: a.severity === "critical" ? "rgba(255,82,82,0.08)" : "rgba(212,147,42,0.08)", border: `1px solid ${a.severity === "critical" ? "rgba(255,82,82,0.30)" : "rgba(212,147,42,0.30)"}`, borderRadius: 2, padding: "6px 10px" }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: a.severity === "critical" ? T.red : T.amber, textTransform: "uppercase", letterSpacing: "0.10em", flexShrink: 0, marginTop: 1 }}>
                             ⚠ {a.severity}
                           </span>

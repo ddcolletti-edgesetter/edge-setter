@@ -10,35 +10,35 @@ import { ProNavButton, NavLoginButton } from "./ProGate";
    MASTER DESIGN TOKENS — LFL Luxury Sports Intelligence
 ═══════════════════════════════════════════════════════════════ */
 export const T = {
-  bg:           "#0C0B09",
-  surface1:     "#131110",
-  surface2:     "#1A1714",
-  surface3:     "#201D19",
-  gold:         "#C4A24A",
-  goldBright:   "#E0BB6A",
-  goldDim:      "rgba(196,162,74,0.15)",
-  goldGlow:     "rgba(196,162,74,0.07)",
-  goldStrong:   "rgba(196,162,74,0.35)",
-  text:         "#EDE5D4",
-  textMuted:    "#8A7A62",
-  textFaint:    "#4A4235",
-  green:        "#3EBA6A",
-  greenDim:     "rgba(62,186,106,0.12)",
-  cyan:         "#4AA8C8",
-  cyanDim:      "rgba(74,168,200,0.10)",
-  orange:       "#D98A42",
-  danger:       "#D94B4B",
-  dangerDim:    "rgba(217,75,75,0.10)",
-  border:       "rgba(196,162,74,0.12)",
-  borderMid:    "rgba(196,162,74,0.22)",
-  borderStrong: "rgba(196,162,74,0.40)",
+  bg:           "#050505",
+  surface1:     "#0A0F1A",
+  surface2:     "#101827",
+  surface3:     "#101827",
+  gold:         "#F5B841",
+  goldBright:   "#FFD166",
+  goldDim:      "rgba(245,184,65,0.15)",
+  goldGlow:     "rgba(245,184,65,0.07)",
+  goldStrong:   "rgba(245,184,65,0.35)",
+  text:         "#F8FAFC",
+  textMuted:    "#94A3B8",
+  textFaint:    "#64748B",
+  green:        "#00E676",
+  greenDim:     "rgba(0,230,118,0.12)",
+  cyan:         "#00B7FF",
+  cyanDim:      "rgba(0,183,255,0.10)",
+  orange:       "#FF8A00",
+  danger:       "#FF5252",
+  dangerDim:    "rgba(255,82,82,0.10)",
+  border:       "rgba(245,184,65,0.12)",
+  borderMid:    "rgba(245,184,65,0.22)",
+  borderStrong: "rgba(245,184,65,0.40)",
 };
 
 export const SPORT_THEME = {
-  NBA: { primary: "#E87C2A", secondary: "#C4A24A", glow: "rgba(232,124,42,0.18)", dim: "rgba(232,124,42,0.08)", label: "rgba(232,124,42,0.22)" },
-  MLB: { primary: "#3A8FE0", secondary: "#3EBA6A", glow: "rgba(58,143,224,0.16)", dim: "rgba(58,143,224,0.07)", label: "rgba(58,143,224,0.20)" },
-  NFL: { primary: "#C4301A", secondary: "#C4A24A", glow: "rgba(196,48,26,0.18)",  dim: "rgba(196,48,26,0.08)",  label: "rgba(196,48,26,0.22)"  },
-  CFB: { primary: "#8844CC", secondary: "#C4A24A", glow: "rgba(136,68,204,0.16)", dim: "rgba(136,68,204,0.07)", label: "rgba(136,68,204,0.20)" },
+  NBA: { primary: "#00B7FF", secondary: "#F5B841", glow: "rgba(0,183,255,0.18)", dim: "rgba(0,183,255,0.08)", label: "rgba(0,183,255,0.22)" },
+  MLB: { primary: "#00B7FF", secondary: "#00E676", glow: "rgba(0,183,255,0.16)", dim: "rgba(0,183,255,0.07)", label: "rgba(0,183,255,0.20)" },
+  NFL: { primary: "#FF5252", secondary: "#F5B841", glow: "rgba(255,82,82,0.18)",  dim: "rgba(255,82,82,0.08)",  label: "rgba(255,82,82,0.22)"  },
+  CFB: { primary: "#00B7FF", secondary: "#F5B841", glow: "rgba(0,183,255,0.16)", dim: "rgba(0,183,255,0.07)", label: "rgba(0,183,255,0.20)" },
 };
 
 export const ThemeCtx = createContext<boolean>(true);
@@ -47,11 +47,11 @@ export function useShellTheme() { return useContext(ThemeCtx); }
 export type SportStatus = "LIVE" | "ACTIVE" | "BUILDING" | "OFFSEASON" | "COMING SOON";
 
 const STATUS_STYLE: Record<SportStatus, { bg: string; color: string; dot: string }> = {
-  "LIVE":        { bg: "rgba(62,186,106,0.12)",  color: "#3EBA6A", dot: "#3EBA6A" },
-  "ACTIVE":      { bg: "rgba(74,168,200,0.10)",  color: "#4AA8C8", dot: "#4AA8C8" },
-  "BUILDING":    { bg: "rgba(217,138,66,0.12)",  color: "#D98A42", dot: "#D98A42" },
-  "OFFSEASON":   { bg: "rgba(74,66,53,0.20)",    color: "#5A4E3C", dot: "#4A4235" },
-  "COMING SOON": { bg: "rgba(74,66,53,0.15)",    color: "#4A4235", dot: "#4A4235" },
+  "LIVE":        { bg: "rgba(0,230,118,0.12)",  color: "#00E676", dot: "#00E676" },
+  "ACTIVE":      { bg: "rgba(0,183,255,0.10)",  color: "#00B7FF", dot: "#00B7FF" },
+  "BUILDING":    { bg: "rgba(255,138,0,0.12)",  color: "#FF8A00", dot: "#FF8A00" },
+  "OFFSEASON":   { bg: "rgba(74,66,53,0.20)",    color: "#5A4E3C", dot: "#64748B" },
+  "COMING SOON": { bg: "rgba(74,66,53,0.15)",    color: "#64748B", dot: "#64748B" },
 };
 
 export function SportBadge({ status }: { status: SportStatus }) {
@@ -141,7 +141,7 @@ const GLOBAL_CSS = `
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body, #root { height: 100%; }
-  body { background: #0C0B09; color: #EDE5D4; -webkit-font-smoothing: antialiased; }
+  body { background: #050505; color: #F8FAFC; -webkit-font-smoothing: antialiased; }
 
   body::after {
     content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0.028;
@@ -152,31 +152,31 @@ const GLOBAL_CSS = `
 
   .es-chalk-nba {
     background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(196,162,74,0.18) 39px, rgba(196,162,74,0.18) 40px),
-      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(196,162,74,0.10) 39px, rgba(196,162,74,0.10) 40px);
+      repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(245,184,65,0.18) 39px, rgba(245,184,65,0.18) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(245,184,65,0.10) 39px, rgba(245,184,65,0.10) 40px);
     background-size: 40px 40px;
   }
   .es-chalk-mlb {
     background-image:
-      repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(58,143,224,0.14) 28px, rgba(58,143,224,0.14) 29px),
-      repeating-linear-gradient(-45deg, transparent, transparent 28px, rgba(58,143,224,0.10) 28px, rgba(58,143,224,0.10) 29px);
+      repeating-linear-gradient(45deg, transparent, transparent 28px, rgba(0,183,255,0.14) 28px, rgba(0,183,255,0.14) 29px),
+      repeating-linear-gradient(-45deg, transparent, transparent 28px, rgba(0,183,255,0.10) 28px, rgba(0,183,255,0.10) 29px);
     background-size: 40px 40px;
   }
   .es-chalk-nfl {
     background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(196,48,26,0.14) 19px, rgba(196,48,26,0.14) 20px);
+      repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(255,82,82,0.14) 19px, rgba(255,82,82,0.14) 20px);
     background-size: 100% 20px;
   }
   .es-chalk-cfb {
     background-image:
-      repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(136,68,204,0.12) 19px, rgba(136,68,204,0.12) 20px);
+      repeating-linear-gradient(0deg, transparent, transparent 19px, rgba(0,183,255,0.12) 19px, rgba(0,183,255,0.12) 20px);
     background-size: 100% 20px;
   }
 
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(196,162,74,0.22); border-radius: 2px; }
-  ::-webkit-scrollbar-thumb:hover { background: rgba(196,162,74,0.40); }
+  ::-webkit-scrollbar-thumb { background: rgba(245,184,65,0.22); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(245,184,65,0.40); }
 
   .es-nav { transition: background 0.12s, color 0.12s, border-color 0.12s !important; }
   .es-btn { transition: filter 0.12s, transform 0.1s, background 0.15s !important; }
@@ -202,8 +202,8 @@ export function V2Shell({ children, sport }: V2ShellProps) {
   const surf1  = darkMode ? T.surface1 : "#FFFDF8";
   const txt    = darkMode ? T.text     : "#1A1510";
   const txtM   = darkMode ? T.textMuted : "#5A4E3C";
-  const txtF   = darkMode ? T.textFaint : "#8A7A62";
-  const goldD  = darkMode ? T.border   : "rgba(196,162,74,0.25)";
+  const txtF   = darkMode ? T.textFaint : "#94A3B8";
+  const goldD  = darkMode ? T.border   : "rgba(245,184,65,0.25)";
 
   const activeTop = TOP_NAV.find(n => location === n.href || (n.href !== "/v2" && location.startsWith(n.href)));
   const boardsMode = activeTop?.label === "Boards" || location.startsWith("/v2/nba") || location.startsWith("/v2/mlb") || location.startsWith("/v2/nfl") || location.startsWith("/v2/cfb");
@@ -222,7 +222,7 @@ export function V2Shell({ children, sport }: V2ShellProps) {
           display: "flex", flexDirection: "column",
           position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 50,
           transition: "transform 0.22s ease",
-          boxShadow: darkMode ? `inset -1px 0 0 rgba(196,162,74,0.08), 2px 0 24px rgba(0,0,0,0.6)` : "none",
+          boxShadow: darkMode ? `inset -1px 0 0 rgba(245,184,65,0.08), 2px 0 24px rgba(0,0,0,0.6)` : "none",
         }}
       >
         {/* ── LOGO LOCKUP ── */}
@@ -262,12 +262,12 @@ export function V2Shell({ children, sport }: V2ShellProps) {
                     display: "flex", alignItems: "center", gap: 9,
                     padding: "9px 10px", marginBottom: 2, borderRadius: 3,
                     borderLeft: `3px solid ${isActive ? T.gold : "transparent"}`,
-                    background: isActive ? `linear-gradient(90deg, rgba(196,162,74,0.10), transparent)` : "transparent",
+                    background: isActive ? `linear-gradient(90deg, rgba(245,184,65,0.10), transparent)` : "transparent",
                     color: isActive ? T.gold : txtM,
                     cursor: "pointer", textDecoration: "none", minHeight: 42,
-                    boxShadow: isActive ? `inset 0 0 12px rgba(196,162,74,0.06)` : "none",
+                    boxShadow: isActive ? `inset 0 0 12px rgba(245,184,65,0.06)` : "none",
                   }}
-                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = `rgba(196,162,74,0.05)`; (e.currentTarget as HTMLAnchorElement).style.color = txt; } }}
+                    onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = `rgba(245,184,65,0.05)`; (e.currentTarget as HTMLAnchorElement).style.color = txt; } }}
                     onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = txtM; } }}
                   >
                     <Icon size={15} strokeWidth={isActive ? 2.5 : 1.75} style={{ flexShrink: 0, opacity: isActive ? 1 : 0.65 }} />
@@ -292,7 +292,7 @@ export function V2Shell({ children, sport }: V2ShellProps) {
                             color: bActive ? th.primary : txtM,
                             cursor: "pointer", textDecoration: "none", minHeight: 40,
                           }}
-                            onMouseEnter={e => { if (!bActive) { (e.currentTarget as HTMLAnchorElement).style.background = `rgba(196,162,74,0.05)`; (e.currentTarget as HTMLAnchorElement).style.color = txt; } }}
+                            onMouseEnter={e => { if (!bActive) { (e.currentTarget as HTMLAnchorElement).style.background = `rgba(245,184,65,0.05)`; (e.currentTarget as HTMLAnchorElement).style.color = txt; } }}
                             onMouseLeave={e => { if (!bActive) { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.color = txtM; } }}
                           >
                             <span style={{ width: 6, height: 6, borderRadius: "50%", background: bActive ? th.primary : s.dot, display: "inline-block", flexShrink: 0, boxShadow: bActive ? `0 0 6px ${th.primary}` : "none" }} />
@@ -312,22 +312,22 @@ export function V2Shell({ children, sport }: V2ShellProps) {
 
           {/* ── PRO CTA ── */}
           <div style={{ padding: "0 2px 12px" }}>
-            <div style={{ border: `1px solid ${T.borderStrong}`, borderRadius: 4, background: `linear-gradient(145deg, rgba(196,162,74,0.08), rgba(196,162,74,0.03))`, position: "relative", overflow: "hidden" }}>
+            <div style={{ border: `1px solid ${T.borderStrong}`, borderRadius: 4, background: `linear-gradient(145deg, rgba(245,184,65,0.08), rgba(245,184,65,0.03))`, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${T.gold}, ${T.goldDim})` }} />
-              <div style={{ position: "absolute", top: 0, right: 0, width: 60, height: 60, background: `radial-gradient(circle at 100% 0%, rgba(196,162,74,0.12), transparent 70%)`, pointerEvents: "none" }} />
+              <div style={{ position: "absolute", top: 0, right: 0, width: 60, height: 60, background: `radial-gradient(circle at 100% 0%, rgba(245,184,65,0.12), transparent 70%)`, pointerEvents: "none" }} />
               <div style={{ padding: "14px 12px 12px" }}>
                 <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "2.5px", color: T.gold, marginBottom: 3, lineHeight: 1 }}>Pro Intelligence</div>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: txtF, letterSpacing: "0.14em", marginBottom: 11, textTransform: "uppercase", lineHeight: 1.4 }}>Alerts · Full Archive · Multi-Sport</div>
                 <Link href="/pro">
                   <button className="es-btn" style={{
                     width: "100%", minHeight: 40,
-                    background: `linear-gradient(135deg, ${T.gold} 0%, #8A6A28 50%, ${T.gold} 100%)`,
+                    background: `linear-gradient(135deg, ${T.gold} 0%, #F5B841 50%, ${T.gold} 100%)`,
                     backgroundSize: "200%",
                     color: T.bg, border: "none", borderRadius: 3,
                     fontFamily: "'Bebas Neue', sans-serif",
                     fontSize: 16, letterSpacing: "3px", cursor: "pointer",
                     animation: "esShimmer 3s ease infinite",
-                    boxShadow: `0 2px 12px rgba(196,162,74,0.25)`,
+                    boxShadow: `0 2px 12px rgba(245,184,65,0.25)`,
                   }}>$19 / Month</button>
                 </Link>
               </div>
@@ -405,14 +405,14 @@ export function V2Shell({ children, sport }: V2ShellProps) {
 function V2Logo() {
   return (
     <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-      <rect width="32" height="32" rx="3" fill="#1A1714" />
-      <polygon points="16,3 27,9.5 27,22.5 16,29 5,22.5 5,9.5" stroke="#C4A24A" strokeWidth="1.5" fill="none" opacity="0.8" />
-      <polygon points="16,8 22,16 16,24 10,16" stroke="#C4A24A" strokeWidth="1" fill="none" opacity="0.4" />
-      <line x1="16" y1="9" x2="16" y2="23" stroke="#C4A24A" strokeWidth="1.5" opacity="0.6" />
-      <line x1="9" y1="16" x2="23" y2="16" stroke="#C4A24A" strokeWidth="1" opacity="0.35" />
-      <circle cx="16" cy="16" r="2.5" fill="#E0BB6A" />
-      <circle cx="16" cy="5" r="1.2" fill="#C4A24A" opacity="0.6" />
-      <circle cx="16" cy="27" r="1.2" fill="#C4A24A" opacity="0.6" />
+      <rect width="32" height="32" rx="3" fill="#101827" />
+      <polygon points="16,3 27,9.5 27,22.5 16,29 5,22.5 5,9.5" stroke="#F5B841" strokeWidth="1.5" fill="none" opacity="0.8" />
+      <polygon points="16,8 22,16 16,24 10,16" stroke="#F5B841" strokeWidth="1" fill="none" opacity="0.4" />
+      <line x1="16" y1="9" x2="16" y2="23" stroke="#F5B841" strokeWidth="1.5" opacity="0.6" />
+      <line x1="9" y1="16" x2="23" y2="16" stroke="#F5B841" strokeWidth="1" opacity="0.35" />
+      <circle cx="16" cy="16" r="2.5" fill="#FFD166" />
+      <circle cx="16" cy="5" r="1.2" fill="#F5B841" opacity="0.6" />
+      <circle cx="16" cy="27" r="1.2" fill="#F5B841" opacity="0.6" />
     </svg>
   );
 }

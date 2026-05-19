@@ -16,19 +16,19 @@ import { useAuth } from "../context/AuthContext";
 
 /* ── Design tokens ── */
 const T = {
-  bg:        "#0A0B0D",
-  surface1:  "#111317",
-  surface2:  "#16191E",
-  gold:      "#CAA85A",
-  goldBright:"#D8B86A",
-  goldDim:   "rgba(202,168,90,0.18)",
-  text:      "#F3EFE6",
-  textMuted: "#B7AFA0",
-  textFaint: "#7E776A",
-  green:     "#4CAF82",
-  orange:    "#D98A42",
-  cyan:      "#4AA8C8",
-  danger:    "#D94B4B",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  gold:      "#F5B841",
+  goldBright:"#FFD166",
+  goldDim:   "rgba(245,184,65,0.18)",
+  text:      "#F8FAFC",
+  textMuted: "#94A3B8",
+  textFaint: "#64748B",
+  green:     "#00E676",
+  orange:    "#FF8A00",
+  cyan:      "#00B7FF",
+  danger:    "#FF5252",
 };
 
 /* ── Per-sport modal copy ── */
@@ -166,7 +166,7 @@ export function ProModal() {
         style={{
           width: "100%", maxWidth: 480,
           background: T.surface1,
-          border: `1px solid rgba(202,168,90,0.3)`,
+          border: `1px solid rgba(245,184,65,0.3)`,
           borderRadius: 6,
           overflow: "hidden",
           position: "relative",
@@ -573,7 +573,7 @@ export function ProBoardBanner({ freeCount, totalCount, sport = "generic", darkM
         <Lock size={12} color={T.gold} />
         <span style={{
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-          fontSize: 13, color: darkMode ? T.textMuted : "#4A443C",
+          fontSize: 13, color: darkMode ? T.textMuted : "#94A3B8",
           letterSpacing: "0.04em",
         }}>
           <strong style={{ color: T.gold }}>{gated} signals locked</strong> — Pro members see the full feed
@@ -641,7 +641,7 @@ export function NavLoginButton() {
           style={{
             display: "flex", alignItems: "center", gap: 5,
             minHeight: 44, padding: "0 12px", borderRadius: 4,
-            border: `1px solid rgba(202,168,90,0.22)`,
+            border: `1px solid rgba(245,184,65,0.22)`,
             background: "transparent",
             color: isPro ? T.green : T.textMuted,
             cursor: "pointer",
@@ -651,13 +651,13 @@ export function NavLoginButton() {
           }}
           onMouseEnter={e => {
             const b = e.currentTarget as HTMLButtonElement;
-            b.style.background = "rgba(202,168,90,0.06)";
-            b.style.borderColor = "rgba(202,168,90,0.35)";
+            b.style.background = "rgba(245,184,65,0.06)";
+            b.style.borderColor = "rgba(245,184,65,0.35)";
           }}
           onMouseLeave={e => {
             const b = e.currentTarget as HTMLButtonElement;
             b.style.background = "transparent";
-            b.style.borderColor = "rgba(202,168,90,0.22)";
+            b.style.borderColor = "rgba(245,184,65,0.22)";
           }}
         >
           <User size={12} />
@@ -667,11 +667,11 @@ export function NavLoginButton() {
         {open && (
           <div style={{
             position: "absolute", top: "calc(100% + 4px)", right: 0,
-            background: T.surface2, border: `1px solid rgba(202,168,90,0.2)`,
+            background: T.surface2, border: `1px solid rgba(245,184,65,0.2)`,
             borderRadius: 4, minWidth: 200, overflow: "hidden", zIndex: 200,
             boxShadow: "0 6px 24px rgba(0,0,0,0.55)",
           }}>
-            <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(202,168,90,0.1)` }}>
+            <div style={{ padding: "10px 14px", borderBottom: `1px solid rgba(245,184,65,0.1)` }}>
               <div style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 10, fontWeight: 700, color: T.textFaint,
@@ -696,7 +696,7 @@ export function NavLoginButton() {
               }}
               onMouseEnter={e => {
                 const b = e.currentTarget as HTMLButtonElement;
-                b.style.background = "rgba(217,75,75,0.08)";
+                b.style.background = "rgba(255,82,82,0.08)";
                 b.style.color = T.danger;
               }}
               onMouseLeave={e => {
@@ -721,8 +721,8 @@ export function NavLoginButton() {
         style={{
           display: "flex", alignItems: "center", gap: 6,
           minHeight: 44, padding: "0 14px", borderRadius: 4,
-          border: `1px solid rgba(202,168,90,0.3)`,
-          background: open ? "rgba(202,168,90,0.06)" : "transparent",
+          border: `1px solid rgba(245,184,65,0.3)`,
+          background: open ? "rgba(245,184,65,0.06)" : "transparent",
           color: T.gold,
           cursor: "pointer",
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -731,13 +731,13 @@ export function NavLoginButton() {
         }}
         onMouseEnter={e => {
           const b = e.currentTarget as HTMLButtonElement;
-          b.style.background = "rgba(202,168,90,0.08)";
-          b.style.borderColor = "rgba(202,168,90,0.5)";
+          b.style.background = "rgba(245,184,65,0.08)";
+          b.style.borderColor = "rgba(245,184,65,0.5)";
         }}
         onMouseLeave={e => {
           const b = e.currentTarget as HTMLButtonElement;
-          b.style.background = open ? "rgba(202,168,90,0.06)" : "transparent";
-          b.style.borderColor = "rgba(202,168,90,0.3)";
+          b.style.background = open ? "rgba(245,184,65,0.06)" : "transparent";
+          b.style.borderColor = "rgba(245,184,65,0.3)";
         }}
       >
         <LogIn size={13} />
@@ -746,7 +746,7 @@ export function NavLoginButton() {
       {open && (
         <div style={{
           position: "absolute", top: "calc(100% + 4px)", right: 0,
-          background: T.surface2, border: `1px solid rgba(202,168,90,0.25)`,
+          background: T.surface2, border: `1px solid rgba(245,184,65,0.25)`,
           borderRadius: 4, padding: 16, zIndex: 200, width: 290,
           boxShadow: "0 6px 24px rgba(0,0,0,0.55)",
         }}>

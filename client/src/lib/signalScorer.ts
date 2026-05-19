@@ -59,10 +59,10 @@ export type ScoreBand    = "Elite" | "Strong" | "Watchlist" | "Informational";
 
 /* Band definitions — single source of truth */
 export const SCORE_BANDS: Record<ScoreBand, { min: number; label: string; color: string; description: string }> = {
-  Elite:         { min: 82, label: "Elite Edge",    color: "#CAA85A", description: "Highest-conviction signal: multi-source consensus, strong market movement, actionable edge" },
-  Strong:        { min: 65, label: "Strong",         color: "#4CAF82", description: "Clearly actionable: solid source depth, corroborated, meaningful market support" },
-  Watchlist:     { min: 48, label: "Watchlist",      color: "#D98A42", description: "Worth tracking: developing situation, partially confirmed, limited market signal" },
-  Informational: { min: 0,  label: "Informational",  color: "#7E776A", description: "Context only: unverified, low market impact, or outdated — do not bet directly" },
+  Elite:         { min: 82, label: "Elite Edge",    color: "#F5B841", description: "Highest-conviction signal: multi-source consensus, strong market movement, actionable edge" },
+  Strong:        { min: 65, label: "Strong",         color: "#00E676", description: "Clearly actionable: solid source depth, corroborated, meaningful market support" },
+  Watchlist:     { min: 48, label: "Watchlist",      color: "#FF8A00", description: "Worth tracking: developing situation, partially confirmed, limited market signal" },
+  Informational: { min: 0,  label: "Informational",  color: "#64748B", description: "Context only: unverified, low market impact, or outdated — do not bet directly" },
 };
 
 export function getScoreBand(score: number): ScoreBand {

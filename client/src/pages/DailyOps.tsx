@@ -22,17 +22,17 @@ interface Props { theme: Theme; toggleTheme: () => void; }
 const ADMIN_PASSWORD = "edgesetter-admin-2026";
 
 const T = {
-  bg:        "#0A0B0D",
-  surface1:  "#111317",
-  surface2:  "#16191E",
-  surface3:  "#1B1F25",
-  gold:      "#CAA85A",
-  goldDim:   "rgba(202,168,90,0.16)",
-  text:      "#F3EFE6",
-  textMuted: "#B7AFA0",
-  textFaint: "#7E776A",
+  bg:        "#050505",
+  surface1:  "#0A0F1A",
+  surface2:  "#101827",
+  surface3:  "#101827",
+  gold:      "#F5B841",
+  goldDim:   "rgba(245,184,65,0.16)",
+  text:      "#F8FAFC",
+  textMuted: "#94A3B8",
+  textFaint: "#64748B",
   green:     "#4CAF7D",
-  red:       "#D94B4B",
+  red:       "#FF5252",
   yellow:    "#E0A830",
 };
 
@@ -279,8 +279,8 @@ export default function DailyOps({ theme, toggleTheme }: Props) {
                       style={{
                         display: "flex", alignItems: "center", gap: 8,
                         padding: "8px 10px",
-                        background: isSel ? "rgba(202,168,90,0.10)" : "transparent",
-                        border: `1px solid ${isSel ? "rgba(202,168,90,0.3)" : T.goldDim}`,
+                        background: isSel ? "rgba(245,184,65,0.10)" : "transparent",
+                        border: `1px solid ${isSel ? "rgba(245,184,65,0.3)" : T.goldDim}`,
                         borderRadius: 3, cursor: "pointer", textAlign: "left",
                         borderLeft: `3px solid ${healthColor(s)}`,
                       }}

@@ -296,7 +296,7 @@ export function MobileNav({
             {liveSignalCount > 0 && (
               <span
                 style={{
-                  background: 'var(--color-accent, #22c55e)',
+                  background: 'var(--color-accent, #00E676)',
                   color: '#000',
                   fontSize: 11,
                   fontWeight: 700,
@@ -351,7 +351,7 @@ export function MobileNav({
                     : '#cbd5e1',
                   background: isActive ? 'rgba(255,255,255,0.05)' : 'transparent',
                   borderLeft: isActive
-                    ? '2px solid var(--color-accent, #22c55e)'
+                    ? '2px solid var(--color-accent, #00E676)'
                     : '2px solid transparent',
                   fontWeight: isActive ? 600 : 400,
                   fontSize: 15,
@@ -368,7 +368,7 @@ export function MobileNav({
                 {item.badge != null && item.badge > 0 && (
                   <span
                     style={{
-                      background: 'var(--color-accent, #22c55e)',
+                      background: 'var(--color-accent, #00E676)',
                       color: '#000',
                       fontSize: 10,
                       fontWeight: 700,

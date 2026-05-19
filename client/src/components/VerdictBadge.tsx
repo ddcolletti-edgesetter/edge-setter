@@ -6,7 +6,7 @@ export default function VerdictBadge({ verdict }: Props) {
 
   const styles: Record<string, { bg: string; color: string; border: string; label: string }> = {
     confirmed:    { bg: "rgba(56,170,203,0.10)",  color: "#5AC8E0", border: "#5AC8E044", label: "Confirmed" },
-    likely:       { bg: "rgba(202,168,90,0.10)",  color: "#D8B86A", border: "#D8B86A44", label: "Likely" },
+    likely:       { bg: "rgba(245,184,65,0.10)",  color: "#FFD166", border: "#FFD16644", label: "Likely" },
     rumor:        { bg: "rgba(120,80,176,0.10)",  color: "#A07ACC", border: "#A07ACC44", label: "Rumor" },
     contradicted: { bg: "rgba(207,74,74,0.10)",   color: "#E08080", border: "#E0808044", label: "Contradicted" },
     review:       { bg: "rgba(78,111,160,0.10)",  color: "#7A9CC8", border: "#7A9CC844", label: "In Review" },
