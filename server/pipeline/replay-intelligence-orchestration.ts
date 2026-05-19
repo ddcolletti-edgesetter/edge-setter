@@ -324,6 +324,12 @@ export function buildDeterministicReplayIntelligenceOrchestrationSnapshot(
   });
 }
 
+export function buildDeterministicReplayIntelligenceOrchestrationScaffold(
+  generatedAt: string = REPLAY_INTELLIGENCE_ORCHESTRATION_FIXTURE_GENERATED_AT,
+): ReplayIntelligenceOrchestrationSnapshot {
+  return buildDeterministicReplayIntelligenceOrchestrationSnapshot(generatedAt);
+}
+
 function roundDeterministicAverage(values: readonly number[]): number {
   if (values.length === 0) {
     return 0;
