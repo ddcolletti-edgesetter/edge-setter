@@ -138,14 +138,26 @@ import {
   buildReplayIntelligenceRestorationSnapshot,
 } from "./replay-intelligence-restoration";
 import {
+  buildReplayIntelligenceReducerState,
+  buildReplayIntelligenceReplaybackCheckpoint,
+  buildReplayIntelligenceReplaybackState,
+  buildReplayIntelligenceRestorationReducerResult,
+} from "./replay-intelligence-reducer";
+import {
   buildReplayIntelligenceReplayTimelineApiResponse,
   buildReplayIntelligenceRestorationApiResponse,
   buildReplayIntelligenceRollbackApiResponse,
 } from "./replay-intelligence-restoration-api";
+import {
+  buildReplayIntelligenceReplaybackApiResponse,
+  buildReplayIntelligenceReplaybackHistoryResponse,
+  buildReplayIntelligenceReplayReconstructionResponse,
+} from "./replay-intelligence-replayback-api";
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
 const REPLAY_INTELLIGENCE_RESTORATION_PERSISTED_AT = "2026-01-03T00:00:00.000Z";
 const REPLAY_INTELLIGENCE_RESTORATION_RECOVERED_AT = "2026-01-04T00:00:00.000Z";
 const REPLAY_INTELLIGENCE_RESTORATION_RESTORED_AT = "2026-01-05T00:00:00.000Z";
+const REPLAY_INTELLIGENCE_REPLAYBACK_REPLAYED_AT = "2026-01-06T00:00:00.000Z";
 
 function requireAdmin(req: Request, res: Response): boolean {
   const authHeader = req.headers.authorization ?? "";
@@ -295,6 +307,23 @@ function buildReplayIntelligenceRestorationApiScaffold() {
     buildReplayIntelligenceReplayTimeline(restorationSnapshot);
   const checkpoint =
     buildReplayIntelligenceRestorationCheckpoint(restorationSnapshot);
+  const reducerState =
+    buildReplayIntelligenceReducerState(
+      orchestrationSnapshot,
+      persistentSnapshot,
+      recoverySnapshot,
+      restorationSnapshot,
+    );
+  const replaybackState =
+    buildReplayIntelligenceReplaybackState(
+      reducerState,
+      replayTimeline,
+      REPLAY_INTELLIGENCE_REPLAYBACK_REPLAYED_AT,
+    );
+  const reducerResult =
+    buildReplayIntelligenceRestorationReducerResult(replaybackState);
+  const replaybackCheckpoint =
+    buildReplayIntelligenceReplaybackCheckpoint(replaybackState);
 
   return {
     orchestrationSnapshot,
@@ -307,6 +336,10 @@ function buildReplayIntelligenceRestorationApiScaffold() {
     restorationResult,
     replayTimeline,
     checkpoint,
+    reducerState,
+    replaybackState,
+    reducerResult,
+    replaybackCheckpoint,
   };
 }
 
@@ -1743,6 +1776,81 @@ app.get("/api/replay-intelligence/restoration/timeline", (req: Request, res: Res
       req,
       response,
       scaffold.replayTimeline.replay_timeline_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/replayback
+ *
+ * Returns deterministic replay intelligence replayback scaffold response data.
+ */
+app.get("/api/replay-intelligence/replayback", (req: Request, res: Response) => {
+  try {
+    const scaffold =
+      buildReplayIntelligenceRestorationApiScaffold();
+    const response =
+      buildReplayIntelligenceReplaybackApiResponse(
+        scaffold.replaybackState,
+        scaffold.reducerResult,
+        scaffold.replaybackCheckpoint,
+      );
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      response.reconstruction_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/replayback/history
+ *
+ * Returns deterministic replay intelligence replayback history data.
+ */
+app.get("/api/replay-intelligence/replayback/history", (req: Request, res: Response) => {
+  try {
+    const scaffold =
+      buildReplayIntelligenceRestorationApiScaffold();
+    const response =
+      buildReplayIntelligenceReplaybackHistoryResponse(
+        scaffold.replaybackState,
+        scaffold.replayTimeline,
+      );
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      response.replayback_history_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/replay-intelligence/replayback/reconstruction
+ *
+ * Returns deterministic replay intelligence replay reconstruction data.
+ */
+app.get("/api/replay-intelligence/replayback/reconstruction", (req: Request, res: Response) => {
+  try {
+    const scaffold =
+      buildReplayIntelligenceRestorationApiScaffold();
+    const response =
+      buildReplayIntelligenceReplayReconstructionResponse(
+        scaffold.replaybackState,
+      );
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      response,
+      response.reconstruction_hash,
     ));
   } catch (err: any) {
     return res.status(500).json({ error: err.message });
