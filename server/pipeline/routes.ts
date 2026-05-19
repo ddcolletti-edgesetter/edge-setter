@@ -53,6 +53,79 @@ import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
 import { ingestNFLInjuries } from "./adapters/espn-nfl";
 import { ingestCFBInjuries } from "./adapters/espn-cfb";
+import { buildReplayIntelligenceAnalytics } from "./replay-intelligence-analytics";
+import {
+  buildReplayIntelligenceAuditHash,
+  buildReplayIntelligenceAuditSummary,
+  type ReplayIntelligenceAuditRecord,
+} from "./replay-intelligence-audit";
+import {
+  getReplayIntelligenceAuditRowByHash,
+  listReplayIntelligenceAuditRows,
+  listReplayIntelligenceAuditRowsByAuditHash,
+} from "./replay-intelligence-audit-store";
+import {
+  buildReplayIntelligenceHistoryConvergence,
+  buildReplayIntelligenceHistoryDiff,
+  buildReplayIntelligenceHistoryForReplay,
+  buildReplayIntelligenceHistoryLineage,
+  buildReplayIntelligenceHistorySummary,
+  buildReplayIntelligenceHistoryTimeline,
+  listReplayIntelligenceHistoricalSnapshots,
+} from "./replay-intelligence-history";
+import {
+  buildReplayIntelligenceSnapshotAggregation,
+  buildReplayIntelligenceSnapshotConvergence,
+  buildReplayIntelligenceSnapshotLineage,
+  buildReplayIntelligenceSnapshotLookup,
+  buildReplayIntelligenceSnapshotReducers,
+  buildReplayIntelligenceSnapshotSummary,
+} from "./replay-intelligence-snapshot-aggregation";
+import {
+  buildReplayIntelligenceForensicTimelineAnomalies,
+  buildReplayIntelligenceForensicTimelineConvergence,
+  buildReplayIntelligenceForensicTimelineEvents,
+  buildReplayIntelligenceForensicTimelineReducers,
+  buildReplayIntelligenceForensicTimelineSummary,
+  buildReplayIntelligenceForensicTimelines,
+  getReplayIntelligenceForensicTimelineByHash,
+} from "./replay-intelligence-forensic-timeline";
+import {
+  buildReplayIntelligenceHistoricalExportLineage,
+  buildReplayIntelligenceHistoricalExportManifest,
+  buildReplayIntelligenceHistoricalExportSummary,
+  buildReplayIntelligenceHistoricalExportVerification,
+  buildReplayIntelligenceHistoricalExports,
+  getReplayIntelligenceHistoricalExportByHash,
+} from "./replay-intelligence-historical-export";
+import {
+  buildReplayIntelligenceAggregationConvergence,
+  buildReplayIntelligenceAggregationLineage,
+  buildReplayIntelligenceAggregationReducers,
+  buildReplayIntelligenceAggregationStability,
+  buildReplayIntelligenceAggregationSummary,
+  buildReplayIntelligenceAggregations,
+  getReplayIntelligenceAggregationByHash,
+} from "./replay-intelligence-aggregation";
+import {
+  buildReplayIntelligenceConvergencePersistenceDrift,
+  buildReplayIntelligenceConvergencePersistenceHistory,
+  buildReplayIntelligenceConvergencePersistenceLineage,
+  buildReplayIntelligenceConvergencePersistenceStability,
+  buildReplayIntelligenceConvergencePersistenceSummary,
+  getReplayIntelligenceConvergencePersistenceByHash,
+  listReplayIntelligenceConvergencePersistenceRecords,
+} from "./replay-intelligence-convergence-persistence";
+import { buildReplayConvergenceReport } from "./replay-convergence-report";
+import { buildReplayConvergenceTimeline } from "./replay-convergence-timeline";
+import { buildReplayConvergenceExportBundle } from "./replay-convergence-export";
+import { buildReplayTraversalSummary } from "./replay-traversal-intelligence";
+import { buildReplayStateDiffSummary } from "./replay-state-diff";
+import {
+  insertReplayAnalyticsHistoryRow,
+  listReplayAnalyticsHistoryByReplayId,
+  getLatestReplayAnalyticsHistoryByReplayId,
+} from "./replay-analytics-history-store";
 import { ingestOdds } from "./adapters/the-odds-api";
 import { settleGame, autoSettleFinishedGames, computeSourceAccuracy } from "./settlement";
 import { runFullBackfill, getBackfillStatus } from "./backfill";
@@ -158,6 +231,11 @@ const REPLAY_INTELLIGENCE_RESTORATION_PERSISTED_AT = "2026-01-03T00:00:00.000Z";
 const REPLAY_INTELLIGENCE_RESTORATION_RECOVERED_AT = "2026-01-04T00:00:00.000Z";
 const REPLAY_INTELLIGENCE_RESTORATION_RESTORED_AT = "2026-01-05T00:00:00.000Z";
 const REPLAY_INTELLIGENCE_REPLAYBACK_REPLAYED_AT = "2026-01-06T00:00:00.000Z";
+const REPLAY_INTELLIGENCE_AUDIT_GENERATED_AT = "2026-01-01T00:00:00.000Z";
+
+type ReplayIntelligenceAuditApiRecord = ReplayIntelligenceAuditRecord & {
+  readonly audit_hash: string;
+};
 
 function requireAdmin(req: Request, res: Response): boolean {
   const authHeader = req.headers.authorization ?? "";
@@ -351,6 +429,44 @@ function filterForensicIntelligenceRecords(
     (!filter.severity || record.severity === filter.severity) &&
     (!filter.category || record.category === filter.category),
   );
+}
+
+function replayIntelligenceAuditApiRecord(
+  record: ReplayIntelligenceAuditRecord,
+): ReplayIntelligenceAuditApiRecord {
+  return {
+    ...record,
+    audit_hash: buildReplayIntelligenceAuditHash(record),
+  };
+}
+
+function sortReplayIntelligenceAuditRows(
+  records: readonly ReplayIntelligenceAuditRecord[],
+): ReplayIntelligenceAuditRecord[] {
+  return [...records].sort((left, right) =>
+    right.generated_at.localeCompare(left.generated_at) ||
+    left.replay_id.localeCompare(right.replay_id) ||
+    left.analytics_hash.localeCompare(right.analytics_hash) ||
+    left.convergence_hash.localeCompare(right.convergence_hash),
+  );
+}
+
+function sortReplayIntelligenceAuditTimelineRows(
+  records: readonly ReplayIntelligenceAuditRecord[],
+): ReplayIntelligenceAuditRecord[] {
+  return [...records].sort((left, right) =>
+    left.generated_at.localeCompare(right.generated_at) ||
+    left.replay_id.localeCompare(right.replay_id) ||
+    left.analytics_hash.localeCompare(right.analytics_hash) ||
+    left.convergence_hash.localeCompare(right.convergence_hash),
+  );
+}
+
+function replayIntelligenceAuditGeneratedAt(
+  records: readonly ReplayIntelligenceAuditRecord[],
+): string {
+  return sortReplayIntelligenceAuditRows(records)[0]?.generated_at ??
+    REPLAY_INTELLIGENCE_AUDIT_GENERATED_AT;
 }
 
 export function registerPipelineRoutes(app: Express) {
@@ -1856,6 +1972,1263 @@ app.get("/api/replay-intelligence/replayback/reconstruction", (req: Request, res
     return res.status(500).json({ error: err.message });
   }
 });
+app.get(
+  "/api/replay-intelligence/analytics",
+  async (_req: Request, res: Response) => {
+    const analytics =
+      buildReplayIntelligenceAnalytics(
+        {
+          reconstruction_id: "recon_demo",
+          generated_at: new Date().toISOString(),
+          traversal_depth: 3,
+        },
+        [
+          {
+            key: "timeline_integrity",
+            value: 97,
+            weight: 1,
+            status: "stable",
+          },
+          {
+            key: "signal_consistency",
+            value: 88,
+            weight: 1,
+            status: "warning",
+          },
+        ],
+      );
+    insertReplayAnalyticsHistoryRow({
+      id: analytics.deterministic_hash.slice(0, 12),
+      replay_id: "replay_demo",
+      reconstruction_id: analytics.reconstruction_id,
+      generated_at: analytics.generated_at,
+      convergence_score: analytics.convergence_score,
+      instability_score: analytics.instability_score,
+      analytics_hash: analytics.deterministic_hash,
+    });
+        return res.json({
+      analytics,
+      latest:
+        getLatestReplayAnalyticsHistoryByReplayId(
+          "replay_demo",
+        ),
+      history:
+        listReplayAnalyticsHistoryByReplayId(
+          "replay_demo",
+        ),
+    });
+  },
+);
+
+app.get(
+  "/api/replay-intelligence/convergence-report",
+  async (_req: Request, res: Response) => {
+    const analytics =
+      buildReplayIntelligenceAnalytics(
+        {
+          reconstruction_id: "recon_demo",
+          generated_at: new Date().toISOString(),
+          traversal_depth: 3,
+        },
+        [
+          {
+            key: "timeline_integrity",
+            value: 97,
+            weight: 1,
+            status: "stable",
+          },
+        ],
+      );
+
+    const report =
+      buildReplayConvergenceReport(
+        analytics,
+      );
+
+    return res.json(report);
+  },
+);
+
+app.get(
+  "/api/replay-intelligence/traversal",
+  async (_req: Request, res: Response) => {
+    const traversal =
+      buildReplayTraversalSummary(
+        "root_replay",
+        [
+          {
+            replay_id: "root_replay",
+            depth: 0,
+            children: ["child_replay"],
+          },
+          {
+            replay_id: "child_replay",
+            parent_replay_id: "root_replay",
+            depth: 1,
+            children: [],
+          },
+        ],
+      );
+
+    return res.json(traversal);
+  },
+);
+
+app.get(
+  "/api/replay-intelligence/state-diff",
+  async (_req: Request, res: Response) => {
+    const diff =
+      buildReplayStateDiffSummary(
+        "replay_demo",
+        [
+          {
+            field: "status",
+            previous_value: "pending",
+            current_value: "settled",
+            changed: true,
+          },
+        ],
+      );
+
+    return res.json(diff);
+  },
+);
+
+app.get(
+  "/api/replay-intelligence/convergence-timeline",
+  async (_req: Request, res: Response) => {
+    const timeline =
+      buildReplayConvergenceTimeline(
+        "replay_demo",
+        [
+          {
+            generated_at: "2026-05-18T00:00:00.000Z",
+            convergence_score: 91,
+            instability_score: 1,
+            stability_index: 90,
+          },
+          {
+            generated_at: "2026-05-18T01:00:00.000Z",
+            convergence_score: 96,
+            instability_score: 0,
+            stability_index: 96,
+          },
+        ],
+      );
+
+    return res.json(timeline);
+  },
+);
+
+app.get(
+  "/api/replay-intelligence/convergence-export",
+  async (_req: Request, res: Response) => {
+    const report =
+      buildReplayConvergenceReport({
+        reconstruction_id: "recon_demo",
+        generated_at:
+          "2026-05-18T00:00:00.000Z",
+        metrics: [],
+        convergence_score: 95,
+        instability_score: 1,
+        deterministic_hash: "demo_hash",
+      });
+
+    const bundle =
+      buildReplayConvergenceExportBundle([
+        report,
+      ]);
+
+    return res.json(bundle);
+  },
+);
+
+app.get("/api/replay-intelligence/audit", (req: Request, res: Response) => {
+  try {
+    const records = sortReplayIntelligenceAuditRows(
+      listReplayIntelligenceAuditRows(),
+    );
+    const pagination = replayIntelligencePagination(req);
+    const page = paginateReplayIntelligenceRows(
+      records,
+      pagination,
+      (record) => buildReplayIntelligenceAuditHash(record),
+    );
+    const audits = page.rows.map(replayIntelligenceAuditApiRecord);
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        generated_at: replayIntelligenceAuditGeneratedAt(records),
+        count: audits.length,
+        total_count: records.length,
+        audits,
+      },
+      audits.map((audit) => audit.audit_hash).join("|") ||
+        "empty|replay-intelligence-audit",
+      page.pageInfo,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/audit/summary", (req: Request, res: Response) => {
+  try {
+    const records = sortReplayIntelligenceAuditRows(
+      listReplayIntelligenceAuditRows(),
+    );
+    const summary = buildReplayIntelligenceAuditSummary(
+      "all",
+      records,
+      replayIntelligenceAuditGeneratedAt(records),
+    );
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        ...summary,
+        replay_count: new Set(records.map((record) => record.replay_id)).size,
+      },
+      summary.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/audit/:auditHash", (req: Request, res: Response) => {
+  try {
+    const auditHash = routeParam(req.params.auditHash);
+    const audit = auditHash ? getReplayIntelligenceAuditRowByHash(auditHash) : null;
+    if (!audit) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence audit not found", "auditHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        audit_hash: auditHash,
+        audit,
+      },
+      auditHash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/audit/:auditHash/timeline", (req: Request, res: Response) => {
+  try {
+    const auditHash = routeParam(req.params.auditHash);
+    const audit = auditHash ? getReplayIntelligenceAuditRowByHash(auditHash) : null;
+    if (!audit) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence audit not found", "auditHash"),
+      ));
+    }
+
+    const timeline = sortReplayIntelligenceAuditTimelineRows(
+      listReplayIntelligenceAuditRowsByAuditHash(auditHash),
+    ).map((record) => ({
+      audit_hash: buildReplayIntelligenceAuditHash(record),
+      generated_at: record.generated_at,
+      validation_status: record.validation_status,
+      route_group_count: record.route_group_count,
+      analytics_hash: record.analytics_hash,
+      convergence_hash: record.convergence_hash,
+    }));
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        audit_hash: auditHash,
+        replay_id: audit.replay_id,
+        count: timeline.length,
+        timeline,
+      },
+      timeline.map((entry) => entry.audit_hash).join("|"),
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/audit/:auditHash/convergence", (req: Request, res: Response) => {
+  try {
+    const auditHash = routeParam(req.params.auditHash);
+    const audit = auditHash ? getReplayIntelligenceAuditRowByHash(auditHash) : null;
+    if (!audit) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence audit not found", "auditHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        audit_hash: auditHash,
+        replay_id: audit.replay_id,
+        generated_at: audit.generated_at,
+        analytics_hash: audit.analytics_hash,
+        convergence_hash: audit.convergence_hash,
+        route_group_count: audit.route_group_count,
+        validation_status: audit.validation_status,
+      },
+      auditHash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/audit/:auditHash/history", (req: Request, res: Response) => {
+  try {
+    const auditHash = routeParam(req.params.auditHash);
+    const audit = auditHash ? getReplayIntelligenceAuditRowByHash(auditHash) : null;
+    if (!audit) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence audit not found", "auditHash"),
+      ));
+    }
+
+    const history = sortReplayIntelligenceAuditRows(
+      listReplayIntelligenceAuditRowsByAuditHash(auditHash),
+    ).map(replayIntelligenceAuditApiRecord);
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        audit_hash: auditHash,
+        replay_id: audit.replay_id,
+        count: history.length,
+        history,
+      },
+      history.map((entry) => entry.audit_hash).join("|"),
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/history", (req: Request, res: Response) => {
+  try {
+    const snapshots = listReplayIntelligenceHistoricalSnapshots();
+    const pagination = replayIntelligencePagination(req);
+    const page = paginateReplayIntelligenceRows(
+      snapshots,
+      pagination,
+      (snapshot) => snapshot.snapshot_hash,
+    );
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        count: page.rows.length,
+        total_count: snapshots.length,
+        snapshots: page.rows,
+      },
+      page.rows.map((snapshot) => snapshot.snapshot_hash).join("|") ||
+        "empty|replay-intelligence-history",
+      page.pageInfo,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/history/summary", (req: Request, res: Response) => {
+  try {
+    const summary = buildReplayIntelligenceHistorySummary();
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      summary,
+      summary.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/history/:replayHash", (req: Request, res: Response) => {
+  try {
+    const replayHash = routeParam(req.params.replayHash);
+    const history = replayHash
+      ? buildReplayIntelligenceHistoryForReplay(replayHash)
+      : null;
+    if (!history) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence history not found", "replayHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      history,
+      history.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/history/:replayHash/convergence", (req: Request, res: Response) => {
+  try {
+    const replayHash = routeParam(req.params.replayHash);
+    const convergence = replayHash
+      ? buildReplayIntelligenceHistoryConvergence(replayHash)
+      : null;
+    if (!convergence) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence convergence history not found", "replayHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      convergence,
+      convergence.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/history/:replayHash/timeline", (req: Request, res: Response) => {
+  try {
+    const replayHash = routeParam(req.params.replayHash);
+    const timeline = replayHash
+      ? buildReplayIntelligenceHistoryTimeline(replayHash)
+      : null;
+    if (!timeline) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence timeline not found", "replayHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      timeline,
+      timeline.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/history/:replayHash/diff", (req: Request, res: Response) => {
+  try {
+    const replayHash = routeParam(req.params.replayHash);
+    const diff = replayHash
+      ? buildReplayIntelligenceHistoryDiff(replayHash)
+      : null;
+    if (!diff) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence diff not found", "replayHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      diff,
+      diff.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/history/:replayHash/lineage", (req: Request, res: Response) => {
+  try {
+    const replayHash = routeParam(req.params.replayHash);
+    const lineage = replayHash
+      ? buildReplayIntelligenceHistoryLineage(replayHash)
+      : null;
+    if (!lineage) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence lineage not found", "replayHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      lineage,
+      lineage.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/snapshots", (req: Request, res: Response) => {
+  try {
+    const aggregation = buildReplayIntelligenceSnapshotAggregation();
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      aggregation,
+      aggregation.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/snapshots/summary", (req: Request, res: Response) => {
+  try {
+    const summary = buildReplayIntelligenceSnapshotSummary();
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      summary,
+      summary.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/snapshots/:snapshotHash", (req: Request, res: Response) => {
+  try {
+    const snapshotHash = routeParam(req.params.snapshotHash);
+    const snapshot = snapshotHash
+      ? buildReplayIntelligenceSnapshotLookup(snapshotHash)
+      : null;
+    if (!snapshot) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence snapshot not found", "snapshotHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      snapshot,
+      snapshot.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/snapshots/:snapshotHash/convergence", (req: Request, res: Response) => {
+  try {
+    const snapshotHash = routeParam(req.params.snapshotHash);
+    const convergence = snapshotHash
+      ? buildReplayIntelligenceSnapshotConvergence(snapshotHash)
+      : null;
+    if (!convergence) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence snapshot convergence not found", "snapshotHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      convergence,
+      convergence.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/snapshots/:snapshotHash/lineage", (req: Request, res: Response) => {
+  try {
+    const snapshotHash = routeParam(req.params.snapshotHash);
+    const lineage = snapshotHash
+      ? buildReplayIntelligenceSnapshotLineage(snapshotHash)
+      : null;
+    if (!lineage) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence snapshot lineage not found", "snapshotHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      lineage,
+      lineage.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/snapshots/:snapshotHash/reducers", (req: Request, res: Response) => {
+  try {
+    const snapshotHash = routeParam(req.params.snapshotHash);
+    const reducers = snapshotHash
+      ? buildReplayIntelligenceSnapshotReducers(snapshotHash)
+      : null;
+    if (!reducers) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence snapshot reducers not found", "snapshotHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      reducers,
+      reducers.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/forensics/timelines", (req: Request, res: Response) => {
+  try {
+    const timelines = buildReplayIntelligenceForensicTimelines();
+    const payload = {
+      count: timelines.length,
+      timelines,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      payload,
+      timelines.map((timeline) => timeline.timeline_hash).join("|") ||
+        "empty|replay-intelligence-forensic-timelines",
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/forensics/timelines/summary", (req: Request, res: Response) => {
+  try {
+    const summary = buildReplayIntelligenceForensicTimelineSummary();
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      summary,
+      summary.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/forensics/timelines/:timelineHash", (req: Request, res: Response) => {
+  try {
+    const timelineHash = routeParam(req.params.timelineHash);
+    const timeline = timelineHash
+      ? getReplayIntelligenceForensicTimelineByHash(timelineHash)
+      : null;
+    if (!timeline) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence forensic timeline not found", "timelineHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      timeline,
+      timeline.timeline_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/forensics/timelines/:timelineHash/events", (req: Request, res: Response) => {
+  try {
+    const timelineHash = routeParam(req.params.timelineHash);
+    const events = timelineHash
+      ? buildReplayIntelligenceForensicTimelineEvents(timelineHash)
+      : null;
+    if (!events) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence forensic events not found", "timelineHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      events,
+      events.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/forensics/timelines/:timelineHash/anomalies", (req: Request, res: Response) => {
+  try {
+    const timelineHash = routeParam(req.params.timelineHash);
+    const anomalies = timelineHash
+      ? buildReplayIntelligenceForensicTimelineAnomalies(timelineHash)
+      : null;
+    if (!anomalies) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence forensic anomalies not found", "timelineHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      anomalies,
+      anomalies.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/forensics/timelines/:timelineHash/convergence", (req: Request, res: Response) => {
+  try {
+    const timelineHash = routeParam(req.params.timelineHash);
+    const convergence = timelineHash
+      ? buildReplayIntelligenceForensicTimelineConvergence(timelineHash)
+      : null;
+    if (!convergence) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence forensic convergence not found", "timelineHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      convergence,
+      convergence.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/forensics/timelines/:timelineHash/reducers", (req: Request, res: Response) => {
+  try {
+    const timelineHash = routeParam(req.params.timelineHash);
+    const reducers = timelineHash
+      ? buildReplayIntelligenceForensicTimelineReducers(timelineHash)
+      : null;
+    if (!reducers) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence forensic reducers not found", "timelineHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      reducers,
+      reducers.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/exports", (req: Request, res: Response) => {
+  try {
+    const exports = buildReplayIntelligenceHistoricalExports();
+    const payload = {
+      count: exports.length,
+      exports,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      payload,
+      exports.map((bundle) => bundle.export_hash).join("|") ||
+        "empty|replay-intelligence-exports",
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/exports/summary", (req: Request, res: Response) => {
+  try {
+    const summary = buildReplayIntelligenceHistoricalExportSummary();
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      summary,
+      summary.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/exports/:exportHash", (req: Request, res: Response) => {
+  try {
+    const exportHash = routeParam(req.params.exportHash);
+    const bundle = exportHash
+      ? getReplayIntelligenceHistoricalExportByHash(exportHash)
+      : null;
+    if (!bundle) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence export not found", "exportHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      bundle,
+      bundle.export_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/exports/:exportHash/download", (req: Request, res: Response) => {
+  try {
+    const exportHash = routeParam(req.params.exportHash);
+    const bundle = exportHash
+      ? getReplayIntelligenceHistoricalExportByHash(exportHash)
+      : null;
+    if (!bundle) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence export not found", "exportHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      {
+        export_hash: exportHash,
+        content_type: "application/json",
+        filename: `${exportHash}.json`,
+        bundle,
+      },
+      bundle.export_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/exports/:exportHash/manifest", (req: Request, res: Response) => {
+  try {
+    const exportHash = routeParam(req.params.exportHash);
+    const manifest = exportHash
+      ? buildReplayIntelligenceHistoricalExportManifest(exportHash)
+      : null;
+    if (!manifest) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence export manifest not found", "exportHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      manifest,
+      manifest.manifest_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/exports/:exportHash/lineage", (req: Request, res: Response) => {
+  try {
+    const exportHash = routeParam(req.params.exportHash);
+    const lineage = exportHash
+      ? buildReplayIntelligenceHistoricalExportLineage(exportHash)
+      : null;
+    if (!lineage) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence export lineage not found", "exportHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      lineage,
+      lineage.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/exports/:exportHash/verification", (req: Request, res: Response) => {
+  try {
+    const exportHash = routeParam(req.params.exportHash);
+    const verification = exportHash
+      ? buildReplayIntelligenceHistoricalExportVerification(exportHash)
+      : null;
+    if (!verification) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence export verification not found", "exportHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      verification,
+      verification.verification_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/aggregation", (req: Request, res: Response) => {
+  try {
+    const aggregations = buildReplayIntelligenceAggregations();
+    const payload = {
+      count: aggregations.length,
+      aggregations,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      payload,
+      aggregations.map((aggregation) => aggregation.aggregation_hash).join("|") ||
+        "empty|replay-intelligence-aggregation",
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/aggregation/summary", (req: Request, res: Response) => {
+  try {
+    const summary = buildReplayIntelligenceAggregationSummary();
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      summary,
+      summary.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/aggregation/:aggregationHash", (req: Request, res: Response) => {
+  try {
+    const aggregationHash = routeParam(req.params.aggregationHash);
+    const aggregation = aggregationHash
+      ? getReplayIntelligenceAggregationByHash(aggregationHash)
+      : null;
+    if (!aggregation) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence aggregation not found", "aggregationHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      aggregation,
+      aggregation.aggregation_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/aggregation/:aggregationHash/reducers", (req: Request, res: Response) => {
+  try {
+    const aggregationHash = routeParam(req.params.aggregationHash);
+    const reducers = aggregationHash
+      ? buildReplayIntelligenceAggregationReducers(aggregationHash)
+      : null;
+    if (!reducers) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence aggregation reducers not found", "aggregationHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      reducers,
+      reducers.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/aggregation/:aggregationHash/convergence", (req: Request, res: Response) => {
+  try {
+    const aggregationHash = routeParam(req.params.aggregationHash);
+    const convergence = aggregationHash
+      ? buildReplayIntelligenceAggregationConvergence(aggregationHash)
+      : null;
+    if (!convergence) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence aggregation convergence not found", "aggregationHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      convergence,
+      convergence.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/aggregation/:aggregationHash/stability", (req: Request, res: Response) => {
+  try {
+    const aggregationHash = routeParam(req.params.aggregationHash);
+    const stability = aggregationHash
+      ? buildReplayIntelligenceAggregationStability(aggregationHash)
+      : null;
+    if (!stability) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence aggregation stability not found", "aggregationHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      stability,
+      stability.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/aggregation/:aggregationHash/lineage", (req: Request, res: Response) => {
+  try {
+    const aggregationHash = routeParam(req.params.aggregationHash);
+    const lineage = aggregationHash
+      ? buildReplayIntelligenceAggregationLineage(aggregationHash)
+      : null;
+    if (!lineage) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence aggregation lineage not found", "aggregationHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      lineage,
+      lineage.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/convergence", (req: Request, res: Response) => {
+  try {
+    const records = listReplayIntelligenceConvergencePersistenceRecords();
+    const pagination = replayIntelligencePagination(req);
+    const page = paginateReplayIntelligenceRows(
+      records,
+      pagination,
+      (record) => record.convergence_hash,
+    );
+    const payload = {
+      count: page.rows.length,
+      total_count: records.length,
+      convergences: page.rows,
+    };
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      payload,
+      page.rows.map((record) => record.convergence_hash).join("|") ||
+        "empty|replay-intelligence-convergence",
+      page.pageInfo,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/convergence/summary", (req: Request, res: Response) => {
+  try {
+    const summary = buildReplayIntelligenceConvergencePersistenceSummary();
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      summary,
+      summary.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/convergence/:convergenceHash", (req: Request, res: Response) => {
+  try {
+    const convergenceHash = routeParam(req.params.convergenceHash);
+    const convergence = convergenceHash
+      ? getReplayIntelligenceConvergencePersistenceByHash(convergenceHash)
+      : null;
+    if (!convergence) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence convergence persistence not found", "convergenceHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      convergence,
+      convergence.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/convergence/:convergenceHash/history", (req: Request, res: Response) => {
+  try {
+    const convergenceHash = routeParam(req.params.convergenceHash);
+    const history = convergenceHash
+      ? buildReplayIntelligenceConvergencePersistenceHistory(convergenceHash)
+      : null;
+    if (!history) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence convergence history not found", "convergenceHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      history,
+      history.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/convergence/:convergenceHash/stability", (req: Request, res: Response) => {
+  try {
+    const convergenceHash = routeParam(req.params.convergenceHash);
+    const stability = convergenceHash
+      ? buildReplayIntelligenceConvergencePersistenceStability(convergenceHash)
+      : null;
+    if (!stability) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence convergence stability not found", "convergenceHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      stability,
+      stability.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/convergence/:convergenceHash/drift", (req: Request, res: Response) => {
+  try {
+    const convergenceHash = routeParam(req.params.convergenceHash);
+    const drift = convergenceHash
+      ? buildReplayIntelligenceConvergencePersistenceDrift(convergenceHash)
+      : null;
+    if (!drift) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence convergence drift not found", "convergenceHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      drift,
+      drift.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.get("/api/replay-intelligence/convergence/:convergenceHash/lineage", (req: Request, res: Response) => {
+  try {
+    const convergenceHash = routeParam(req.params.convergenceHash);
+    const lineage = convergenceHash
+      ? buildReplayIntelligenceConvergencePersistenceLineage(convergenceHash)
+      : null;
+    if (!lineage) {
+      return res.status(404).json(replayIntelligenceErrorEnvelope(
+        req,
+        "empty",
+        replayIntelligenceError("not_found", "Replay intelligence convergence lineage not found", "convergenceHash"),
+      ));
+    }
+
+    return res.json(replayIntelligenceEnvelope(
+      req,
+      lineage,
+      lineage.deterministic_hash,
+    ));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
 
 /**
  * GET /api/pipeline/replay-intelligence-dashboard
@@ -1863,6 +3236,7 @@ app.get("/api/replay-intelligence/replayback/reconstruction", (req: Request, res
  * Returns deterministic replay intelligence dashboard aggregation data.
  * Current scaffold uses deterministic source records until persistence wiring is added.
  */
+
 app.get("/api/pipeline/replay-intelligence-dashboard", (_req: Request, res: Response) => {
   try {
     const records = listReplayDashboardAggregateRows().map(
