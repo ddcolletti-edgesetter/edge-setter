@@ -70,8 +70,8 @@ const FEATURES: FeatureCard[] = [
   {
     icon: <Lock size={18} />,
     title: "Pro Edge Digest",
-    description: "A daily personalized brief, delivered at 7 AM. Your watchlist, your sport, your angle — curated.",
-    detail: "AI-curated digest from your saved teams and players. Formatted for fast pre-game reads.",
+    description: "A daily personalized brief, delivered at 7 AM. Your watchlist, your sport, your angle - curated.",
+    detail: "Personalized digest from your saved teams and players. Formatted for fast pre-game reads.",
     timeline: "Q4 2026",
     status: "planned",
     accentColor: T.gold,

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import { scoreAndRankSignals, selectFeaturedEdge, SCORE_BANDS, type SignalScore, type UrgencyLabel } from "../lib/signalScorer";
 import {
@@ -14,6 +14,8 @@ import OutcomePanel from "../components/OutcomePanel";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { TeamLogoImg, PlayerHeadshot } from "../components/v2/SportVisuals";
 import SignalImpactPanel from "../components/signals/SignalImpactPanel";
+import { SignalDetailDrawer } from "../components/SignalDetailDrawer";
+import { compareSignals, lifecycleTone, signalHasMovement, signalIsActionable, signalLifecycle, signalTrustLabel, type BoardSortMode } from "../lib/signalBoardUx";
 
 /* ── NFL team logo URLs (ESPN CDN) ── */
 const NFL_LOGO_URLS: Record<string, string> = {
@@ -424,11 +426,12 @@ function NFLBoardInner() {
   const [activeFilter, setActiveFilter] = useState<NFLFilter>("Today");
   const [selectedSig, setSelectedSig] = useState<NFLSignal | null>(null);
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
+  const [liveOnly, setLiveOnly] = useState(false);
+  const [actionableOnly, setActionableOnly] = useState(false);
   // FIX: mobile subnav drawer
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [navOpen, setNavOpen] = useState(false);
-  const sheetTouchStartY = useRef(0);
-  const sheetTouchDeltaY = useRef(0);
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", h);
@@ -466,6 +469,13 @@ function NFLBoardInner() {
   if (teamFilter) {
     visibleSigs = visibleSigs.filter(s => s.team === teamFilter || s.opponent === teamFilter);
   }
+  if (liveOnly) {
+    visibleSigs = visibleSigs.filter(s => signalLifecycle(s) === "Early" || signalLifecycle(s) === "Developing");
+  }
+  if (actionableOnly) {
+    visibleSigs = visibleSigs.filter(s => signalIsActionable(s));
+  }
+  visibleSigs = [...visibleSigs].sort((a, b) => compareSignals(a, b, sortMode));
 
   const totalSignals   = rankedNFL.length;
   const confirmedCount = rankedNFL.filter(s => s.verdict === "confirmed").length;
@@ -618,7 +628,7 @@ function NFLBoardInner() {
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 14, color: TH.textFaint, letterSpacing: "0.06em",
               }}>
-                Regular season · {totalSignals} signals · Updated continuously
+                Offseason monitoring · {totalSignals} signals · Depth charts, injuries, and market watch
               </div>
             </div>
           </div>
@@ -650,7 +660,7 @@ function NFLBoardInner() {
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               fontSize: 12, fontWeight: 700, color: TH.textFaint, letterSpacing: "0.12em", textTransform: "uppercase",
             }}>
-              • Today's NFL Slate
+              NFL Watch Slate
             </span>
           </div>
           <div
@@ -665,12 +675,25 @@ function NFLBoardInner() {
 
         {/* Featured Edge */}
         <div style={{ padding: "16px 24px", borderBottom: `1px solid ${TH.goldDim}` }}>
-          <div style={{
+          <div
+            role="button"
+            tabIndex={topNFL ? 0 : -1}
+            aria-label="Open featured NFL signal detail"
+            onClick={() => topNFL && setSelectedSig(topNFL)}
+            onKeyDown={(event) => {
+              if (!topNFL) return;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                setSelectedSig(topNFL);
+              }
+            }}
+            style={{
             background: darkMode
               ? "linear-gradient(135deg, #0A0F1A 0%, #101827 100%)"
               : "linear-gradient(135deg, #FFFFFF 0%, #F5F1EB 100%)",
             border: `1px solid ${TH.goldDim}`,
             borderRadius: 5, overflow: "hidden", position: "relative",
+            cursor: topNFL ? "pointer" : "default",
           }}>
             {/* Gold top accent */}
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold }} />
@@ -797,6 +820,23 @@ function NFLBoardInner() {
         </div>
 
         {/* Pro banner — locked signal count */}
+        <div className="signal-ops-toolbar">
+          <div className="signal-ops-toolbar-label">Board priority</div>
+          {[
+            ["priority", "Best Edge"],
+            ["newest", "Newest"],
+            ["confidence", "Confidence"],
+            ["timing", "Timing"],
+            ["movement", "Movement"],
+          ].map(([value, label]) => (
+            <button key={value} type="button" className={sortMode === value ? "is-active" : ""} onClick={() => setSortMode(value as BoardSortMode)}>
+              {label}
+            </button>
+          ))}
+          <label><input type="checkbox" checked={liveOnly} onChange={e => setLiveOnly(e.target.checked)} /> Early/developing</label>
+          <label><input type="checkbox" checked={actionableOnly} onChange={e => setActionableOnly(e.target.checked)} /> Actionable</label>
+        </div>
+
         <ProBoardBanner
           freeCount={FREE_LIMIT}
           totalCount={visibleSigs.length}
@@ -841,13 +881,26 @@ function NFLBoardInner() {
                   const vColor = VERDICT_COLORS[sig.verdict];
                   const isSelected = selectedSig?.id === sig.id;
                   const isFree = rowIsFree(idx);
+                  const lifecycle = signalLifecycle(sig);
+                  const lifecycleColor = lifecycleTone(lifecycle);
+                  const hasMovement = signalHasMovement(sig);
+                  const trustLabel = signalTrustLabel(sig);
                   return (
                     <tr
                       key={sig.id}
                       className="sig-row-tap"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open ${sig.headline} signal detail`}
                       onClick={() => {
                         if (!isFree) { openModal("NFL"); return; }
-                        setSelectedSig(isSelected ? null : sig);
+                        setSelectedSig(sig);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        if (!isFree) { openModal("NFL"); return; }
+                        setSelectedSig(sig);
                       }}
                       style={{
                         cursor: "pointer",
@@ -873,7 +926,11 @@ function NFLBoardInner() {
                         )}
                       </td>
                       <td style={{ padding: "12px 12px" }}>
-                        <TypeChip type={sig.type} />
+                        <div style={{ display: "grid", gap: 5 }}>
+                          <TypeChip type={sig.type} />
+                          <span style={{ display: "inline-flex", width: "fit-content", padding: "2px 7px", borderRadius: 3, border: `1px solid ${lifecycleColor}44`, background: `${lifecycleColor}12`, color: lifecycleColor, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>{lifecycle}</span>
+                          {hasMovement && <span style={{ color: T.cyan, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>Moved</span>}
+                        </div>
                       </td>
                       <td style={{ padding: "12px 12px", minWidth: 240, maxWidth: 400 }}>
                         <div style={{
@@ -890,6 +947,7 @@ function NFLBoardInner() {
                         }}>
                           {sig.detail}
                         </div>
+                        <div className="signal-board-trust-badge">Trust: {trustLabel}</div>
                       </td>
                       <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
                         {sig.player ? (
@@ -936,44 +994,12 @@ function NFLBoardInner() {
         </div>
       </div>
 
-      {/* ── Detail rail — desktop only ── */}
-      {selectedSig && !isMobile && (
-        <div
-          className="board-detail-rail"
-          style={{ position: "relative", flexShrink: 0 }}
-        >
-          <NFLDetailPanel
-            sig={selectedSig}
-            onClose={() => setSelectedSig(null)}
-            TH={TH}
-            darkMode={darkMode}
-          />
-        </div>
-      )}
-      {/* Bottom sheet — mobile only, position:fixed so no layout impact */}
-      {selectedSig && isMobile && (
-        <>
-          <div
-            className="bottom-sheet-backdrop"
-            onClick={() => setSelectedSig(null)}
-          />
-          <div
-            className="bottom-sheet"
-            style={{ background: TH.surface1 }}
-            onTouchStart={e => { sheetTouchStartY.current = e.touches[0].clientY; sheetTouchDeltaY.current = 0; }}
-            onTouchMove={e => { sheetTouchDeltaY.current = e.touches[0].clientY - sheetTouchStartY.current; }}
-            onTouchEnd={() => { if (sheetTouchDeltaY.current > 60) setSelectedSig(null); }}
-          >
-            <div className="bottom-sheet-handle" />
-            <NFLDetailPanel
-              sig={selectedSig}
-              onClose={() => setSelectedSig(null)}
-              TH={TH}
-              darkMode={darkMode}
-            />
-          </div>
-        </>
-      )}
+      <SignalDetailDrawer
+        open={!!selectedSig}
+        signal={selectedSig}
+        sport="NFL"
+        onClose={() => setSelectedSig(null)}
+      />
     </div>
   );
 }

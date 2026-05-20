@@ -108,7 +108,7 @@ export default function ProGateModal() {
           color: C.text, margin: "0 0 6px",
           lineHeight: 1.2, maxWidth: 420,
         }}>
-          Stop chasing tweets.
+          Move from preview to full signal context.
         </p>
         <p style={{
           fontSize: 15, color: C.textMuted,
@@ -155,11 +155,11 @@ export default function ProGateModal() {
             fontSize: 10, fontWeight: 700, letterSpacing: "0.16em",
             textTransform: "uppercase", color: C.gold,
           }}>
-            ⚡ Draft Week active
+            Live signal workflow
           </span>
           <p style={{ fontSize: 13, color: C.textMuted, margin: "4px 0 0", lineHeight: 1.5 }}>
             <strong style={{ color: C.text }}>2026 NFL Draft is Apr 24–26.</strong>{" "}
-            Act on draft-week movement before your league or the market does.
+            Track source context, confidence movement, and action windows from one workflow.
           </p>
         </div>
 

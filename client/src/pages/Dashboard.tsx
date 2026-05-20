@@ -122,7 +122,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
               </h1>
               <DataBadge
                 type={liveCount > 0 ? "live" : "demo"}
-                label={liveCount > 0 ? `Live · ${liveCount} signal${liveCount !== 1 ? "s" : ""}` : "Demo Data"}
+                label={liveCount > 0 ? `Live · ${liveCount} signal${liveCount !== 1 ? "s" : ""}` : "Limited Coverage"}
               />
             </div>
           </div>
@@ -177,7 +177,7 @@ export default function Dashboard({ theme, toggleTheme }: Props) {
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 12, color: "#64748B", letterSpacing: "0.06em",
               }}>
-                Sample intelligence shown. Live 2026 signals post automatically when published via the admin panel.
+                Limited offseason coverage shown. Live 2026 signals appear when verified signal records are available.
               </span>
             </>
           )}

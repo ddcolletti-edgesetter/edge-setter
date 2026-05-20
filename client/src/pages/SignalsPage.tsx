@@ -13,6 +13,7 @@ import { useSignalGate, FREE_LIMIT } from "@/context/SignalGate";
 import LockedSignalCard from "@/components/paywall/LockedSignalCard";
 import ProGateModal from "@/components/paywall/ProGateModal";
 import ProValueModule from "@/components/paywall/ProValueModule";
+import { SignalDetailDrawer, type SignalDetailLike } from "@/components/SignalDetailDrawer";
 import { trackSignalsVisit, trackCheckoutClick } from "@/lib/analytics";
 
 const T = {
@@ -74,10 +75,39 @@ function ConfBar({ score }: { score: number }) {
   );
 }
 
-function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }) {
+function toDrawerSignal(signal: Signal): SignalDetailLike {
+  return {
+    id: signal.id,
+    headline: signal.title,
+    detail: signal.summary,
+    player: signal.player_name,
+    team: signal.team,
+    type: signal.signal_type,
+    confidence: signal.confidence_score,
+    verdict: signal.verdict ?? signal.status_tag,
+    action_takeaway: signal.action_takeaway,
+    timestamp: signal.updated_at ?? signal.created_at,
+    isoTimestamp: signal.updated_at ?? signal.created_at,
+    sources: signal.source_count,
+    why_it_matters: signal.summary,
+  };
+}
+
+function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featured?: boolean; onOpenDetails: (signal: Signal) => void }) {
+  const openDetails = () => onOpenDetails(signal);
+
   return (
     <div
       data-testid={`signal-card-${signal.id}`}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${signal.title} signal detail`}
+      onClick={openDetails}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        openDetails();
+      }}
       style={{
         background: featured ? T.surface2 : T.surface1,
         border: featured ? `1px solid rgba(245,184,65,0.30)` : `1px solid rgba(245,184,65,0.10)`,
@@ -86,11 +116,18 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
         padding: featured ? "24px 24px 20px" : "20px 20px 16px",
         position: "relative",
         overflow: "hidden",
-        transition: "border-left-color 0.15s",
+        transition: "border-left-color 0.15s, border-color 0.15s, background 0.15s",
         marginBottom: 12,
+        cursor: "pointer",
       }}
-      onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = T.gold; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.borderLeftColor = featured ? T.gold : "rgba(245,184,65,0.35)"; }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLDivElement).style.borderLeftColor = T.gold;
+        (e.currentTarget as HTMLDivElement).style.borderColor = featured ? "rgba(245,184,65,0.42)" : "rgba(0,183,255,0.22)";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLDivElement).style.borderLeftColor = featured ? T.gold : "rgba(245,184,65,0.35)";
+        (e.currentTarget as HTMLDivElement).style.borderColor = featured ? "rgba(245,184,65,0.30)" : "rgba(245,184,65,0.10)";
+      }}
     >
       {featured && (
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold, pointerEvents: "none" }} />
@@ -186,6 +223,31 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
         }}>
           {signal.source_count} sources
         </span>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            openDetails();
+          }}
+          style={{
+            background: "rgba(0,183,255,0.08)",
+            border: "1px solid rgba(0,183,255,0.22)",
+            borderRadius: 3,
+            color: "#00B7FF",
+            cursor: "pointer",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 4,
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            padding: "6px 9px",
+            textTransform: "uppercase",
+          }}
+        >
+          View detail <ChevronRight size={10} />
+        </button>
         {featured && (
           <Link href="/pro">
             <div style={{
@@ -195,6 +257,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
               cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
               transition: "color 0.15s",
             }}
+            onClick={e => e.stopPropagation()}
             onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = T.goldBright; }}
             onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = T.gold; }}>
               Full Source Detail — Pro <ChevronRight size={10} />
@@ -211,7 +274,7 @@ function SignalCard({ signal, featured }: { signal: Signal; featured?: boolean }
  * Uses position-based gating: cards at index < FREE_LIMIT are free, rest are locked.
  * The context tracks viewed IDs for dedup across nav events.
  */
-function GatedSignalCard({ signal, featured, globalIndex }: { signal: Signal; featured?: boolean; globalIndex: number }) {
+function GatedSignalCard({ signal, featured, globalIndex, onOpenDetails }: { signal: Signal; featured?: boolean; globalIndex: number; onOpenDetails: (signal: Signal) => void }) {
   const { consumeSignal } = useSignalGate();
   // Position-based: first FREE_LIMIT signals are always free
   const isFree = globalIndex < FREE_LIMIT;
@@ -227,7 +290,7 @@ function GatedSignalCard({ signal, featured, globalIndex }: { signal: Signal; fe
   if (!isFree) {
     return <LockedSignalCard signal={signal} index={globalIndex} />;
   }
-  return <SignalCard signal={signal} featured={featured} />;
+  return <SignalCard signal={signal} featured={featured} onOpenDetails={onOpenDetails} />;
 }
 
 export default function SignalsPage() {
@@ -235,6 +298,7 @@ export default function SignalsPage() {
   const [submitted, setSubmitted] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [drawerSignal, setDrawerSignal] = useState<Signal | null>(null);
 
   const { data: signals = [], isLoading, refetch } = useQuery<Signal[]>({
     queryKey: ["/api/signals"],
@@ -290,6 +354,12 @@ export default function SignalsPage() {
 
       {/* ProGateModal — portal-level, always present when triggered */}
       <ProGateModal />
+      <SignalDetailDrawer
+        open={!!drawerSignal}
+        signal={drawerSignal ? toDrawerSignal(drawerSignal) : null}
+        sport="NFL"
+        onClose={() => setDrawerSignal(null)}
+      />
 
       {/* Top bar */}
       <div style={{
@@ -399,7 +469,7 @@ export default function SignalsPage() {
               You can fully read the {FREE_LIMIT} most recent signals.{" "}
               <Link href="/pro">
                 <span style={{ color: T.gold, cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(245,184,65,0.40)" }}>
-                  Pro unlocks the full live feed for draft week.
+                  Pro unlocks full signal detail, source context, and action windows.
                 </span>
               </Link>
             </span>
@@ -427,6 +497,7 @@ export default function SignalsPage() {
                   signal={signal}
                   featured={signal.is_featured ?? false}
                   globalIndex={i}
+                  onOpenDetails={setDrawerSignal}
                 />
               ))}
             </div>

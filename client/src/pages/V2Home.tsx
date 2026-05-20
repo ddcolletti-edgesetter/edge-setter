@@ -632,10 +632,10 @@ function V2HomeInner() {
               </div>
             </div>
 
-            {/* Stub notice */}
+            {/* Coverage notice */}
             <div style={{ margin: "20px 20px 0", padding: "10px 14px", background: "rgba(245,184,65,0.03)", border: `1px solid rgba(245,184,65,0.1)`, borderRadius: 4 }}>
               <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: textFaintTH, lineHeight: 1.5 }}>
-                <strong style={{ color: T.gold }}>STUB DATA</strong> — Signals + odds are realistic placeholders.
+                <strong style={{ color: T.gold }}>LIMITED COVERAGE</strong> — Some markets use monitored context until live feed coverage is available.
               </div>
             </div>
           </div>

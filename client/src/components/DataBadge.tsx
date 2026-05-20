@@ -1,9 +1,9 @@
 /**
- * DataBadge — consistent LIVE / DEMO / ARCHIVE labeling across all modules.
+ * DataBadge — consistent LIVE / LIMITED / ARCHIVE labeling across all modules.
  *
  * Usage:
  *   <DataBadge type="live" />        → green pulsing dot + "LIVE"
- *   <DataBadge type="demo" />        → gold + "DEMO DATA"
+ *   <DataBadge type="demo" />        → gold + "LIMITED COVERAGE"
  *   <DataBadge type="archive" />     → muted + "ARCHIVE"
  *   <DataBadge type="live" label="Live · 2026 Offseason" />   → custom label
  */
@@ -18,7 +18,7 @@ interface DataBadgeProps {
 
 const CONFIG: Record<DataBadgeType, { dot: string; text: string; bg: string; border: string; pulse: boolean; default: string }> = {
   live:    { dot: "#3DAE72", text: "#3DAE72", bg: "rgba(61,174,114,0.08)",  border: "rgba(61,174,114,0.28)",  pulse: true,  default: "Live" },
-  demo:    { dot: "#F5B841", text: "#F5B841", bg: "rgba(245,184,65,0.08)", border: "rgba(245,184,65,0.28)", pulse: false, default: "Demo Data" },
+  demo:    { dot: "#F5B841", text: "#F5B841", bg: "rgba(245,184,65,0.08)", border: "rgba(245,184,65,0.28)", pulse: false, default: "Limited Coverage" },
   archive: { dot: "#64748B", text: "#64748B", bg: "rgba(100,116,139,0.08)", border: "rgba(100,116,139,0.22)", pulse: false, default: "Archive" },
 };
 

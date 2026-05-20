@@ -3,6 +3,7 @@ import AppShell from "@/components/V2Shell";
 import { useNBASignals, useMLBSignals } from "@/hooks/useSignals";
 import { Activity, Search, User, Zap, X, AlertTriangle, TrendingUp, BarChart2 } from "lucide-react";
 import type { V2Signal } from "@/data/v2MockData";
+import { SignalDetailDrawer, type SignalDetailLike } from "@/components/SignalDetailDrawer";
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -103,14 +104,38 @@ function verdictColor(tag: string | null) {
 }
 
 // ── Signal Card ───────────────────────────────────────────────────────────────
-function PlayerSignalCard({ signal, sport }: { signal: Signal; sport: string }) {
-  const [expanded, setExpanded] = useState(false);
+function toDrawerSignal(signal: Signal): SignalDetailLike {
+  return {
+    id: signal.id,
+    headline: signal.title,
+    detail: signal.summary,
+    player: signal.playerName,
+    team: signal.teamName,
+    type: signal.signalType,
+    confidence: signal.confidenceScore,
+    verdict: signal.statusTag,
+    action_takeaway: signal.actionTakeaway,
+    timestamp: typeof signal.publishedAt === "string" ? signal.publishedAt : signal.publishedAt.toISOString(),
+    isoTimestamp: typeof signal.publishedAt === "string" ? signal.publishedAt : signal.publishedAt.toISOString(),
+    sources: null,
+  };
+}
+
+function PlayerSignalCard({ signal, sport, onOpenDetails }: { signal: Signal; sport: string; onOpenDetails: (signal: Signal) => void }) {
   const conf = signal.confidenceScore ?? 0;
   const vc = verdictColor(signal.statusTag);
 
   return (
     <div
-      onClick={() => setExpanded(e => !e)}
+      role="button"
+      tabIndex={0}
+      aria-label={`Open ${signal.title} signal detail`}
+      onClick={() => onOpenDetails(signal)}
+      onKeyDown={(event) => {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+        onOpenDetails(signal);
+      }}
       style={{
         background: T.surface1,
         border: `1px solid ${T.borderMid}`,
@@ -169,24 +194,11 @@ function PlayerSignalCard({ signal, sport }: { signal: Signal; sport: string }) 
         </div>
       </div>
 
-      {/* Expanded detail */}
-      {expanded && (
-        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.borderMid}` }}>
-          {signal.summary && (
-            <p style={{ fontSize: 13, color: T.textMuted, lineHeight: 1.65, margin: "0 0 10px" }}>{signal.summary}</p>
-          )}
-          {signal.actionTakeaway && (
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 7,
-              padding: "8px 12px", borderRadius: 5,
-              background: T.goldDim, border: `1px solid rgba(245,184,65,0.2)`,
-            }}>
-              <Zap size={11} style={{ color: T.gold, flexShrink: 0 }} />
-              <span style={{ fontSize: 13, color: T.gold, lineHeight: 1.5 }}>{signal.actionTakeaway}</span>
-            </div>
-          )}
-        </div>
-      )}
+      <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: T.blue }}>
+          View detail
+        </span>
+      </div>
     </div>
   );
 }
@@ -196,6 +208,7 @@ export default function PlayerSignals() {
   const [query, setQuery] = useState("");
   const [sport, setSport] = useState<Sport>("ALL");
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
+  const [drawerSignal, setDrawerSignal] = useState<Signal | null>(null);
 
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
@@ -252,6 +265,12 @@ export default function PlayerSignals() {
 
   return (
     <AppShell>
+      <SignalDetailDrawer
+        open={!!drawerSignal}
+        signal={drawerSignal ? toDrawerSignal(drawerSignal) : null}
+        sport={drawerSignal?.sport ?? "NBA"}
+        onClose={() => setDrawerSignal(null)}
+      />
       <div style={{ background: T.bg, minHeight: "100%", padding: isMobile ? "20px 16px 60px" : "28px 28px 60px" }}>
         <div style={{ maxWidth: 820, margin: "0 auto" }}>
 
@@ -388,7 +407,7 @@ export default function PlayerSignals() {
               {query.trim().length >= 2 ? (
                 <div>
                   {results.map(signal => (
-                    <PlayerSignalCard key={`${signal.id}-${signal.sport}`} signal={signal} sport={signal.sport ?? "NBA"} />
+                    <PlayerSignalCard key={`${signal.id}-${signal.sport}`} signal={signal} sport={signal.sport ?? "NBA"} onOpenDetails={setDrawerSignal} />
                   ))}
                 </div>
               ) : (
@@ -400,7 +419,7 @@ export default function PlayerSignals() {
                     textTransform: "uppercase", color: T.textFaint, marginBottom: 12,
                   }}>Latest Player Signals</div>
                   {results.slice(0, 30).map(signal => (
-                    <PlayerSignalCard key={`${signal.id}-${signal.sport}`} signal={signal} sport={signal.sport ?? "NBA"} />
+                    <PlayerSignalCard key={`${signal.id}-${signal.sport}`} signal={signal} sport={signal.sport ?? "NBA"} onOpenDetails={setDrawerSignal} />
                   ))}
                 </div>
               )}

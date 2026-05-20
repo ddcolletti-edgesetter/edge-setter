@@ -1,6 +1,6 @@
 /**
  * ProValueModule — inline module on the Signal Board sidebar.
- * Draft-week focused value prop for non-Pro visitors.
+ * Live workflow value prop for non-Pro visitors.
  * Placed above the waitlist widget in the sidebar.
  */
 import { Link } from "wouter";
@@ -20,11 +20,11 @@ const C = {
 };
 
 const ITEMS = [
-  { icon: Zap,          label: "Full live signal feed — no limit" },
-  { icon: BarChart2,    label: "Full Draft Board with movement tags" },
-  { icon: Filter,       label: "All 6 topic filters" },
-  { icon: BookOpen,     label: "Today's Top Signal history" },
-  { icon: CheckCircle2, label: "Confidence scores + action takeaways" },
+  { icon: Zap,          label: "Full live signal feed" },
+  { icon: BarChart2,    label: "Source context and movement tags" },
+  { icon: Filter,       label: "Board filters across active sports" },
+  { icon: BookOpen,     label: "Saved signals and accuracy context" },
+  { icon: CheckCircle2, label: "Confidence drivers and action windows" },
 ];
 
 export default function ProValueModule() {
@@ -60,7 +60,7 @@ export default function ProValueModule() {
         display: "flex", alignItems: "center", gap: 6,
       }}>
         <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.gold, display: "inline-block" }} />
-        Draft Week · Pro
+        Live Workflow · Pro
       </div>
 
       {/* Headline */}
@@ -69,10 +69,10 @@ export default function ProValueModule() {
         fontSize: 18, fontWeight: 700,
         color: C.text, marginBottom: 4, lineHeight: 1.25,
       }}>
-        Unlock full draft-week intel
+        Full signal workflow
       </div>
       <p style={{ fontSize: 14, color: C.textMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
-        Act on draft-week movement before your league or the market does.
+        Move from limited board access into full signal detail, source context, accuracy context, and saved-signal monitoring.
       </p>
 
       {/* Free signal meter — only show if they've used some */}

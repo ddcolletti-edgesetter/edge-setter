@@ -9,6 +9,7 @@ import {
   Activity, BarChart2, Bell, BellOff, ChevronRight,
   Lock, Shield, TrendingUp, TrendingDown, User, Zap,
 } from "lucide-react";
+import { compareSignals, lifecycleTone, signalHasMovement, signalIsActionable, signalLifecycle, signalTrustLabel, type BoardSortMode } from "@/lib/signalBoardUx";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function timeAgo(ts: Date | string) {
@@ -335,6 +336,15 @@ function SignalRow({
       toggleExpanded();
     }
   };
+  const lifecycle = signalLifecycle(signal);
+  const lifecycleColor = lifecycleTone(lifecycle);
+  const hasMovement = signalHasMovement(signal);
+  const trustLabel = signalTrustLabel(signal);
+  const statusChip = (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 3, border: `1px solid ${lifecycleColor}44`, background: `${lifecycleColor}12`, color: lifecycleColor, fontSize: "0.64rem", fontWeight: 850, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+      {lifecycle}
+    </span>
+  );
 
 
   // Shared type badge
@@ -383,7 +393,7 @@ function SignalRow({
         <div style={{ padding: "12px 16px 10px" }}>
           {/* Row 1: type badge (left) + timestamp (right) */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-            {typeBadge}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>{typeBadge}{statusChip}{hasMovement && <span style={{ color: "#00B7FF", fontSize: "0.64rem", fontWeight: 850, letterSpacing: "0.08em", textTransform: "uppercase" }}>Moved</span>}</div>
             <span style={{ fontSize: "0.75rem", color: "#94A3B8", fontWeight: 600 }}>{signal.timestamp}</span>
           </div>
           {/* Row 2: player name — 16px, 500 weight */}
@@ -413,6 +423,7 @@ function SignalRow({
           </div>
           {/* Row 4: confidence bar full width */}
           <ConfBar score={signal.confidence} />
+          <div className="signal-board-trust-badge">Trust: {trustLabel}</div>
         </div>
         {/* Row 5: verdict badge (left) + View Detail → (right), min 44px tap target */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", minHeight: "44px", borderTop: "1px solid #1A1E2A" }}>
@@ -488,7 +499,7 @@ function SignalRow({
           : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#101827", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={18} style={{ color: "#94A3B8" }} /></div>
         }
 
-        <div style={{ minWidth: "80px" }}>{typeBadge}</div>
+        <div style={{ minWidth: "90px", display: "grid", gap: 5 }}>{typeBadge}{statusChip}{hasMovement && <span style={{ color: "#00B7FF", fontSize: "0.64rem", fontWeight: 850, letterSpacing: "0.08em", textTransform: "uppercase" }}>Market moved</span>}</div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{
@@ -770,6 +781,9 @@ const TAB_SIGNAL_TYPE: Record<string, string | null> = {
 export default function MLBBoard() {
   const [activeGame, setActiveGame] = useState<number | null>(null);
   const [drawerSignal, setDrawerSignal] = useState<Signal | null>(null);
+  const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
+  const [liveOnly, setLiveOnly] = useState(false);
+  const [actionableOnly, setActionableOnly] = useState(false);
   // FIX: mobile detection
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   useEffect(() => {
@@ -836,9 +850,12 @@ export default function MLBBoard() {
 
   const filteredSignals = useMemo(() => {
     const typeFilter = TAB_SIGNAL_TYPE[activeTab];
-    if (!typeFilter) return allSignals;
-    return allSignals.filter(s => s.type === typeFilter);
-  }, [allSignals, activeTab]);
+    return allSignals
+      .filter(s => !typeFilter || s.type === typeFilter)
+      .filter(s => !liveOnly || signalLifecycle(s) === "Early" || signalLifecycle(s) === "Developing")
+      .filter(s => !actionableOnly || signalIsActionable(s))
+      .sort((a, b) => compareSignals(a, b, sortMode));
+  }, [allSignals, activeTab, liveOnly, actionableOnly, sortMode]);
 
   const PRO_THRESHOLD = 10;
 
@@ -904,7 +921,7 @@ export default function MLBBoard() {
                     <div key={i} style={{ minWidth: "200px", height: "160px", background: "#0A0F1A", borderRadius: "10px", opacity: 0.3 + i * 0.1 }} />
                   ))
                 ) : liveGames.length === 0 ? (
-                  <div style={{ padding: "20px", color: "#94A3B8", fontSize: "0.85rem", fontWeight: 600 }}>Agents are monitoring the next MLB slate.</div>
+                  <div style={{ padding: "20px", color: "#94A3B8", fontSize: "0.85rem", fontWeight: 600 }}>Monitoring the next MLB slate.</div>
                 ) : (
                   liveGames.map(game => {
                     const away = (game.awayTeam ?? "");
@@ -938,6 +955,23 @@ export default function MLBBoard() {
             }}
           />
 
+          <div className="signal-ops-toolbar">
+            <div className="signal-ops-toolbar-label">Board priority</div>
+            {[
+              ["priority", "Best Edge"],
+              ["newest", "Newest"],
+              ["confidence", "Confidence"],
+              ["timing", "Timing"],
+              ["movement", "Movement"],
+            ].map(([value, label]) => (
+              <button key={value} type="button" className={sortMode === value ? "is-active" : ""} onClick={() => setSortMode(value as BoardSortMode)}>
+                {label}
+              </button>
+            ))}
+            <label><input type="checkbox" checked={liveOnly} onChange={e => setLiveOnly(e.target.checked)} /> Early/developing</label>
+            <label><input type="checkbox" checked={actionableOnly} onChange={e => setActionableOnly(e.target.checked)} /> Actionable</label>
+          </div>
+
           {/* Signal feed */}
           <div id="signal-feed">
             {/* Pro lock banner */}
@@ -953,7 +987,7 @@ export default function MLBBoard() {
                   <strong style={{ color: "#F5B841" }}>{Math.max(0, filteredSignals.length - PRO_THRESHOLD)} signals locked</strong> — Pro members see the full feed
                 </span>
                 <div style={{ flex: 1 }} />
-                <button className="btn-gold" onClick={handleUpgrade} disabled={checkout.isPending} style={{ padding: "5px 14px", fontSize: "0.72rem" }}>{checkout.isPending ? "Loading…" : "UNLOCK PRO"}</button>
+                <button className="btn-gold" onClick={handleUpgrade} disabled={checkout.isPending} style={{ padding: "5px 14px", fontSize: "0.72rem" }}>{checkout.isPending ? "Loading…" : "VIEW PRO"}</button>
               </div>
             )}
 
@@ -980,7 +1014,7 @@ export default function MLBBoard() {
               <div style={{ textAlign: "center", padding: "60px 24px" }}>
                 <Activity size={40} className="live-dot" style={{ color: "#00B7FF", margin: "0 auto 12px" }} />
                 <p style={{ color: "#CBD5E1", fontSize: "0.95rem", fontWeight: 700, marginBottom: 6 }}>No actionable {activeTab} signals detected yet.</p>
-                <p style={{ color: "#94A3B8", fontSize: "0.84rem", fontWeight: 500 }}>Agents are monitoring market movement, lineup cards, pitcher news, and trusted source confirmations.</p>
+                <p style={{ color: "#94A3B8", fontSize: "0.84rem", fontWeight: 500 }}>Monitoring market movement, lineup cards, pitcher news, and trusted source confirmations.</p>
               </div>
             ) : (
               // FIX: pass isMobile to SignalRow

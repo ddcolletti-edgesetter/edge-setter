@@ -385,7 +385,7 @@ export default function MarketMovement() {
                 No line movement signals right now
               </p>
               <p style={{ fontSize: 13, color: T.textFaint, margin: 0 }}>
-                Agents are monitoring. Sharp money moves will appear here as they're detected.
+                Monitoring market movement. Sharp moves will appear here when verified.
               </p>
             </div>
           )}

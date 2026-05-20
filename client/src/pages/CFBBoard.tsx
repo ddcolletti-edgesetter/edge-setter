@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import V2Shell, { SportBadge, useShellTheme } from "../components/V2Shell";
 import {
   CFB_SIGNALS, CFB_SLATE, CFB_FEATURED_EDGE,
@@ -14,6 +14,8 @@ import OutcomePanel from "../components/OutcomePanel";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { TeamLogoImg } from "../components/v2/SportVisuals";
 import SignalImpactPanel from "../components/signals/SignalImpactPanel";
+import { SignalDetailDrawer } from "../components/SignalDetailDrawer";
+import { compareSignals, lifecycleTone, signalHasMovement, signalIsActionable, signalLifecycle, signalTrustLabel, type BoardSortMode } from "../lib/signalBoardUx";
 
 /* ── CFB team logo URLs (ESPN NCAA CDN, numeric IDs) ── */
 const CFB_LOGO_URLS: Record<string, string> = {
@@ -365,11 +367,12 @@ function CFBBoardInner() {
   const [tabFilter, setTabFilter] = useState<TabFilter>("Today");
   const [teamFilter, setTeamFilter] = useState<string | null>(null);
   const [selectedSig, setSelectedSig] = useState<CFBSignal | null>(null);
+  const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
+  const [liveOnly, setLiveOnly] = useState(false);
+  const [actionableOnly, setActionableOnly] = useState(false);
   // FIX: mobile subnav drawer
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [navOpen, setNavOpen] = useState(false);
-  const sheetTouchStartY = useRef(0);
-  const sheetTouchDeltaY = useRef(0);
   useEffect(() => {
     const h = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", h);
@@ -407,8 +410,10 @@ function CFBBoardInner() {
     if (types.length > 0 && !types.includes(s.type as any)) return false;
     if (tabFilter !== "Today" && (s as any).conference && !(s as any).conference.includes(tabFilter)) return false;
     if (teamFilter && s.team !== teamFilter) return false;
+    if (liveOnly && signalLifecycle(s) !== "Early" && signalLifecycle(s) !== "Developing") return false;
+    if (actionableOnly && !signalIsActionable(s)) return false;
     return true;
-  });
+  }).sort((a, b) => compareSignals(a, b, sortMode));
 
   const totalSignals = rankedCFB.length;
   const confirmed = rankedCFB.filter(s => s.verdict === "confirmed").length;
@@ -571,7 +576,7 @@ function CFBBoardInner() {
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
             fontSize: 13, color: TH.textFaint,
           }}>
-            {isLive ? "Live" : "Cached"} · {totalSignals} signals · Updated continuously
+            {isLive ? "Live" : "Offseason watch"} · {totalSignals} signals · Transfers, depth charts, and market watch
           </div>
         </div>
 
@@ -619,7 +624,7 @@ function CFBBoardInner() {
             fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
             color: TH.textFaint, marginBottom: 10,
           }}>
-            · Today's CFB Slate
+            CFB Watch Slate
           </div>
           <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
             {CFB_SLATE.map(game => {
@@ -674,12 +679,25 @@ function CFBBoardInner() {
         </div>
 
         {/* Featured Edge */}
-        <div style={{
+        <div
+          role="button"
+          tabIndex={topCFB ? 0 : -1}
+          aria-label="Open featured CFB signal detail"
+          onClick={() => topCFB && setSelectedSig(topCFB)}
+          onKeyDown={(event) => {
+            if (!topCFB) return;
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setSelectedSig(topCFB);
+            }
+          }}
+          style={{
           margin: "14px 20px 0",
           background: `linear-gradient(135deg, ${T.gold}0A 0%, ${TH.surface2} 60%)`,
           border: `1px solid ${T.gold}30`,
           borderRadius: 4, padding: "16px 20px",
           flexShrink: 0,
+          cursor: topCFB ? "pointer" : "default",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{
@@ -800,6 +818,23 @@ function CFBBoardInner() {
         </div>
 
         {/* Pro banner */}
+        <div className="signal-ops-toolbar">
+          <div className="signal-ops-toolbar-label">Board priority</div>
+          {[
+            ["priority", "Best Edge"],
+            ["newest", "Newest"],
+            ["confidence", "Confidence"],
+            ["timing", "Timing"],
+            ["movement", "Movement"],
+          ].map(([value, label]) => (
+            <button key={value} type="button" className={sortMode === value ? "is-active" : ""} onClick={() => setSortMode(value as BoardSortMode)}>
+              {label}
+            </button>
+          ))}
+          <label><input type="checkbox" checked={liveOnly} onChange={e => setLiveOnly(e.target.checked)} /> Early/developing</label>
+          <label><input type="checkbox" checked={actionableOnly} onChange={e => setActionableOnly(e.target.checked)} /> Actionable</label>
+        </div>
+
         <ProBoardBanner
           freeCount={FREE_LIMIT}
           totalCount={visibleSigs.length}
@@ -837,13 +872,26 @@ function CFBBoardInner() {
                   const typeColor = CFB_TYPE_META[sig.type].color;
                   const isSelected = selectedSig?.id === sig.id;
                   const isFree = rowIsFree(idx);
+                  const lifecycle = signalLifecycle(sig);
+                  const lifecycleColor = lifecycleTone(lifecycle);
+                  const hasMovement = signalHasMovement(sig);
+                  const trustLabel = signalTrustLabel(sig);
                   return (
                     <tr
                       key={sig.id}
                       className="sig-row-tap"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open ${sig.headline} signal detail`}
                       onClick={() => {
                         if (!isFree) { openModal("CFB"); return; }
-                        setSelectedSig(isSelected ? null : sig);
+                        setSelectedSig(sig);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        if (!isFree) { openModal("CFB"); return; }
+                        setSelectedSig(sig);
                       }}
                       style={{
                         cursor: "pointer",
@@ -864,7 +912,11 @@ function CFBBoardInner() {
                         {isFree ? idx + 1 : <Lock size={12} color={T.gold} />}
                       </td>
                       <td style={{ padding: "12px 12px" }}>
-                        <TypeChip type={sig.type} />
+                        <div style={{ display: "grid", gap: 5 }}>
+                          <TypeChip type={sig.type} />
+                          <span style={{ display: "inline-flex", width: "fit-content", padding: "2px 7px", borderRadius: 3, border: `1px solid ${lifecycleColor}44`, background: `${lifecycleColor}12`, color: lifecycleColor, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>{lifecycle}</span>
+                          {hasMovement && <span style={{ color: T.cyan, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>Moved</span>}
+                        </div>
                       </td>
                       <td style={{ padding: "12px 12px", minWidth: 240, maxWidth: 400 }}>
                         <div style={{
@@ -881,6 +933,7 @@ function CFBBoardInner() {
                         }}>
                           {sig.detail}
                         </div>
+                        <div className="signal-board-trust-badge">Trust: {trustLabel}</div>
                       </td>
                       <td style={{ padding: "12px 12px", whiteSpace: "nowrap" }}>
                         {sig.player ? (
@@ -936,56 +989,27 @@ function CFBBoardInner() {
               </tbody>
             </table>
 
-            {/* Stub notice */}
+            {/* Coverage notice */}
             <div style={{
               padding: "10px 24px",
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               fontSize: 12, color: TH.textFaint,
             }}>
               <span style={{ background: `${T.orange}18`, border: `1px solid ${T.orange}33`, padding: "2px 7px", borderRadius: 2, marginRight: 6 }}>
-                STUB DATA
+                LIMITED COVERAGE
               </span>
-              {isLive ? <><strong style={{ color: "#00E676" }}>LIVE</strong> · {totalSignals} signals from pipeline · {liveError ?? ""}</> : <><strong style={{ color: "#F5B841" }}>CACHED</strong> · {totalSignals} signals · {liveError ?? "API not returning data — showing mock fallback"}</>}
+              {isLive ? <><strong style={{ color: "#00E676" }}>LIVE</strong> · {totalSignals} signals from feed · {liveError ?? ""}</> : <><strong style={{ color: "#F5B841" }}>MONITORING</strong> · {totalSignals} signals · {liveError ?? "Live CFB coverage is limited; showing offseason watch context"}</>}
             </div>
           </div>
 
-          {/* Detail rail — desktop only */}
-          {selectedSig && !isMobile && (
-            <div style={{ width: 340, flexShrink: 0, overflowY: "auto", borderLeft: `1px solid ${TH.border}` }}>
-              <CFBDetailPanel
-                sig={selectedSig}
-                onClose={() => setSelectedSig(null)}
-                TH={TH}
-                darkMode={darkMode}
-              />
-            </div>
-          )}
         </div>
       </div>
-      {/* Bottom sheet — mobile only, position:fixed so no layout impact */}
-      {selectedSig && isMobile && (
-        <>
-          <div
-            className="bottom-sheet-backdrop"
-            onClick={() => setSelectedSig(null)}
-          />
-          <div
-            className="bottom-sheet"
-            style={{ background: TH.surface1 }}
-            onTouchStart={e => { sheetTouchStartY.current = e.touches[0].clientY; sheetTouchDeltaY.current = 0; }}
-            onTouchMove={e => { sheetTouchDeltaY.current = e.touches[0].clientY - sheetTouchStartY.current; }}
-            onTouchEnd={() => { if (sheetTouchDeltaY.current > 60) setSelectedSig(null); }}
-          >
-            <div className="bottom-sheet-handle" />
-            <CFBDetailPanel
-              sig={selectedSig}
-              onClose={() => setSelectedSig(null)}
-              TH={TH}
-              darkMode={darkMode}
-            />
-          </div>
-        </>
-      )}
+      <SignalDetailDrawer
+        open={!!selectedSig}
+        signal={selectedSig}
+        sport="CFB"
+        onClose={() => setSelectedSig(null)}
+      />
     </div>
   );
 }

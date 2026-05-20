@@ -3,7 +3,7 @@
  *
  * Shows: title + topic + source label (unblurred top section)
  * Blurs: the body/content area
- * Overlay: "Pro unlocks the full live feed for draft week"
+ * Overlay: "Pro unlocks live detail, source context, and accuracy workflow"
  * Click anywhere → opens ProGateModal
  */
 import type { Signal } from "@shared/schema";
@@ -155,7 +155,7 @@ export default function LockedSignalCard({ signal, index }: Props) {
         pointerEvents: "none",
         opacity: 0.45,
       }}>
-        {/* Fake confidence bar */}
+        {/* Limited confidence preview */}
         <div style={{
           height: 3, background: "rgba(245,184,65,0.30)",
           borderRadius: 2, marginBottom: 14,
@@ -207,8 +207,31 @@ export default function LockedSignalCard({ signal, index }: Props) {
             fontSize: 11, fontWeight: 700, letterSpacing: "0.16em",
             textTransform: "uppercase", color: T.gold,
           }}>
-            Pro unlocks the full live feed for draft week
+            Pro unlocks live detail, source context, and accuracy workflow
           </span>
+        </div>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+          gap: 6,
+          width: "100%",
+          paddingLeft: 34,
+        }}>
+          {["Confidence drivers", "Source stack", "Ledger context"].map(item => (
+            <span key={item} style={{
+              padding: "5px 6px",
+              borderRadius: 4,
+              border: "1px solid rgba(0,183,255,0.2)",
+              background: "rgba(0,183,255,0.07)",
+              color: "#CBD5E1",
+              fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+              fontSize: 10,
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              textAlign: "center",
+            }}>{item}</span>
+          ))}
         </div>
         <span style={{
           fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
@@ -218,7 +241,7 @@ export default function LockedSignalCard({ signal, index }: Props) {
           paddingLeft: 34,
           transition: "color 0.15s",
         }}>
-          Tap to see what Pro includes →
+          Preview the Pro workflow →
         </span>
       </div>
     </div>
