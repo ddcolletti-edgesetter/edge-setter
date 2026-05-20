@@ -87,7 +87,7 @@ function Sidebar({
   style?: React.CSSProperties;
 }) {
   const [location, setLocation] = useLocation();
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({ Boards: true });
 
   const toggleSection = (label: string) => {
     setOpenSections((prev) => ({ ...prev, [label]: !prev[label] }));
@@ -129,6 +129,8 @@ function Sidebar({
         {collapsed ? (
           <button
             onClick={onToggle}
+            aria-label="Expand sidebar"
+            title="Expand sidebar"
             style={{
               background: "none", border: "none", padding: 0, cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -162,6 +164,8 @@ function Sidebar({
             <button
               className="ux-button-interactive"
               onClick={onToggle}
+              aria-label="Collapse sidebar"
+              title="Collapse sidebar"
               style={{
                 background: "none", border: "none", padding: "4px",
                 cursor: "pointer", color: "#94A3B8", borderRadius: "4px", flexShrink: 0,
@@ -197,7 +201,7 @@ function Sidebar({
           </div>
         </Link>
 
-        {/* Boards section */}
+        {/* Live boards section */}
         <button
           onClick={() => (collapsed ? setLocation("/nba") : toggleSection("Boards"))}
           style={{
@@ -212,7 +216,7 @@ function Sidebar({
           <LayoutGrid size={15} style={{ flexShrink: 0, color: "#94A3B8" }} />
           {!collapsed && (
             <>
-              <span style={{ flex: 1 }}>Boards</span>
+              <span style={{ flex: 1 }}>Live Boards</span>
               <ChevronDown
                 size={13}
                 style={{
@@ -268,12 +272,12 @@ function Sidebar({
                       style={{
                         display: "flex", alignItems: "center", gap: "7px",
                         padding: "5px 12px 5px 28px",
-                        color: "#555A66", fontSize: "0.75rem", cursor: "pointer", transition: "color 0.1s",
+                        color: "#94A3B8", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", transition: "color 0.1s",
                       }}
                       onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#A0A5B0")}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#555A66")}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#94A3B8")}
                     >
-                      <span style={{ color: "#3A3F4E", flexShrink: 0 }}>{sub.icon}</span>
+                      <span style={{ color: "#94A3B8", flexShrink: 0 }}>{sub.icon}</span>
                       <span>{sub.label}</span>
                     </div>
                   ) : (
@@ -282,12 +286,12 @@ function Sidebar({
                         style={{
                           display: "flex", alignItems: "center", gap: "7px",
                           padding: "5px 12px 5px 28px",
-                          color: "#555A66", fontSize: "0.75rem", cursor: "pointer", transition: "color 0.1s",
+                          color: "#94A3B8", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", transition: "color 0.1s",
                         }}
                         onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#A0A5B0")}
-                        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#555A66")}
+                        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#94A3B8")}
                       >
-                        <span style={{ color: "#3A3F4E", flexShrink: 0 }}>{sub.icon}</span>
+                        <span style={{ color: "#94A3B8", flexShrink: 0 }}>{sub.icon}</span>
                         <span>{sub.label}</span>
                       </div>
                     </Link>
@@ -296,7 +300,7 @@ function Sidebar({
                 <div
                   style={{
                     padding: "6px 12px 4px 28px", fontSize: "0.6rem", fontWeight: 700,
-                    color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em",
+                    color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em",
                   }}
                 >
                   Teams
@@ -327,7 +331,7 @@ function Sidebar({
                       />
                       <span
                         style={{
-                          fontSize: "0.68rem", color: "#8A9099",
+                          fontSize: "0.68rem", color: "#CBD5E1",
                           fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
                         }}
                       >
@@ -381,12 +385,12 @@ function Sidebar({
                       style={{
                         display: "flex", alignItems: "center", gap: "7px",
                         padding: "5px 12px 5px 28px",
-                        color: "#555A66", fontSize: "0.75rem", cursor: "pointer", transition: "color 0.1s",
+                        color: "#94A3B8", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", transition: "color 0.1s",
                       }}
                       onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#A0A5B0")}
-                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#555A66")}
+                      onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#94A3B8")}
                     >
-                      <span style={{ color: "#3A3F4E", flexShrink: 0 }}>{sub.icon}</span>
+                      <span style={{ color: "#94A3B8", flexShrink: 0 }}>{sub.icon}</span>
                       <span>{sub.label}</span>
                     </div>
                   ) : (
@@ -395,12 +399,12 @@ function Sidebar({
                         style={{
                           display: "flex", alignItems: "center", gap: "7px",
                           padding: "5px 12px 5px 28px",
-                          color: "#555A66", fontSize: "0.75rem", cursor: "pointer", transition: "color 0.1s",
+                          color: "#94A3B8", fontSize: "0.75rem", fontWeight: 600, cursor: "pointer", transition: "color 0.1s",
                         }}
                         onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#A0A5B0")}
-                        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#555A66")}
+                        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#94A3B8")}
                       >
-                        <span style={{ color: "#3A3F4E", flexShrink: 0 }}>{sub.icon}</span>
+                        <span style={{ color: "#94A3B8", flexShrink: 0 }}>{sub.icon}</span>
                         <span>{sub.label}</span>
                       </div>
                     </Link>
@@ -409,7 +413,7 @@ function Sidebar({
                 <div
                   style={{
                     padding: "6px 12px 4px 28px", fontSize: "0.6rem", fontWeight: 700,
-                    color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.08em",
+                    color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em",
                   }}
                 >
                   Teams
@@ -440,7 +444,7 @@ function Sidebar({
                       />
                       <span
                         style={{
-                          fontSize: "0.68rem", color: "#8A9099",
+                          fontSize: "0.68rem", color: "#CBD5E1",
                           fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 700,
                         }}
                       >
@@ -461,11 +465,13 @@ function Sidebar({
                 <div
                   style={{
                     display: "flex", alignItems: "center", gap: "8px", padding: "7px 12px 7px 28px",
-                    borderLeft: "2px solid transparent", color: "#555A66",
+                    borderLeft: location.startsWith(b.path) ? "2px solid #00B7FF" : "2px solid transparent",
+                    background: location.startsWith(b.path) ? "rgba(0,183,255,0.06)" : "transparent",
+                    color: location.startsWith(b.path) ? "#CBD5E1" : "#94A3B8",
                     fontSize: "0.82rem", cursor: "pointer", transition: "all 0.1s",
                   }}
                   onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "#D0D0D0")}
-                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "#555A66")}
+                  onMouseLeave={(e) => { if (!location.startsWith(b.path)) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
                 >
                   <span style={{ flex: 1 }}>{b.label}</span>
                   <span
@@ -482,21 +488,20 @@ function Sidebar({
           </div>
         )}
 
-        {/* Tools section */}
+        {/* Intelligence section */}
         <div
           style={{
             padding: "8px 16px 4px", fontSize: "0.62rem", fontWeight: 700,
-            textTransform: "uppercase", letterSpacing: "0.1em", color: "#3A3F4E", marginTop: "4px",
+            textTransform: "uppercase", letterSpacing: "0.06em", color: "#94A3B8", marginTop: "4px",
           }}
         >
-          Tools
+          Intelligence
         </div>
         {[
-          { label: "Tools Hub",       path: "/tools",    icon: <Wrench size={15} /> },
-          { label: "My Edge",         path: "/my-edge",  icon: <Star size={15} /> },
-          { label: "Sources",         path: "/sources",  icon: <BarChart2 size={15} /> },
-          { label: "Accuracy Ledger", path: "/accuracy", icon: <TrendingUp size={15} /> },
-          { label: "Billing",         path: "/billing",  icon: <CreditCard size={15} /> },
+          { label: "Source Accuracy", path: "/accuracy", icon: <TrendingUp size={15} /> },
+          { label: "Market Movement", path: "/tools/market-movement", icon: <BarChart2 size={15} /> },
+          { label: "Team Trends",     path: "/nba?tab=trends", icon: <Activity size={15} /> },
+          { label: "Signal Lab",      path: "/tools", icon: <Wrench size={15} /> },
         ].map((item) => (
           <Link key={item.path} href={item.path}>
             <div
@@ -516,7 +521,46 @@ function Sidebar({
                   (e.currentTarget as HTMLElement).style.color = "var(--es-text-muted)";
               }}
             >
-              <span style={{ flexShrink: 0, color: isActive(item.path) ? "#F5B841" : "#555A66" }}>
+              <span style={{ flexShrink: 0, color: isActive(item.path) ? "#F5B841" : "#94A3B8" }}>
+                {item.icon}
+              </span>
+              {!collapsed && <span>{item.label}</span>}
+            </div>
+          </Link>
+        ))}
+
+        <div
+          style={{
+            padding: "8px 16px 4px", fontSize: "0.62rem", fontWeight: 700,
+            textTransform: "uppercase", letterSpacing: "0.06em", color: "#94A3B8", marginTop: "4px",
+          }}
+        >
+          Account
+        </div>
+        {[
+          { label: "My Edge", path: "/my-edge", icon: <Star size={15} /> },
+          { label: "Alerts", path: "/alerts", icon: <Zap size={15} /> },
+          { label: "Billing", path: "/billing", icon: <CreditCard size={15} /> },
+        ].map((item) => (
+          <Link key={item.path} href={item.path}>
+            <div
+              style={{
+                display: "flex", alignItems: "center", gap: "10px", padding: "9px 16px",
+                background: isActive(item.path) ? "rgba(245,184,65,0.08)" : "transparent",
+                color: isActive(item.path) ? "var(--es-gold)" : "var(--es-text-muted)",
+                fontSize: "0.82rem", fontWeight: isActive(item.path) ? 700 : 500,
+                cursor: "pointer", transition: "all 0.1s",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive(item.path))
+                  (e.currentTarget as HTMLElement).style.color = "var(--es-text-secondary)";
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive(item.path))
+                  (e.currentTarget as HTMLElement).style.color = "var(--es-text-muted)";
+              }}
+            >
+              <span style={{ flexShrink: 0, color: isActive(item.path) ? "#F5B841" : "#94A3B8" }}>
                 {item.icon}
               </span>
               {!collapsed && <span>{item.label}</span>}
@@ -545,7 +589,7 @@ function Sidebar({
           >
             Pro Intelligence
           </div>
-          <div style={{ fontSize: "0.72rem", color: "#8A9099", marginBottom: "10px", lineHeight: 1.4 }}>
+          <div style={{ fontSize: "0.72rem", color: "#CBD5E1", marginBottom: "10px", lineHeight: 1.4 }}>
             Alerts · Full Archive · Multi-Sport
           </div>
           <ProUpgradeButton />
@@ -593,6 +637,8 @@ function TopTabBar({
       {/* FIX: Hamburger button on mobile (opens drawer); collapse toggle on desktop */}
       <button
         onClick={onMenuToggle}
+        aria-label={isMobile ? "Open navigation menu" : "Collapse sidebar"}
+        title={isMobile ? "Open navigation menu" : "Collapse sidebar"}
         style={{
           width: "48px",
           height: "48px",
@@ -602,7 +648,7 @@ function TopTabBar({
           background: "none",
           border: "none",
           cursor: "pointer",
-          color: "#8A9099",
+          color: "#94A3B8",
           flexShrink: 0,
           borderRight: "1px solid var(--es-border)",
         }}
@@ -648,6 +694,7 @@ function TopTabBar({
             <button
               key={tab.key}
               onClick={() => setLocation(tab.path)}
+              title={`Open ${tab.label} board`}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -694,6 +741,8 @@ function TopTabBar({
       <button
         onClick={handleUpgrade}
         disabled={proLoading}
+        aria-label="Upgrade to Pro"
+        title="Upgrade to Pro"
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -723,6 +772,7 @@ function TopTabBar({
       {/* Dark mode toggle — icon-only on mobile */}
       <button
         onClick={toggleTheme}
+        aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
         title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
         style={{
           display: "inline-flex",
@@ -737,7 +787,7 @@ function TopTabBar({
           textTransform: "uppercase",
           cursor: "pointer",
           background: isDark ? "transparent" : "rgba(245,184,65,0.1)",
-          color: isDark ? "#555A66" : "#F5B841",
+          color: isDark ? "#94A3B8" : "#F5B841",
           border: `1px solid ${isDark ? "#1A1E2A" : "#C8BB9A"}`,
           marginLeft: "2px",
           transition: "all 0.2s ease",

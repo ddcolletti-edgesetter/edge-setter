@@ -314,7 +314,7 @@ export default function MyEdge() {
             {[
               { label: "NBA Board",          desc: "Live signal stream. Playoff intel.",  href: "/v2/nba",         color: T.gold,      dotColor: T.gold },
               { label: "MLB Board",          desc: "Regular season. Pitcher and lineup.", href: "/v2/mlb",         color: "#00B7FF",   dotColor: "#00B7FF" },
-              { label: "Tools Hub",          desc: "All current + upcoming tools.",       href: "/v2/tools",       color: T.gold,      dotColor: T.green },
+              { label: "Signal Lab",         desc: "All current + upcoming tools.",       href: "/v2/tools",       color: T.gold,      dotColor: T.green },
               { label: "Source Leaderboard", desc: "Track source reliability.",           href: "/sources",    color: T.textMuted, dotColor: T.textFaint },
             ].map(item => (
               <Link key={item.label} href={item.href}>

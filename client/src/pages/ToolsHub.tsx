@@ -251,7 +251,7 @@ export default function ToolsHub() {
             }}>Intelligence Tools</span>
           </div>
           <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 8px" }}>
-            Tools Hub
+            Signal Lab
           </h1>
           <p style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",

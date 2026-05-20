@@ -101,6 +101,34 @@ const DEFAULT_NAV: NavItem[] = [
     ),
   },
   {
+    label: 'My Edge',
+    path: '/my-edge',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M10 2l2.2 4.5 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 7.2l5-.7L10 2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Sources',
+    path: '/sources',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M4 5h12M4 10h12M4 15h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    label: 'Accuracy Ledger',
+    path: '/accuracy',
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <path d="M4 14l3-3 3 2 5-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M4 17h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity=".55" />
+      </svg>
+    ),
+  },
+  {
     label: 'Billing',
     path: '/billing',
     icon: (
@@ -237,8 +265,8 @@ export function MobileNav({
           position: 'fixed',
           inset: 0,
           zIndex: 199,
-          background: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(2px)',
+          background: 'rgba(0,0,0,0.88)',
+          backdropFilter: 'blur(4px)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
           transition: 'opacity 0.25s',
@@ -259,8 +287,9 @@ export function MobileNav({
           bottom: 0,
           width: 'min(320px, 88vw)',
           zIndex: 200,
-          background: 'var(--color-surface-elevated, #0f172a)',
-          borderRight: '1px solid var(--color-border, rgba(255,255,255,0.08))',
+          background: '#050505',
+          borderRight: '1px solid #1F2937',
+          boxShadow: '24px 0 56px rgba(0,0,0,0.62)',
           display: 'flex',
           flexDirection: 'column',
           transform: open ? 'translateX(0)' : 'translateX(-100%)',
@@ -278,7 +307,8 @@ export function MobileNav({
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '16px 20px',
-            borderBottom: '1px solid var(--color-border, rgba(255,255,255,0.08))',
+            borderBottom: '1px solid #1F2937',
+            background: '#0A0F1A',
             flexShrink: 0,
           }}
         >
@@ -389,7 +419,8 @@ export function MobileNav({
         <div
           style={{
             padding: '16px 20px',
-            borderTop: '1px solid var(--color-border, rgba(255,255,255,0.08))',
+              borderTop: '1px solid #1F2937',
+              background: '#0A0F1A',
             flexShrink: 0,
           }}
         >
@@ -397,7 +428,7 @@ export function MobileNav({
             style={{
               margin: 0,
               fontSize: 11,
-              color: 'var(--color-text-muted, #475569)',
+              color: '#94A3B8',
               letterSpacing: '0.03em',
               textTransform: 'uppercase',
             }}

@@ -38,6 +38,20 @@ const SPORT_CONFIG = [
 const HERO_SIGNAL  = NBA_SIGNALS.find(s => s.confidence >= 84) ?? NBA_SIGNALS[0];
 const TOP_SIGNALS  = NBA_SIGNALS.slice(0, 5);
 
+const HOW_TO_USE = [
+  ["Detect", "Catch injuries, lineup changes, and sharp line movement as they hit."],
+  ["Verify", "See confidence, source confirmations, and market movement in one place."],
+  ["Act", "Use the playable range, timing, and edge notes before the market fully adjusts."],
+];
+
+const TRUST_FACTORS = [
+  "source reliability",
+  "number of confirmations",
+  "timing freshness",
+  "sportsbook movement correlation",
+  "historical accuracy when available",
+];
+
 const MLB_GAMES = [
   { id: "m1", away: "HOU", home: "NYY", time: "1:05 PM ET",  spread: "NYY -115", total: "8"   },
   { id: "m2", away: "LAD", home: "ATL", time: "4:10 PM ET",  spread: "ATL -108", total: "8.5" },
@@ -168,20 +182,20 @@ export default function FlagshipHome() {
         {!isMobile && (
           <div style={{ flexShrink: 0, padding: "0 14px", borderLeft: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 5, height: "100%" }}>
             <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite" }} />
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: T.green, textTransform: "uppercase" }}>Agents Running — NBA &amp; MLB</span>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: T.green, textTransform: "uppercase" }}>Agents Running - NBA · MLB · NFL · CFB</span>
           </div>
         )}
         {isMobile && <div style={{ flexShrink: 0, width: 56 }} />}
       </div>
 
       {/* ══════════════════════ HERO ══════════════════════ */}
-      <section style={{ position: "relative", zIndex: 2, minHeight: 580, borderBottom: `1px solid ${T.border}`, overflow: "hidden" }}>
+      <section style={{ position: "relative", zIndex: 2, borderBottom: `1px solid ${T.border}`, overflow: "hidden" }}>
         {/* Strong sport-color atmosphere */}
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: `radial-gradient(ellipse 60% 80% at 72% 50%, ${heroColors.primary}38, transparent 62%), radial-gradient(ellipse 45% 55% at 18% 50%, ${heroColors.primary}18, transparent 58%)` }} />
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(135deg, rgba(0,183,255,0.08), transparent 42%), radial-gradient(ellipse 55% 60% at 76% 35%, rgba(0,230,118,0.08), transparent 62%)" }} />
         {/* Gold hairline accent from left */}
         <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: 3, background: `linear-gradient(180deg, ${T.gold}, ${T.gold}22 60%, transparent)` }} />
 
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "32px 20px 28px" : "52px 40px 44px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 360px", gap: isMobile ? 24 : 52, alignItems: "center", position: "relative", zIndex: 2 }}>
+        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "26px 20px 24px" : "34px 40px 34px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) 420px", gap: isMobile ? 24 : 36, alignItems: "start", position: "relative", zIndex: 2 }}>
 
           {/* ── Left ── */}
           <div style={{ animation: "fadeUp 0.55s ease both", minWidth: 0 }}>
@@ -190,7 +204,7 @@ export default function FlagshipHome() {
               <img
                 src="/edgesetter-logo-transparent_6b7a9796.png"
                 alt="Edge Setter"
-                style={{ height: isMobile ? "64px" : "90px", width: "auto", display: "block", maxWidth: "100%" }}
+                style={{ height: isMobile ? "52px" : "70px", width: "auto", display: "block", maxWidth: "100%" }}
                 onError={e => {
                   // Image failed — swap to styled text logo
                   const img = e.currentTarget as HTMLImageElement;
@@ -215,35 +229,67 @@ export default function FlagshipHome() {
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 11px", borderRadius: 2, background: "rgba(0,230,118,0.1)", border: "1px solid rgba(0,230,118,0.28)" }}>
                 <span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 1.8s ease-in-out infinite", boxShadow: `0 0 6px ${T.green}` }} />
-                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green }}>NBA Playoffs Live</span>
+                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: T.green }}>Multi-sport intelligence live</span>
               </div>
-              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: T.textFaint }}>
-                {NBA_SIGNALS.length} signals · Updated every 15 min
+              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, color: "#94A3B8", fontWeight: 600 }}>
+                NBA · MLB · NFL · CFB · Verified across trusted sources
               </span>
             </div>
 
             {/* Headline — Bebas, full impact */}
-            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? "clamp(36px, 9vw, 52px)" : "clamp(52px, 6.5vw, 84px)", fontWeight: 400, lineHeight: 0.90, letterSpacing: "2px", color: T.text, margin: "0 0 20px" }}>
-              Real-Time Sports<br />
-              <span style={{ color: T.gold }}>Intelligence</span><br />
-              Before The Market Moves
+            <h1 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? "clamp(36px, 9vw, 52px)" : "clamp(46px, 5vw, 70px)", fontWeight: 400, lineHeight: 0.94, letterSpacing: "1.5px", color: T.text, margin: "0 0 16px" }}>
+              Real-Time Sports Intelligence Before The Market Moves
             </h1>
 
-            <p style={{ fontFamily: "'Barlow', sans-serif", fontSize: 16, fontStyle: "italic", fontWeight: 300, color: T.text, lineHeight: 1.65, margin: "0 0 30px", maxWidth: 500, opacity: 0.7 }}>
+            <p style={{ fontFamily: "'Barlow', sans-serif", fontSize: 16, fontWeight: 500, color: "#CBD5E1", lineHeight: 1.58, margin: "0 0 10px", maxWidth: 660 }}>
               Track injuries, lineup changes, sharp line movement, and verified betting signals across NBA, MLB, NFL, and CFB.
             </p>
+            <p style={{ fontFamily: "'Barlow', sans-serif", fontSize: 15, fontWeight: 400, color: T.textMuted, lineHeight: 1.6, margin: "0 0 18px", maxWidth: 650 }}>
+              Use EdgeSetter to spot market-moving news, verify it across trusted sources, and act before lines fully adjust.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))", gap: 8, marginBottom: 18, maxWidth: 760 }}>
+              {[
+                "Real-time injury and lineup alerts",
+                "Multi-source consensus checks",
+                "Confidence, movement, and action notes",
+              ].map((item) => (
+                <div key={item} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", border: "1px solid #1F2937", background: "rgba(16,24,39,0.72)", borderRadius: 4 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: T.green, flexShrink: 0 }} />
+                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, color: "#CBD5E1", fontWeight: 700 }}>{item}</span>
+                </div>
+              ))}
+            </div>
 
             {/* CTAs */}
-            <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 10, marginBottom: 32 }}>
+            <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "stretch" : "center", gap: 10, marginBottom: 20 }}>
               <button className="cta-primary" onClick={() => navigate("/nba")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 24px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #F5B841 50%, ${T.gold} 100%)`, backgroundSize: "200%", animation: "esShimmer 3s ease infinite", border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
-                <Zap size={14} /> NBA BOARD
+                <Zap size={14} /> View Live Signals
               </button>
-              <button className="cta-btn" onClick={() => navigate("/mlb")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "rgba(0,183,255,0.1)", border: "1px solid rgba(0,183,255,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
-                MLB BOARD
+              <button className="cta-btn" onClick={() => document.getElementById("confidence-explainer")?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "rgba(0,183,255,0.1)", border: "1px solid rgba(0,183,255,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
+                See How Confidence Works
               </button>
-              <button className="cta-btn" onClick={() => navigate("/accuracy")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 22px", borderRadius: 2, background: "transparent", border: `1px solid ${T.border}`, color: T.textMuted, fontFamily: "'Bebas Neue', sans-serif", fontSize: 17, letterSpacing: "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s" }}>
-                ACCURACY
-              </button>
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+              {SPORT_CONFIG.map((sport) => (
+                <button key={sport.label} onClick={() => navigate(sport.href)} title={`Open ${sport.label} board`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 9px", background: "#101827", border: "1px solid #1F2937", borderRadius: 4, color: "#CBD5E1", cursor: "pointer", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em" }}>
+                  <img src={sport.logo} alt={sport.label} style={{ width: 18, height: 18, objectFit: "contain" }} onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }} />
+                  {sport.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 18 }}>
+              {[
+                { label: "My Edge", href: "/my-edge" },
+                { label: "Sources", href: "/sources" },
+                { label: "Accuracy Ledger", href: "/accuracy" },
+              ].map((item) => (
+                <button key={item.label} onClick={() => navigate(item.href)} style={{ padding: "7px 10px", background: "transparent", border: "1px solid #1F2937", borderRadius: 4, color: "#94A3B8", cursor: "pointer", fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  {item.label}
+                </button>
+              ))}
             </div>
 
             {/* Mobile-only: Featured Edge — above signal list */}
@@ -291,7 +337,7 @@ export default function FlagshipHome() {
                           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "2px", color: T.text }}>
                             {HERO_SIGNAL.team}{HERO_SIGNAL.opponent ? ` @ ${HERO_SIGNAL.opponent}` : ""}
                           </div>
-                          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em" }}>NBA Playoffs · Tonight</div>
+                          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: "#94A3B8", letterSpacing: "0.06em" }}>Live signal preview · Market watch</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 2, background: "rgba(0,230,118,0.14)", border: "1px solid rgba(0,230,118,0.3)" }}>
                           <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 2s ease-in-out infinite" }} />
@@ -364,7 +410,7 @@ export default function FlagshipHome() {
                     <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "2px", color: T.text }}>
                       {HERO_SIGNAL.team}{HERO_SIGNAL.opponent ? ` @ ${HERO_SIGNAL.opponent}` : ""}
                     </div>
-                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.1em" }}>NBA Playoffs · Tonight</div>
+                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: "#94A3B8", letterSpacing: "0.06em" }}>Live signal preview · Market watch</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 2, background: "rgba(0,230,118,0.14)", border: "1px solid rgba(0,230,118,0.3)" }}>
                     <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block", animation: "navPulse 2s ease-in-out infinite" }} />
@@ -410,6 +456,37 @@ export default function FlagshipHome() {
       </section>
 
       {/* ══════════════════════ TONIGHT'S SLATE ══════════════════════ */}
+      <section style={{ position: "relative", zIndex: 2, borderBottom: `1px solid ${T.border}`, background: "#0A0F1A" }}>
+        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "22px 20px" : "28px 40px" }}>
+          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: T.gold, marginBottom: 12 }}>How to use EdgeSetter</div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
+            {HOW_TO_USE.map(([title, copy]) => (
+              <div key={title} style={{ padding: "16px", background: "#101827", border: "1px solid #1F2937", borderRadius: 6 }}>
+                <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 22, letterSpacing: "1.5px", color: title === "Detect" ? T.cyan : title === "Verify" ? T.green : T.gold, marginBottom: 6 }}>{title}</div>
+                <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: 14, color: "#CBD5E1", lineHeight: 1.55 }}>{copy}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section id="confidence-explainer" style={{ position: "relative", zIndex: 2, borderBottom: `1px solid ${T.border}`, background: "#050505" }}>
+        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "22px 20px" : "28px 40px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "0.9fr 1.1fr", gap: 18, alignItems: "center" }}>
+          <div>
+            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: T.cyan, marginBottom: 8 }}>Why the confidence score matters</div>
+            <p style={{ margin: 0, fontFamily: "'Barlow', sans-serif", fontSize: 15, color: "#CBD5E1", lineHeight: 1.6 }}>Confidence combines multi-source consensus, source reliability, timing advantage, and market movement so a signal is easier to trust and act on.</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 8 }}>
+            {TRUST_FACTORS.map((factor) => (
+              <div key={factor} style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", background: "#101827", border: "1px solid #1F2937", borderRadius: 4 }}>
+                <Shield size={13} style={{ color: T.green, flexShrink: 0 }} />
+                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, color: "#CBD5E1", fontWeight: 700, textTransform: "capitalize" }}>{factor}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section style={{ borderBottom: `1px solid ${T.border}`, background: T.surface1, position: "relative", zIndex: 2 }}>
         <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "14px 20px" : "20px 40px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>

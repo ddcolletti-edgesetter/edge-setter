@@ -30,10 +30,10 @@ function sectionCopy(signal: SignalDetailLike, key: string) {
   const action = signal.action_takeaway ?? "Actionability notes will populate as confirmations are attached.";
 
   const copy: Record<string, string> = {
-    summary: signal.detail ?? signal.headline ?? "Signal summary will appear here.",
-    confidence: `${confidence}. Explanation scaffolding is ready for source-weight, timing, and agreement logic.`,
-    confirmations: "Source confirmation details will populate from trusted feeds and analyst checks.",
-    movement: "Market movement context will show line changes, velocity, and current price windows.",
+    summary: signal.detail ?? signal.headline ?? "What happened will appear here.",
+    confidence: `${confidence}. Future versions can break this down by source reliability, freshness, agreement, and market correlation.`,
+    confirmations: signal.sources ? `${signal.sources} trusted source confirmations are attached to this signal.` : "Source confirmations will populate from trusted feeds and analyst checks.",
+    movement: "Market movement context will show line changes, velocity, and current playable range.",
     timing: signal.timestamp ? `Detected ${signal.timestamp}. Timeline events will render here.` : "Signal timing and event timeline will render here.",
     actionability: action,
     sources: signal.sourceLabels?.join(", ") ?? (signal.sources ? `${signal.sources} source confirmations` : "Source list pending."),
@@ -55,12 +55,12 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   if (!open || !signal) return null;
 
   const sections = [
-    ["summary", "Summary"],
-    ["confidence", "Confidence Explanation"],
+    ["summary", "What Happened"],
+    ["confidence", "Confidence Breakdown"],
     ["confirmations", "Source Confirmations"],
     ["movement", "Market Movement"],
     ["timing", "Timing / Timeline"],
-    ["actionability", "Actionability"],
+    ["actionability", "Actionability / Playable Range"],
     ["sources", "Sources"],
   ];
 

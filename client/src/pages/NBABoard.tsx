@@ -249,15 +249,15 @@ function GameCard({ game, active, onClick, signalCount }: {
       {(game.homeScore !== null || game.awayScore !== null) && (
         <div style={{ padding: "0 16px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5B841" }}>{game.awayScore ?? "-"}</span>
-          <span style={{ fontSize: "0.6rem", color: "#555A66" }}>SCORE</span>
+          <span style={{ fontSize: "0.66rem", color: "#94A3B8", fontWeight: 700 }}>SCORE</span>
           <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5B841" }}>{game.homeScore ?? "-"}</span>
         </div>
       )}
       <div style={{ padding: "0 16px 12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
         {[{ label: "STATUS", val: game.statusDescription ?? "Scheduled" }, { label: "TIME", val: formatGameTime(game.gameDate, game.statusDescription) }].map(s => (
           <div key={s.label} style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "0.58rem", color: "#3A3F4E", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: "3px" }}>{s.label}</div>
-            <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.7rem", color: "#8A9099", lineHeight: 1.2 }}>{s.val}</div>
+            <div style={{ fontSize: "0.62rem", color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "3px" }}>{s.label}</div>
+            <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.72rem", color: "#CBD5E1", lineHeight: 1.2 }}>{s.val}</div>
           </div>
         ))}
       </div>
@@ -355,7 +355,7 @@ function SignalRow({
           </div>
           {/* Row 2: player name — 16px, 500 weight */}
           {(signal.player || signal.team) && (
-            <div style={{ fontSize: "1rem", fontWeight: 500, color: isPro ? "#3A3F4E" : "#E8E8E8", marginBottom: "4px" }}>
+            <div style={{ fontSize: "1rem", fontWeight: 600, color: isPro ? "#64748B" : "#F8FAFC", marginBottom: "4px" }}>
               {signal.player ?? signal.team}
             </div>
           )}
@@ -399,7 +399,7 @@ function SignalRow({
               </div>
             )}
             <button type="button" className="ux-button-interactive" onClick={(e) => { e.stopPropagation(); openDetails(); }} style={{ display: "block", marginTop: "10px", padding: "7px 10px", borderRadius: "6px", border: "1px solid rgba(0,183,255,0.28)", background: "rgba(0,183,255,0.08)", color: "#00B7FF", fontSize: "0.78rem", fontWeight: 800, cursor: "pointer" }}>
-              Open Detail Drawer
+              View detail
             </button>
           </div>
         )}
@@ -439,6 +439,18 @@ function SignalRow({
         <div style={{ minWidth: "60px", textAlign: "right" }}>
           <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.68rem", color: "#94A3B8", fontWeight: 700 }}>{signal.timestamp}</span>
         </div>
+        {!isPro && (
+          <button
+            type="button"
+            className="ux-button-interactive"
+            onClick={(e) => { e.stopPropagation(); openDetails(); }}
+            aria-label="View signal detail"
+            title="View signal detail"
+            style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 9px", borderRadius: "6px", border: "1px solid rgba(0,183,255,0.28)", background: "rgba(0,183,255,0.08)", color: "#00B7FF", fontSize: "0.72rem", fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            View detail <ChevronRight size={12} />
+          </button>
+        )}
         {userIsPro && !isPro && (
           <button
             onClick={e => {
@@ -446,9 +458,9 @@ function SignalRow({
               setAlerted(a => !a);
             }}
             title={alerted ? "Remove alert" : "Get alerted for similar signals"}
-            style={{ display: "inline-flex", alignItems: "center", padding: "4px", borderRadius: "4px", background: "transparent", border: "none", cursor: "pointer", color: alerted ? "#F5B841" : "#3A3F4E", transition: "color 0.15s" }}
+            style={{ display: "inline-flex", alignItems: "center", padding: "4px", borderRadius: "4px", background: "transparent", border: "none", cursor: "pointer", color: alerted ? "#F5B841" : "#94A3B8", transition: "color 0.15s" }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#F5B841"; }}
-            onMouseLeave={e => { if (!alerted) (e.currentTarget as HTMLElement).style.color = "#3A3F4E"; }}
+            onMouseLeave={e => { if (!alerted) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
           >
             {alerted ? <Bell size={14} /> : <BellOff size={14} />}
           </button>
@@ -464,7 +476,7 @@ function SignalRow({
               </div>
             )}
             <button type="button" className="ux-button-interactive" onClick={(e) => { e.stopPropagation(); openDetails(); }} style={{ marginLeft: "10px", padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(0,183,255,0.28)", background: "rgba(0,183,255,0.08)", color: "#00B7FF", fontSize: "0.76rem", fontWeight: 800, cursor: "pointer" }}>
-              Open Detail Drawer
+              View detail
             </button>
           </div>
         )}
@@ -771,7 +783,7 @@ export default function NBABoard() {
                     <div key={i} style={{ minWidth: "200px", height: "160px", background: "#0A0F1A", borderRadius: "10px", opacity: 0.3 + i * 0.1 }} />
                   ))
                 ) : liveGames.length === 0 ? (
-                  <div style={{ padding: "20px", color: "#94A3B8", fontSize: "0.85rem", fontWeight: 500 }}>No games scheduled today.</div>
+                  <div style={{ padding: "20px", color: "#94A3B8", fontSize: "0.85rem", fontWeight: 600 }}>Agents are monitoring the next NBA slate.</div>
                 ) : (
                   liveGames.map(game => {
                     const away = (game.awayTeam ?? "");
@@ -834,8 +846,9 @@ export default function NBABoard() {
               [...Array(5)].map((_, i) => <SignalSkeleton key={i} isMobile={isMobile} />)
             ) : filteredSignals.length === 0 ? (
               <div style={{ textAlign: "center", padding: "60px 24px" }}>
-                <Activity size={40} style={{ color: "#101827", margin: "0 auto 12px" }} />
-                <p style={{ color: "#94A3B8", fontSize: "0.9rem", fontWeight: 500 }}>No {activeTab} signals yet. Agents are collecting data.</p>
+                <Activity size={40} className="live-dot" style={{ color: "#00B7FF", margin: "0 auto 12px" }} />
+                <p style={{ color: "#CBD5E1", fontSize: "0.95rem", fontWeight: 700, marginBottom: 6 }}>No actionable {activeTab} signals detected yet.</p>
+                <p style={{ color: "#94A3B8", fontSize: "0.84rem", fontWeight: 500 }}>Agents are monitoring market movement, injury reports, lineups, and trusted source confirmations.</p>
               </div>
             ) : (
               // FIX: pass isMobile to SignalRow for card vs. row layout
