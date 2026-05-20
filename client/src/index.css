@@ -292,16 +292,22 @@
     z-index: 80;
     display: flex;
     justify-content: flex-end;
-    background: rgba(0, 0, 0, 0.38);
+    background: rgba(0, 0, 0, 0.58);
+    overscroll-behavior: contain;
   }
 
   .signal-detail-drawer {
-    width: min(430px, 100vw);
+    width: min(560px, 100vw);
+    height: 100vh;
     height: 100dvh;
     overflow-y: auto;
-    background: #0A0F1A;
-    border-left: 1px solid #1F2937;
-    box-shadow: -28px 0 60px rgba(0, 0, 0, 0.42);
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    background:
+      linear-gradient(180deg, rgba(0, 183, 255, 0.035), transparent 180px),
+      #0A0F1A;
+    border-left: 1px solid rgba(0, 183, 255, 0.22);
+    box-shadow: -24px 0 54px rgba(0, 0, 0, 0.58), -1px 0 0 rgba(245, 184, 65, 0.12);
   }
 
   .signal-detail-header {
@@ -310,9 +316,14 @@
     display: flex;
     gap: 14px;
     justify-content: space-between;
-    padding: 20px;
-    background: rgba(10, 15, 26, 0.96);
-    border-bottom: 1px solid #1F2937;
+    padding: 18px 20px;
+    background: rgba(10, 15, 26, 0.985);
+    border-bottom: 1px solid rgba(0, 183, 255, 0.22);
+    z-index: 2;
+  }
+
+  .signal-detail-header > div {
+    min-width: 0;
   }
 
   .signal-detail-kicker {
@@ -327,10 +338,11 @@
     margin: 6px 0;
     color: #F8FAFC;
     font-family: var(--font-cond);
-    font-size: 1.35rem;
+    font-size: 1.22rem;
     font-weight: 800;
     line-height: 1.15;
     letter-spacing: 0;
+    overflow-wrap: anywhere;
   }
 
   .signal-detail-meta {
@@ -338,6 +350,7 @@
     font-family: var(--font-mono);
     font-size: 0.72rem;
     line-height: 1.4;
+    overflow-wrap: anywhere;
   }
 
   .signal-detail-close {
@@ -360,20 +373,86 @@
     background: #172033;
   }
 
+  .signal-detail-close:focus-visible,
+  .signal-detail-footer-actions button:focus-visible {
+    outline: 2px solid rgba(0, 183, 255, 0.72);
+    outline-offset: 2px;
+  }
+
   .signal-detail-sections {
     display: grid;
     gap: 12px;
     padding: 16px;
+    padding-bottom: 0;
+  }
+
+  .signal-detail-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .signal-detail-stat {
+    min-height: 98px;
+    padding: 12px;
+    border: 1px solid #1F2937;
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(16, 24, 39, 0.96), rgba(5, 5, 5, 0.76));
+    box-shadow: inset 0 1px 0 rgba(248, 250, 252, 0.03);
+  }
+
+  .signal-detail-stat span,
+  .signal-detail-stat small,
+  .signal-source-summary span,
+  .signal-timing-card span,
+  .signal-timing-card small {
+    display: block;
+    color: #94A3B8;
+    font-size: 0.74rem;
+    line-height: 1.35;
+  }
+
+  .signal-detail-stat strong {
+    display: block;
+    margin: 7px 0 5px;
+    color: #F8FAFC;
+    font-size: 1rem;
+    font-weight: 850;
+    line-height: 1.1;
+  }
+
+  .signal-detail-stat.is-green {
+    border-color: rgba(0, 230, 118, 0.24);
+    box-shadow: inset 3px 0 0 rgba(0, 230, 118, 0.7);
+  }
+
+  .signal-detail-stat.is-blue {
+    border-color: rgba(0, 183, 255, 0.24);
+    box-shadow: inset 3px 0 0 rgba(0, 183, 255, 0.72);
+  }
+
+  .signal-detail-stat.is-gold {
+    border-color: rgba(245, 184, 65, 0.26);
+    box-shadow: inset 3px 0 0 rgba(245, 184, 65, 0.72);
+  }
+
+  .signal-detail-stat.is-red {
+    border-color: rgba(255, 82, 82, 0.28);
+    box-shadow: inset 3px 0 0 rgba(255, 82, 82, 0.72);
   }
 
   .signal-detail-section {
     padding: 14px;
-    border: 1px solid #1F2937;
+    border: 1px solid rgba(31, 41, 55, 0.96);
     border-radius: 8px;
-    background: #101827;
+    background: linear-gradient(180deg, rgba(16, 24, 39, 0.94), rgba(10, 15, 26, 0.88));
+    box-shadow: inset 0 1px 0 rgba(248, 250, 252, 0.025);
   }
 
   .signal-detail-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     margin: 0 0 7px;
     color: #CBD5E1;
     font-size: 0.78rem;
@@ -384,9 +463,368 @@
 
   .signal-detail-section p {
     margin: 0;
-    color: #94A3B8;
+    color: #CBD5E1;
     font-size: 0.88rem;
     line-height: 1.55;
+    overflow-wrap: anywhere;
+  }
+
+  .signal-movement-card,
+  .signal-timing-card,
+  .signal-action-window {
+    display: grid;
+    gap: 10px;
+  }
+
+  .signal-movement-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: #94A3B8;
+    font-size: 0.8rem;
+    min-width: 0;
+  }
+
+  .signal-movement-row strong,
+  .signal-source-summary strong,
+  .signal-timing-card strong,
+  .signal-action-window strong {
+    color: #F8FAFC;
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+  }
+
+  .signal-movement-track,
+  .signal-adoption-meter,
+  .signal-driver-meter {
+    position: relative;
+    height: 7px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #050505;
+    border: 1px solid rgba(31, 41, 55, 0.8);
+  }
+
+  .signal-movement-track i,
+  .signal-adoption-meter i,
+  .signal-driver-meter i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #00B7FF, #00E676);
+  }
+
+  .signal-movement-track i {
+    width: 72%;
+  }
+
+  .signal-movement-note,
+  .signal-empty-inline {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 10px;
+    border: 1px solid rgba(0, 183, 255, 0.18);
+    border-radius: 7px;
+    background: rgba(0, 183, 255, 0.06);
+    color: #CBD5E1;
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  .signal-empty-inline {
+    display: block;
+    color: #94A3B8;
+  }
+
+  .signal-source-summary {
+    display: grid;
+    gap: 3px;
+    margin-bottom: 10px;
+  }
+
+  .signal-source-stack,
+  .signal-trust-stack,
+  .signal-driver-stack {
+    display: grid;
+    gap: 8px;
+  }
+
+  .signal-trust-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 9px 10px;
+    border: 1px solid rgba(31, 41, 55, 0.9);
+    border-radius: 7px;
+    background: rgba(5, 5, 5, 0.24);
+    color: #CBD5E1;
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  .signal-trust-row svg {
+    margin-top: 2px;
+    color: #00E676;
+    flex-shrink: 0;
+  }
+
+  .signal-source-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(90px, auto) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 9px 10px;
+    border: 1px solid rgba(31, 41, 55, 0.9);
+    border-radius: 7px;
+    background: rgba(5, 5, 5, 0.26);
+  }
+
+  .signal-source-row span {
+    color: #F8FAFC;
+    font-size: 0.82rem;
+    font-weight: 750;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .signal-source-row small {
+    color: #94A3B8;
+    font-size: 0.72rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .signal-source-row b {
+    color: #00E676;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+  }
+
+  .signal-action-window {
+    padding: 11px;
+    border: 1px solid rgba(0, 183, 255, 0.2);
+    border-radius: 8px;
+    background: rgba(0, 183, 255, 0.06);
+  }
+
+  .signal-action-window.is-green {
+    border-color: rgba(0, 230, 118, 0.24);
+    background: rgba(0, 230, 118, 0.06);
+  }
+
+  .signal-action-window.is-gold {
+    border-color: rgba(245, 184, 65, 0.26);
+    background: rgba(245, 184, 65, 0.07);
+  }
+
+  .signal-action-window.is-red {
+    border-color: rgba(255, 82, 82, 0.24);
+    background: rgba(255, 82, 82, 0.07);
+  }
+
+  .signal-action-window p {
+    color: #CBD5E1;
+  }
+
+  .signal-driver-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 120px;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .signal-driver-row strong,
+  .signal-driver-row span {
+    display: block;
+  }
+
+  .signal-driver-row strong {
+    color: #F8FAFC;
+    font-size: 0.8rem;
+    overflow-wrap: anywhere;
+  }
+
+  .signal-driver-row span {
+    color: #94A3B8;
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
+  .signal-timing-card {
+    padding: 11px;
+    border-radius: 8px;
+    background: rgba(5, 5, 5, 0.24);
+  }
+
+  .signal-accuracy-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .signal-accuracy-card {
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid rgba(31, 41, 55, 0.9);
+    border-radius: 7px;
+    background: rgba(5, 5, 5, 0.24);
+  }
+
+  .signal-accuracy-card span,
+  .signal-accuracy-card strong,
+  .signal-accuracy-card small {
+    display: block;
+  }
+
+  .signal-accuracy-card span {
+    color: #94A3B8;
+    font-size: 0.7rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .signal-accuracy-card strong {
+    margin-top: 4px;
+    color: #F8FAFC;
+    font-size: 0.86rem;
+  }
+
+  .signal-accuracy-card small {
+    margin-top: 4px;
+    color: #94A3B8;
+    font-size: 0.72rem;
+    line-height: 1.35;
+  }
+
+  .signal-board-trust-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    max-width: 100%;
+    margin-top: 6px;
+    padding: 4px 7px;
+    border: 1px solid rgba(0, 183, 255, 0.22);
+    border-radius: 5px;
+    background: rgba(0, 183, 255, 0.065);
+    color: #CBD5E1;
+    font-size: 0.7rem;
+    font-weight: 800;
+    line-height: 1.25;
+  }
+
+  .signal-board-trust-badge::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: #00E676;
+    flex: 0 0 auto;
+  }
+
+  .signal-alert-preview {
+    display: grid;
+    gap: 10px;
+  }
+
+  .signal-alert-preview strong,
+  .signal-alert-preview span {
+    display: block;
+  }
+
+  .signal-alert-preview strong {
+    color: #F8FAFC;
+    font-size: 0.86rem;
+  }
+
+  .signal-alert-preview span {
+    margin-top: 3px;
+    color: #94A3B8;
+    font-size: 0.78rem;
+    line-height: 1.45;
+  }
+
+  .signal-alert-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .signal-alert-options button {
+    min-height: 34px;
+    border: 1px solid #1F2937;
+    border-radius: 7px;
+    background: rgba(5, 5, 5, 0.24);
+    color: #CBD5E1;
+    font-size: 0.74rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .signal-alert-options button.is-active {
+    border-color: rgba(0, 183, 255, 0.38);
+    background: rgba(0, 183, 255, 0.1);
+    color: #00B7FF;
+  }
+
+  .signal-detail-footer {
+    position: sticky;
+    bottom: 0;
+    display: grid;
+    gap: 12px;
+    padding: 14px 16px 16px;
+    margin-top: 12px;
+    border-top: 1px solid #1F2937;
+    background: rgba(10, 15, 26, 0.98);
+    z-index: 1;
+  }
+
+  .signal-detail-footer strong,
+  .signal-detail-footer span {
+    display: block;
+  }
+
+  .signal-detail-footer strong {
+    color: #F8FAFC;
+    font-size: 0.9rem;
+  }
+
+  .signal-detail-footer span {
+    margin-top: 2px;
+    color: #94A3B8;
+    font-size: 0.78rem;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
+  .signal-detail-footer-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .signal-detail-footer-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    min-height: 38px;
+    border: 1px solid rgba(0, 183, 255, 0.24);
+    border-radius: 7px;
+    background: rgba(0, 183, 255, 0.08);
+    color: #F8FAFC;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+    text-align: center;
+  }
+
+  .signal-detail-footer-actions button:hover {
+    border-color: rgba(0, 183, 255, 0.42);
+    background: rgba(0, 183, 255, 0.13);
   }
 
   @media (max-width: 767px) {
@@ -398,11 +836,33 @@
     .signal-detail-drawer {
       width: 100%;
       height: auto;
-      max-height: 86dvh;
+      max-height: 90vh;
+      max-height: 90dvh;
+      max-height: calc(100dvh - env(safe-area-inset-top, 0px));
       border-left: 0;
       border-top: 1px solid #1F2937;
       border-radius: 14px 14px 0 0;
       box-shadow: 0 -24px 52px rgba(0, 0, 0, 0.5);
+    }
+
+    .signal-detail-header {
+      padding: 16px;
+    }
+
+    .signal-detail-stat-grid,
+    .signal-detail-footer-actions,
+    .signal-alert-options,
+    .signal-accuracy-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .signal-detail-footer {
+      padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .signal-driver-row,
+    .signal-source-row {
+      grid-template-columns: 1fr;
     }
   }
 }
@@ -544,6 +1004,68 @@
   @apply -translate-y-px;
   box-shadow: 0 4px 32px rgba(0,0,0,0.5);
   border-left-color: #F5B841;
+}
+
+.signal-card[role="button"]:focus-visible,
+.sig-row-tap:focus-visible {
+  outline: 2px solid rgba(0, 183, 255, 0.72);
+  outline-offset: -2px;
+}
+
+.sig-row-tap:focus-visible {
+  background: rgba(0, 183, 255, 0.08) !important;
+}
+
+.signal-ops-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  border-bottom: 1px solid #1F2937;
+  background: linear-gradient(90deg, rgba(0, 183, 255, 0.07), rgba(10, 15, 26, 0.92));
+  box-shadow: inset 0 1px 0 rgba(248, 250, 252, 0.03);
+}
+
+.signal-ops-toolbar-label {
+  color: #94A3B8;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.signal-ops-toolbar button,
+.signal-ops-toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 5px 9px;
+  border: 1px solid #1F2937;
+  border-radius: 6px;
+  background: #101827;
+  color: #CBD5E1;
+  font-size: 0.75rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.signal-ops-toolbar button.is-active {
+  border-color: rgba(0, 183, 255, 0.48);
+  background: rgba(0, 183, 255, 0.14);
+  color: #F8FAFC;
+  box-shadow: inset 0 -2px 0 #00B7FF;
+}
+
+.signal-ops-toolbar input {
+  accent-color: #00B7FF;
+}
+
+.signal-ops-toolbar button:focus-visible,
+.signal-ops-toolbar label:focus-within {
+  outline: 2px solid rgba(0, 183, 255, 0.72);
+  outline-offset: 2px;
 }
 
 /* ═══════════════════════════════════════════════
@@ -951,10 +1473,191 @@
    MOBILE — generous tap targets
    ═══════════════════════════════════════════════ */
 @media (max-width: 768px) {
-  body { font-size: 1rem; }
-  p { font-size: 1rem; }
-  .btn-primary, .btn-secondary { min-height: 54px; width: 100%; justify-content: center; }
-  .input-premium { min-height: 54px; }
+  html,
+  body,
+  #root {
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  body { font-size: 0.95rem; }
+  p { font-size: 0.95rem; line-height: 1.5; }
+  .btn-primary, .btn-secondary { min-height: 44px; width: 100%; justify-content: center; padding-inline: 1rem; }
+  .btn-ghost { min-height: 38px; padding-inline: 0.85rem; }
+  .input-premium { min-height: 44px; }
+
+  .signal-detail-drawer {
+    max-height: 86vh;
+    max-height: 86dvh;
+    border-radius: 10px 10px 0 0;
+  }
+
+  .signal-detail-header {
+    gap: 10px;
+    padding: 11px 12px;
+  }
+
+  .signal-detail-title {
+    margin: 4px 0;
+    font-size: 1rem;
+    line-height: 1.12;
+  }
+
+  .signal-detail-kicker,
+  .signal-detail-meta {
+    font-size: 0.66rem;
+  }
+
+  .signal-detail-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 5px;
+  }
+
+  .signal-detail-sections {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .signal-detail-stat-grid,
+  .signal-accuracy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .signal-detail-stat {
+    min-height: 74px;
+    padding: 9px;
+    border-radius: 6px;
+  }
+
+  .signal-detail-stat span,
+  .signal-detail-stat small,
+  .signal-source-summary span,
+  .signal-timing-card span,
+  .signal-timing-card small {
+    font-size: 0.67rem;
+    line-height: 1.25;
+  }
+
+  .signal-detail-stat strong {
+    margin: 5px 0 3px;
+    font-size: 0.86rem;
+  }
+
+  .signal-detail-section {
+    padding: 10px;
+    border-radius: 6px;
+  }
+
+  .signal-detail-section h3 {
+    margin-bottom: 5px;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+  }
+
+  .signal-detail-section p {
+    font-size: 0.8rem;
+    line-height: 1.45;
+  }
+
+  .signal-movement-card,
+  .signal-timing-card,
+  .signal-action-window {
+    gap: 7px;
+  }
+
+  .signal-movement-row,
+  .signal-trust-row,
+  .signal-movement-note,
+  .signal-empty-inline {
+    font-size: 0.74rem;
+  }
+
+  .signal-source-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 6px;
+    padding: 8px;
+  }
+
+  .signal-source-row small {
+    grid-column: 1 / -1;
+  }
+
+  .signal-driver-row {
+    grid-template-columns: minmax(0, 1fr) 84px;
+    gap: 8px;
+  }
+
+  .signal-action-window,
+  .signal-timing-card,
+  .signal-accuracy-card {
+    padding: 8px;
+    border-radius: 6px;
+  }
+
+  .signal-detail-footer {
+    gap: 8px;
+    padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px));
+    margin-top: 8px;
+  }
+
+  .signal-detail-footer strong {
+    font-size: 0.82rem;
+  }
+
+  .signal-detail-footer span {
+    font-size: 0.7rem;
+  }
+
+  .signal-detail-footer-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+
+  .signal-detail-footer-actions button,
+  .signal-alert-options button {
+    min-height: 34px;
+    font-size: 0.7rem;
+    border-radius: 5px;
+  }
+
+  .signal-ops-toolbar {
+    gap: 6px;
+    padding: 8px 10px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+
+  .signal-ops-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .signal-ops-toolbar-label {
+    flex: 0 0 auto;
+    font-size: 0.62rem;
+  }
+
+  .signal-ops-toolbar button,
+  .signal-ops-toolbar label {
+    flex: 0 0 auto;
+    min-height: 28px;
+    padding: 4px 7px;
+    font-size: 0.68rem;
+    border-radius: 5px;
+    white-space: nowrap;
+  }
+
+  .signal-board-trust-badge {
+    margin-top: 4px;
+    padding: 3px 6px;
+    font-size: 0.65rem;
+  }
+
+  .sig-row-tap td {
+    padding-block: 9px !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════
