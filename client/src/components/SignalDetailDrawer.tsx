@@ -96,6 +96,20 @@ function readSourceCount(signal: SignalDetailLike) {
   return signal.sourceLabels?.length ?? 0;
 }
 
+function confidenceLabel(value: number) {
+  if (!value) return "Unavailable";
+  if (value >= 96) return "95%+";
+  return `${Math.round(value)}%`;
+}
+
+function confidenceBand(value: number) {
+  if (!value) return "Not scored";
+  if (value >= 85) return "High confidence";
+  if (value >= 72) return "Elevated confidence";
+  if (value >= 58) return "Working confidence";
+  return "Monitor only";
+}
+
 function signalTimestamp(signal: SignalDetailLike) {
   return signal.isoTimestamp ?? signal.updated_at ?? signal.created_at ?? signal.timestamp ?? null;
 }
@@ -133,10 +147,10 @@ function parseAgeMinutes(signal: SignalDetailLike) {
 
 function timingProfile(ageMinutes: number | null) {
   if (ageMinutes === null) {
-    return { label: "Timing unavailable", tone: "gray" as Tone, adoption: 0, description: "Detection time is not attached to this signal yet." };
+    return { label: "Timing unavailable", tone: "gray" as Tone, adoption: 0, description: "No first-seen time is attached to this signal yet." };
   }
   if (ageMinutes <= 45) {
-    return { label: "Early", tone: "green" as Tone, adoption: clamp(18 + ageMinutes * 0.7), description: "Signal is still ahead of broad market adoption." };
+    return { label: "Early", tone: "green" as Tone, adoption: clamp(18 + ageMinutes * 0.7), description: "Signal is still ahead of broad market pickup." };
   }
   if (ageMinutes <= 180) {
     return { label: "Developing", tone: "blue" as Tone, adoption: clamp(42 + ageMinutes * 0.18), description: "Market is reacting, but the window can remain useful." };
@@ -197,37 +211,37 @@ function confidenceDrivers(signal: SignalDetailLike, ageMinutes: number | null) 
   const sourceQuality = clamp((signal.sourceTypes?.length ?? 0) * 18 + (sources ? 42 : 24));
 
   return [
-    { label: "Source agreement", value: sources ? sourceScore : Math.max(28, confidence - 35), detail: sources ? `${sources} confirmations attached` : "No confirmations attached" },
+    { label: "Source agreement", value: sources ? sourceScore : Math.max(28, confidence - 35), detail: sources ? `${sources} source checks attached` : "No source checks attached" },
     { label: "Source quality", value: sourceQuality, detail: signal.confirmationStrength ?? "Source quality not yet scored" },
     { label: "Market confirmation", value: hasMovement ? 78 : 36, detail: hasMovement ? "Line movement attached" : "No movement attached yet" },
     { label: "Timing freshness", value: timingScore, detail: freshnessLabel(ageMinutes, signalTimestamp(signal)) },
-    { label: "Historical alignment", value: confidence ? clamp(confidence - 8) : 42, detail: confidence ? "Aligned to current confidence score" : "Historical sample unavailable" },
+    { label: "Historical alignment", value: confidence ? clamp(confidence - 8) : 42, detail: confidence ? "Compared with settled signal bands" : "Settled sample unavailable" },
   ];
 }
 
 function sourceRows(signal: SignalDetailLike) {
   if (Array.isArray(signal.sources) && signal.sources.length) {
     return signal.sources.map((source, index) => {
-      if (typeof source === "string") return { label: source, type: "Trusted source", status: "Verified" };
+      if (typeof source === "string") return { label: source, type: "Tracked source", status: "Attached" };
       return {
         label: source.name ?? `Source ${index + 1}`,
-        type: source.type ?? "Trusted source",
-        status: source.status ?? "Verified",
+        type: source.type ?? "Tracked source",
+        status: source.status ?? "Attached",
       };
     });
   }
   const labels = signal.sourceLabels?.length ? signal.sourceLabels : [];
   const types = signal.sourceTypes?.length ? signal.sourceTypes : [];
-  if (labels.length) return labels.map((label, index) => ({ label, type: types[index] ?? "Trusted source", status: "Verified" }));
-  if (types.length) return types.map((type, index) => ({ label: `Source ${index + 1}`, type, status: "Verified" }));
-  return [{ label: "Source stack", type: "No attached confirmations", status: "Unavailable" }];
+  if (labels.length) return labels.map((label, index) => ({ label, type: types[index] ?? "Tracked source", status: "Attached" }));
+  if (types.length) return types.map((type, index) => ({ label: `Source ${index + 1}`, type, status: "Attached" }));
+  return [{ label: "Source stack", type: "No source checks attached", status: "Pending" }];
 }
 
 function trustSummary(signal: SignalDetailLike, confidence: number, sources: number, timing: ReturnType<typeof timingProfile>) {
   const reasons: string[] = [];
-  if (sources > 1) reasons.push(`${sources} source confirmations are attached`);
-  else if (sources === 1) reasons.push("one source confirmation is attached");
-  else reasons.push("no source confirmations are attached to this view");
+  if (sources > 1) reasons.push(`${sources} source checks are attached`);
+  else if (sources === 1) reasons.push("one source check is attached");
+  else reasons.push("no source checks are attached to this view");
 
   if (confidence >= 80) reasons.push("confidence is elevated");
   else if (confidence > 0) reasons.push("confidence is measured, not final");
@@ -243,11 +257,18 @@ function trustSummary(signal: SignalDetailLike, confidence: number, sources: num
 function accuracyRows(signal: SignalDetailLike) {
   const context = signal.accuracyContext;
   return [
-    { label: "Recent hit rate", value: context?.recentHitRate ?? "Unavailable", detail: "Requires settled signal outcomes." },
-    { label: "Confidence alignment", value: context?.confidenceAlignment ?? "Unavailable", detail: "Compares current confidence to historical settled ranges." },
-    { label: "Category performance", value: context?.categoryPerformance ?? "Unavailable", detail: "Tracks this signal type after outcome review." },
-    { label: "Trend direction", value: context?.trendDirection ?? "Unavailable", detail: "Shows whether comparable edges are improving or weakening." },
+    { label: "Recent hit rate", value: context?.recentHitRate ?? "Not enough settled samples", detail: "Requires settled signal outcomes." },
+    { label: "Confidence alignment", value: context?.confidenceAlignment ?? "Pending review", detail: "Compares current confidence to historical settled ranges." },
+    { label: "Category performance", value: context?.categoryPerformance ?? "Pending review", detail: "Tracks this signal type after outcome review." },
+    { label: "Trend direction", value: context?.trendDirection ?? "No trend yet", detail: "Shows whether comparable edges are improving or weakening." },
   ];
+}
+
+function adoptionBand(value: number) {
+  if (value < 40) return "Low market pickup";
+  if (value < 70) return "Moderate market pickup";
+  if (value < 90) return "Broad market pickup";
+  return "Late market pickup";
 }
 
 function StatCard({ label, value, detail, tone = "gray" }: { label: string; value: string; detail: string; tone?: Tone }) {
@@ -384,8 +405,8 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
 
         <div className="signal-detail-sections">
           <div className="signal-detail-stat-grid">
-            <StatCard label="Confidence" value={model.confidence ? `${model.confidence}%` : "Unavailable"} detail="Current signal strength" tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
-            <StatCard label="Edge Strength" value={model.edge.label} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />
+            <StatCard label="Confidence" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
+            <StatCard label="Signal Read" value={model.edge.label} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />
             <StatCard label="Timing" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
             <StatCard label="Freshness" value={freshnessLabel(model.ageMinutes, signalTimestamp(signal))} detail="Detection age" tone={model.ageMinutes !== null && model.ageMinutes <= 45 ? "green" : "gray"} />
           </div>
@@ -398,7 +419,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             <p>{whyItMatters(signal)}</p>
           </Section>
 
-          <Section title="Why This Signal Is Trusted" icon={<ShieldCheck size={14} />}>
+          <Section title="Trust Notes" icon={<ShieldCheck size={14} />}>
             <div className="signal-trust-stack">
               {model.trust.map((reason) => (
                 <div className="signal-trust-row" key={reason}>
@@ -433,14 +454,14 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
                 </div>
               </div>
             ) : (
-              <div className="signal-empty-inline">No market movement attached yet. Keep this signal on watch until price reaction is visible.</div>
+              <div className="signal-empty-inline">No market movement is attached yet. Treat this as a watch item until price reaction is visible.</div>
             )}
           </Section>
 
           <Section title="Source Confirmation" icon={<ShieldCheck size={14} />}>
             <div className="signal-source-summary">
-              <strong>{model.sources ? `${model.sources} verified confirmations` : "No confirmations attached"}</strong>
-              <span>{signal.confirmationStrength ?? "Consensus level is unavailable for this signal view."}</span>
+              <strong>{model.sources ? `${model.sources} source checks attached` : "No source checks attached"}</strong>
+              <span>{signal.confirmationStrength ?? "Consensus level is not available for this signal view."}</span>
             </div>
             <div className="signal-source-stack">
               {model.rows.map((row) => (
@@ -453,7 +474,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             </div>
           </Section>
 
-          <Section title="Suggested Action Window" icon={<Clock3 size={14} />}>
+          <Section title="Action Window" icon={<Clock3 size={14} />}>
             <div className={`signal-action-window is-${model.timing.tone}`}>
               <strong>{model.timing.label === "Late" ? "Stale risk" : model.timing.label === "Widely Known" ? "Diminishing edge" : "Window open"}</strong>
               <p>{actionWindow(signal, model.timing)}</p>
@@ -477,7 +498,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
               <div className="signal-adoption-meter" role="meter" aria-label="Estimated market adoption" aria-valuemin={0} aria-valuemax={100} aria-valuenow={adoptionValue}>
                 <i style={{ width: `${adoptionValue}%` }} />
               </div>
-              <small>Estimated market adoption band: {adoptionValue}%</small>
+              <small>{adoptionBand(adoptionValue)}</small>
             </div>
           </Section>
 
