@@ -13,9 +13,11 @@ import { RefreshCw, SlidersHorizontal, Clock, Lock } from "lucide-react";
 /** Number of signals shown free before the paywall gate. */
 const FREE_SIGNAL_LIMIT = 3;
 
-/** Parse a query param from the hash fragment, e.g. #/dashboard?topic=free_agency&highlight=abc */
-function getHashParam(key: string): string {
+/** Parse a query param from canonical search, with legacy hash-route fallback. */
+function getRouteParam(key: string): string {
   try {
+    const canonical = new URLSearchParams(window.location.search).get(key);
+    if (canonical) return canonical;
     const hash = window.location.hash;
     const qIdx = hash.indexOf("?");
     if (qIdx === -1) return "";
@@ -48,9 +50,9 @@ function cleanRationale(raw: string | null | undefined): string | null {
 
 export default function Dashboard({ theme, toggleTheme }: Props) {
   const [league, setLeague] = useState("");
-  const [topic, setTopic] = useState(() => getHashParam("topic"));
+  const [topic, setTopic] = useState(() => getRouteParam("topic"));
   const [verdict, setVerdict] = useState("");
-  const highlightId = useRef<string>(getHashParam("highlight"));
+  const highlightId = useRef<string>(getRouteParam("highlight"));
   const didScroll = useRef(false);
 
   const params = new URLSearchParams();

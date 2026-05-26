@@ -51,6 +51,7 @@ import {
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
+import { listCanonicalSituationApiResponses, type CanonicalSituationOrderBy } from "./situations-api";
 import { ingestNFLInjuries } from "./adapters/espn-nfl";
 import { ingestCFBInjuries } from "./adapters/espn-cfb";
 import { buildReplayIntelligenceAnalytics } from "./replay-intelligence-analytics";
@@ -1141,6 +1142,52 @@ export function registerPipelineRoutes(app: Express) {
     const signal = getLiveSignal(req.params.id as string);
     if (!signal) return res.status(404).json({ error: "Signal not found" });
     return res.json(signal);
+  });
+
+  /**
+   * GET /api/v2/situations
+   *
+   * Canonical situation feed for future board/homepage use.
+   * Signals remain the public delivery surface during the transition.
+   */
+  app.get("/api/v2/situations", (req: Request, res: Response) => {
+    const {
+      league,
+      sport,
+      situation_type,
+      situationType,
+      state,
+      lifecycle_state,
+      active_only,
+      activeOnly,
+      order_by,
+      orderBy,
+    } = req.query as {
+      league?: string;
+      sport?: string;
+      situation_type?: string;
+      situationType?: string;
+      state?: string;
+      lifecycle_state?: string;
+      active_only?: string;
+      activeOnly?: string;
+      order_by?: CanonicalSituationOrderBy;
+      orderBy?: CanonicalSituationOrderBy;
+    };
+    const limit = Math.min(Math.max(Number(req.query.limit ?? 100), 0), 250);
+    const validOrder = new Set(["operational_visibility_score", "escalation_score", "confidence", "updated_at"]);
+    const requestedOrder = order_by ?? orderBy;
+    const requestedActiveOnly = active_only ?? activeOnly;
+    const situations = listCanonicalSituationApiResponses({
+      league,
+      sport,
+      situationType: situation_type ?? situationType,
+      lifecycleState: state ?? lifecycle_state,
+      activeOnly: requestedActiveOnly === "true" || requestedActiveOnly === "1",
+      orderBy: validOrder.has(requestedOrder ?? "") ? requestedOrder : "updated_at",
+      limit,
+    });
+    return res.json({ count: situations.length, situations });
   });
 
   /**

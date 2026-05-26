@@ -191,7 +191,7 @@ export const SOURCES: SourceDefinition[] = [
     sports: ["NBA", "MLB", "NFL", "CFB"],
     reliabilityTier: "B",
     url: "https://www.actionnetwork.com",
-    notes: "Sharp money tracking, reverse line movement, steam move alerts.",
+    notes: "Professional activity tracking, context movement, and steam alerts.",
   },
   {
     id: "pregame",
@@ -208,7 +208,7 @@ export const SOURCES: SourceDefinition[] = [
     type: "sportsbook",
     sports: ["NBA", "MLB", "NFL", "CFB"],
     reliabilityTier: "A",
-    notes: "Sharp-side book. Line movement here carries the most signal weight.",
+    notes: "Sharp-side book. Market movement here carries the most signal weight.",
   },
   {
     id: "circa",
@@ -329,3 +329,4 @@ export function getATierSources(sport?: "NBA" | "MLB" | "NFL" | "CFB"): SourceDe
     s.reliabilityTier === "A" && (!sport || s.sports.includes(sport))
   );
 }
+

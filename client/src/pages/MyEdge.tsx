@@ -24,54 +24,54 @@ interface FeatureCard {
 const FEATURES: FeatureCard[] = [
   {
     icon: <Star size={18} />,
-    title: "Watchlist",
-    description: "Save players, teams, and bets/angles you're tracking. Everything in one place, always fresh.",
-    detail: "Pin any player or team from the signal boards. Your watchlist surfaces their signals first every session.",
+    title: "Saved Teams",
+    description: "Follow teams you care about so their board situations surface first.",
+    detail: "NBA and MLB saved teams define the first personalization pass. NFL and CFB follows stay limited until season coverage expands.",
     timeline: "Q3 2026",
     status: "coming",
     accentColor: T.gold,
   },
   {
     icon: <Bell size={18} />,
-    title: "Personalized Alerts",
-    description: "Get notified the moment a signal drops on a player or team you're watching. Real-time edge delivery.",
-    detail: "Injury alerts, line movement, and rotation notes — delivered the second they hit the board.",
+    title: "Watchlist Alerts",
+    description: "Get notified when saved teams, players, or situations cross your alert threshold.",
+    detail: "Availability, lineup, pitcher, and context-movement alerts start with NBA and MLB coverage.",
     timeline: "Q3 2026",
     status: "coming",
     accentColor: T.gold,
   },
   {
     icon: <TrendingUp size={18} />,
-    title: "My Bets / Angles",
-    description: "Log the bets and angles you're building. Track how your signal-based decisions perform over time.",
-    detail: "Connect your signal research to outcomes. Win rate, ROI, and pattern tracking across sports.",
-    timeline: "Q4 2026",
-    status: "planned",
-    accentColor: T.orange,
+    title: "Saved Situations",
+    description: "Keep injury, lineup, pitcher, weather, or role-change situations on your desk.",
+    detail: "Saved situations preserve the context trail so you can revisit what changed and why it mattered.",
+    timeline: "Q3 2026",
+    status: "coming",
+    accentColor: "#00B7FF",
   },
   {
     icon: <Users size={18} />,
-    title: "Saved Teams",
-    description: "Follow specific teams across all sports. Your board surfaces their signals first, every morning.",
-    detail: "NBA + MLB team following now. NFL + CFB follow at season launch.",
+    title: "Saved Players",
+    description: "Track player availability, role movement, and recurring signal context.",
+    detail: "Player follows power alert routing and daily digest priority once enabled.",
     timeline: "Q3 2026",
     status: "coming",
     accentColor: "#00B7FF",
   },
   {
     icon: <Bookmark size={18} />,
-    title: "Saved Signals",
-    description: "Bookmark signals you want to revisit. Export to CSV or share directly with your betting group.",
-    detail: "Signal archive with full detail snapshots. Share via link or export as a clean sheet.",
+    title: "Saved Signal History",
+    description: "Bookmark signals and keep the full read, source picture, and result context together.",
+    detail: "Signal history is planned as a clean research archive tied to your saved teams and players.",
     timeline: "Q4 2026",
     status: "planned",
     accentColor: T.orange,
   },
   {
     icon: <Lock size={18} />,
-    title: "Pro Edge Digest",
-    description: "A daily personalized brief, delivered at 7 AM. Your watchlist, your sport, your angle - curated.",
-    detail: "Personalized digest from your saved teams and players. Formatted for fast pre-game reads.",
+    title: "Daily Digest",
+    description: "A daily brief built from followed leagues, saved teams, saved players, and watchlist alerts.",
+    detail: "The digest is planned after watchlist alerts so it can summarize your actual saved context.",
     timeline: "Q4 2026",
     status: "planned",
     accentColor: T.gold,
@@ -173,7 +173,7 @@ function FeatureCardItem({ feature }: { feature: FeatureCard }) {
   );
 }
 
-/* ── Team silhouette placeholder ── */
+/* ── Followed team preview ── */
 function TeamSilhouettes() {
   const teams = ["LAL", "BOS", "GSW", "DEN", "NYY", "LAD"];
   return (
@@ -184,7 +184,7 @@ function TeamSilhouettes() {
           <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: T.textFaint }}>{t}</span>
         </div>
       ))}
-      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint }}>+ more when Watchlist launches</span>
+      <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.textFaint }}>followed league and team examples</span>
     </div>
   );
 }
@@ -231,19 +231,18 @@ export default function MyEdge() {
               fontSize: 12, color: T.textMuted, margin: 0, lineHeight: 1.7,
               maxWidth: 540, letterSpacing: "0.04em",
             }}>
-              My Edge is the personalization layer of Edge Setter — your saved players, watchlists, 
-              angle tracking, and a daily digest tailored to your research workflow. 
-              Everything launching below is in active development.
+              My Edge is the personalization layer of Edge Setter: saved teams, saved players, saved situations, watchlist alerts, followed leagues, a daily digest, and saved signal history.
+              Disabled items below are labeled by rollout state, but this is the system that will shape your desk around the sports context you follow.
             </p>
           </div>
         </div>
 
         {/* ── Cockpit stat row ── */}
         <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-          <CockpitStat label="Features Planned" value="6" color={T.gold} />
+          <CockpitStat label="Personal Layers" value="7" color={T.gold} />
           <CockpitStat label="Launching" value="Q3" sub="2026" color={T.green} />
-          <CockpitStat label="Sports Covered" value="4" color="#00B7FF" />
-          <CockpitStat label="Pro Early Access" value="✓" color={T.gold} />
+          <CockpitStat label="Followed Leagues" value="4" color="#00B7FF" />
+          <CockpitStat label="Pro Early Access" value="On" color={T.gold} />
         </div>
 
         {/* ── Status development banner ── */}
@@ -267,7 +266,7 @@ export default function MyEdge() {
               fontSize: 12, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.04em",
             }}>
               Pro subscribers will get early access to My Edge features as they roll out. 
-              Watchlist and player alerts launch first, followed by angle tracking and the personalized daily digest.
+              Saved teams, saved players, saved situations, and watchlist alerts launch first; saved signal history and the daily digest follow after that foundation is active.
             </div>
           </div>
         </div>
@@ -281,7 +280,7 @@ export default function MyEdge() {
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint,
             marginBottom: 12,
-          }}>Your Watchlist Preview — Placeholder Teams</div>
+          }}>Followed League Preview</div>
           <TeamSilhouettes />
         </div>
 
@@ -292,7 +291,7 @@ export default function MyEdge() {
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold,
-            }}>Upcoming Features</span>
+            }}>Personalization Layers</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 12, marginBottom: 40 }}>
             {FEATURES.map(feature => (
@@ -312,9 +311,9 @@ export default function MyEdge() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
             {[
-              { label: "NBA Board",          desc: "Live signal stream. Playoff intel.",  href: "/v2/nba",         color: T.gold,      dotColor: T.gold },
-              { label: "MLB Board",          desc: "Regular season. Pitcher and lineup.", href: "/v2/mlb",         color: "#00B7FF",   dotColor: "#00B7FF" },
-              { label: "Signal Lab",         desc: "All current + upcoming tools.",       href: "/v2/tools",       color: T.gold,      dotColor: T.green },
+              { label: "NBA Board",          desc: "Live signal stream and saved-team source.", href: "/nba",      color: T.gold,      dotColor: T.gold },
+              { label: "MLB Board",          desc: "Active pitcher, lineup, and weather context.", href: "/mlb",   color: "#00B7FF",   dotColor: "#00B7FF" },
+              { label: "Tool Desk",          desc: "Live, active, and limited workflows clearly labeled.", href: "/tools", color: T.gold, dotColor: T.green },
               { label: "Source Leaderboard", desc: "Track source reliability.",           href: "/sources",    color: T.textMuted, dotColor: T.textFaint },
             ].map(item => (
               <Link key={item.label} href={item.href}>
@@ -361,7 +360,7 @@ export default function MyEdge() {
             </span>
           </div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 8 }}>
-            Get Ahead Before My Edge Launches
+            Get Early Access to Personalization
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -369,7 +368,7 @@ export default function MyEdge() {
             marginBottom: 18, maxWidth: 500,
           }}>
             Pro subscribers get first access to every My Edge feature as it ships, plus real-time alerts, 
-            full signal archive, and all Beta tools across NBA, MLB, and NFL.
+            saved situations, daily digest routing, and saved signal history as each layer ships.
           </div>
           <Link href="/pro">
             <button style={{
@@ -386,3 +385,4 @@ export default function MyEdge() {
     </V2Shell>
   );
 }
+

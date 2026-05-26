@@ -83,7 +83,7 @@ const input: ReplayLiveBridgeInput = {
     {
       event_id: "source-intel-2",
       source_id: "market-watch",
-      source_name: "Market Watch",
+      source_name: "Movement Context",
       source_type: "model",
       reliability_score: 81,
       topic: "odds",
@@ -214,7 +214,7 @@ function liveSignal(
     team,
     player,
     matchup: "MIA @ BOS",
-    sources: [{ name: signalType === "line_move" ? "Market Watch" : "ESPN NBA Injuries", type: "api" }],
+    sources: [{ name: signalType === "line_move" ? "Movement Context" : "ESPN NBA Injuries", type: "api" }],
     source_count: 1,
     verdict: "likely",
     confidence,
@@ -287,3 +287,4 @@ function hasKind(
 function assertEqual<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) throw new Error(`${message}. Expected ${String(expected)}, got ${String(actual)}.`);
 }
+

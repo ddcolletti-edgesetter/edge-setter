@@ -121,7 +121,7 @@ describe("highlight effect — valid signal ID", () => {
     // Assert: gold ring styles applied.
     // jsdom normalises hex colours to rgb() on read-back, so we match either form.
     expect(card.style.boxShadow).toBeTruthy();
-    expect(card.style.borderLeftColor).toMatch(/caa85a|rgb\(202,\s*168,\s*90\)/i);
+    expect(card.style.borderLeftColor).toMatch(/f5b841|rgb\(245,\s*184,\s*65\)/i);
     expect(card.style.transition).toBe(
       "box-shadow 0.3s ease, border-color 0.3s ease"
     );
@@ -140,7 +140,7 @@ describe("highlight effect — valid signal ID", () => {
 
     // Confirm ring is on — jsdom normalises hex to rgb() on read-back
     expect(card.style.boxShadow).not.toBe("");
-    expect(card.style.borderLeftColor).toMatch(/caa85a|rgb\(202,\s*168,\s*90\)/i);
+    expect(card.style.borderLeftColor).toMatch(/f5b841|rgb\(245,\s*184,\s*65\)/i);
 
     // Advance past the 2 200 ms clear timer
     vi.advanceTimersByTime(2200);

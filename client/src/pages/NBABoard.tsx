@@ -1,729 +1,134 @@
-import { useState, useMemo, useEffect, useRef, useCallback, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { RefreshCw } from "lucide-react";
+import { useSearch } from "wouter";
+
 import AppShell from "@/components/V2Shell";
 import { NewSignalsToast } from "@/components/NewSignalsToast";
-import { BoardHeader } from "@/components/BoardHeader";
 import { SignalDetailDrawer } from "@/components/SignalDetailDrawer";
-import { useNBASignals } from "@/hooks/useSignals";
-import { useSearch } from "wouter";
-import { getTeamLogo, getPlayerHeadshot, getInitialsAvatar } from "@/lib/espnAssets";
+import { BoardCommandBar } from "@/components/board/BoardCommandBar";
+import { BoardPriorityControls } from "@/components/board/BoardPriorityControls";
+import { FeaturedSituation } from "@/components/board/FeaturedSituation";
+import { LiveGameStrip } from "@/components/board/LiveGameStrip";
+import { SituationLane } from "@/components/board/SituationLane";
+import { TopDevelopments } from "@/components/board/TopDevelopments";
 import {
-  Activity, BarChart2, Bell, BellOff, ChevronRight, Clock,
-  Lock, Shield, TrendingUp, TrendingDown, User, Zap,
-} from "lucide-react";
-import { compareSignals, lifecycleTone, signalHasMovement, signalIsActionable, signalLifecycle, signalTrustLabel, type BoardSortMode } from "@/lib/signalBoardUx";
+  featuredCopy,
+  situationMatchesPriority,
+  sortModeFromPriority,
+  toLiveGamePillData,
+  toSituationRowData,
+  type AnyBoardGame,
+} from "@/components/board/boardAdapters";
+import { useNBASignals } from "@/hooks/useSignals";
+import { buildBoardSituations, rankBoardSituations, selectFeaturedSituation, type BoardSituation } from "@/lib/boardSituations";
+import { getLeagueBoardProfile } from "@/lib/leagueBoardProfiles";
+import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations } from "@/lib/situationAdapters";
+import { filterCanonicalSituations, useCanonicalSituations } from "@/lib/situationsApi";
+import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "@/lib/signalBoardUx";
+import type { SituationLaneType } from "@/components/board/SituationRow";
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-function timeAgo(ts: Date | string) {
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-function confColor(score: number) {
-  if (score >= 80) return "#00E676";
-  if (score >= 60) return "#F5B841";
-  return "#FF5252";
-}
-
-// ── NBA Team colors ──────────────────────────────────────────────────────────
-const NBA_COLORS: Record<string, [string, string]> = {
-  BOS: ["#007A33", "#FFFFFF"], BKN: ["#000000", "#FFFFFF"],
-  NYK: ["#006BB6", "#F58426"], PHI: ["#006BB6", "#ED174C"],
-  TOR: ["#CE1141", "#FFFFFF"], CHI: ["#CE1141", "#000000"],
-  CLE: ["#860038", "#FDBB30"], DET: ["#C8102E", "#1D42BA"],
-  IND: ["#002D62", "#FDBB30"], MIL: ["#00471B", "#EEE1C6"],
-  ATL: ["#E03A3E", "#C1D32F"], CHA: ["#1D1160", "#00788C"],
-  MIA: ["#98002E", "#F9A01B"], ORL: ["#0077C0", "#C4CED4"],
-  WAS: ["#002B5C", "#E31837"], DEN: ["#0E2240", "#FEC524"],
-  MIN: ["#0C2340", "#236192"], OKC: ["#007AC1", "#EF3B24"],
-  POR: ["#E03A3E", "#000000"], UTA: ["#002B5C", "#00471B"],
-  GSW: ["#1D428A", "#FFC72C"], LAC: ["#C8102E", "#1D428A"],
-  LAL: ["#552583", "#FDB927"], PHX: ["#1D1160", "#E56020"],
-  SAC: ["#5A2D81", "#63727A"], DAL: ["#00538C", "#002B5C"],
-  HOU: ["#CE1141", "#000000"], MEM: ["#5D76A9", "#12173F"],
-  NOP: ["#0C2340", "#C8102E"], SAS: ["#C4CED4", "#000000"],
-};
-function getTeamColors(abbr: string | null): [string, string] {
-  if (!abbr) return ["#101827", "#8A9099"];
-  return NBA_COLORS[abbr.toUpperCase()] ?? ["#101827", "#8A9099"];
-}
-
-// ── Player Avatar with ESPN headshot ─────────────────────────────────────────
-function PlayerAvatar({ name, size = 48 }: { name: string; size?: number }) {
-  const headshotUrl = getPlayerHeadshot(name, "nba");
-  const { initials, color } = getInitialsAvatar(name);
-  if (headshotUrl) {
-    return (
-      <div style={{
-        width: size, height: size, borderRadius: "50%",
-        overflow: "hidden", flexShrink: 0,
-        border: "2px solid #2A2F3E", background: "#0A0F1A",
-      }}>
-        <img src={headshotUrl} alt={name}
-          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-          onError={e => {
-            const el = e.currentTarget; el.style.display = "none";
-            const p = el.parentElement!;
-            p.style.cssText += `background:${color};display:flex;align-items:center;justify-content:center;`;
-            p.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:${Math.round(size*0.34)}px;color:#fff">${initials}</span>`;
-          }}
-        />
-      </div>
-    );
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%", background: color,
-      border: "2px solid rgba(255,255,255,0.1)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      flexShrink: 0, fontFamily: "'Barlow Condensed', sans-serif",
-      fontWeight: 800, fontSize: size * 0.34, color: "#fff",
-    }}>
-      {initials || <User size={size * 0.45} />}
-    </div>
-  );
-}
-// ── Team Logo (ESPN CDN with color-circle fallback) ─────────────────────────────
-// teamName = full team name from DB (e.g., "Los Angeles Lakers") OR abbreviation
-function TeamBadge({ teamName, size = 44 }: { teamName: string; size?: number }) {
-  const logoUrl = getTeamLogo(teamName, "nba");
-  // Derive display abbreviation — last word max 3 chars for label
-  const words = teamName.trim().split(" ");
-  const displayAbbr = words.length === 1 && teamName.length <= 4
-    ? teamName.toUpperCase()
-    : words[words.length - 1].slice(0, 3).toUpperCase();
-  // For colors, prefer the proper NBA abbreviation from the name map
-  const NBA_NAME_ABBR: Record<string, string> = {
-    "atlanta hawks": "ATL", "boston celtics": "BOS", "brooklyn nets": "BKN",
-    "charlotte hornets": "CHA", "chicago bulls": "CHI", "cleveland cavaliers": "CLE",
-    "dallas mavericks": "DAL", "denver nuggets": "DEN", "detroit pistons": "DET",
-    "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
-    "los angeles clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
-    "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN",
-    "new orleans pelicans": "NOP", "new york knicks": "NYK", "oklahoma city thunder": "OKC",
-    "orlando magic": "ORL", "philadelphia 76ers": "PHI", "phoenix suns": "PHX",
-    "portland trail blazers": "POR", "sacramento kings": "SAC", "san antonio spurs": "SAS",
-    "toronto raptors": "TOR", "utah jazz": "UTA", "washington wizards": "WAS",
-  };
-  const colorAbbr = NBA_NAME_ABBR[teamName.toLowerCase().trim()] ?? teamName.toUpperCase().slice(0, 3);
-  const [bg, text] = getTeamColors(colorAbbr);
-  if (logoUrl) {
-    return (
-      <div style={{
-        width: size, height: size, borderRadius: "50%",
-        background: `${bg}22`, border: `2px solid ${bg}55`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexShrink: 0, overflow: "hidden", padding: "4px",
-      }}>
-        <img src={logoUrl} alt={displayAbbr}
-          style={{ width: "100%", height: "100%", objectFit: "contain" }}
-          onError={e => {
-            const el = e.currentTarget; el.style.display = "none";
-            const p = el.parentElement!;
-            p.style.cssText += `background:${bg};display:flex;align-items:center;justify-content:center;`;
-            p.innerHTML = `<span style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:${Math.round(size*0.3)}px;color:${text}">${displayAbbr}</span>`;
-          }}
-        />
-      </div>
-    );
-  }
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: bg, border: `2px solid ${text}33`,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      flexShrink: 0, fontFamily: "'Barlow Condensed', sans-serif",
-      fontWeight: 900, fontSize: size * 0.3, color: text,
-    }}>
-      {displayAbbr}
-    </div>
-  );
-}
-
-function ConfBar({ score }: { score: number | null }) {
-  const pct = score ?? 50;
-  const color = confColor(pct);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-      <div style={{ width: "60px", height: "3px", background: "#101827", borderRadius: "2px", overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: color, borderRadius: "2px" }} />
-      </div>
-      <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.875rem", color, minWidth: "28px" }}>{pct}%</span>
-    </div>
-  );
-}
-
-function VerdictBadge({ status }: { status: string | null }) {
-  if (!status) return null;
-  const map: Record<string, [string, string]> = {
-    verified:   ["#00E676", "rgba(0,230,118,0.12)"],
-    confirmed:  ["#00E676", "rgba(0,230,118,0.12)"],
-    official:   ["#F5B841", "rgba(245,184,65,0.12)"],
-    developing: ["#F5B841", "rgba(245,184,65,0.12)"],
-    unconfirmed:["#8A9099", "rgba(138,144,153,0.12)"],
-  };
-  const [color, bg] = map[status.toLowerCase()] ?? ["#8A9099", "rgba(138,144,153,0.12)"];
-  return (
-    <span style={{
-      display: "inline-block", padding: "2px 8px", borderRadius: "4px",
-      fontSize: "0.65rem", fontWeight: 800,
-      textTransform: "uppercase", letterSpacing: "0.08em",
-      color, background: bg, border: `1px solid ${color}44`,
-    }}>{status}</span>
-  );
-}
-
-// ── Today's Games ────────────────────────────────────────────────────────────
-// Live game type from tRPC
-type LiveGame = {
-  id: number; sport: "nba" | "mlb"; espnEventId: string;
-  homeTeam: string | null; awayTeam: string | null;
-  gameDate: Date | null; statusDescription: string | null;
-  homeScore: number | null; awayScore: number | null; cachedAt: Date;
-};
-function formatGameTime(date: Date | null, status: string | null): string {
-  if (status && (status.toLowerCase().includes("final") || status.toLowerCase().includes("in progress"))) return status;
-  if (!date) return "TBD";
-  return new Date(date).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", timeZoneName: "short" });
-}
-// Map full NBA team names to their standard 3-char abbreviations for card labels
-const NBA_ABBR_MAP: Record<string, string> = {
-  "atlanta hawks": "ATL", "boston celtics": "BOS", "brooklyn nets": "BKN",
-  "charlotte hornets": "CHA", "chicago bulls": "CHI", "cleveland cavaliers": "CLE",
-  "dallas mavericks": "DAL", "denver nuggets": "DEN", "detroit pistons": "DET",
-  "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
-  "los angeles clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
-  "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN",
-  "new orleans pelicans": "NOP", "new york knicks": "NYK", "oklahoma city thunder": "OKC",
-  "orlando magic": "ORL", "philadelphia 76ers": "PHI", "phoenix suns": "PHX",
-  "portland trail blazers": "POR", "sacramento kings": "SAC", "san antonio spurs": "SAS",
-  "toronto raptors": "TOR", "utah jazz": "UTA", "washington wizards": "WAS",
-};
-function getTeamAbbr(fullName: string): string {
-  return NBA_ABBR_MAP[fullName.toLowerCase().trim()] ?? fullName.toUpperCase().slice(0, 3);
-}
-function GameCard({ game, active, onClick, signalCount }: {
-  game: LiveGame; active: boolean; onClick: () => void; signalCount?: number;
-}) {
-  const awayFull = game.awayTeam ?? "TBD";
-  const homeFull = game.homeTeam ?? "TBD";
-  const away = getTeamAbbr(awayFull);
-  const home = getTeamAbbr(homeFull);
-  const [awayBg] = getTeamColors(away);
-  const [homeBg] = getTeamColors(home);
-  const isLive = game.statusDescription?.toLowerCase().includes("in progress");
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        minWidth: "200px", maxWidth: "220px",
-        background: active ? "#101827" : "#0A0F1A",
-        border: `1px solid ${active ? "#F5B841" : "#101827"}`,
-        borderRadius: "10px", overflow: "hidden",
-        cursor: "pointer", flexShrink: 0,
-        transition: "all 0.15s ease",
-      }}
-      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = "#2A2F3E"; }}
-      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.borderColor = "#101827"; }}
-    >
-      <div style={{ height: "3px", background: `linear-gradient(90deg, ${awayBg}, ${homeBg})` }} />
-      <div style={{ padding: "14px 16px 10px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
-            <TeamBadge teamName={awayFull} size={48} />
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{away}</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "4px" }}>
-            <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.8rem", color: "#3A3F4E", fontWeight: 700 }}>@</span>
-            {isLive && <span style={{ fontSize: "0.55rem", fontWeight: 800, color: "#00E676", textTransform: "uppercase" }}>LIVE</span>}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "5px" }}>
-            <TeamBadge teamName={homeFull} size={48} />
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.05rem", fontWeight: 900, color: "#E0E0E0" }}>{home}</span>
-          </div>
-        </div>
-      </div>
-      {(game.homeScore !== null || game.awayScore !== null) && (
-        <div style={{ padding: "0 16px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5B841" }}>{game.awayScore ?? "-"}</span>
-          <span style={{ fontSize: "0.66rem", color: "#94A3B8", fontWeight: 700 }}>SCORE</span>
-          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.1rem", fontWeight: 700, color: "#F5B841" }}>{game.homeScore ?? "-"}</span>
-        </div>
-      )}
-      <div style={{ padding: "0 16px 12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px" }}>
-        {[{ label: "STATUS", val: game.statusDescription ?? "Scheduled" }, { label: "TIME", val: formatGameTime(game.gameDate, game.statusDescription) }].map(s => (
-          <div key={s.label} style={{ textAlign: "center" }}>
-            <div style={{ fontSize: "0.62rem", color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "3px" }}>{s.label}</div>
-            <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.72rem", color: "#CBD5E1", lineHeight: 1.2 }}>{s.val}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ borderTop: "1px solid #1A1E2A", padding: "8px 16px", display: "flex", alignItems: "center", gap: "6px" }}>
-        <Zap size={12} style={{ color: "#F5B841" }} />
-        <span style={{ fontSize: "0.78rem", color: "#F5B841", fontWeight: 700 }}>{signalCount ?? 0} signals</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Signal row ───────────────────────────────────────────────────────────────
 type Signal = {
-  id: number | string; headline: string; detail: string | null;
-  player: string | null; team: string | null;
-  type: string; confidence: number | null;
-  verdict: string | null; action_takeaway: string | null;
+  id: number | string;
+  headline: string;
+  detail: string | null;
+  player: string | null;
+  team: string | null;
+  opponent?: string | null;
+  type: string;
+  confidence: number | null;
+  verdict: string | null;
+  action_takeaway: string | null;
   timestamp: string;
 };
 
-// FIX: Added isMobile prop — renders card layout on mobile, table row on desktop.
-function SignalRow({
-  signal,
-  isPro = false,
-  userIsPro = false,
-  isMobile = false,
-  onOpenDetails,
-}: {
-  signal: Signal;
-  isPro?: boolean;
-  userIsPro?: boolean;
-  isMobile?: boolean;
-  onOpenDetails?: (signal: Signal) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [alerted, setAlerted] = useState(false);
-  const openDetails = () => {
-    if (!isPro) onOpenDetails?.(signal);
-  };
-  const toggleExpanded = () => {
-    if (!isPro) setExpanded(e => !e);
-  };
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      toggleExpanded();
-    }
-  };
-  const lifecycle = signalLifecycle(signal);
-  const lifecycleColor = lifecycleTone(lifecycle);
-  const hasMovement = signalHasMovement(signal);
-  const trustLabel = signalTrustLabel(signal);
-  const statusChip = (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 3, border: `1px solid ${lifecycleColor}44`, background: `${lifecycleColor}12`, color: lifecycleColor, fontSize: "0.64rem", fontWeight: 850, letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>
-      {lifecycle}
-    </span>
-  );
+type LiveGame = {
+  id: number;
+  sport: "nba";
+  espnEventId: string;
+  homeTeam: string | null;
+  awayTeam: string | null;
+  gameDate: Date | null;
+  statusDescription: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  cachedAt: Date;
+};
 
-
-  // Shared type badge builder
-  const typeBadge = (() => {
-    const t = (signal.type ?? "").toLowerCase();
-    const colors: Record<string, { bg: string; color: string; border: string }> = {
-      injury:     { bg: "rgba(255,85,85,0.1)",   color: "#FF5252", border: "rgba(255,85,85,0.25)" },
-      lineup:     { bg: "rgba(74,158,255,0.1)",  color: "#00B7FF", border: "rgba(74,158,255,0.25)" },
-      line_move:  { bg: "rgba(176,110,255,0.1)", color: "#B06EFF", border: "rgba(176,110,255,0.25)" },
-      line_moves: { bg: "rgba(176,110,255,0.1)", color: "#B06EFF", border: "rgba(176,110,255,0.25)" },
-      scheme:     { bg: "rgba(0,210,190,0.1)",   color: "#00D2BE", border: "rgba(0,210,190,0.25)" },
-      weather:    { bg: "rgba(0,220,255,0.1)",   color: "#00DCFF", border: "rgba(0,220,255,0.25)" },
-      trade:      { bg: "rgba(245,184,65,0.1)",  color: "#F5B841", border: "rgba(245,184,65,0.25)" },
-      props:      { bg: "rgba(0,230,118,0.08)",  color: "#00E676", border: "rgba(0,230,118,0.2)" },
-    };
-    const c = colors[t] ?? { bg: "rgba(245,184,65,0.08)", color: "#F5B841", border: "rgba(245,184,65,0.2)" };
-    return (
-      <span style={{ fontSize: "0.65rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", padding: "3px 8px", borderRadius: "3px", background: c.bg, color: c.color, border: `1px solid ${c.border}`, whiteSpace: "nowrap" }}>
-        {signal.type}
-      </span>
-    );
-  })();
-
-  // ── MOBILE CARD LAYOUT ────────────────────────────────────────────────────
-  if (isMobile) {
-    return (
-      <div
-        className={!isPro ? "ux-card-interactive" : undefined}
-        role={!isPro ? "button" : undefined}
-        tabIndex={!isPro ? 0 : undefined}
-        onKeyDown={!isPro ? handleRowKeyDown : undefined}
-        onClick={toggleExpanded}
-        style={{ borderBottom: "1px solid #1A1E2A", position: "relative" }}
-      >
-        {isPro && (
-          <div style={{ position: "absolute", inset: 0, background: "rgba(10,12,16,0.7)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "14px", zIndex: 2 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "5px", background: "rgba(245,184,65,0.22)", border: "1px solid rgba(245,184,65,0.45)", fontSize: "0.875rem", fontWeight: 800, color: "#F5B841", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              <Lock size={10} /> PRO
-            </span>
-          </div>
-        )}
-        <div style={{ padding: "12px 16px 10px" }}>
-          {/* Row 1: type badge (left) + timestamp (right) */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>{typeBadge}{statusChip}{hasMovement && <span style={{ color: "#00B7FF", fontSize: "0.64rem", fontWeight: 850, letterSpacing: "0.08em", textTransform: "uppercase" }}>Moved</span>}</div>
-            <span style={{ fontSize: "0.875rem", color: "#94A3B8", fontWeight: 600 }}>{signal.timestamp}</span>
-          </div>
-          {/* Row 2: player name — 16px, 500 weight */}
-          {(signal.player || signal.team) && (
-            <div style={{ fontSize: "1rem", fontWeight: 600, color: isPro ? "#64748B" : "#F8FAFC", marginBottom: "4px" }}>
-              {signal.player ?? signal.team}
-            </div>
-          )}
-          {/* Row 3: headline — 14px, 2-line clamp */}
-          <div style={{
-            fontSize: "0.875rem", fontWeight: 400,
-            color: isPro ? "#64748B" : "#CBD5E1",
-            lineHeight: 1.45,
-            overflow: "hidden",
-            display: "-webkit-box",
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: "vertical" as any,
-            marginBottom: "10px",
-          }}>
-            {signal.headline}
-          </div>
-          {/* Row 4: confidence bar full width */}
-          <ConfBar score={signal.confidence} />
-          <div className="signal-board-trust-badge">Trust: {trustLabel}</div>
-        </div>
-        {/* Row 5: verdict badge (left) + View Detail → (right), min 44px tap target */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", minHeight: "44px", borderTop: "1px solid #1A1E2A" }}>
-          <VerdictBadge status={signal.verdict} />
-          {!isPro && (
-            <button
-              onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
-              className="ux-button-interactive"
-              style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "transparent", border: "none", cursor: "pointer", fontSize: "0.8rem", fontWeight: 700, color: "#F5B841", minHeight: "44px", padding: "0", WebkitTapHighlightColor: "transparent" }}
-            >
-              {expanded ? "Close" : "View Detail"} <ChevronRight size={13} />
-            </button>
-          )}
-        </div>
-        {/* Expanded detail */}
-        {expanded && !isPro && (
-          <div style={{ padding: "10px 16px 14px", borderTop: "1px solid #1A1E2A" }}>
-            {signal.detail && <p style={{ color: "#CBD5E1", fontSize: "0.85rem", lineHeight: 1.6, margin: "0 0 8px" }}>{signal.detail}</p>}
-            {signal.action_takeaway && (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(245,184,65,0.06)", border: "1px solid rgba(245,184,65,0.15)" }}>
-                <Zap size={11} style={{ color: "#F5B841" }} />
-                <span style={{ fontSize: "0.8rem", color: "#F5B841" }}>{signal.action_takeaway}</span>
-              </div>
-            )}
-            <button type="button" className="ux-button-interactive" onClick={(e) => { e.stopPropagation(); openDetails(); }} style={{ display: "block", marginTop: "10px", padding: "7px 10px", borderRadius: "6px", border: "1px solid rgba(0,183,255,0.28)", background: "rgba(0,183,255,0.08)", color: "#00B7FF", fontSize: "0.78rem", fontWeight: 800, cursor: "pointer" }}>
-              View detail
-            </button>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── DESKTOP TABLE ROW LAYOUT ──────────────────────────────────────────────
-  return (
-    <div
-      className={!isPro ? "ux-row-interactive" : undefined}
-      role={!isPro ? "button" : undefined}
-      tabIndex={!isPro ? 0 : undefined}
-      onKeyDown={!isPro ? handleRowKeyDown : undefined}
-      onClick={toggleExpanded}
-      style={{ borderBottom: "1px solid #1A1E2A", cursor: isPro ? "default" : "pointer", position: "relative", transition: "background 0.14s, box-shadow 0.14s" }}
-    >
-      {isPro && (
-        <div style={{ position: "absolute", inset: 0, background: "rgba(10,12,16,0.7)", backdropFilter: "blur(2px)", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: "16px", zIndex: 2 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", padding: "4px 10px", borderRadius: "5px", background: "rgba(245,184,65,0.12)", border: "1px solid rgba(245,184,65,0.3)", fontSize: "0.7rem", fontWeight: 800, color: "#F5B841", textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            <Lock size={10} /> PRO
-          </span>
-        </div>
-      )}
-      <div style={{ display: "flex", alignItems: "center", gap: "14px", padding: "14px 18px" }}>
-        {signal.player
-          ? <PlayerAvatar name={signal.player} size={48} />
-          : <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#101827", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><Activity size={18} style={{ color: "#94A3B8" }} /></div>
-        }
-        <div style={{ minWidth: "90px", display: "grid", gap: 5 }}>{typeBadge}{statusChip}{hasMovement && <span style={{ color: "#00B7FF", fontSize: "0.64rem", fontWeight: 850, letterSpacing: "0.08em", textTransform: "uppercase" }}>Market moved</span>}</div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.15rem", fontWeight: 700, color: isPro ? "#64748B" : "#F8FAFC", lineHeight: 1.3, marginBottom: "5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded ? "normal" : "nowrap" }}>{signal.headline}</div>
-          {signal.player && <div style={{ fontSize: "0.76rem", color: "#94A3B8", fontWeight: 600 }}>{signal.player}{signal.team ? ` · ${signal.team}` : ""}</div>}
-        </div>
-        <div style={{ minWidth: "90px", textAlign: "right" }}><VerdictBadge status={signal.verdict} /></div>
-        <div style={{ minWidth: "100px" }}><ConfBar score={signal.confidence} /></div>
-        <div style={{ minWidth: "60px", textAlign: "right" }}>
-          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "0.68rem", color: "#94A3B8", fontWeight: 700 }}>{signal.timestamp}</span>
-        </div>
-        {!isPro && (
-          <button
-            type="button"
-            className="ux-button-interactive"
-            onClick={(e) => { e.stopPropagation(); openDetails(); }}
-            aria-label="View signal detail"
-            title="View signal detail"
-            style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "6px 9px", borderRadius: "6px", border: "1px solid rgba(0,183,255,0.28)", background: "rgba(0,183,255,0.08)", color: "#00B7FF", fontSize: "0.72rem", fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}
-          >
-            View detail <ChevronRight size={12} />
-          </button>
-        )}
-        {userIsPro && !isPro && (
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              setAlerted(a => !a);
-            }}
-            title={alerted ? "Remove alert" : "Get alerted for similar signals"}
-            style={{ display: "inline-flex", alignItems: "center", padding: "4px", borderRadius: "4px", background: "transparent", border: "none", cursor: "pointer", color: alerted ? "#F5B841" : "#94A3B8", transition: "color 0.15s" }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = "#F5B841"; }}
-            onMouseLeave={e => { if (!alerted) (e.currentTarget as HTMLElement).style.color = "#94A3B8"; }}
-          >
-            {alerted ? <Bell size={14} /> : <BellOff size={14} />}
-          </button>
-        )}
-      </div>
-      {expanded && !isPro && (
-        <div style={{ padding: "0 16px 14px 64px", borderTop: "1px solid #1A1E2A" }}>
-            {signal.detail && <p style={{ color: "#CBD5E1", fontSize: "0.85rem", lineHeight: 1.6, margin: "10px 0 8px" }}>{signal.detail}</p>}
-            {signal.action_takeaway && (
-              <div style={{ display: "inline-flex", alignItems: "center", gap: "7px", padding: "6px 12px", borderRadius: "6px", background: "rgba(245,184,65,0.06)", border: "1px solid rgba(245,184,65,0.15)" }}>
-                <Zap size={11} style={{ color: "#F5B841" }} />
-                <span style={{ fontSize: "0.8rem", color: "#F5B841" }}>{signal.action_takeaway}</span>
-              </div>
-            )}
-            <button type="button" className="ux-button-interactive" onClick={(e) => { e.stopPropagation(); openDetails(); }} style={{ marginLeft: "10px", padding: "6px 10px", borderRadius: "6px", border: "1px solid rgba(0,183,255,0.28)", background: "rgba(0,183,255,0.08)", color: "#00B7FF", fontSize: "0.76rem", fontWeight: 800, cursor: "pointer" }}>
-              View detail
-            </button>
-          </div>
-        )}
-    </div>
-  );
-}
-
-// ── Right panel ──────────────────────────────────────────────────────────────
-const INJURY_ALERTS = [
-  { name: "LeBron James",    full: "LeBron James",    team: "LAL", detail: "Questionable — ankle",  status: "Q"   },
-  { name: "Joel Embiid",     full: "Joel Embiid",     team: "PHI", detail: "OUT — knee",            status: "OUT" },
-  { name: "Steph Curry",     full: "Stephen Curry",   team: "GSW", detail: "Confirmed starter",     status: "OK"  },
-  { name: "Giannis A.",      full: "Giannis Antetokounmpo", team: "MIL", detail: "Full practice", status: "OK"  },
-];
-
-const LINEUP_MOVES = [
-  { player: "Anthony Davis",  team: "LAL", detail: "Starting center confirmed", trend: "up"   },
-  { player: "Jaylen Brown",   team: "BOS", detail: "Moved to 2nd unit",         trend: "down" },
-  { player: "Nikola Jokic",   team: "DEN", detail: "Cleared to play",           trend: "up"   },
-  { player: "Tyrese Haliburton", team: "IND", detail: "Upgraded to probable",  trend: "up"   },
-];
-
-const TEAM_TRENDS = [
-  { team: "BOS", trend: "12-3 home this month",  dir: "up"   },
-  { team: "DEN", trend: "8-2 ATS last 10",       dir: "up"   },
-  { team: "LAL", trend: "4-8 road games",        dir: "down" },
-  { team: "MIL", trend: "6-1 last 7 at home",   dir: "up"   },
-  { team: "GSW", trend: "3-7 last 10",           dir: "down" },
-];
-
-function RightPanel() {
-  return (
-    <aside style={{ width: "300px", minWidth: "300px", background: "#0A0C10", borderLeft: "1px solid #1A1E2A", overflowY: "auto", flexShrink: 0 }}>
-      {/* Injury Alerts */}
-      <div style={{ borderBottom: "1px solid #1A1E2A" }}>
-        <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#F5B841", boxShadow: "0 0 8px #F5B841", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#F5B841", textTransform: "uppercase", letterSpacing: "0.08em" }}>Injury Report</span>
-        </div>
-        {INJURY_ALERTS.map(p => {
-          const statusColor = p.status === "OUT" ? "#FF5252" : p.status === "Q" ? "#F5B841" : "#00E676";
-          const headshotUrl = getPlayerHeadshot(p.full, "nba");
-          const { initials, color } = getInitialsAvatar(p.full);
-          return (
-            <div key={p.name} className="ux-rail-item" tabIndex={0} role="button" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "12px 18px", borderTop: "1px solid #1A1E2A" }}>
-              <div style={{ width: 42, height: 42, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: "2px solid #2A2F3E", background: headshotUrl ? "#0A0F1A" : color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {headshotUrl
-                  ? <img src={headshotUrl} alt={p.full} style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
-                    />
-                  : <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: "14px", color: "#fff" }}>{initials}</span>
-                }
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "3px" }}>
-                  <img src={getTeamLogo(p.team, "nba") ?? ""} alt={p.team} style={{ width: 16, height: 16, objectFit: "contain" }}
-                    onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
-                  />
-                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.95rem", fontWeight: 700, color: "#F8FAFC" }}>{p.name}</span>
-                </div>
-                <div style={{ fontSize: "0.76rem", color: "#94A3B8", fontWeight: 500, lineHeight: 1.35 }}>{p.detail}</div>
-              </div>
-              <span style={{ fontSize: "0.65rem", fontWeight: 800, padding: "3px 7px", borderRadius: "3px", background: `${statusColor}18`, color: statusColor, border: `1px solid ${statusColor}44`, letterSpacing: "0.06em", flexShrink: 0 }}>{p.status}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Lineup Movement */}
-      <div style={{ borderBottom: "1px solid #1A1E2A" }}>
-        <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#00E676", boxShadow: "0 0 8px #00E676", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#00E676", textTransform: "uppercase", letterSpacing: "0.08em" }}>Lineup Movement</span>
-        </div>
-        {LINEUP_MOVES.map(m => {
-          const headshotUrl = getPlayerHeadshot(m.player, "nba");
-          const { initials, color } = getInitialsAvatar(m.player);
-          return (
-            <div key={m.player} className="ux-rail-item" tabIndex={0} role="button" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
-              <div style={{ width: 38, height: 38, borderRadius: "50%", overflow: "hidden", flexShrink: 0, border: "2px solid #2A2F3E", background: headshotUrl ? "#0A0F1A" : color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {headshotUrl
-                  ? <img src={headshotUrl} alt={m.player} style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                      onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
-                    />
-                  : <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800, fontSize: "12px", color: "#fff" }}>{initials}</span>
-                }
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "5px", marginBottom: "2px" }}>
-                  <img src={getTeamLogo(m.team, "nba") ?? ""} alt={m.team} style={{ width: 14, height: 14, objectFit: "contain" }}
-                    onError={e => { (e.currentTarget as HTMLElement).style.display = "none"; }}
-                  />
-                  <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "#F8FAFC" }}>{m.player}</span>
-                </div>
-                <div style={{ fontSize: "0.74rem", color: "#94A3B8", fontWeight: 500 }}>{m.detail}</div>
-              </div>
-              {m.trend === "up" ? <TrendingUp size={15} style={{ color: "#00E676", flexShrink: 0 }} /> : <TrendingDown size={15} style={{ color: "#FF5252", flexShrink: 0 }} />}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Team Trends */}
-      <div>
-        <div style={{ padding: "16px 18px 12px", display: "flex", alignItems: "center", gap: "8px" }}>
-          <span style={{ width: "7px", height: "7px", borderRadius: "50%", background: "#00B7FF", boxShadow: "0 0 8px #00B7FF", flexShrink: 0 }} />
-          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "#00B7FF", textTransform: "uppercase", letterSpacing: "0.08em" }}>Team Trends</span>
-        </div>
-        {TEAM_TRENDS.map(t => (
-          <div key={t.team + t.trend} className="ux-rail-item" tabIndex={0} role="button" style={{ display: "flex", alignItems: "center", gap: "12px", padding: "11px 18px", borderTop: "1px solid #1A1E2A" }}>
-            <TeamBadge teamName={t.team} size={36} />
-            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "#CBD5E1" }}>{t.trend}</div></div>
-            {t.dir === "up" ? <TrendingUp size={14} style={{ color: "#00E676", flexShrink: 0 }} /> : <TrendingDown size={14} style={{ color: "#FF5252", flexShrink: 0 }} />}
-          </div>
-        ))}
-      </div>
-    </aside>
-  );
-}
-
-// ── Skeleton card for loading state ─────────────────────────────────────────
-function SignalSkeleton({ isMobile }: { isMobile: boolean }) {
-  const bg = "#1A1E2A";
-  if (isMobile) {
-    return (
-      <div className="skeleton" style={{ borderBottom: "1px solid #1A1E2A" }}>
-        <div style={{ padding: "12px 16px 10px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "8px" }}>
-            <div style={{ width: 52, height: 18, background: bg, borderRadius: 3 }} />
-            <div style={{ width: 40, height: 12, background: bg, borderRadius: 3 }} />
-          </div>
-          <div style={{ width: 130, height: 16, background: bg, borderRadius: 3, marginBottom: 6 }} />
-          <div style={{ width: "100%", height: 14, background: bg, borderRadius: 3, marginBottom: 4 }} />
-          <div style={{ width: "70%", height: 14, background: bg, borderRadius: 3, marginBottom: 10 }} />
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <div style={{ width: 60, height: 3, background: bg, borderRadius: 2 }} />
-            <div style={{ width: 30, height: 12, background: bg, borderRadius: 2 }} />
-          </div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", minHeight: 44, borderTop: "1px solid #1A1E2A" }}>
-          <div style={{ width: 60, height: 16, background: bg, borderRadius: 3 }} />
-          <div style={{ width: 80, height: 16, background: bg, borderRadius: 3 }} />
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="skeleton" style={{ borderBottom: "1px solid #1A1E2A", padding: "14px 18px", display: "flex", alignItems: "center", gap: 14 }}>
-      <div style={{ width: 48, height: 48, borderRadius: "50%", background: bg, flexShrink: 0 }} />
-      <div style={{ width: 80, height: 18, background: bg, borderRadius: 3, flexShrink: 0 }} />
-      <div style={{ flex: 1 }}>
-        <div style={{ width: "60%", height: 18, background: bg, borderRadius: 3, marginBottom: 6 }} />
-        <div style={{ width: "30%", height: 12, background: bg, borderRadius: 3 }} />
-      </div>
-      <div style={{ width: 70, height: 18, background: bg, borderRadius: 3, flexShrink: 0 }} />
-      <div style={{ width: 100, height: 12, background: bg, borderRadius: 3, flexShrink: 0 }} />
-      <div style={{ width: 50, height: 12, background: bg, borderRadius: 3, flexShrink: 0 }} />
-    </div>
-  );
-}
-
-// ── Feed tabs ────────────────────────────────────────────────────────────────
 const FEED_TABS = [
-  { key: "today",     label: "Today",    icon: <Activity size={13} /> },
-  { key: "injuries",  label: "Injuries", icon: <User size={13} /> },
-  { key: "lineup",    label: "Lineup",   icon: <TrendingUp size={13} /> },
-  { key: "props",     label: "Props",    icon: <BarChart2 size={13} /> },
-  { key: "trends",    label: "Trends",   icon: <TrendingUp size={13} /> },
-  { key: "line_moves",label: "Line Moves",icon: <Zap size={13} /> },
+  { key: "today", label: "Today" },
+  { key: "injuries", label: "Injuries" },
+  { key: "lineup", label: "Lineup" },
+  { key: "props", label: "Props" },
+  { key: "trends", label: "Trends" },
+  { key: "line_moves", label: "Movement" },
 ];
 
 const TAB_SIGNAL_TYPE: Record<string, string | null> = {
-  today: null, injuries: "injury", lineup: "lineup",
-  props: "prop", trends: "trend", line_moves: "line_move",
+  today: null,
+  injuries: "injury",
+  lineup: "lineup",
+  props: "prop",
+  trends: "trend",
+  line_moves: "line_move",
 };
 
-// ── Main Board ───────────────────────────────────────────────────────────────
+const PRO_THRESHOLD = 10;
+
 export default function NBABoard() {
-  const [activeGame, setActiveGame] = useState<number | null>(null);
+  const [activeGameId, setActiveGameId] = useState<string | undefined>();
   const [drawerSignal, setDrawerSignal] = useState<Signal | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
+  const [activeLane, setActiveLane] = useState<SituationLaneType | "all">("all");
+  const [urgencyFilter, setUrgencyFilter] = useState("all");
+  const [compact, setCompact] = useState(true);
+  const [showConfirmed, setShowConfirmed] = useState(true);
   const [liveOnly, setLiveOnly] = useState(false);
   const [actionableOnly, setActionableOnly] = useState(false);
-  // FIX: track mobile viewport for responsive layout
-  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
-  useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 768);
-    window.addEventListener("resize", handler);
-    return () => window.removeEventListener("resize", handler);
-  }, []);
-  // Read ?tab= from URL so sidebar sub-nav links work
-  // Use wouter's useSearch to reactively read ?tab= from URL
-  const search = useSearch();
-  const activeTab = useMemo(() => {
-    const params = new URLSearchParams(search);
-    return params.get("tab") ?? "today";
-  }, [search]);
-  const setActiveTab = (tab: string) => {
-    const url = tab === "today" ? "/nba" : `/nba?tab=${tab}`;
-    window.history.pushState({}, "", url);
-    // Force wouter to re-render by dispatching popstate
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
-  const { signals: data, loading: isLoading, pendingCount, flushPending } = useNBASignals([]);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const handleToastView = useCallback(() => {
-    flushPending();
-    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [flushPending]);
   const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
   const [gamesLoading, setGamesLoading] = useState(true);
-  const checkout = { isPending: false };
-  const handleUpgrade = () => {};
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const search = useSearch();
+  const activeTab = useMemo(() => new URLSearchParams(search).get("tab") ?? "today", [search]);
+  const setActiveTab = (tab: string) => {
+    window.history.pushState({}, "", tab === "today" ? "/nba" : `/nba?tab=${tab}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const { signals: data, loading: isLoading, pendingCount, flushPending, refresh } = useNBASignals([]);
+  const { situations: canonicalSituations, loading: canonicalLoading, error: canonicalError, refresh: refreshCanonical } = useCanonicalSituations({
+    league: "NBA",
+    activeOnly: false,
+    limit: 100,
+    orderBy: "operational_visibility_score",
+  });
+  const profile = getLeagueBoardProfile("NBA");
+  const allSignals = (data ?? []) as Signal[];
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
     fetch("/api/v2/games?league=NBA")
-      .then(r => r.json())
-      .then(data => {
+      .then((response) => response.json())
+      .then((payload) => {
         const statusLabel: Record<string, string> = {
-          live: "In Progress", final: "Final",
-          scheduled: "Scheduled", postponed: "Postponed",
+          live: "In Progress",
+          final: "Final",
+          scheduled: "Scheduled",
+          postponed: "Postponed",
         };
-        const adapted: LiveGame[] = (data.games ?? [])
-          .filter((g: any) => g.game_time?.slice(0, 10) === today)
-          .map((g: any) => ({
-            id: g.id,
+        const adapted: LiveGame[] = (payload.games ?? [])
+          .filter((game: any) => game.game_time?.slice(0, 10) === today)
+          .map((game: any) => ({
+            id: game.id,
             sport: "nba" as const,
-            espnEventId: g.source_game_id ?? g.id,
-            homeTeam: g.home_team ?? null,
-            awayTeam: g.away_team ?? null,
-            gameDate: g.game_time ? new Date(g.game_time) : null,
-            statusDescription: statusLabel[g.status] ?? g.status ?? null,
-            homeScore: g.home_score ?? null,
-            awayScore: g.away_score ?? null,
-            cachedAt: new Date(g.updated_at ?? g.created_at),
+            espnEventId: game.source_game_id ?? game.id,
+            homeTeam: game.home_team ?? null,
+            awayTeam: game.away_team ?? null,
+            gameDate: game.game_time ? new Date(game.game_time) : null,
+            statusDescription: statusLabel[game.status] ?? game.status ?? null,
+            homeScore: game.home_score ?? null,
+            awayScore: game.away_score ?? null,
+            cachedAt: new Date(game.updated_at ?? game.created_at),
           }));
         setLiveGames(adapted);
       })
@@ -731,191 +136,244 @@ export default function NBABoard() {
       .finally(() => setGamesLoading(false));
   }, []);
 
-  const allSignals: Signal[] = (data ?? []) as Signal[];
-
-  const signalCountByTeam = useMemo(() => {
-    const counts: Record<string, number> = {};
-    allSignals.forEach(s => {
-      if (s.team) counts[s.team.toUpperCase()] = (counts[s.team.toUpperCase()] ?? 0) + 1;
-    });
-    return counts;
-  }, [allSignals]);
-
   const filteredSignals = useMemo(() => {
     const typeFilter = TAB_SIGNAL_TYPE[activeTab];
     return allSignals
-      .filter(s => !typeFilter || s.type === typeFilter)
-      .filter(s => !liveOnly || signalLifecycle(s) === "Early" || signalLifecycle(s) === "Developing")
-      .filter(s => !actionableOnly || signalIsActionable(s))
+      .filter((signal) => !typeFilter || signal.type === typeFilter)
+      .filter((signal) => !liveOnly || signalLifecycle(signal) === "Early" || signalLifecycle(signal) === "Developing")
+      .filter((signal) => !actionableOnly || signalIsActionable(signal))
       .sort((a, b) => compareSignals(a, b, sortMode));
-  }, [allSignals, activeTab, liveOnly, actionableOnly, sortMode]);
+  }, [activeTab, actionableOnly, allSignals, liveOnly, sortMode]);
 
-  const PRO_THRESHOLD = 10;
+  const situations = useMemo(() => {
+    const fallback = buildBoardSituations({
+      league: "NBA",
+      games: liveGames as AnyBoardGame[],
+      signals: filteredSignals as any[],
+    });
+    const canonicalType = canonicalTypeForTab(activeTab);
+    const canonicalBoard = canonicalSituationsToBoardSituations(
+      filterCanonicalSituations(canonicalSituations, {
+        league: "NBA",
+        situationType: canonicalType,
+      }),
+      "NBA",
+    );
+    return rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback))
+      .filter((situation) => showConfirmed || situation.lane !== "confirmed")
+      .filter((situation) => situationMatchesPriority(situation, urgencyFilter));
+  }, [activeTab, canonicalSituations, filteredSignals, liveGames, showConfirmed, urgencyFilter]);
+
+  const featured = selectFeaturedSituation(situations);
+  const featuredDetails = featuredCopy(featured, "NBA");
+  const livePills = liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, allSignals)));
+  const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
+  const hasSituations = situations.length > 0;
+  const topUrgentSituations = situations.filter((situation) => situation.lane === "escalating").slice(0, 2);
+
+  const openSituation = (situation: BoardSituation) => {
+    if (situation.kind !== "signal") return;
+    const signal = situation.signal as Signal | undefined;
+    if (!signal) return;
+    const index = filteredSignals.findIndex((item) => String(item.id) === String(signal.id));
+    if (index >= PRO_THRESHOLD) return;
+    setDrawerSignal(signal);
+  };
+
+  const handleToastView = useCallback(() => {
+    flushPending();
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [flushPending]);
 
   return (
     <AppShell>
-      <div style={{ display: "flex", height: "100%", minHeight: 0 }}>
-        <div ref={scrollContainerRef} style={{ flex: 1, overflowY: "auto", minWidth: 0 }}>
-
-          {/* Board header */}
-          <div style={{
-            padding: "20px 24px 0",
-            borderBottom: "1px solid #1A1E2A",
-            background: "linear-gradient(180deg, rgba(245,184,65,0.04) 0%, transparent 100%)",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "4px" }}>
-              <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.6rem", fontWeight: 900, color: "#F0F0F0", letterSpacing: "0.02em", margin: 0 }}>NBA Intelligence Board</h1>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: "5px", padding: "3px 10px", borderRadius: "20px", background: "rgba(245,184,65,0.1)", border: "1px solid rgba(245,184,65,0.25)", fontSize: "0.65rem", fontWeight: 800, color: "#F5B841", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                <span className="live-dot" style={{ width: "5px", height: "5px" }} />
-                ACTIVE
-              </span>
-              <div style={{ flex: 1 }} />
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.4rem", fontWeight: 700, color: "#F5B841", lineHeight: 1 }}>{allSignals.length}</div>
-                <div style={{ fontSize: "0.66rem", color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>SIGNALS</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: "1.4rem", fontWeight: 700, color: "#00E676", lineHeight: 1 }}>{allSignals.filter(s => s.verdict === "confirmed").length}</div>
-                <div style={{ fontSize: "0.66rem", color: "#94A3B8", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>CONFIRMED</div>
-              </div>
-            </div>
-            <div style={{ fontSize: "0.82rem", color: "#94A3B8", fontWeight: 600, marginBottom: "16px" }}>Live · {allSignals.length} signals · Updated continuously</div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "16px" }}>
-              <Shield size={13} style={{ color: "#94A3B8" }} />
-              <span style={{ fontSize: "0.74rem", color: "#94A3B8", fontWeight: 700 }}>TRACK RECORD</span>
-              <ChevronRight size={12} style={{ color: "#64748B" }} />
-              <span style={{ fontSize: "0.74rem", color: "#CBD5E1", fontWeight: 500 }}>No settled outcomes yet.</span>
-            </div>
-
-            {/* Today's Games */}
-            <div id="games-section" style={{ marginBottom: "16px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "6px", marginBottom: "10px" }}>
-                <span style={{ width: "5px", height: "5px", borderRadius: "50%", background: "#F5B841", flexShrink: 0 }} />
-                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.72rem", fontWeight: 800, color: "#F5B841", textTransform: "uppercase", letterSpacing: "0.1em" }}>Tonight's Games</span>
-              </div>
-              <div style={{ display: "flex", gap: "10px", overflowX: "auto", paddingBottom: "4px" }}>
-                {gamesLoading ? (
-                  [...Array(4)].map((_, i) => (
-                    <div key={i} style={{ minWidth: "200px", height: "160px", background: "#0A0F1A", borderRadius: "10px", opacity: 0.3 + i * 0.1 }} />
-                  ))
-                ) : liveGames.length === 0 ? (
-                  <div style={{ padding: "20px", color: "#94A3B8", fontSize: "0.85rem", fontWeight: 600 }}>Monitoring the next NBA slate.</div>
-                ) : (
-                  liveGames.map(game => {
-                    const away = (game.awayTeam ?? "");
-                    const home = (game.homeTeam ?? "");
-                    const cnt = (signalCountByTeam[away] ?? 0) + (signalCountByTeam[home] ?? 0);
-                    return (
-                      <GameCard
-                        key={game.id}
-                        game={game}
-                        active={activeGame === game.id}
-                        onClick={() => setActiveGame(activeGame === game.id ? null : game.id)}
-                        signalCount={cnt}
-                      />
-                    );
-                  })
-                )}
-              </div>
-            </div>
-
-          </div>
-
-          <BoardHeader
-            league="NBA"
-            totalSignals={allSignals.length}
-            liveCount={liveGames.filter(g => g.statusDescription?.toLowerCase().includes("in progress")).length}
-            filters={FEED_TABS.map(t => t.label)}
-            activeFilter={FEED_TABS.find(t => t.key === activeTab)?.label ?? "Today"}
-            onFilterChange={label => {
-              const tab = FEED_TABS.find(t => t.label === label);
-              if (tab) setActiveTab(tab.key);
-            }}
+      <div ref={scrollContainerRef} className="h-full overflow-y-auto">
+        <main className="league-board-shell es-league-nba board-main-col mx-auto flex w-[calc(100vw-24px)] max-w-[calc(100vw-24px)] flex-col gap-3 overflow-x-hidden py-3 sm:w-full sm:max-w-7xl sm:px-6 sm:py-5">
+          <BoardCommandBar
+            kicker="NBA Story Board"
+            title={profile.boardLabel}
+            statusLabel={`${canonicalSituations.length ? "Verified sources" : "Live coverage"} / ${allSignals.length} updates / ${situations.length} stories`}
+            liveCount={liveGames.filter((game) => game.statusDescription?.toLowerCase().includes("in progress")).length}
+            tabs={FEED_TABS.map((tab) => ({ id: tab.key, label: tab.label }))}
+            activeTabId={activeTab}
+            onTabChange={setActiveTab}
+            actions={[{ label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { refresh(); refreshCanonical(); }, variant: "outline" }]}
           />
 
-          <div className="signal-ops-toolbar">
-            <div className="signal-ops-toolbar-label">Board priority</div>
-            {[
-              ["priority", "Best Edge"],
-              ["newest", "Newest"],
-              ["confidence", "Confidence"],
-              ["timing", "Timing"],
-              ["movement", "Movement"],
-            ].map(([value, label]) => (
-              <button key={value} type="button" className={sortMode === value ? "is-active" : ""} onClick={() => setSortMode(value as BoardSortMode)}>
-                {label}
-              </button>
-            ))}
-            <label><input type="checkbox" checked={liveOnly} onChange={e => setLiveOnly(e.target.checked)} /> Early/developing</label>
-            <label><input type="checkbox" checked={actionableOnly} onChange={e => setActionableOnly(e.target.checked)} /> Actionable</label>
-          </div>
+          <LiveGameStrip
+            title={profile.liveStripLabel}
+            summary={gamesLoading ? "Slate context loading." : "Rotation, injury, warmup, source agreement, and market reaction remain active until tip."}
+            games={livePills}
+            activeGameId={activeGameId}
+            emptyLabel="NBA slate watch is active; no game has crossed the live threshold."
+            onGameSelect={(game) => setActiveGameId(activeGameId === game.id ? undefined : game.id)}
+          />
 
-          {/* Signal feed */}
-          <div id="signal-feed">
-            {allSignals.length > PRO_THRESHOLD && (
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", padding: "10px 16px", background: "rgba(245,184,65,0.04)", borderBottom: "1px solid #1A1E2A" }}>
-                <Lock size={13} style={{ color: "#F5B841" }} />
-                <span style={{ fontSize: "0.8rem", color: "#CBD5E1", fontWeight: 500 }}>
-                  <strong style={{ color: "#F5B841" }}>{Math.max(0, filteredSignals.length - PRO_THRESHOLD)} signals locked</strong> — Pro members see the full feed
-                </span>
-                <div style={{ flex: 1 }} />
-                <button className="btn-gold" onClick={handleUpgrade} disabled={checkout.isPending} style={{ padding: "5px 14px", fontSize: "0.72rem" }}>{checkout.isPending ? "Loading…" : "VIEW PRO"}</button>
+          <FeaturedSituation
+            situation={featured ? toSituationRowData(featured) : undefined}
+            eyebrow={profile.featuredLabel}
+            title={featuredDetails.title}
+            summary={featuredDetails.summary}
+            primaryRead={featuredDetails.primaryRead}
+            secondaryRead={featuredDetails.secondaryRead}
+            metrics={featuredDetails.metrics}
+            density={featured ? "default" : "compact"}
+            actions={featured?.kind === "signal" ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
+          />
+
+          <TopDevelopments league="NBA" situations={situations} onSelect={openSituation} />
+
+          {topUrgentSituations.length > 0 && (
+            <div className="sm:hidden">
+              <SituationLane
+                lane="escalating"
+                title="Urgent Developing Stories"
+                summary="Highest-priority changes before the broader board."
+                situations={topUrgentSituations.map(toSituationRowData)}
+                compact
+                onSituationSelect={(row) => {
+                  const situation = topUrgentSituations.find((item) => item.id === row.id);
+                  if (situation) openSituation(situation);
+                }}
+              />
+            </div>
+          )}
+
+          {hasSituations ? (
+            <>
+              <BoardPriorityControls
+                activeLane={activeLane}
+                activeSortId={sortIdForMode(sortMode)}
+                activeUrgencyId={urgencyFilter}
+                compact={compact}
+                showConfirmed={showConfirmed}
+                onLaneChange={setActiveLane}
+                onSortChange={(value) => setSortMode(sortModeFromPriority(value))}
+                onUrgencyChange={setUrgencyFilter}
+                onCompactChange={setCompact}
+                onShowConfirmedChange={setShowConfirmed}
+              />
+
+              <div className="board-control-feedback rounded border border-border bg-muted/10">
+                {boardSortFeedback(sortMode)} {boardFilterFeedback({ filter: FEED_TABS.find((tab) => tab.key === activeTab)?.label, liveOnly, actionableOnly })}
+                {canonicalError ? ` ${canonicalError}` : ""}
               </div>
-            )}
 
-            {/* FIX: Table header hidden on mobile (card layout has no columns) */}
-            {!isMobile && (
-              <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "8px 16px", borderBottom: "1px solid #1A1E2A", background: "#0A0C10" }}>
-                <div style={{ width: "36px" }} />
-                <div style={{ minWidth: "80px", fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>TYPE</div>
-                <div style={{ flex: 1, fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>SIGNAL</div>
-                <div style={{ minWidth: "90px", textAlign: "right", fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>VERDICT</div>
-                <div style={{ minWidth: "100px", fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>CONF</div>
-                <div style={{ minWidth: "60px", textAlign: "right", fontSize: "0.68rem", fontWeight: 800, color: "#94A3B8", textTransform: "uppercase", letterSpacing: "0.06em" }}>TIME</div>
+              <div className="grid gap-3 xl:grid-cols-2">
+                {visibleLanes.map((lane, index) => {
+                  const laneSituations = situations.filter((situation) => situation.lane === lane);
+                  return (
+                    <SituationLane
+                      key={lane}
+                      lane={lane}
+                      title={profile.laneLabels[lane]}
+                      summary={laneSummary("NBA", lane)}
+                      situations={laneSituations.map(toSituationRowData)}
+                      compact={compact}
+                      cadence={index === 0 ? "entry" : lane === "background" ? "quiet" : "default"}
+                      emptyLabel={emptyLaneCopy(lane)}
+                      onSituationSelect={(row) => {
+                        const situation = laneSituations.find((item) => item.id === row.id);
+                        if (situation) openSituation(situation);
+                      }}
+                    />
+                  );
+                })}
               </div>
-            )}
+            </>
+          ) : (
+          <SparseOperationalState
+            title="No developing story above threshold"
+            detail="Coverage remains in watch mode: lineup confirmations, warmups, load management, source agreement, and market reaction are still being checked."
+            checks={["Late scratches", "Starter confirmations", "Warmup reports", "Pre-tip movement"]}
+          />
+          )}
 
-            {isLoading ? (
-              [...Array(5)].map((_, i) => <SignalSkeleton key={i} isMobile={isMobile} />)
-            ) : filteredSignals.length === 0 ? (
-              <div style={{ textAlign: "center", padding: "60px 24px" }}>
-                <Activity size={40} className="live-dot" style={{ color: "#00B7FF", margin: "0 auto 12px" }} />
-                <p style={{ color: "#CBD5E1", fontSize: "0.95rem", fontWeight: 700, marginBottom: 6 }}>No actionable {activeTab} signals detected yet.</p>
-                <p style={{ color: "#94A3B8", fontSize: "0.84rem", fontWeight: 500 }}>Monitoring market movement, injury reports, lineups, and trusted source confirmations.</p>
-              </div>
-            ) : (
-              // FIX: pass isMobile to SignalRow for card vs. row layout
-              filteredSignals.map((signal, idx) => (
-                <SignalRow
-                  key={signal.id}
-                  signal={signal}
-                  isPro={idx >= PRO_THRESHOLD}
-                  userIsPro={false}
-                  isMobile={isMobile}
-                  onOpenDetails={setDrawerSignal}
-                />
-              ))
-            )}
-          </div>
-        </div>
+          {allSignals.length > PRO_THRESHOLD && (
+            <div className="rounded border border-primary/25 bg-primary/5 px-4 py-3 text-sm font-medium text-muted-foreground">
+              <strong className="text-primary">{Math.max(0, filteredSignals.length - PRO_THRESHOLD)} stories locked</strong> - Pro members see the full confidence, source, timing, and verification detail set.
+            </div>
+          )}
 
-        {/* FIX: RightPanel hidden on mobile — 300px column destroyed the layout */}
-        {!isMobile && <RightPanel />}
+          {(isLoading || canonicalLoading) && hasSituations && <div className="es-skeleton h-16 rounded border border-border" />}
+        </main>
       </div>
 
-      <NewSignalsToast
-        count={pendingCount}
-        onView={handleToastView}
-        board="NBA"
-        scrollContainerRef={scrollContainerRef}
-      />
-      <SignalDetailDrawer
-        open={!!drawerSignal}
-        signal={drawerSignal}
-        sport="NBA"
-        onClose={() => setDrawerSignal(null)}
-      />
+      <NewSignalsToast count={pendingCount} onView={handleToastView} board="NBA" scrollContainerRef={scrollContainerRef} />
+      <SignalDetailDrawer open={!!drawerSignal} signal={drawerSignal} sport="NBA" onClose={() => setDrawerSignal(null)} />
     </AppShell>
+  );
+}
+
+function relatedSignalCount(game: LiveGame, signals: Signal[]) {
+  const away = game.awayTeam?.toLowerCase() ?? "";
+  const home = game.homeTeam?.toLowerCase() ?? "";
+  return signals.filter((signal) => {
+    const team = signal.team?.toLowerCase() ?? "";
+    const opponent = signal.opponent?.toLowerCase() ?? "";
+    return team === away || team === home || opponent === away || opponent === home;
+  }).length;
+}
+
+function sortIdForMode(mode: BoardSortMode) {
+  if (mode === "newest") return "freshness";
+  return mode;
+}
+
+function canonicalTypeForTab(tab: string) {
+  const map: Record<string, string | null> = {
+    today: null,
+    injuries: "injury",
+    lineup: "lineup",
+    props: null,
+    trends: null,
+    line_moves: "market",
+  };
+  return map[tab] ?? null;
+}
+
+function laneSummary(league: "NBA", lane: SituationLaneType) {
+  const copy: Record<SituationLaneType, string> = {
+    escalating: "Fresh changes where source agreement, agent-calibrated confidence, or public context are moving faster than the broad board.",
+    live: "In-game stories tied to active source checks, market reaction, fantasy impact, or role changes still in progress.",
+    decision: "Pre-tip windows where timing depends on the next warmup, lineup, or market reaction.",
+    confirmed: "Verified rotation and injury stories with the confirmation chain preserved for downstream reads.",
+    background: "Lower-urgency monitoring across rotations, trends, source checks, and cooling/resolved stories.",
+  };
+  return copy[lane];
+}
+
+function emptyLaneCopy(lane: SituationLaneType) {
+  const copy: Record<SituationLaneType, string> = {
+    escalating: "No urgent NBA developing story is above threshold.",
+    live: "No live watch item is driving priority.",
+    decision: "No pre-tip decision window is open.",
+    confirmed: "No verified update is queued.",
+    background: "Background rotation, source, and market reaction monitoring remain active.",
+  };
+  return copy[lane];
+}
+
+function SparseOperationalState({ title, detail, checks }: { title: string; detail: string; checks: string[] }) {
+  return (
+    <section className="max-w-full overflow-hidden rounded-md border border-border bg-card/75 px-3 py-2.5 sm:px-4 sm:py-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <span className="data-label text-primary">Coverage Watch</span>
+          <h3 className="mt-0.5 font-sans text-sm font-bold text-foreground sm:text-base">{title}</h3>
+          <p className="mt-0.5 break-words text-[0.8rem] font-medium leading-snug text-muted-foreground sm:text-sm">{detail}</p>
+        </div>
+        <span className="max-w-full basis-full whitespace-normal break-words rounded border border-border/80 bg-muted/10 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-widest text-muted-foreground/85 sm:basis-auto sm:shrink-0">
+          Awaiting verified stories
+        </span>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {checks.map((check) => (
+          <span key={check} className="rounded border border-border/80 bg-muted/10 px-2 py-1 text-[0.68rem] font-bold text-muted-foreground">
+            {check}
+          </span>
+        ))}
+      </div>
+    </section>
   );
 }

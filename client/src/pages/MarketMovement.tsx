@@ -162,7 +162,7 @@ function MoveCard({ signal, sport }: { signal: Signal; sport: string }) {
             )}
           </div>
 
-          {/* Line movement visual */}
+          {/* Market movement visual */}
           {lineMove ? (
             <div style={{
               flexShrink: 0, textAlign: "center",
@@ -309,7 +309,7 @@ export default function MarketMovement() {
               color: T.text, letterSpacing: "0.03em", margin: "0 0 6px",
             }}>MARKET MOVEMENT</h1>
             <p style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 14, color: T.textMuted, margin: 0 }}>
-              Real-time line movement and sharp money signals. Know when the books are getting hit and why.
+              Real-time context movement and professional source signals. Know when external pressure is attached and why.
             </p>
           </div>
 
@@ -382,10 +382,10 @@ export default function MarketMovement() {
             <div style={{ textAlign: "center", padding: "60px 24px" }}>
               <BarChart2 size={40} style={{ color: T.textFaint, margin: "0 auto 14px", display: "block" }} />
               <p style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 18, fontWeight: 700, color: T.textMuted, margin: "0 0 6px" }}>
-                No line movement signals right now
+                No context movement signals right now
               </p>
               <p style={{ fontSize: 13, color: T.textFaint, margin: 0 }}>
-                Monitoring market movement. Sharp moves will appear here when verified.
+                Monitoring external movement. Verified context shifts will appear here when confirmed.
               </p>
             </div>
           )}
@@ -414,3 +414,4 @@ export default function MarketMovement() {
     </AppShell>
   );
 }
+

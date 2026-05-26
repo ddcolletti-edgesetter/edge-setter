@@ -99,9 +99,9 @@ export function BoardHeader({
           <h1
             style={{
               margin: 0,
-              fontSize: isMobile ? 18 : 22,
+              fontSize: isMobile ? 17 : 21,
               fontWeight: 700,
-              letterSpacing: '-0.03em',
+              letterSpacing: 0,
               color: 'var(--color-text-primary, #f1f5f9)',
               lineHeight: 1,
             }}
@@ -112,6 +112,7 @@ export function BoardHeader({
           {/* Live pulse badge */}
           {liveCount > 0 && (
             <span
+              className="es-state-verified"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -126,22 +127,7 @@ export function BoardHeader({
                 color: 'var(--color-accent, #00E676)',
               }}
             >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  background: 'var(--color-accent, #00E676)',
-                  borderRadius: '50%',
-                  flexShrink: 0,
-                  animation: 'headerPulse 1.5s ease-in-out infinite',
-                }}
-              />
-              <style>{`
-                @keyframes headerPulse {
-                  0%, 100% { opacity: 1; transform: scale(1); }
-                  50%       { opacity: 0.5; transform: scale(0.7); }
-                }
-              `}</style>
+              <span className="es-live-dot es-live-pulse" style={{ width: 6, height: 6 }} />
               LIVE
             </span>
           )}
@@ -185,8 +171,10 @@ export function BoardHeader({
             overflowX: 'auto',
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
-            padding: isMobile ? '0 16px 10px' : '0 24px 10px',
-            gap: isMobile ? 8 : 6,
+            padding: isMobile ? '0 16px 12px' : '0 24px 10px',
+            gap: isMobile ? 10 : 6,
+            scrollPaddingInline: isMobile ? 16 : 24,
+            scrollSnapType: isMobile ? 'x proximity' : undefined,
           }}
         >
           <style>{`
@@ -202,8 +190,8 @@ export function BoardHeader({
                 onClick={() => onFilterChange?.(filter)}
                 style={{
                   flexShrink: 0,
-                  height: isMobile ? 44 : 34,
-                  padding: '0 14px',
+                  height: isMobile ? 42 : 34,
+                  padding: isMobile ? '0 16px' : '0 14px',
                   background: isActive
                     ? 'var(--color-accent, #00E676)'
                     : 'rgba(255,255,255,0.05)',
@@ -221,6 +209,7 @@ export function BoardHeader({
                   transition: 'background 0.15s, color 0.15s, border-color 0.15s',
                   WebkitTapHighlightColor: 'transparent',
                   whiteSpace: 'nowrap',
+                  scrollSnapAlign: 'start',
                 }}
               >
                 {filter}

@@ -115,7 +115,7 @@ function useLeagueSignals<T>(
     try {
       const live = await fetchSignals(league);
       if (live.length > 0) {
-        const adapted = live.map(adapter);
+        const adapted = dedupeLiveSignals(live).map(adapter);
         if (isFirstLoad.current) {
           // Initial load: show immediately
           setSignals(adapted);
@@ -171,4 +171,32 @@ function useLeagueSignals<T>(
   }, [load]);
 
   return { signals, loading, isLive, error, refresh: load, pendingCount: pending.length, flushPending };
+}
+
+function dedupeLiveSignals(signals: LiveSignal[]) {
+  const byKey = new Map<string, LiveSignal>();
+  for (const signal of signals) {
+    const key = [
+      signal.league,
+      signal.game_id,
+      signal.team,
+      signal.player,
+      signal.matchup,
+      signal.signal_type,
+      normalizeSignalKey(signal.headline).slice(0, 64),
+    ].filter(Boolean).join(":") || signal.id;
+    const current = byKey.get(key);
+    if (!current || liveSignalRank(signal) > liveSignalRank(current)) byKey.set(key, signal);
+  }
+  return Array.from(byKey.values());
+}
+
+function normalizeSignalKey(value?: string | null) {
+  return (value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\b(the|a|an|to|from|for|with|and)\b/g, "").trim();
+}
+
+function liveSignalRank(signal: LiveSignal) {
+  const official = /official/i.test(`${signal.verdict} ${signal.confirmation_strength}`) ? 1000 : 0;
+  const market = signal.line_movement ? 120 : 0;
+  return official + signal.score + signal.confidence + Math.min(signal.source_count, 12) * 12 + market;
 }

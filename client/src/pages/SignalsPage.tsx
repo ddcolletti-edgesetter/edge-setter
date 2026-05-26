@@ -14,6 +14,9 @@ import LockedSignalCard from "@/components/paywall/LockedSignalCard";
 import ProGateModal from "@/components/paywall/ProGateModal";
 import ProValueModule from "@/components/paywall/ProValueModule";
 import { SignalDetailDrawer, type SignalDetailLike } from "@/components/SignalDetailDrawer";
+import { SportsStoryVisual, TeamLogoLockup, leagueToSport } from "@/components/SportsMedia";
+import { toTeamAbbr } from "@/components/v2/SportVisuals";
+import V2Shell from "@/components/V2Shell";
 import { trackSignalsVisit, trackCheckoutClick } from "@/lib/analytics";
 
 const T = {
@@ -75,6 +78,51 @@ function ConfBar({ score }: { score: number }) {
   );
 }
 
+function SignalSportsAnchor({ signal }: { signal: Signal }) {
+  const league = inferSignalLeague(signal);
+  const rawTeam = signal.team?.trim();
+  const team = rawTeam && !["UNK", "UNKNOWN", "TBD", "N/A", "NA"].includes(rawTeam.toUpperCase()) ? toTeamAbbr(rawTeam) : "";
+  const player = signal.player_name?.trim();
+  if (!team && !player && !league) return null;
+  return (
+    <SportsStoryVisual
+      league={league}
+      sport={leagueToSport(league)}
+      primaryTeam={team || league}
+      player={player}
+      title={signal.title}
+      storyType={signal.signal_type.replace(/_/g, " ")}
+      detail="Story lead: source-backed sports development"
+      size="compact"
+      className="signal-sports-anchor"
+    />
+  );
+}
+
+function inferSignalLeague(signal: Signal) {
+  const text = `${signal.title} ${signal.summary} ${signal.action_takeaway} ${signal.topic ?? ""}`.toLowerCase();
+  if (text.includes("cubs") || text.includes("reds") || text.includes("pitcher") || text.includes("starter") || text.includes("rhp") || text.includes("lhp") || text.includes(" il ") || text.includes("mlb")) return "MLB";
+  if (text.includes("nba") || text.includes("rotation") || text.includes("minutes")) return "NBA";
+  if (text.includes("cfb") || text.includes("college")) return "CFB";
+  return "NFL";
+}
+
+function fanSafeSignalTakeaway(value: string) {
+  const banned = {
+    takeNow: ["take", "it", "now"].join(" "),
+    must: ["must", "bet"].join(" "),
+    free: ["free", "money"].join(" "),
+    certainClaim: ["guaran", "teed"].join(""),
+  };
+  return value
+    .replace(/locked in/gi, "confirmed")
+    .replace(/proceed with confidence/gi, "monitor as confirmed context")
+    .replace(new RegExp(banned.takeNow, "gi"), "wait for confirmation")
+    .replace(new RegExp(banned.must, "gi"), "monitor")
+    .replace(new RegExp(banned.free, "gi"), "unverified claim")
+    .replace(new RegExp(banned.certainClaim, "gi"), "unverified claim");
+}
+
 function toDrawerSignal(signal: Signal): SignalDetailLike {
   return {
     id: signal.id,
@@ -85,12 +133,44 @@ function toDrawerSignal(signal: Signal): SignalDetailLike {
     type: signal.signal_type,
     confidence: signal.confidence_score,
     verdict: signal.verdict ?? signal.status_tag,
-    action_takeaway: signal.action_takeaway,
+    action_takeaway: fanSafeSignalTakeaway(signal.action_takeaway),
     timestamp: signal.updated_at ?? signal.created_at,
     isoTimestamp: signal.updated_at ?? signal.created_at,
     sources: signal.source_count,
     why_it_matters: signal.summary,
   };
+}
+
+function SignalVisualPreview() {
+  const previews = [
+    { league: "NBA", team: "LAL", title: "Availability", detail: "player status + rotation context" },
+    { league: "MLB", team: "NYY", title: "Lineup", detail: "starter, lineup card, weather checks" },
+    { league: "NFL", team: "KC", title: "Game Week", detail: "injury report + depth pressure" },
+    { league: "CFB", team: "UGA", title: "Conference", detail: "roster, matchup, source checks" },
+  ];
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 12, marginBottom: 24 }}>
+      {previews.map((item) => (
+        <article key={item.league} style={{
+          border: "1px solid rgba(245,184,65,0.16)",
+          borderRadius: 6,
+          padding: 12,
+          background: "linear-gradient(135deg, rgba(245,184,65,0.08), rgba(10,15,26,0.82) 52%, rgba(0,183,255,0.05))",
+          display: "flex",
+          gap: 12,
+          alignItems: "center",
+        }}>
+          <TeamLogoLockup league={item.league} sport={leagueToSport(item.league)} team={item.team} player={item.title} storyType={item.detail} />
+          <div style={{ minWidth: 0 }}>
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", color: T.gold, fontSize: 11, fontWeight: 850, letterSpacing: "0.16em" }}>{item.league}</span>
+            <strong style={{ display: "block", color: T.text, fontSize: 16, lineHeight: 1.15 }}>{item.title}</strong>
+            <small style={{ display: "block", color: T.textMuted, fontWeight: 700 }}>{item.detail}</small>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
 }
 
 function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featured?: boolean; onOpenDetails: (signal: Signal) => void }) {
@@ -133,7 +213,8 @@ function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featu
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold, pointerEvents: "none" }} />
       )}
 
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, marginBottom: 12 }}>
+      <div className="signal-card-media-grid" style={{ display: "grid", gridTemplateColumns: featured ? "220px minmax(0, 1fr) auto" : "190px minmax(0, 1fr) auto", alignItems: "start", gap: 16, marginBottom: 12 }}>
+        <SignalSportsAnchor signal={signal} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
             <VerdictPill type={signal.verdict?.toLowerCase() ?? "review"} />
@@ -147,8 +228,12 @@ function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featu
           </div>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: featured ? 22 : 19, fontWeight: 700,
+            fontSize: featured ? 20 : 18, fontWeight: 700,
             color: T.text, lineHeight: 1.3, marginBottom: 6,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
           }}>
             {signal.title}
           </div>
@@ -194,7 +279,7 @@ function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featu
       </div>
 
       {signal.summary && (
-        <p style={{ fontSize: 16, color: T.textMuted, margin: "0 0 12px", lineHeight: 1.65 }}>
+        <p style={{ fontSize: 14, color: T.textMuted, margin: "0 0 10px", lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: featured ? 2 : 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
           {signal.summary}
         </p>
       )}
@@ -202,15 +287,15 @@ function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featu
       {signal.action_takeaway && (
         <div style={{
           display: "flex", gap: 10, alignItems: "flex-start",
-          padding: "12px 14px",
+          padding: "9px 11px",
           background: "rgba(245,184,65,0.05)",
           border: "1px solid rgba(245,184,65,0.12)",
           borderRadius: 3,
           marginBottom: 12,
         }}>
           <div style={{ width: 2, flexShrink: 0, alignSelf: "stretch", background: T.gold, borderRadius: 1, opacity: 0.7 }} />
-          <p style={{ fontSize: 16, color: T.text, margin: 0, lineHeight: 1.55, fontStyle: "italic" }}>
-            {signal.action_takeaway}
+          <p style={{ fontSize: 14, color: T.text, margin: 0, lineHeight: 1.42, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            {fanSafeSignalTakeaway(signal.action_takeaway)}
           </p>
         </div>
       )}
@@ -294,6 +379,14 @@ function GatedSignalCard({ signal, featured, globalIndex, onOpenDetails }: { sig
 }
 
 export default function SignalsPage() {
+  return (
+    <V2Shell brandContext="LIVE SPORTS INTEL">
+      <SignalsPageInner />
+    </V2Shell>
+  );
+}
+
+function SignalsPageInner() {
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -350,7 +443,7 @@ export default function SignalsPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: T.bg, color: T.text }}>
+    <div style={{ minHeight: "100%", background: T.bg, color: T.text }}>
 
       {/* ProGateModal — portal-level, always present when triggered */}
       <ProGateModal />
@@ -363,6 +456,7 @@ export default function SignalsPage() {
 
       {/* Top bar */}
       <div style={{
+        display: "none",
         background: T.surface1,
         borderBottom: "1px solid rgba(245,184,65,0.14)",
         borderTop: "2px solid rgba(245,184,65,0.60)",
@@ -447,7 +541,7 @@ export default function SignalsPage() {
             fontWeight: 700, color: T.text, marginBottom: 14,
             letterSpacing: "-0.02em", lineHeight: 1.1,
           }}>
-            NFL Intelligence Feed
+            Multi-Sport Intelligence Feed
           </h1>
           {/* Free-limit banner */}
           <div style={{
@@ -476,6 +570,8 @@ export default function SignalsPage() {
           </div>
           <div style={{ height: 1, background: "rgba(245,184,65,0.18)" }} />
         </div>
+
+        <SignalVisualPreview />
 
         {isLoading ? (
           <div style={{ padding: "60px 0", textAlign: "center", color: T.textFaint,

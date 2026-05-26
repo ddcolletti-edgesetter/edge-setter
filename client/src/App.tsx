@@ -1,5 +1,4 @@
 import { Switch, Route, Router } from "wouter";
-import { useHashLocation } from "wouter/use-hash-location";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -21,6 +20,7 @@ import SiteWatchLogs from "./pages/SiteWatchLogs";
 import DistributionDrafts from "./pages/DistributionDrafts";
 import DailyOps from "./pages/DailyOps";
 import FlagshipHome from "./pages/FlagshipHome";
+import LiveIntelligenceHome from "./pages/LiveIntelligenceHome";
 import NBABoard from "./pages/NBABoard";
 import MLBBoard from "./pages/MLBBoard";
 import NFLBoard from "./pages/NFLBoard";
@@ -55,10 +55,10 @@ function App() {
       <AuthProvider>
       <SignalGateProvider>
       <ProModal />
-      <Router hook={useHashLocation}>
+      <Router>
         <Switch>
           {/* ── Main routes ── */}
-          <Route path="/" component={FlagshipHome} />
+          <Route path="/" component={LiveIntelligenceHome} />
           <Route path="/nba" component={NBABoard} />
           <Route path="/mlb" component={MLBBoard} />
           <Route path="/nfl" component={NFLBoard} />

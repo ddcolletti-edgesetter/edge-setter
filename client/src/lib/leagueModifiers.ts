@@ -20,7 +20,7 @@ export interface LeagueModifierSet {
   /* Component-level multipliers — applied to individual score factors */
   components: {
     recencyWeight:      number;   // how much freshness matters in this sport
-    marketImpactWeight: number;   // how much line movement matters
+    marketImpactWeight: number;   // how much market movement matters
     sourceQualityWeight:number;   // how much source credibility weighs
     contextWeight:      number;   // how much scheme/matchup/rotation intel weighs
   };
@@ -163,3 +163,4 @@ export function normalizeSignalType(type: string): string {
   };
   return map[type] ?? type;
 }
+

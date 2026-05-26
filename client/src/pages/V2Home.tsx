@@ -441,7 +441,7 @@ function V2HomeInner() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 14 }}>
                 <BoardCard
                   sport="NBA" label="NBA Board"
-                  description="Playoffs live. Injury flags, line movement, matchup edges, rotation intel."
+                  description="Playoffs live. Injury flags, context movement, matchup context, rotation intel."
                   href="/v2/nba" status="LIVE" primary signalCount={allLiveSignals.filter(s => s.sport === "NBA").length || NBA_SIGNALS.length}
                   color={T.gold} league="NBA"
                   accentBg="linear-gradient(135deg, rgba(245,184,65,0.08) 0%, rgba(85,37,131,0.1) 100%)"
@@ -468,7 +468,7 @@ function V2HomeInner() {
                 />
                 <BoardCard
                   sport="CFB" label="CFB Board"
-                  description="Active board. Transfer intel, QB battles, sharp line movement, and coaching/scheme edges."
+                  description="Active board. Transfer intel, QB battles, source pressure, and coaching/scheme context."
                   href="/v2/cfb" status="ACTIVE" league="CFB"
                   color={T.green}
                   accentBg="linear-gradient(135deg, rgba(0,230,118,0.07) 0%, rgba(0,30,15,0.1) 100%)"
@@ -658,3 +658,4 @@ export default function V2Home() {
     </V2Shell>
   );
 }
+

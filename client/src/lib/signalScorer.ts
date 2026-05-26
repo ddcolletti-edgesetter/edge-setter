@@ -59,7 +59,7 @@ export type ScoreBand    = "Elite" | "Strong" | "Watchlist" | "Informational";
 
 /* Band definitions — single source of truth */
 export const SCORE_BANDS: Record<ScoreBand, { min: number; label: string; color: string; description: string }> = {
-  Elite:         { min: 82, label: "Elite Edge",    color: "#F5B841", description: "Highest-conviction signal: multi-source consensus, strong market movement, actionable edge" },
+  Elite:         { min: 82, label: "Elite Edge",    color: "#F5B841", description: "Highest-conviction signal: multi-source consensus, strong context movement, actionable edge" },
   Strong:        { min: 65, label: "Strong",         color: "#00E676", description: "Clearly actionable: solid source depth, corroborated, meaningful market support" },
   Watchlist:     { min: 48, label: "Watchlist",      color: "#FF8A00", description: "Worth tracking: developing situation, partially confirmed, limited market signal" },
   Informational: { min: 0,  label: "Informational",  color: "#64748B", description: "Context only: unverified, low market impact, or outdated — do not bet directly" },
@@ -188,7 +188,7 @@ function scoreMarketImpact(opts: {
   const { lineMovement, bettingRelevance, type, verdict, injuryDesignation } = opts;
   const normType = normalizeSignalType(type);
 
-  /* Line movement magnitude */
+  /* Market movement magnitude */
   if (lineMovement) {
     const openNum = parseFloat(lineMovement.open.replace(/[^0-9.\-]/g, "")) || 0;
     const currNum = parseFloat(lineMovement.current.replace(/[^0-9.\-]/g, "")) || 0;
@@ -399,7 +399,7 @@ function deriveUrgency(opts: {
 
   // WATCH: worth tracking — good signal, window not yet closed
   if (totalScore >= 48 && decisionWindowOpen) {
-    return { label: "WATCH", reason: "Actionable signal — monitor for confirmation or line movement" };
+    return { label: "WATCH", reason: "Actionable signal — monitor for confirmation or context movement" };
   }
 
   // NOTE: background / informational
@@ -673,3 +673,4 @@ export function formatScoreDebug(signal: { headline: string; _score: SignalScore
   ];
   return lines.join("\n");
 }
+

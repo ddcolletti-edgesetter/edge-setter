@@ -1,8 +1,13 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import V2Shell from "../components/V2Shell";
-import { Award, TrendingUp, Clock, AlertCircle, CheckCircle } from "lucide-react";
+import { AlertCircle, Award, CheckCircle, Clock, GitBranch, History, ShieldCheck, TrendingUp } from "lucide-react";
+import {
+  AgentCalibrationBadge,
+  HistoricalPatternMatch,
+  WhatToWatchNext,
+} from "@/components/AgentCalibration";
 
 const T = {
   bg:         "#050505",
@@ -126,13 +131,115 @@ const SPORT_OPTIONS: { value: Sport; label: string }[] = [
 ];
 
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
-  { value: "accuracy",  label: "Accuracy %" },
-  { value: "weight",    label: "Consensus Weight" },
-  { value: "lead_time", label: "Lead Time" },
-  { value: "verified",  label: "Verified Count" },
+  { value: "accuracy",  label: "Tracked Accuracy" },
+  { value: "weight",    label: "Source Agreement" },
+  { value: "lead_time", label: "Timing Advantage" },
+  { value: "verified",  label: "Settled Outcomes" },
 ];
 
 const COL = "44px 1fr 150px 130px 95px 75px 82px 72px";
+
+function LedgerTrustCard({
+  title,
+  text,
+  icon,
+}: {
+  title: string;
+  text: string;
+  icon: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        minWidth: 0,
+        width: "100%",
+        maxWidth: "min(100%, calc(100vw - 96px))",
+        background: "rgba(16,24,39,0.55)",
+        border: `1px solid ${T.goldBorder}`,
+        borderRadius: 4,
+        overflow: "hidden",
+        padding: "12px 14px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, minWidth: 0 }}>
+        <span style={{ color: T.gold, flexShrink: 0 }}>{icon}</span>
+        <span
+          style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            color: T.text,
+          }}
+        >
+          {title}
+        </span>
+      </div>
+      <p style={{ color: T.textMuted, fontSize: 12, lineHeight: 1.45, margin: 0, overflowWrap: "anywhere" }}>
+        {text}
+      </p>
+    </div>
+  );
+}
+
+function AccuracyTrustLayer({
+  sourceCount,
+  avgAccuracy,
+}: {
+  sourceCount: number;
+  avgAccuracy: number;
+}) {
+  const calibrationInput = {
+    confidence: sourceCount > 0 ? avgAccuracy : null,
+    sourceCount,
+    timingLabel: "Outcome timing compared",
+    storyType: "accuracy ledger",
+    sourceSummary: "Settled story outcomes tracked",
+  };
+
+  return (
+    <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <AgentCalibrationBadge input={calibrationInput} compact />
+        <span style={{ color: T.textMuted, fontSize: 12, lineHeight: 1.45 }}>
+          Confidence is earned through source agreement, verification state, timing advantage, replay trail, and tracked outcomes.
+        </span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-4">
+        <LedgerTrustCard
+          title="Outcome tracking"
+          text="Settled stories can be confirmed, weakened, reversed, stale, or unresolved so weak evidence remains visible."
+          icon={<CheckCircle size={14} />}
+        />
+        <LedgerTrustCard
+          title="Timing advantage"
+          text="Early signals are weighed against the developing window, public confirmation, and whether the story is already priced in."
+          icon={<Clock size={14} />}
+        />
+        <LedgerTrustCard
+          title="Replay trail"
+          text="Evidence and confidence movement are preserved over time where the source trail is available."
+          icon={<History size={14} />}
+        />
+        <LedgerTrustCard
+          title="Historical calibration"
+          text="Prior-season movement can support confidence, but it is treated as context rather than a guaranteed prediction."
+          icon={<GitBranch size={14} />}
+        />
+      </div>
+      <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <HistoricalPatternMatch input={calibrationInput} compact />
+        <WhatToWatchNext
+          compact
+          confirm="Official confirmation, multiple reliable sources, matching market movement, or settled outcome data."
+          weaken="Conflicting reports, stale source trails, reversal, clarification, or missing reaction."
+          next="Market, fantasy, and team/fan impact validation as the story settles."
+        />
+      </div>
+    </div>
+  );
+}
 
 export default function AccuracyPage() {
   return <V2Shell><AccuracyPageInner /></V2Shell>;
@@ -199,13 +306,13 @@ function AccuracyPageInner() {
   const stats = [
     { label: "Sources Tracked",      value: isLoading ? "—" : String(scores.length) },
     { label: "Elite Sources",         value: isLoading ? "—" : String(eliteCount),         gold: true },
-    { label: "Avg Accuracy",          value: isLoading ? "—" : `${avgAcc.toFixed(1)}%` },
-    { label: "Total Claims Verified", value: isLoading ? "—" : String(totalVerified) },
+    { label: "Tracked Accuracy",      value: isLoading ? "—" : `${avgAcc.toFixed(1)}%` },
+    { label: "Settled Outcomes",      value: isLoading ? "—" : String(totalVerified) },
   ];
 
   return (
-    <div style={{ background: T.bg, minHeight: "100%", padding: "24px 24px 60px" }}>
-      <div style={{ maxWidth: 1140, margin: "0 auto" }}>
+    <div className="source-accuracy-page" style={{ background: T.bg, minHeight: "100%", padding: "24px 24px 60px", boxSizing: "border-box", maxWidth: "100vw", overflowX: "hidden" }}>
+      <div style={{ maxWidth: "min(1140px, calc(100vw - 96px))", margin: "0 auto", width: "100%", minWidth: 0 }}>
 
         {/* ── Page header ── */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
@@ -216,20 +323,21 @@ function AccuracyPageInner() {
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 10, fontWeight: 700, letterSpacing: "0.22em",
                 textTransform: "uppercase", color: T.textFaint,
-              }}>Intelligence Verified</span>
+              }}>Accuracy Ledger</span>
             </div>
             <h1 style={{
               fontFamily: "'Playfair Display', Georgia, serif",
               fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 5px",
-            }}>SOURCE ACCURACY</h1>
+            }}>ACCURACY LEDGER</h1>
             <p style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, margin: 0, letterSpacing: "0.04em",
-            }}>Verified accuracy rankings across all tracked intelligence sources</p>
+              maxWidth: "min(680px, calc(100vw - 96px))", lineHeight: 1.45, overflowWrap: "anywhere",
+            }}>Outcome tracking for developing sports stories, showing how source agreement, timing, verification, and replay evidence support confidence.</p>
           </div>
 
           {/* Stats bar */}
-          <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+          <div className="source-stats-bar" style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
             {stats.map(s => (
               <div key={s.label} style={{
                 textAlign: "center", padding: "8px 16px",
@@ -255,8 +363,15 @@ function AccuracyPageInner() {
         {/* ── Divider ── */}
         <div style={{ height: 1, background: T.goldBorder, marginBottom: 18 }} />
 
+        <AccuracyTrustLayer sourceCount={scores.length} avgAccuracy={avgAcc} />
+
+        <div className="board-guidance-strip source-guidance">
+          <span>Source agreement controls how much a report can move live confidence.</span>
+          <span>Timing advantage rewards useful confirmation before the public story is priced in.</span>
+        </div>
+
         {/* ── Filters ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+        <div className="source-filterbar" style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -307,6 +422,10 @@ function AccuracyPageInner() {
         </div>
 
         {/* ── Loading skeleton ── */}
+        <div className="source-ledger-feedback">
+          Showing {filtered.length} {sport === "ALL" ? "tracked sources" : `${sport} sources`} sorted by {SORT_OPTIONS.find(o => o.value === sortKey)?.label.toLowerCase()}.
+        </div>
+
         {isLoading && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {Array.from({ length: 8 }).map((_, i) => (
@@ -333,11 +452,11 @@ function AccuracyPageInner() {
               {[
                 { label: "#",               icon: null,                     right: false },
                 { label: "Source",          icon: null,                     right: false },
-                { label: "Accuracy",        icon: <TrendingUp size={9} />,  right: false },
-                { label: "Consensus Wt.",   icon: null,                     right: false },
-                { label: "Lead Time",       icon: <Clock size={9} />,       right: true  },
-                { label: "False+%",         icon: <AlertCircle size={9} />, right: true  },
-                { label: "Verified",        icon: <CheckCircle size={9} />, right: true  },
+                { label: "Tracked Acc.",    icon: <TrendingUp size={9} />,  right: false },
+                { label: "Source Agree.",   icon: <ShieldCheck size={9} />, right: false },
+                { label: "Timing Edge",     icon: <Clock size={9} />,       right: true  },
+                { label: "Weakened",        icon: <AlertCircle size={9} />, right: true  },
+                { label: "Settled",         icon: <CheckCircle size={9} />, right: true  },
                 { label: "Sport",           icon: null,                     right: false },
               ].map(h => (
                 <div key={h.label} style={{
@@ -517,14 +636,14 @@ function AccuracyPageInner() {
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 10, fontWeight: 700, letterSpacing: "0.2em",
             textTransform: "uppercase", color: T.textFaint, marginBottom: 10,
-          }}>Status Legend</div>
+          }}>Verification State Legend</div>
           <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
             {(["ELITE", "TRUSTED", "TRACKED", "UNVERIFIED"] as StatusBadge[]).map(b => {
               const bs2 = statusBadgeStyle(b);
-              const desc = b === "ELITE" ? "85%+ accuracy"
-                : b === "TRUSTED"  ? "70–84% accuracy"
-                : b === "TRACKED"  ? "40–69% or has verified claims"
-                : "No verified data";
+              const desc = b === "ELITE" ? "85%+ tracked accuracy where sample exists"
+                : b === "TRUSTED"  ? "70-84% tracked accuracy"
+                : b === "TRACKED"  ? "Tracked source with limited or mixed settled outcomes"
+                : "Verification data pending";
               return (
                 <div key={b} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{

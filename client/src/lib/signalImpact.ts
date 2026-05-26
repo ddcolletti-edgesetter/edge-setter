@@ -166,11 +166,11 @@ function weatherImpact(s: SignalForImpact): ComputedImpact {
 
   const betting: BettingImpact = {
     relevant: true,
-    affectedMarkets: ["total", "team totals", "passing props"],
+    affectedMarkets: ["game environment", "team scoring", "passing props"],
     metrics: [
       { label: "O/U Impact",   value: isMajor ? "Major — under pressure" : "Moderate under lean", alert: isMajor },
       { label: "Impact Tier",  value: tier },
-      { label: "Markets",      value: "Total, team totals, passing props" },
+      { label: "Impact",       value: "Game environment, team scoring, passing props" },
       { label: "Historical",   value: ">15 MPH: avg 4–6 fewer pts scored" },
     ],
   };
@@ -195,11 +195,11 @@ function matchupImpact(s: SignalForImpact): ComputedImpact {
 
   const betting: BettingImpact = {
     relevant: !!s.bettingRelevance,
-    affectedMarkets: ["player props", "team totals"],
+    affectedMarkets: ["player props", "team scoring"],
     metrics: [
       { label: "Spread",        value: "Check current line" },
       { label: "Implied Total", value: "Elevated for favored side" },
-      { label: "Key Props",     value: s.player ? `${s.player} stats` : "Team totals" },
+      { label: "Key Props",     value: s.player ? `${s.player} stats` : "Team scoring" },
     ],
   };
 
@@ -213,7 +213,7 @@ function propImpact(s: SignalForImpact): ComputedImpact {
     metrics: [
       { label: "Player",      value: s.player ?? "—" },
       { label: "Correlated",  value: "Check salary vs implied production" },
-      { label: "DFS Angle",   value: "Prop line movement = DFS signal" },
+      { label: "DFS Angle",   value: "Prop context movement = DFS signal" },
     ],
   };
 
@@ -245,7 +245,7 @@ function schemeImpact(s: SignalForImpact): ComputedImpact {
 
   const betting: BettingImpact = {
     relevant: true,
-    affectedMarkets: ["team totals", "player props"],
+    affectedMarkets: ["team scoring", "player props"],
     metrics: [
       { label: "Team Total",  value: "Possible elevation" },
       { label: "Key Props",   value: "Target share, yards" },
@@ -274,7 +274,7 @@ function transactionImpact(s: SignalForImpact): ComputedImpact {
 
   const betting: BettingImpact = {
     relevant: true,
-    affectedMarkets: ["spread", "team totals"],
+    affectedMarkets: ["spread", "team scoring"],
     metrics: [
       { label: "Line Impact",  value: "Direct — check current spread", alert: true },
       { label: "Market Move",  value: "Expected on confirmation" },
@@ -351,3 +351,4 @@ export function computeImpact(signal: SignalForImpact): ComputedImpact {
 
   return { dfs: null, betting: null };
 }
+

@@ -131,7 +131,7 @@ try {
 function bridgeInput(prefix: string, generatedAt: string, positive: boolean): ReplayLiveBridgeInput {
   const fixedSignals = [
     liveSignal(`${prefix}-signal-injury`, "injury_update", positive ? "BOS" : "MIA", positive ? "Jayson Tatum" : "Jimmy Butler", positive ? "ESPN NBA Injuries" : "Unverified Beat", positive, positive ? 88 : 62, positive ? 90 : 58),
-    liveSignal(`${prefix}-signal-line`, "line_move", positive ? "NYK" : "LAL", null, "Market Watch", positive, positive ? 82 : 72, positive ? 84 : 70),
+    liveSignal(`${prefix}-signal-line`, "line_move", positive ? "NYK" : "LAL", null, "Movement Context", positive, positive ? 82 : 72, positive ? 84 : 70),
   ] as readonly LiveSignal[];
   return {
     generated_at: generatedAt,
@@ -285,3 +285,4 @@ function assertQuerySupported(_query: ReplayObservabilityQuery): void { return; 
 function assertEqual<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) throw new Error(`${message}. Expected ${String(expected)}, got ${String(actual)}.`);
 }
+

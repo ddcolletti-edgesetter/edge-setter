@@ -4,7 +4,7 @@ import { useBreakpoint } from "../hooks/useBreakpoint";
 
 const ACCENT = "#F5B841";
 const MUTED = "#64748B";
-const SURFACE = "rgba(5,5,5,0.97)";
+const LIVE = "#18D47B";
 const BORDER = "rgba(245,184,65,0.14)";
 
 function BasketballIcon({ active }: { active: boolean }) {
@@ -33,7 +33,7 @@ function BaseballIcon({ active }: { active: boolean }) {
 
 const TABS = [
   {
-    label: "Feed",
+    label: "Live",
     path: "/",
     exact: true,
     Icon: ({ active }: { active: boolean }) => <Home size={20} color={active ? ACCENT : MUTED} />,
@@ -72,15 +72,20 @@ export default function MobileTabBar() {
         bottom: 0,
         left: 0,
         right: 0,
-        zIndex: 45,
-        height: "calc(56px + env(safe-area-inset-bottom, 0px))",
+        width: "min(100vw, 390px)",
+        maxWidth: "min(100vw, 390px)",
+        zIndex: 850,
+        height: "calc(70px + env(safe-area-inset-bottom, 0px))",
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
-        background: SURFACE,
+        background: "linear-gradient(180deg, rgba(10,15,26,0.98), rgba(5,5,5,0.99))",
         borderTop: `1px solid ${BORDER}`,
         display: "flex",
         alignItems: "stretch",
-        backdropFilter: "blur(8px)",
-        WebkitBackdropFilter: "blur(8px)",
+        boxSizing: "border-box",
+        overflow: "hidden",
+        boxShadow: "0 -18px 44px rgba(0,0,0,0.42), inset 0 1px 0 rgba(248,250,252,0.035)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
       }}
     >
       {TABS.map(tab => {
@@ -95,33 +100,72 @@ export default function MobileTabBar() {
             aria-label={tab.label}
             aria-current={isActive ? "page" : undefined}
             style={{
-              flex: 1,
+              flex: "1 1 0",
+              width: 0,
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
               justifyContent: "center",
               gap: 3,
-              background: "none",
+              background: isActive ? "linear-gradient(180deg, rgba(245,184,65,0.13), rgba(245,184,65,0.02))" : "none",
               border: "none",
               cursor: "pointer",
-              minHeight: 56,
+              minHeight: 70,
               WebkitTapHighlightColor: "transparent",
-              padding: "0 4px",
+              padding: "6px 4px 5px",
+              minWidth: 0,
+              borderTop: isActive ? `3px solid ${ACCENT}` : "3px solid transparent",
+              boxShadow: isActive ? "inset 0 1px 0 rgba(245,184,65,0.12)" : "none",
             }}
           >
-            <Icon active={isActive} />
+            <span style={{
+              position: "relative",
+              display: "grid",
+              placeItems: "center",
+              width: 28,
+              height: 26,
+              borderRadius: 7,
+              background: isActive ? "rgba(245,184,65,0.1)" : "transparent",
+            }}>
+              {tab.path === "/" && (
+                <i style={{
+                  position: "absolute",
+                  top: 2,
+                  right: 2,
+                  width: 5,
+                  height: 5,
+                  borderRadius: 999,
+                  background: LIVE,
+                  boxShadow: "0 0 8px rgba(24,212,123,0.55)",
+                }} />
+              )}
+              <Icon active={isActive} />
+            </span>
             <span
               style={{
                 fontFamily: "'Barlow Condensed', sans-serif",
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.1em",
+                fontSize: 10.5,
+                fontWeight: 850,
+                letterSpacing: "0.11em",
                 textTransform: "uppercase",
                 color: isActive ? ACCENT : MUTED,
+                maxWidth: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
               {tab.label}
             </span>
+            {isActive && (
+              <span style={{
+                width: 22,
+                height: 2,
+                borderRadius: 999,
+                background: ACCENT,
+                boxShadow: "0 0 10px rgba(245,184,65,0.36)",
+              }} />
+            )}
           </button>
         );
       })}

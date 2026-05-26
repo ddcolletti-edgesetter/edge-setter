@@ -1182,7 +1182,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           ].map(({ label, topic, hot }) => (
             <a
               key={topic}
-              href={`#/dashboard?topic=${topic}`}
+              href={`/dashboard?topic=${topic}`}
               style={{
                 display: "inline-flex", alignItems: "center", gap: 6,
                 background: hot ? "rgba(245,184,65,0.12)" : "rgba(255,255,255,0.04)",

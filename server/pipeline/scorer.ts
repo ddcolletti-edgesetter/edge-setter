@@ -264,7 +264,7 @@ export function scoreSignal(inputs: ScoreInputs, gameTimeIso?: string): ScoreRes
       : "High-confidence signal — decision window open now";
   } else if (totalScore >= 48 && decisionWindowOpen) {
     urgencyLabel = "WATCH";
-    urgencyReason = "Actionable signal — monitor for confirmation or line movement";
+    urgencyReason = "Actionable signal — monitor for confirmation or market movement";
   } else {
     urgencyLabel = "NOTE";
     urgencyReason = "Context signal — low urgency or closed decision window";
@@ -319,3 +319,4 @@ export function scoreSignal(inputs: ScoreInputs, gameTimeIso?: string): ScoreRes
     },
   };
 }
+

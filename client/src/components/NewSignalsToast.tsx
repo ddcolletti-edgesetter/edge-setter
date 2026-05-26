@@ -96,28 +96,15 @@ export function NewSignalsToast({ count, onView, board, scrollContainerRef }: Ne
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 300,
-        animation: exiting
-          ? 'toastOut 0.28s cubic-bezier(0.4,0,1,1) forwards'
-          : 'toastIn 0.32s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards',
         pointerEvents: 'auto',
+        opacity: exiting ? 0 : 1,
+        transition: 'opacity 0.18s ease',
       }}
     >
-      <style>{`
-        @keyframes toastIn {
-          from { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.92); }
-          to   { opacity: 1; transform: translateX(-50%) translateY(0)     scale(1);    }
-        }
-        @keyframes toastOut {
-          from { opacity: 1; transform: translateX(-50%) translateY(0)     scale(1);    }
-          to   { opacity: 0; transform: translateX(-50%) translateY(10px)  scale(0.95); }
-        }
-        .new-signals-toast-btn:active {
-          transform: scale(0.96) !important;
-        }
-      `}</style>
+      <style>{`.new-signals-toast-btn:active { transform: scale(0.98) !important; }`}</style>
 
       <button
-        className="new-signals-toast-btn"
+        className="new-signals-toast-btn es-update-flash es-ticker-enter"
         onClick={handleClick}
         style={{
           display: 'flex',
@@ -140,24 +127,7 @@ export function NewSignalsToast({ count, onView, board, scrollContainerRef }: Ne
           minHeight: 44,
         }}
       >
-        {/* Pulsing dot */}
-        <span
-          style={{
-            width: 8,
-            height: 8,
-            background: '#000',
-            borderRadius: '50%',
-            flexShrink: 0,
-            opacity: 0.6,
-            animation: 'pulseDot 1.4s ease-in-out infinite',
-          }}
-        />
-        <style>{`
-          @keyframes pulseDot {
-            0%, 100% { opacity: 0.6; transform: scale(1); }
-            50%       { opacity: 1;   transform: scale(1.3); }
-          }
-        `}</style>
+        <span className="es-live-dot" style={{ width: 8, height: 8, background: '#000', opacity: 0.72, boxShadow: 'none' }} />
 
         {/* Arrow up */}
         <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style={{ flexShrink: 0 }}>

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 /**
  * Edge Setter v2 — Sport Visual Component System
  * LFL Master Design — War Room Aesthetic
@@ -48,6 +50,25 @@ export const TEAM_COLORS: Record<string, { primary: string; secondary: string }>
   CHC: { primary: "#0E3386", secondary: "#CC3433" },
   HOU: { primary: "#002D62", secondary: "#EB6E1F" },
   NYM: { primary: "#002D72", secondary: "#FF5910" },
+  KC:  { primary: "#E31837", secondary: "#FFB81C" },
+  SF:  { primary: "#AA0000", secondary: "#B3995D" },
+  BUF: { primary: "#00338D", secondary: "#C60C30" },
+  NYG: { primary: "#0B2265", secondary: "#A71930" },
+  LV:  { primary: "#000000", secondary: "#A5ACAF" },
+  DALNFL: { primary: "#003594", secondary: "#869397" },
+  BALNFL: { primary: "#241773", secondary: "#9E7C0C" },
+  CINNFL: { primary: "#FB4F14", secondary: "#000000" },
+  PHINFL: { primary: "#004C54", secondary: "#A5ACAF" },
+  BAMA:{ primary: "#9E1B32", secondary: "#FFFFFF" },
+  UGA: { primary: "#BA0C2F", secondary: "#000000" },
+  OHIO:{ primary: "#BB0000", secondary: "#666666" },
+  MICH:{ primary: "#00274C", secondary: "#FFCB05" },
+  TX:  { primary: "#BF5700", secondary: "#FFFFFF" },
+  LSU: { primary: "#461D7C", secondary: "#FDD023" },
+  USC: { primary: "#990000", secondary: "#FFC72C" },
+  ND:  { primary: "#0C2340", secondary: "#C99700" },
+  FSU: { primary: "#782F40", secondary: "#CEB888" },
+  CLEM:{ primary: "#F56600", secondary: "#522D80" },
   DEFAULT: { primary: "#101827", secondary: "#F5B841" },
 };
 
@@ -78,6 +99,22 @@ const TEAM_NAME_TO_ABBR: Record<string, string> = {
   "pittsburgh pirates": "PIT", "san diego padres": "SDP", "san francisco giants": "SFG",
   "seattle mariners": "SEA", "st. louis cardinals": "STL", "tampa bay rays": "TBR",
   "texas rangers": "TEX", "toronto blue jays": "TOR", "washington nationals": "WSN",
+  // NFL
+  "kansas city chiefs": "KC", "buffalo bills": "BUF", "san francisco 49ers": "SF",
+  "dallas cowboys": "DAL", "baltimore ravens": "BAL", "cincinnati bengals": "CIN",
+  "new york giants": "NYG", "philadelphia eagles": "PHI", "las vegas raiders": "LV",
+  "green bay packers": "GB", "chicago bears": "CHI", "detroit lions": "DET",
+  "minnesota vikings": "MIN", "miami dolphins": "MIA", "new england patriots": "NE",
+  "new york jets": "NYJ", "los angeles chargers": "LAC", "los angeles rams": "LAR",
+  "seattle seahawks": "SEA", "denver broncos": "DEN", "cleveland browns": "CLE",
+  "pittsburgh steelers": "PIT", "houston texans": "HOU", "indianapolis colts": "IND",
+  "tennessee titans": "TEN", "jacksonville jaguars": "JAX", "tampa bay buccaneers": "TB",
+  "atlanta falcons": "ATL", "carolina panthers": "CAR", "new orleans saints": "NO",
+  "washington commanders": "WAS",
+  // CFB
+  "alabama": "BAMA", "georgia": "UGA", "ohio state": "OHIO", "michigan": "MICH",
+  "texas": "TX", "lsu": "LSU", "southern california": "USC", "notre dame": "ND",
+  "florida state": "FSU", "clemson": "CLEM",
 };
 
 export function toTeamAbbr(name?: string): string {
@@ -193,12 +230,65 @@ const MLB_LOGO_URLS: Record<string, string> = {
   WSN: "https://a.espncdn.com/i/teamlogos/mlb/500/wsh.png",
 };
 
-export const TEAM_LOGO_URLS: Record<string, string> = { ...NBA_LOGO_URLS, ...MLB_LOGO_URLS };
+const NFL_LOGO_URLS: Record<string, string> = {
+  ARI: "https://a.espncdn.com/i/teamlogos/nfl/500/ari.png",
+  ATL: "https://a.espncdn.com/i/teamlogos/nfl/500/atl.png",
+  BAL: "https://a.espncdn.com/i/teamlogos/nfl/500/bal.png",
+  BUF: "https://a.espncdn.com/i/teamlogos/nfl/500/buf.png",
+  CAR: "https://a.espncdn.com/i/teamlogos/nfl/500/car.png",
+  CHI: "https://a.espncdn.com/i/teamlogos/nfl/500/chi.png",
+  CIN: "https://a.espncdn.com/i/teamlogos/nfl/500/cin.png",
+  CLE: "https://a.espncdn.com/i/teamlogos/nfl/500/cle.png",
+  DAL: "https://a.espncdn.com/i/teamlogos/nfl/500/dal.png",
+  DEN: "https://a.espncdn.com/i/teamlogos/nfl/500/den.png",
+  DET: "https://a.espncdn.com/i/teamlogos/nfl/500/det.png",
+  GB: "https://a.espncdn.com/i/teamlogos/nfl/500/gb.png",
+  HOU: "https://a.espncdn.com/i/teamlogos/nfl/500/hou.png",
+  IND: "https://a.espncdn.com/i/teamlogos/nfl/500/ind.png",
+  JAX: "https://a.espncdn.com/i/teamlogos/nfl/500/jax.png",
+  KC: "https://a.espncdn.com/i/teamlogos/nfl/500/kc.png",
+  LAC: "https://a.espncdn.com/i/teamlogos/nfl/500/lac.png",
+  LAR: "https://a.espncdn.com/i/teamlogos/nfl/500/lar.png",
+  LV: "https://a.espncdn.com/i/teamlogos/nfl/500/lv.png",
+  MIA: "https://a.espncdn.com/i/teamlogos/nfl/500/mia.png",
+  MIN: "https://a.espncdn.com/i/teamlogos/nfl/500/min.png",
+  NE: "https://a.espncdn.com/i/teamlogos/nfl/500/ne.png",
+  NO: "https://a.espncdn.com/i/teamlogos/nfl/500/no.png",
+  NYG: "https://a.espncdn.com/i/teamlogos/nfl/500/nyg.png",
+  NYJ: "https://a.espncdn.com/i/teamlogos/nfl/500/nyj.png",
+  PHI: "https://a.espncdn.com/i/teamlogos/nfl/500/phi.png",
+  PIT: "https://a.espncdn.com/i/teamlogos/nfl/500/pit.png",
+  SEA: "https://a.espncdn.com/i/teamlogos/nfl/500/sea.png",
+  SF: "https://a.espncdn.com/i/teamlogos/nfl/500/sf.png",
+  TB: "https://a.espncdn.com/i/teamlogos/nfl/500/tb.png",
+  TEN: "https://a.espncdn.com/i/teamlogos/nfl/500/ten.png",
+  WAS: "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png",
+  WSH: "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png",
+};
 
-export function getTeamLogoUrl(abbr: string, sport?: "nba" | "mlb"): string {
-  const upper = abbr?.toUpperCase();
+const CFB_LOGO_URLS: Record<string, string> = {
+  BAMA: "https://a.espncdn.com/i/teamlogos/ncaa/500/333.png",
+  UGA: "https://a.espncdn.com/i/teamlogos/ncaa/500/61.png",
+  OHIO: "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
+  MICH: "https://a.espncdn.com/i/teamlogos/ncaa/500/130.png",
+  TX: "https://a.espncdn.com/i/teamlogos/ncaa/500/251.png",
+  LSU: "https://a.espncdn.com/i/teamlogos/ncaa/500/99.png",
+  USC: "https://a.espncdn.com/i/teamlogos/ncaa/500/30.png",
+  ND: "https://a.espncdn.com/i/teamlogos/ncaa/500/87.png",
+  FSU: "https://a.espncdn.com/i/teamlogos/ncaa/500/52.png",
+  CLEM: "https://a.espncdn.com/i/teamlogos/ncaa/500/228.png",
+};
+
+type TeamLogoSport = "nba" | "mlb" | "nfl" | "cfb";
+
+export const TEAM_LOGO_URLS: Record<string, string> = { ...NBA_LOGO_URLS, ...MLB_LOGO_URLS, ...NFL_LOGO_URLS, ...CFB_LOGO_URLS };
+
+export function getTeamLogoUrl(abbr: string, sport?: TeamLogoSport): string {
+  const upper = toTeamAbbr(abbr);
   if (sport === "mlb") return MLB_LOGO_URLS[upper] ?? "";
   if (sport === "nba") return NBA_LOGO_URLS[upper] ?? "";
+  if (sport === "nfl") return NFL_LOGO_URLS[upper] ?? "";
+  if (sport === "cfb") return CFB_LOGO_URLS[upper] ?? "";
   return TEAM_LOGO_URLS[upper] ?? "";
 }
 
@@ -213,29 +303,51 @@ export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
   );
 }
 
-interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: "nba" | "mlb"; }
+interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: TeamLogoSport; }
 export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: TeamLogoImgProps) {
-  const logoUrl = src ?? getTeamLogoUrl(abbr, sport);
-  const colors = getTeamColors(abbr);
-  if (!logoUrl) return <TeamLogo abbr={abbr} size={size} shape={shape} />;
+  const normalizedAbbr = toTeamAbbr(abbr);
+  const logoUrl = src ?? getTeamLogoUrl(normalizedAbbr, sport);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showFallback = !logoUrl || (Boolean(src) && failedUrl === logoUrl);
   const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "4px";
+  const fallback = teamFallbackVisual(normalizedAbbr, sport);
+  const padding = Math.max(3, Math.round(size * 0.11));
+
+  useEffect(() => {
+    setFailedUrl(null);
+  }, [logoUrl]);
+
+  if (showFallback) {
+    return (
+      <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, position: "relative", background: fallback.bg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span aria-hidden="true" style={{ position: "absolute", inset: "18% 12% auto auto", width: "42%", height: "2px", background: fallback.stripe, opacity: 0.72, transform: "rotate(-24deg)" }} />
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: size * 0.34, fontWeight: 900, color: fallback.text, letterSpacing: "0.01em", lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,0.65)" }}>
+          {normalizedAbbr?.slice(0, 3).toUpperCase()}
+        </span>
+      </div>
+    );
+  }
   return (
-    <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, position: "relative", background: `${colors.primary}22`, border: `1px solid ${colors.secondary}22`, boxShadow: `0 2px 8px ${colors.primary}44` }}>
-      <img src={logoUrl} alt={abbr} width={size} height={size} style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
-        onError={(e) => {
-          const target = e.currentTarget as HTMLImageElement;
-          const parent = target.parentElement;
-          if (parent) {
-            parent.innerHTML = "";
-            const span = document.createElement("span");
-            span.style.cssText = `display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-family:'Barlow Condensed',sans-serif;font-size:${size * 0.38}px;font-weight:800;color:${colors.secondary};`;
-            span.textContent = abbr?.slice(0, 3).toUpperCase();
-            parent.appendChild(span);
-          }
+    <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, position: "relative", background: fallback.bg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow }}>
+      <img src={logoUrl} alt={normalizedAbbr || abbr} width={size} height={size} style={{ position: "relative", zIndex: 1, width: "100%", height: "100%", objectFit: "contain", display: "block", padding, boxSizing: "border-box", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.45))" }}
+        onError={() => {
+          if (src) setFailedUrl(logoUrl);
         }}
       />
     </div>
   );
+}
+
+function teamFallbackVisual(abbr: string, sport?: TeamLogoSport) {
+  const colors = getTeamColors(abbr);
+  const sportAccent = sport === "nfl" ? "#00B7FF" : sport === "cfb" ? "#B06EFF" : sport === "mlb" ? "#00E676" : sport === "nba" ? "#F5B841" : colors.secondary;
+  return {
+    bg: `radial-gradient(circle at 28% 18%, ${colors.secondary}55, transparent 36%), linear-gradient(145deg, ${colors.primary}EE, rgba(8,13,20,0.96) 68%), linear-gradient(135deg, ${sportAccent}26, transparent)`,
+    border: `${colors.secondary}66`,
+    text: colors.secondary === "#000000" ? "#F8FAFC" : colors.secondary,
+    shadow: `0 0 0 1px rgba(248,250,252,0.035), 0 6px 16px ${colors.primary}55`,
+    stripe: sportAccent,
+  };
 }
 
 export function TeamLogoPair({ away, home, size = 28, useImg = true }: { away: string; home: string; size?: number; useImg?: boolean }) {
@@ -392,7 +504,7 @@ export function GameCard({ away, home, time, series, spread, total, status = "up
           </div>
           <div style={{ textAlign: "center" }}>
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, color: T.textFaint }}>@</div>
-            {isLive && <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 3 }}><span style={{ width: 5, height: 5, borderRadius: "50%", background: T.green, display: "inline-block" }} /><span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.green, fontWeight: 700 }}>LIVE</span></div>}
+            {isLive && <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 3 }}><span className="es-live-dot es-live-pulse" style={{ width: 5, height: 5 }} /><span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.green, fontWeight: 700 }}>LIVE</span></div>}
           </div>
           <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
             <div style={{ textAlign: "right" }}>

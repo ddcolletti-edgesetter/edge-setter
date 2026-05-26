@@ -3,7 +3,8 @@ import V2Shell from "../components/V2Shell";
 import { TOOLS } from "../data/v2MockData";
 import { Link } from "wouter";
 import { ArrowRight, ExternalLink, Zap, TrendingUp, Activity, BarChart2, Search, Database } from "lucide-react";
-import { TeamLogo, T, getTeamColors } from "../components/v2/SportVisuals";
+import { T } from "../components/v2/SportVisuals";
+import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
 
 /* ── Sport badge config ── */
 const SPORT_ACCENT: Record<string, string> = {
@@ -22,8 +23,8 @@ const SPORT_BG: Record<string, string> = {
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; border: string; label: string }> = {
   "Live":        { bg: "rgba(0,230,118,0.12)",  color: "#00E676", border: "rgba(0,230,118,0.28)",  label: "LIVE" },
-  "Beta":        { bg: "rgba(245,184,65,0.1)",   color: "#F5B841", border: "rgba(245,184,65,0.28)",  label: "BETA" },
-  "Coming Soon": { bg: "rgba(100,116,139,0.08)", color: "#64748B", border: "rgba(100,116,139,0.18)", label: "SOON" },
+  "Beta":        { bg: "rgba(245,184,65,0.1)",   color: "#F5B841", border: "rgba(245,184,65,0.28)",  label: "LIMITED" },
+  "Coming Soon": { bg: "rgba(100,116,139,0.08)", color: "#64748B", border: "rgba(100,116,139,0.18)", label: "WATCHLIST" },
 };
 
 /* Map tool icon strings to lucide-react components */
@@ -35,6 +36,51 @@ function ToolIcon({ icon, color, size = 22 }: { icon: string; color: string; siz
   if (icon === "📈") return <TrendingUp style={style} />;
   if (icon === "🔍") return <Search style={style} />;
   return <Database style={style} />;
+}
+
+const TOOL_VISUAL_TEAMS: Record<string, [string, string]> = {
+  NBA: ["LAL", "BOS"],
+  MLB: ["NYY", "LAD"],
+  NFL: ["KC", "BUF"],
+  CFB: ["UGA", "BAMA"],
+};
+
+const PRODUCT_STATES = [
+  { sport: "NBA", status: "Live board", detail: "Full board and tool workflow active", href: "/nba" },
+  { sport: "MLB", status: "Active board", detail: "Lineup, pitcher, weather, and game context supported", href: "/mlb" },
+  { sport: "NFL", status: "Limited watchlist", detail: "Offseason context only until game-week coverage is reliable", href: "/nfl" },
+  { sport: "CFB", status: "Limited watchlist", detail: "Offseason and conference monitoring, not a full live slate", href: "/cfb" },
+];
+
+function toolWorkflowCopy(tool: typeof TOOLS[number]) {
+  const sport = tool.sport[0] ?? "NBA";
+  const name = tool.name.toLowerCase();
+  if (name.includes("lineup") || name.includes("injur")) {
+    return {
+      monitors: "Player status, late lineup changes, and source confirmation",
+      outputs: "Availability context, urgency, and board-ready story leads",
+      supports: sport === "NBA" ? "NBA live board" : sport === "MLB" ? "MLB active board" : `${sport} limited watchlist`,
+    };
+  }
+  if (name.includes("source") || name.includes("leader")) {
+    return {
+      monitors: "Reporter reliability, confirmation patterns, and source coverage",
+      outputs: "Trust context and source-check status",
+      supports: "Signals and detail drawers",
+    };
+  }
+  if (name.includes("market") || name.includes("movement")) {
+    return {
+      monitors: "External movement tied to verified sports context",
+      outputs: "Timing support and context movement labels",
+      supports: "Board confidence support",
+    };
+  }
+  return {
+    monitors: "Sports stories, source checks, and timing windows",
+    outputs: "Workflow-ready context with confidence support",
+    supports: `${tool.sport.join(" / ")} workflows`,
+  };
 }
 
 /* Sport tag badge */
@@ -60,6 +106,8 @@ function ToolCard({ tool }: { tool: typeof TOOLS[number] }) {
   const primarySport = tool.sport[0] ?? "NBA";
   const accentColor = SPORT_ACCENT[primarySport] ?? T.gold;
   const description = "description" in tool && typeof tool.description === "string" ? tool.description : undefined;
+  const visualTeams = TOOL_VISUAL_TEAMS[primarySport] ?? TOOL_VISUAL_TEAMS.NBA;
+  const workflow = toolWorkflowCopy(tool);
 
   const card = (
     <div
@@ -99,6 +147,18 @@ function ToolCard({ tool }: { tool: typeof TOOLS[number] }) {
       )}
 
       <div style={{ paddingLeft: isDisabled ? 0 : 8 }}>
+        <SportsStoryVisual
+          league={primarySport}
+          sport={leagueToSport(primarySport)}
+          primaryTeam={visualTeams[0]}
+          secondaryTeam={visualTeams[1]}
+          title={tool.name}
+          storyType="Tool workflow"
+          detail={workflow.monitors}
+          size="mini"
+          className="tool-card-sports-visual"
+        />
+
         {/* Header row: icon + name + status */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -146,6 +206,19 @@ function ToolCard({ tool }: { tool: typeof TOOLS[number] }) {
           </div>
         )}
 
+        <div className="tool-workflow-proof">
+          {[
+            ["Monitors", workflow.monitors],
+            ["Outputs", workflow.outputs],
+            ["Supports", workflow.supports],
+          ].map(([label, value]) => (
+            <div key={label} className="tool-workflow-proof-row">
+              <span>{label}</span>
+              <strong>{value}</strong>
+            </div>
+          ))}
+        </div>
+
         {/* CTA row */}
         {!isDisabled && (
           <div style={{
@@ -157,7 +230,7 @@ function ToolCard({ tool }: { tool: typeof TOOLS[number] }) {
             {tool.status === "Live" ? (
               <>Open <ExternalLink size={10} /></>
             ) : (
-              <>Try Beta <ArrowRight size={10} /></>
+              <>Open Internal <ArrowRight size={10} /></>
             )}
           </div>
         )}
@@ -205,14 +278,14 @@ function FeaturedToolBanner() {
             }}>Featured Tool — Now Live</span>
           </div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 6 }}>
-            NBA Signal Board
+            NBA Intelligence Board
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, color: T.textMuted, letterSpacing: "0.04em", lineHeight: 1.6, maxWidth: 480,
           }}>
-            Real-time playoff intelligence. Player injuries, line moves, rotation notes, and matchup edges — 
-            all in one visual board with confidence scoring and action takeaways.
+            Real-time playoff intelligence. Player injuries, rotation notes, matchup context, and external movement as supporting context — 
+            all in one visual board with confidence scoring and source-backed takeaways.
           </div>
         </div>
         <Link href="/nba">
@@ -232,13 +305,161 @@ function FeaturedToolBanner() {
   );
 }
 
+function SportsWorkflowDeck() {
+  const workflows = [
+    {
+      league: "NBA",
+      teams: ["LAL", "BOS"],
+      title: "Availability Desk",
+      monitors: "Warmups, late scratches, rotations, role changes",
+      outputs: "Confirmed player status, minute context, source picture",
+      supports: "NBA board and signal detail drawers",
+    },
+    {
+      league: "MLB",
+      teams: ["NYY", "LAD"],
+      title: "Lineup + Pitcher Watch",
+      monitors: "Probable starters, lineup cards, weather, bullpen load",
+      outputs: "Game context, lineup confirmation, timing flags",
+      supports: "MLB board and top developments",
+    },
+    {
+      league: "NFL",
+      teams: ["KC", "BUF"],
+      title: "Game-Week Context",
+      monitors: "Practice reports, injury tags, depth pressure, matchup notes",
+      outputs: "Offseason watches, source checks, story priority",
+      supports: "Limited NFL watchlist until season coverage expands",
+    },
+    {
+      league: "CFB",
+      teams: ["UGA", "BAMA"],
+      title: "Conference Intelligence",
+      monitors: "Roster movement, QB rooms, travel, conference context",
+      outputs: "Source-backed developments and game environment notes",
+      supports: "Limited CFB watchlist and conference watch",
+    },
+  ];
+
+  return (
+    <section style={{ marginBottom: 28 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <div style={{ width: 3, height: 16, borderRadius: 2, background: T.gold }} />
+        <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold }}>
+          Sports Intelligence Workflows
+        </span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
+        {workflows.map((item) => {
+          const accent = SPORT_ACCENT[item.league] ?? T.gold;
+          return (
+            <article key={item.league} style={{
+              minHeight: 236,
+              border: `1px solid ${accent}33`,
+              borderRadius: 6,
+              padding: 14,
+              background: `linear-gradient(135deg, ${accent}18, rgba(10,15,26,0.86) 44%, rgba(5,5,5,0.72))`,
+              position: "relative",
+              overflow: "hidden",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                <SportsStoryVisual
+                  league={item.league}
+                  sport={leagueToSport(item.league)}
+                  primaryTeam={item.teams[0]}
+                  secondaryTeam={item.teams[1]}
+                  title={item.title}
+                  storyType="Workflow"
+                  detail={item.monitors}
+                  size="mini"
+                  className="tools-workflow-visual"
+                />
+                <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 900, letterSpacing: "0.14em", color: accent }}>{item.league}</span>
+              </div>
+              <h3 style={{ margin: "16px 0 6px", color: T.text, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 18, lineHeight: 1.15 }}>{item.title}</h3>
+              <div style={{ display: "grid", gap: 7, marginTop: 10 }}>
+                {[
+                  ["Monitors", item.monitors],
+                  ["Outputs", item.outputs],
+                  ["Supports", item.supports],
+                ].map(([label, value]) => (
+                  <div key={label} style={{
+                    display: "grid",
+                    gridTemplateColumns: "72px minmax(0, 1fr)",
+                    gap: 8,
+                    alignItems: "start",
+                    padding: "7px 8px",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    borderRadius: 4,
+                    background: "rgba(255,255,255,0.035)",
+                  }}>
+                    <span style={{
+                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                      fontSize: 11,
+                      fontWeight: 900,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: accent,
+                    }}>{label}</span>
+                    <span style={{
+                      color: T.textMuted,
+                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                      fontSize: 12,
+                      lineHeight: 1.35,
+                      letterSpacing: "0.03em",
+                    }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ProductStateStrip() {
+  return (
+    <section style={{ marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
+        {PRODUCT_STATES.map((item) => {
+          const accent = SPORT_ACCENT[item.sport] ?? T.textFaint;
+          return (
+            <Link key={item.sport} href={item.href}>
+              <div style={{
+                minHeight: 92,
+                padding: "12px 14px",
+                borderRadius: 5,
+                border: `1px solid ${accent}33`,
+                background: "rgba(10,15,26,0.82)",
+                cursor: "pointer",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 900, letterSpacing: "0.16em", color: accent }}>{item.sport}</span>
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: item.status.includes("Live") ? T.green : item.status.includes("Active") ? "#00B7FF" : T.textFaint }}>
+                    {item.status}
+                  </span>
+                </div>
+                <p style={{ margin: 0, color: T.textMuted, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, lineHeight: 1.45, letterSpacing: "0.03em" }}>
+                  {item.detail}
+                </p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function ToolsHub() {
   const liveTools = TOOLS.filter(t => t.status === "Live");
   const betaTools = TOOLS.filter(t => t.status === "Beta");
-  const comingTools = TOOLS.filter(t => t.status === "Coming Soon");
+  const visibleTools = [...liveTools, ...betaTools];
 
   return (
-    <V2Shell>
+    <V2Shell brandContext="SPORTS INTEL TOOLS">
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 28px 60px" }}>
 
         {/* ── Page Header ── */}
@@ -251,22 +472,25 @@ export default function ToolsHub() {
             }}>Intelligence Tools</span>
           </div>
           <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 8px" }}>
-            Signal Lab
+            Tool Desk
           </h1>
           <p style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, color: T.textMuted, margin: 0, letterSpacing: "0.04em", lineHeight: 1.65, maxWidth: 560,
           }}>
-            Decision-oriented research tools for NBA, MLB, NFL, and CFB. Built for grinders, not casual fans.
+            Operational research tools for injuries, lineups, role changes, source checks, and game-context review. NBA is live, MLB is active, and NFL/CFB remain limited watchlists until their coverage is reliable enough for full live-board treatment.
           </p>
         </div>
+
+        <ProductStateStrip />
 
         {/* ── Status summary pills ── */}
         <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
           {[
-            { label: "Live",        count: liveTools.length,  color: T.green,     bg: "rgba(0,230,118,0.1)",   border: "rgba(0,230,118,0.2)" },
-            { label: "Beta",        count: betaTools.length,  color: T.gold,      bg: "rgba(245,184,65,0.08)",  border: "rgba(245,184,65,0.2)" },
-            { label: "Coming Soon", count: comingTools.length,color: T.textFaint, bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)" },
+            { label: "Live Boards", count: 1,                 color: T.green,     bg: "rgba(0,230,118,0.1)",   border: "rgba(0,230,118,0.2)" },
+            { label: "Active MLB",  count: 1,                 color: "#00B7FF",   bg: "rgba(0,183,255,0.08)",  border: "rgba(0,183,255,0.2)" },
+            { label: "Limited",     count: 2 + betaTools.length, color: T.gold,   bg: "rgba(245,184,65,0.08)",  border: "rgba(245,184,65,0.2)" },
+            { label: "Available",   count: visibleTools.length,color: T.textMuted, bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)" },
           ].map(s => (
             <div key={s.label} style={{
               padding: "7px 14px",
@@ -287,6 +511,8 @@ export default function ToolsHub() {
         </div>
 
         {/* ── Featured tool hero ── */}
+        <SportsWorkflowDeck />
+
         <FeaturedToolBanner />
 
         {/* ── Sport filter row (visual only) ── */}
@@ -323,8 +549,7 @@ export default function ToolsHub() {
         {/* ── Tool grid — grouped by status ── */}
         {[
           { label: "Live Now",               tools: liveTools,  accentColor: T.green,     icon: <Activity size={12} /> },
-          { label: "Beta — Available Now",   tools: betaTools,  accentColor: T.gold,      icon: <Zap size={12} /> },
-          { label: "Coming Soon",            tools: comingTools,accentColor: T.textFaint,  icon: <TrendingUp size={12} /> },
+          { label: "Limited Tool Access",    tools: betaTools,  accentColor: T.gold,      icon: <Zap size={12} /> },
         ].map(group => group.tools.length > 0 && (
           <section key={group.label} style={{ marginBottom: 36 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
@@ -357,14 +582,13 @@ export default function ToolsHub() {
         }}>
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: "linear-gradient(90deg, rgba(245,184,65,0.5), transparent)" }} />
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 13, fontWeight: 700, color: T.gold, marginBottom: 6 }}>
-            Product Roadmap
+            Access Notes
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, color: T.textMuted, lineHeight: 1.7, letterSpacing: "0.04em", marginBottom: 14,
           }}>
-            NBA + MLB tools launch first. NFL tools expand during training camp (August). CFB tools launch before fall camp.
-            All "Coming Soon" tools have active development timelines. Pro subscribers get early access to Beta tools and first priority on new releases.
+            This desk only shows tools that support current sports intelligence workflows. Limited tools are marked as limited or watchlist until their signal coverage is reliable enough for production use.
           </div>
           <Link href="/pro">
             <button style={{
@@ -381,3 +605,4 @@ export default function ToolsHub() {
     </V2Shell>
   );
 }
+

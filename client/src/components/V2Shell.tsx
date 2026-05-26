@@ -8,13 +8,48 @@ import {
   Star, TrendingUp, Wrench, Zap, CreditCard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+const EDGESETTER_EMBLEM_SRC = "/brand/edgesetter-emblem.png";
+const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
+
+function BrandEmblem({ size = 38 }: { size?: number }) {
+  return (
+    <span style={{ width: size, height: size, display: "grid", placeItems: "center", borderRadius: "6px", border: "1px solid rgba(24,212,123,0.20)", background: "linear-gradient(135deg, rgba(24,212,123,0.09), rgba(245,184,65,0.06))", boxShadow: "0 8px 22px rgba(0,0,0,0.26)", flexShrink: 0, overflow: "hidden", position: "relative" }}>
+      <img
+        src={EDGESETTER_EMBLEM_SRC}
+        alt="EdgeSetter live sports intelligence"
+        width={size}
+        height={size}
+        style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", transform: "scale(1.55)", opacity: 0.42 }}
+        onError={(event) => {
+          event.currentTarget.style.display = "none";
+          const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
+          if (fallback) fallback.style.display = "grid";
+        }}
+      />
+      <span aria-hidden="true" style={{ position: "absolute", inset: 0, display: "grid", width: "100%", height: "100%", placeItems: "center", color: "#F8FAFC", fontFamily: "'Barlow Condensed', sans-serif", fontSize: `${Math.max(12, size * 0.34)}px`, fontWeight: 950, letterSpacing: "0.02em", textShadow: "0 0 12px rgba(24,212,123,0.34)" }}>
+        ES
+      </span>
+    </span>
+  );
+}
+
+function BrandWordmark() {
+  return (
+    <div aria-label="EdgeSetter live sports desk" style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", fontFamily: "'Barlow Condensed', sans-serif", lineHeight: 1, textTransform: "uppercase" }}>
+      <strong style={{ display: "block", color: "#F8FAFC", fontSize: "0.94rem", fontWeight: 950, letterSpacing: "0.028em", whiteSpace: "nowrap" }}>
+        EDGESETTER
+      </strong>
+      <span style={{ display: "block", marginTop: 5, color: "var(--es-brand-green)", fontSize: "0.46rem", fontWeight: 900, letterSpacing: "0.045em", whiteSpace: "nowrap" }}>
+        LIVE SPORTS DESK
+      </span>
+    </div>
+  );
+}
 function useTheme() {
   return { theme: "dark" as const, toggleTheme: () => {} };
 }
 
 // ── Logo URL ────────────────────────────────────────────────────────────────
-const LOGO_URL = "/edgesetter-logo-transparent_6b7a9796.png";
-
 // ── Sport tab config ─────────────────────────────────────────────────────────
 const SPORT_TABS = [
   { key: "nba", label: "NBA", path: "/nba", dot: "#F5B841" },
@@ -40,7 +75,7 @@ const MLB_SUB: NavItem[] = [
   { label: "Pitcher News",    path: "/mlb?tab=pitchers",   icon: <Zap size={12} /> },
   { label: "Lineup Movement", path: "/mlb?tab=lineup",     icon: <List size={12} /> },
   { label: "Team Trends",     path: "/mlb?tab=trends",     icon: <TrendingUp size={12} /> },
-  { label: "Line Movement",   path: "/mlb?tab=line_moves", icon: <BarChart2 size={12} /> },
+  { label: "Movement",        path: "/mlb?tab=line_moves", icon: <BarChart2 size={12} /> },
 ];
 
 const NBA_SUB: NavItem[] = [
@@ -49,7 +84,7 @@ const NBA_SUB: NavItem[] = [
   { label: "Injury Report",   path: "/nba?tab=injuries",  icon: <Zap size={12} /> },
   { label: "Lineup Movement", path: "/nba?tab=lineup",    icon: <List size={12} /> },
   { label: "Team Trends",     path: "/nba?tab=trends",    icon: <TrendingUp size={12} /> },
-  { label: "Line Movement",   path: "/nba?tab=line_moves",icon: <BarChart2 size={12} /> },
+  { label: "Movement",        path: "/nba?tab=line_moves",icon: <BarChart2 size={12} /> },
 ];
 
 const MLB_TEAMS_TODAY = ["HOU", "NYY", "LAD", "ATL", "CHC", "NYM", "BOS", "BAL"];
@@ -94,36 +129,50 @@ function Sidebar({
   };
 
   const isActive = (path?: string) => path && location === path;
+  const sidebarNav = [
+    { label: "Live Desk", path: "/", icon: <Home size={16} />, active: location === "/" },
+    { label: "Tools", path: "/tools", icon: <Activity size={16} />, active: location.startsWith("/tools") },
+    { label: "Boards", path: "/mlb", icon: <LayoutGrid size={16} />, active: ["/nba", "/mlb", "/nfl", "/cfb"].some((path) => location.startsWith(path)) },
+    { label: "Developments", path: "/signals", icon: <TrendingUp size={16} />, active: location.startsWith("/signals") },
+    { label: "Sources", path: "/sources", icon: <BarChart2 size={16} />, active: location.startsWith("/sources") || location.startsWith("/accuracy") },
+    { label: "My Edge", path: "/my-edge", icon: <Star size={16} />, active: location.startsWith("/my-edge") },
+    { label: "Alerts", path: "/alerts", icon: <Zap size={16} />, active: location.startsWith("/alerts") },
+    { label: "Settings", path: "/billing", icon: <Wrench size={16} />, active: location.startsWith("/billing") },
+  ];
 
   return (
     <aside
       style={{
-        width: "240px",
-        minWidth: "240px",
+        width: collapsed ? "60px" : "228px",
+        minWidth: collapsed ? "60px" : "228px",
         height: "100vh",
-        background: "var(--es-surface-alt)",
+        background: "linear-gradient(180deg, rgba(6,14,22,0.995), rgba(4,7,10,0.99))",
         borderRight: "1px solid var(--es-border)",
         display: "flex",
         flexDirection: "column",
         overflow: "hidden",
         flexShrink: 0,
+        transition: "width 0.16s ease, min-width 0.16s ease, transform 0.14s ease-out",
         // Desktop sticky positioning; overridden by styleProp on mobile
         position: "sticky",
         top: 0,
+        zIndex: 220,
+        isolation: "isolate",
         ...styleProp,
       }}
     >
       {/* Logo */}
       <div
         style={{
-          height: "72px",
+          height: collapsed ? "60px" : "72px",
           display: "flex",
           alignItems: "center",
-          padding: collapsed ? "0 10px" : "0 14px 0 12px",
+          padding: collapsed ? "0 10px" : "0 12px",
           borderBottom: "1px solid var(--es-border)",
           flexShrink: 0,
-          gap: "8px",
-          background: "var(--es-surface-alt)",
+          gap: collapsed ? "0" : "10px",
+          background: "linear-gradient(180deg, rgba(7,16,25,1), rgba(5,10,15,0.98))",
+          overflow: "hidden",
         }}
       >
         {collapsed ? (
@@ -134,41 +183,23 @@ function Sidebar({
             style={{
               background: "none", border: "none", padding: 0, cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              width: "36px", height: "36px",
+              width: "40px", height: "40px",
             }}
           >
-            <img
-              src="/edgesetter-logo-transparent_6b7a9796.png"
-              alt="Edge Setter"
-              style={{ width: 34, height: 34, objectFit: "contain", borderRadius: "4px" }}
-            />
+            <BrandEmblem size={36} />
           </button>
         ) : (
           <>
-            <img
-              src={LOGO_URL}
-              alt="Edge Setter"
-              style={{ height: "68px", maxWidth: "200px", objectFit: "contain", objectPosition: "left center" }}
-              onError={(e) => {
-                const el = e.currentTarget as HTMLElement;
-                el.style.display = "none";
-                const p = el.parentElement!;
-                const fb = document.createElement("div");
-                fb.style.cssText =
-                  "font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:1.4rem;color:#F5B841;letter-spacing:0.04em";
-                fb.textContent = "EDGE SETTER";
-                p.prepend(fb);
-              }}
-            />
-            <div style={{ flex: 1 }} />
+            <BrandEmblem size={36} />
+            <BrandWordmark />
             <button
               className="ux-button-interactive"
               onClick={onToggle}
               aria-label="Collapse sidebar"
               title="Collapse sidebar"
               style={{
-                background: "none", border: "none", padding: "4px",
-                cursor: "pointer", color: "#94A3B8", borderRadius: "4px", flexShrink: 0,
+                background: "rgba(255,255,255,0.025)", border: "1px solid rgba(148,163,184,0.12)", padding: "4px",
+                cursor: "pointer", color: "#94A3B8", borderRadius: "5px", flexShrink: 0, marginLeft: 2,
               }}
             >
               <ChevronRight size={16} style={{ transform: "rotate(180deg)" }} />
@@ -177,8 +208,59 @@ function Sidebar({
         )}
       </div>
 
+      <nav aria-label="Primary navigation" style={{ flex: 1, overflowY: "auto", padding: "8px 7px" }}>
+        {sidebarNav.map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={() => setLocation(item.path)}
+            aria-current={item.active ? "page" : undefined}
+            title={collapsed ? item.label : undefined}
+            style={{
+              width: "100%",
+              minHeight: 35,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: collapsed ? "center" : "flex-start",
+              gap: collapsed ? 0 : 9,
+              padding: collapsed ? "0" : "0 9px",
+              marginBottom: 2,
+              border: item.active ? "1px solid rgba(24,212,123,0.14)" : "1px solid transparent",
+              borderLeft: item.active ? "2px solid #18D47B" : "2px solid transparent",
+              borderRadius: "6px",
+              background: item.active ? "linear-gradient(90deg, rgba(24,212,123,0.105), rgba(24,212,123,0.025))" : "transparent",
+              color: item.active ? "#EAFBF2" : "#94A3B8",
+              cursor: "pointer",
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: "0.79rem",
+              fontWeight: item.active ? 820 : 680,
+              letterSpacing: "0.015em",
+              textAlign: "left",
+              transition: "background 0.12s ease, color 0.12s ease, border-color 0.12s ease",
+            }}
+            onMouseEnter={(e) => {
+              if (!item.active) {
+                e.currentTarget.style.background = "rgba(148,163,184,0.045)";
+                e.currentTarget.style.color = "#CBD5E1";
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!item.active) {
+                e.currentTarget.style.background = "transparent";
+                e.currentTarget.style.color = "#94A3B8";
+              }
+            }}
+          >
+            <span style={{ display: "grid", placeItems: "center", width: 18, color: item.active ? "#18D47B" : "#728198", flexShrink: 0 }}>
+              {item.icon}
+            </span>
+            {!collapsed && <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>}
+          </button>
+        ))}
+      </nav>
+
       {/* Nav */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+      <div style={{ display: "none" }}>
         {/* Home */}
         <Link href="/">
           <div
@@ -197,7 +279,7 @@ function Sidebar({
             }}
           >
             <Home size={15} style={{ flexShrink: 0, color: isActive("/") ? "#F5B841" : "#94A3B8" }} />
-            {!collapsed && <span>Home</span>}
+            {!collapsed && <span>Live Desk</span>}
           </div>
         </Link>
 
@@ -458,8 +540,8 @@ function Sidebar({
 
             {/* NFL / CFB */}
             {[
-              { label: "NFL Board", path: "/nfl", badge: "PRE" },
-              { label: "CFB Board", path: "/cfb", badge: "PRE" },
+              { label: "NFL Board", path: "/nfl", badge: "MON" },
+              { label: "CFB Board", path: "/cfb", badge: "MON" },
             ].map((b) => (
               <Link key={b.path} href={b.path}>
                 <div
@@ -499,9 +581,9 @@ function Sidebar({
         </div>
         {[
           { label: "Source Accuracy", path: "/accuracy", icon: <TrendingUp size={15} /> },
-          { label: "Market Movement", path: "/tools/market-movement", icon: <BarChart2 size={15} /> },
+          { label: "Context Movement", path: "/tools/market-movement", icon: <BarChart2 size={15} /> },
           { label: "Team Trends",     path: "/nba?tab=trends", icon: <Activity size={15} /> },
-          { label: "Signal Lab",      path: "/tools", icon: <Wrench size={15} /> },
+          { label: "Tool Desk",       path: "/tools", icon: <Wrench size={15} /> },
         ].map((item) => (
           <Link key={item.path} href={item.path}>
             <div
@@ -573,10 +655,10 @@ function Sidebar({
       {!collapsed && (
         <div
           style={{
-            margin: "8px 12px 12px",
-            padding: "12px 14px",
-            background: "linear-gradient(135deg, rgba(245,184,65,0.12), rgba(245,184,65,0.04))",
-            border: "1px solid rgba(245,184,65,0.25)",
+            margin: "6px 10px 10px",
+            padding: "10px 12px",
+            background: "linear-gradient(135deg, rgba(245,184,65,0.09), rgba(24,212,123,0.035))",
+            border: "1px solid rgba(245,184,65,0.18)",
             borderRadius: "8px",
             flexShrink: 0,
           }}
@@ -587,10 +669,10 @@ function Sidebar({
               textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px",
             }}
           >
-            Pro Intelligence
+            Sports Desk
           </div>
           <div style={{ fontSize: "0.72rem", color: "#CBD5E1", marginBottom: "10px", lineHeight: 1.4 }}>
-            Alerts · Full Archive · Multi-Sport
+            Lineups · Injuries · Alerts
           </div>
           <ProUpgradeButton />
         </div>
@@ -603,13 +685,16 @@ function Sidebar({
 // FIX: Added isMobile + onMenuToggle props; on mobile shows hamburger and
 //      collapses PRO/theme buttons to icon-only; sport tabs scroll horizontally.
 function TopTabBar({
+  collapsed = false,
   onMenuToggle,
   isMobile,
+  brandContext,
 }: {
   collapsed?: boolean;
   onToggle?: () => void;
   onMenuToggle: () => void;
   isMobile: boolean;
+  brandContext?: string;
 }) {
   const [location, setLocation] = useLocation();
   const { theme, toggleTheme } = useTheme();
@@ -621,7 +706,9 @@ function TopTabBar({
     <div
       style={{
         height: "48px",
-        background: "var(--es-surface-alt)",
+        width: "100%",
+        maxWidth: "100%",
+        background: isMobile ? "#071019" : "rgba(7,16,25,0.98)",
         borderBottom: "1px solid var(--es-border)",
         display: "flex",
         alignItems: "center",
@@ -630,8 +717,12 @@ function TopTabBar({
         flexShrink: 0,
         position: "sticky",
         top: 0,
-        zIndex: 40,
+        zIndex: isMobile ? 820 : 180,
         minWidth: 0,
+        overflow: "hidden",
+        isolation: "isolate",
+        pointerEvents: "auto",
+        boxShadow: isMobile ? "0 8px 22px rgba(0,0,0,0.36)" : "none",
       }}
     >
       {/* FIX: Hamburger button on mobile (opens drawer); collapse toggle on desktop */}
@@ -651,31 +742,82 @@ function TopTabBar({
           color: "#94A3B8",
           flexShrink: 0,
           borderRight: "1px solid var(--es-border)",
+          position: "relative",
+          zIndex: 2,
+          touchAction: "manipulation",
         }}
       >
         <Menu size={18} />
       </button>
 
-      {/* Brand label — hidden on mobile to save space */}
-      {!isMobile && (
+      {isMobile && (
+        <div
+          style={{
+            padding: "0 7px 0 4px",
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontSize: "0.82rem",
+            fontWeight: 900,
+            color: "#F8FAFC",
+            letterSpacing: "0.08em",
+            textTransform: "uppercase",
+            flexShrink: 0,
+            lineHeight: 1,
+            position: "relative",
+            zIndex: 2,
+            pointerEvents: "none",
+          }}
+        >
+          <BrandEmblem size={30} />
+        </div>
+      )}
+
+      {/* Brand label */}
+      {!isMobile && collapsed && (
         <div
           style={{
             paddingLeft: "12px",
             fontFamily: "'Barlow Condensed', sans-serif",
-            fontSize: "0.85rem",
-            fontWeight: 800,
-            color: "var(--es-text-faint)",
-            letterSpacing: "0.1em",
+            fontSize: "1rem",
+            fontWeight: 900,
+            color: "#F8FAFC",
+            letterSpacing: "0.08em",
             textTransform: "uppercase",
-            marginRight: "8px",
+            marginRight: "12px",
             flexShrink: 0,
+            lineHeight: 1,
           }}
         >
-          EDGE SETTER
+          <span style={{ display: "block", width: 132, height: 28, overflow: "hidden" }}>
+            <img
+              src={EDGESETTER_LOGO_SRC}
+              alt="EdgeSetter live sports intelligence"
+              style={{ display: "block", width: 250, maxWidth: "none", height: 53, objectFit: "contain", objectPosition: "left center", transform: "translate(-27px, -13px)" }}
+              onError={(event) => {
+                event.currentTarget.style.display = "none";
+                const fallback = event.currentTarget.parentElement?.nextElementSibling as HTMLElement | null;
+                if (fallback) fallback.style.display = "block";
+              }}
+            />
+          </span>
+          <span style={{ display: "none" }}>EDGESETTER</span>
+          {brandContext && (
+            <span
+              style={{
+                display: "block",
+                marginTop: 3,
+                color: "var(--es-brand-green)",
+                fontSize: "0.58rem",
+                fontWeight: 850,
+                letterSpacing: "0.12em",
+              }}
+            >
+              {brandContext}
+            </span>
+          )}
         </div>
       )}
 
-      <div style={{ flex: 1 }} />
+      {!isMobile && <div style={{ flex: 1 }} />}
 
       {/* Sport tabs — horizontally scrollable on mobile */}
       <div
@@ -684,8 +826,13 @@ function TopTabBar({
           gap: isMobile ? "0" : "2px",
           overflowX: isMobile ? "auto" : "visible",
           scrollbarWidth: "none",
+          flex: isMobile ? "1 1 auto" : undefined,
           flexShrink: 1,
           minWidth: 0,
+          position: "relative",
+          zIndex: 2,
+          pointerEvents: "auto",
+          WebkitOverflowScrolling: "touch",
         }}
       >
         {SPORT_TABS.map((tab) => {
@@ -713,6 +860,10 @@ function TopTabBar({
                 transition: "all 0.15s ease",
                 flexShrink: 0,
                 whiteSpace: "nowrap",
+                minHeight: "36px",
+                position: "relative",
+                zIndex: 2,
+                touchAction: "manipulation",
               }}
               onMouseEnter={(e) => {
                 if (!isActive) (e.currentTarget as HTMLElement).style.color = "#CBD5E1";
@@ -744,7 +895,7 @@ function TopTabBar({
         aria-label="Upgrade to Pro"
         title="Upgrade to Pro"
         style={{
-          display: "inline-flex",
+          display: isMobile ? "none" : "inline-flex",
           alignItems: "center",
           gap: "5px",
           padding: isMobile ? "6px 10px" : "6px 14px",
@@ -775,7 +926,7 @@ function TopTabBar({
         aria-label={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
         title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
         style={{
-          display: "inline-flex",
+          display: isMobile ? "none" : "inline-flex",
           alignItems: "center",
           gap: "5px",
           padding: isMobile ? "6px 10px" : "6px 12px",
@@ -808,9 +959,11 @@ function TopTabBar({
 export default function AppShell({
   children,
   boardsMode,
+  brandContext,
 }: {
   children: React.ReactNode;
   boardsMode?: boolean;
+  brandContext?: string;
 }) {
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURN (React rules of hooks)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -835,6 +988,18 @@ export default function AppShell({
     if (isMobile) setMobileDrawerOpen(false);
   }, [location]);
 
+  useEffect(() => {
+    if (!isMobile || !mobileDrawerOpen) {
+      document.body.style.overflow = "";
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobile, mobileDrawerOpen]);
+
   const handleMenuToggle = () => {
     if (isMobile) {
       setMobileDrawerOpen((o) => !o);
@@ -847,10 +1012,12 @@ export default function AppShell({
   if (boardsMode) {
     return (
       <div
+        className="boards-mode-shell"
         style={{
           display: "flex",
           flexDirection: "column",
-          height: "100vh",
+          height: "100dvh",
+          minHeight: 0,
           overflow: "hidden",
           background: "#050505",
           color: "#F8FAFC",
@@ -868,6 +1035,8 @@ export default function AppShell({
       style={{
         display: "flex",
         height: "100vh",
+        width: "100vw",
+        maxWidth: "100vw",
         overflow: "hidden",
         background: isLight ? "var(--es-bg)" : "#050505",
         backgroundImage: isLight ? "var(--es-paper-texture)" : "none",
@@ -883,8 +1052,9 @@ export default function AppShell({
           style={{
             position: "fixed",
             inset: 0,
-            background: "rgba(0, 0, 0, 0.65)",
-            zIndex: 49,
+            background: "rgba(0, 0, 0, 0.66)",
+            zIndex: 900,
+            pointerEvents: "auto",
           }}
         />
       )}
@@ -901,10 +1071,12 @@ export default function AppShell({
             top: 0,
             left: 0,
             height: "100dvh",
-            zIndex: 50,
+            zIndex: 1000,
+            background: "linear-gradient(180deg, rgba(5,5,5,0.995), rgba(7,16,25,0.995))",
+            boxShadow: mobileDrawerOpen ? "18px 0 46px rgba(0,0,0,0.70)" : "none",
             // Slide in/out
             transform: mobileDrawerOpen ? "translateX(0)" : "translateX(-100%)",
-            transition: "transform 0.25s ease",
+            transition: "transform 0.14s ease-out",
             pointerEvents: mobileDrawerOpen ? "auto" : "none",
           }}
         />
@@ -923,6 +1095,8 @@ export default function AppShell({
           flexDirection: "column",
           overflow: "hidden",
           minWidth: 0,
+          width: isMobile ? "100vw" : undefined,
+          maxWidth: isMobile ? "100vw" : undefined,
         }}
       >
         <TopTabBar
@@ -930,8 +1104,9 @@ export default function AppShell({
           onToggle={handleMenuToggle}
           onMenuToggle={handleMenuToggle}
           isMobile={isMobile}
+          brandContext={brandContext}
         />
-        <div style={{ flex: 1, overflowY: "auto", paddingBottom: isMobile ? "72px" : 0 }}>{children}</div>
+        <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minWidth: 0, maxWidth: "100%", paddingBottom: isMobile ? "84px" : 0 }}>{children}</div>
       </div>
       <MobileTabBar />
     </div>
@@ -953,7 +1128,7 @@ export function useShellTheme(): boolean {
 
 /**
  * SportBadge — small status pill shown in board headers.
- * status = "LIVE" | "ACTIVE" | "PRE" | etc.
+ * status = "LIVE" | "ACTIVE" | "MONITORING" | etc.
  */
 export function SportBadge({ status }: { status: string }) {
   const isLive = status === "LIVE";
@@ -976,16 +1151,7 @@ export function SportBadge({ status }: { status: string }) {
         color,
       }}
     >
-      <span
-        style={{
-          width: 5,
-          height: 5,
-          borderRadius: "50%",
-          background: color,
-          display: "inline-block",
-          boxShadow: isLive ? `0 0 6px ${color}` : "none",
-        }}
-      />
+      <span className={isLive ? "es-live-dot es-live-pulse" : "es-live-dot es-live-dot-subtle"} style={{ width: 5, height: 5, background: color }} />
       {status}
     </span>
   );

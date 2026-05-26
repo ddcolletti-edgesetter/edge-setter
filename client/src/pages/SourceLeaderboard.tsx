@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
-import { Trophy, Clock, TrendingDown } from "lucide-react";
+import { CheckCircle, Clock, GitBranch, ShieldCheck, TrendingDown, Trophy } from "lucide-react";
+import { AgentCalibrationBadge } from "@/components/AgentCalibration";
 import V2Shell from "../components/V2Shell";
 const C = {
   bgBase:       "hsl(22 10%  9%)",
@@ -123,8 +124,121 @@ function getSourceLeagues(sourceName: string): LeagueTab[] {
   return SOURCE_LEAGUE_MAP[sourceName] ?? ["NFL", "NBA", "MLB", "CFB"];
 }
 
+function SourceLeagueChips({ leagues }: { leagues: LeagueTab[] }) {
+  const visible = leagues.filter((league) => league !== "ALL").slice(0, 3);
+  if (!visible.length) return null;
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+      {visible.map((league) => (
+        <span
+          key={league}
+          style={{
+            border: `1px solid ${C.borderSub}`,
+            borderRadius: 3,
+            color: C.ivoryMuted,
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 10,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            lineHeight: 1,
+            padding: "3px 5px",
+            textTransform: "uppercase" as const,
+          }}
+        >
+          {league}
+        </span>
+      ))}
+      {leagues.length > visible.length && (
+        <span style={{ color: C.ivorySub, fontSize: 11, fontWeight: 700 }}>+{leagues.length - visible.length}</span>
+      )}
+    </span>
+  );
+}
+
+function TrustCard({
+  title,
+  text,
+  icon,
+}: {
+  title: string;
+  text: string;
+  icon: ReactNode;
+}) {
+  return (
+    <div
+      style={{
+        minWidth: 0,
+        width: "100%",
+        maxWidth: "min(100%, calc(100vw - 96px))",
+        border: `1px solid ${C.borderSub}`,
+        borderRadius: 4,
+        background: "rgba(16,24,39,0.48)",
+        overflow: "hidden",
+        padding: "12px 14px",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, minWidth: 0 }}>
+        <span style={{ color: C.anaAmber, flexShrink: 0 }}>{icon}</span>
+        <span
+          className="data-label"
+          style={{ color: C.ivoryPrimary, fontSize: 10, minWidth: 0, whiteSpace: "normal" }}
+        >
+          {title}
+        </span>
+      </div>
+      <p style={{ color: C.ivoryMuted, fontSize: 12, lineHeight: 1.45, margin: 0, overflowWrap: "anywhere" }}>
+        {text}
+      </p>
+    </div>
+  );
+}
+
+function SourceTrustExplainers({ sourceCount }: { sourceCount: number }) {
+  return (
+    <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+        <AgentCalibrationBadge
+          compact
+          input={{
+            confidence: null,
+            sourceCount,
+            timingLabel: "Source timing compared",
+            storyType: "source reliability",
+            sourceSummary: "Reliability tested over time",
+          }}
+        />
+        <span style={{ color: C.ivoryMuted, fontSize: 12, lineHeight: 1.45 }}>
+          EdgeSetter ranks source behavior by reliability, timing, confirmation history, and agreement with other evidence.
+        </span>
+      </div>
+      <div className="grid gap-2 md:grid-cols-4">
+        <TrustCard
+          title="Source agreement"
+          text="Multiple reliable reports, official confirmation, and matching market or depth-chart movement strengthen a developing story."
+          icon={<CheckCircle size={14} />}
+        />
+        <TrustCard
+          title="Reliability tiers"
+          text="Official, team, league, beat, market, fantasy, and broader media sources stay separated so confidence is earned in context."
+          icon={<ShieldCheck size={14} />}
+        />
+        <TrustCard
+          title="Historical calibration"
+          text="Where prior data exists, source timing and reliability are checked against comparable sports movement from earlier seasons."
+          icon={<GitBranch size={14} />}
+        />
+        <TrustCard
+          title="What weakens it"
+          text="Conflicting reports, stale trails, missing market reaction, or later clarification can reduce confidence before a story settles."
+          icon={<TrendingDown size={14} />}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function SourceLeaderboard() {
-  return <V2Shell boardsMode><SourceLeaderboardInner /></V2Shell>;
+  return <V2Shell brandContext="SOURCE INTEL"><SourceLeaderboardInner /></V2Shell>;
 }
 
 function SourceLeaderboardInner() {
@@ -171,11 +285,11 @@ function SourceLeaderboardInner() {
 
   return (
     <div
-      className="min-h-full p-4 sm:p-6"
+      className="source-accuracy-page min-h-full p-4 sm:p-6"
       data-testid="leaderboard-page"
-      style={{ background: C.bgBase }}
+      style={{ background: C.bgBase, boxSizing: "border-box", maxWidth: "100vw", overflowX: "hidden" }}
     >
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-7xl mx-auto" style={{ width: "100%", maxWidth: "min(80rem, calc(100vw - 96px))", minWidth: 0 }}>
 
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-5">
@@ -187,13 +301,17 @@ function SourceLeaderboardInner() {
               className="text-xl font-bold tracking-tight mt-3"
               style={{ fontFamily: "'Playfair Display', Georgia, serif", letterSpacing: "-0.02em", color: C.ivoryPrimary }}
             >
-              Source Leaderboard
+              Source Intelligence
             </h1>
-            <p className="text-[11px] mt-0.5" style={{ color: C.ivoryMuted }}>Trust scoring across all tracked sources</p>
+            <p className="text-[12px] mt-0.5" style={{ color: C.ivoryMuted, maxWidth: "min(720px, calc(100vw - 96px))", lineHeight: 1.45, overflowWrap: "anywhere" }}>
+              Reliability tracking for the sources that shape developing sports stories, from official confirmation to market, fantasy, team, and broader media context.
+            </p>
           </div>
         </div>
 
         <hr className="briefing-rule mb-5" />
+
+        <SourceTrustExplainers sourceCount={scores.length} />
 
         {/* League tabs */}
         <div className="flex gap-1 mb-4" data-testid="league-tabs">
@@ -230,6 +348,9 @@ function SourceLeaderboardInner() {
               <TierBadge tier={tier} />
             </div>
           ))}
+          <span style={{ color: C.ivoryMuted, fontSize: 12, lineHeight: 1.4 }}>
+            Tiers reflect tracked source behavior where data is available, not a guarantee on any single story.
+          </span>
         </div>
 
         {/* Source-type filter chips */}
@@ -279,7 +400,7 @@ function SourceLeaderboardInner() {
           <div className="text-center py-14 rounded"
             style={{ border: `1px solid ${C.borderMid}`, background: C.panelBase }}>
             <p className="text-sm" style={{ color: C.ivoryMuted }}>
-              No sources found for {activeLeague === "ALL" ? "current filter" : activeLeague}
+              No source reliability records found for {activeLeague === "ALL" ? "the current filter" : activeLeague}.
             </p>
           </div>
         )}
@@ -292,6 +413,7 @@ function SourceLeaderboardInner() {
                 const acc = parseFloat(s.overall_accuracy ?? "0");
                 const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
                 const leadTime = parseFloat(s.average_lead_time_minutes ?? "0").toFixed(0);
+                const leagues = getSourceLeagues(s.source_name ?? "");
                 return (
                   <div
                     key={s.source_id ?? s.id ?? i}
@@ -330,10 +452,11 @@ function SourceLeaderboardInner() {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <TierBadge tier={s.trust_tier ?? null} />
                       <SourceTypeBadge sourceType={s.source_type} />
+                      <SourceLeagueChips leagues={leagues} />
                       {leadTime !== "0" && (
                         <span style={{ fontSize: 11, color: C.ivoryMuted, marginLeft: "auto" }}>
                           <Clock size={10} style={{ display: "inline", marginRight: 3 }} />
-                          {leadTime}m lead
+                          {leadTime}m timing edge
                         </span>
                       )}
                     </div>
@@ -359,21 +482,21 @@ function SourceLeaderboardInner() {
                       </th>
                       <th className="text-right px-4 py-3">
                         <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
-                          <Trophy size={11} />Accuracy
+                          <Trophy size={11} />Tracked accuracy
                         </span>
                       </th>
                       <th className="text-right px-4 py-3">
                         <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
-                          <Clock size={11} />Lead Time
+                          <Clock size={11} />Timing edge
                         </span>
                       </th>
                       <th className="text-right px-4 py-3">
                         <span className="flex items-center gap-1 justify-end text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>
-                          <TrendingDown size={11} />False+
+                          <TrendingDown size={11} />Weakened
                         </span>
                       </th>
                       <th className="text-right px-4 py-3">
-                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Injury Acc.</span>
+                        <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: C.parchmentMid }}>Availability</span>
                       </th>
                     </tr>
                   </thead>
@@ -381,6 +504,7 @@ function SourceLeaderboardInner() {
                     {filteredScores.map((s: any, i: number) => {
                       const acc = parseFloat(s.overall_accuracy ?? "0");
                       const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
+                      const leagues = getSourceLeagues(s.source_name ?? "");
                       return (
                         <tr
                           key={s.source_id ?? s.id ?? i}
@@ -394,6 +518,7 @@ function SourceLeaderboardInner() {
                             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                               <span style={{ fontWeight: 600, color: C.ivoryPrimary }}>{s.source_name}</span>
                               <SourceTypeBadge sourceType={s.source_type} />
+                              <SourceLeagueChips leagues={leagues} />
                             </div>
                           </td>
                           <td className="px-4 py-3"><TierBadge tier={s.trust_tier ?? null} /></td>

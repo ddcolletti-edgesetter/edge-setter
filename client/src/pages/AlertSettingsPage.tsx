@@ -7,6 +7,8 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useLocation } from "wouter";
+import V2Shell from "../components/V2Shell";
+import { T } from "../components/v2/SportVisuals";
 
 const LEAGUES      = ["NBA", "MLB", "NFL", "CFB"] as const;
 const SIGNAL_TYPES = [
@@ -192,50 +194,50 @@ export default function AlertSettingsPage() {
     }
   }
 
-  if (authLoading || loading) {
+  if (authLoading || (isPro && loading)) {
     return (
-      <div style={{ minHeight: "100vh", background: "#050505", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <V2Shell brandContext="ALERT DESK"><div style={{ minHeight: "50vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <p style={{ color: "#64748B", fontFamily: "'Arial Narrow', Arial, sans-serif", letterSpacing: "0.12em" }}>Loading…</p>
-      </div>
+      </div></V2Shell>
     );
   }
 
   if (!isPro) return null;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#050505", padding: "40px 20px", fontFamily: "'Arial Narrow', Arial, sans-serif" }}>
-      <div style={{ maxWidth: 600, margin: "0 auto" }}>
+    <V2Shell brandContext="ALERT DESK">
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "32px 28px 60px", fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif" }}>
 
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
-          <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "#F5B841" }}>
-            Pro — Alert Settings
+          <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold }}>
+            Pro Alert Desk
           </p>
-          <h1 style={{ margin: 0, fontFamily: "Georgia, serif", fontSize: 26, fontWeight: 900, color: "#F8FAFC", lineHeight: 1.15 }}>
-            Signal Alerts
+          <h1 style={{ margin: 0, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 800, color: T.text, lineHeight: 1.15 }}>
+            Watchlist Alerts
           </h1>
-          <p style={{ margin: "8px 0 0", fontSize: 14, color: "#64748B", lineHeight: 1.5 }}>
-            Get notified when high-confidence signals match your criteria.
+          <p style={{ margin: "8px 0 0", fontSize: 13, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.04em", maxWidth: 560 }}>
+            Configure the Live Sports Desk alerts that match your followed leagues, saved teams, signal types, and confidence threshold.
           </p>
         </div>
 
         {/* Master toggle */}
-        <div style={{ background: "#0A0F1A", border: "1px solid #101827", borderRadius: 3, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ background: T.surface1, border: `1px solid ${T.border}`, borderRadius: 5, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18 }}>
           <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#F8FAFC", letterSpacing: "0.08em" }}>Alerts enabled</p>
-            <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748B" }}>Turn off to pause all notifications without losing settings.</p>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.text, letterSpacing: "0.1em", textTransform: "uppercase" }}>Alerts enabled</p>
+            <p style={{ margin: "3px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.4 }}>Pause delivery without losing your saved alert settings.</p>
           </div>
           <button
             onClick={() => setPrefs(p => ({ ...p, is_active: !p.is_active }))}
             style={{
               width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer",
-              background: prefs.is_active ? "#F5B841" : "#2A2620",
+              background: prefs.is_active ? T.gold : T.surface3,
               position: "relative", transition: "background 0.2s",
             }}
           >
             <span style={{
               position: "absolute", top: 3, left: prefs.is_active ? 23 : 3,
-              width: 18, height: 18, borderRadius: "50%", background: "#F8FAFC",
+              width: 18, height: 18, borderRadius: "50%", background: T.text,
               transition: "left 0.2s",
             }} />
           </button>
@@ -318,8 +320,8 @@ export default function AlertSettingsPage() {
 
         {/* Error */}
         {error && (
-          <div style={{ marginBottom: 16, padding: "10px 14px", background: "#1A0F0F", border: "1px solid #4A2020", borderRadius: 3 }}>
-            <p style={{ margin: 0, fontSize: 13, color: "#FF5252" }}>{error}</p>
+          <div style={{ marginBottom: 16, padding: "10px 14px", background: "rgba(255,82,82,0.08)", border: "1px solid rgba(255,82,82,0.26)", borderRadius: 4 }}>
+            <p style={{ margin: 0, fontSize: 13, color: T.danger }}>{error}</p>
           </div>
         )}
 
@@ -329,9 +331,9 @@ export default function AlertSettingsPage() {
             onClick={handleSave}
             disabled={saving}
             style={{
-              padding: "11px 28px", background: saving ? "#64748B" : "#F5B841",
-              color: "#050505", border: "none", borderRadius: 2,
-              fontFamily: "'Arial Narrow', Arial, sans-serif", fontSize: 11,
+              padding: "11px 28px", background: saving ? T.textFaint : T.gold,
+              color: T.bg, border: "none", borderRadius: 3,
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12,
               fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
               cursor: saving ? "not-allowed" : "pointer",
             }}
@@ -339,12 +341,12 @@ export default function AlertSettingsPage() {
             {saving ? "Saving…" : "Save Settings"}
           </button>
           {saved && (
-            <p style={{ margin: 0, fontSize: 13, color: "#3DAE72" }}>Settings saved.</p>
+            <p style={{ margin: 0, fontSize: 13, color: T.green }}>Settings saved.</p>
           )}
         </div>
 
       </div>
-    </div>
+    </V2Shell>
   );
 }
 
@@ -352,11 +354,11 @@ export default function AlertSettingsPage() {
 
 function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <div style={{ background: "#0A0F1A", border: "1px solid #101827", borderRadius: 3, padding: "20px", marginBottom: 16 }}>
-      <p style={{ margin: "0 0 4px", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: "#64748B" }}>
+    <div style={{ background: T.surface1, border: `1px solid ${T.border}`, borderRadius: 5, padding: "20px", marginBottom: 16 }}>
+      <p style={{ margin: "0 0 4px", fontSize: 11, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint }}>
         {title}
       </p>
-      {subtitle && <p style={{ margin: "0 0 12px", fontSize: 12, color: "#64748B" }}>{subtitle}</p>}
+      {subtitle && <p style={{ margin: "0 0 12px", fontSize: 12, color: T.textMuted }}>{subtitle}</p>}
       {!subtitle && <div style={{ marginTop: 12 }} />}
       {children}
     </div>
@@ -368,10 +370,10 @@ function Toggle({ active, onClick, label }: { active: boolean; onClick: () => vo
     <button
       onClick={onClick}
       style={{
-        padding: "6px 14px", border: `1px solid ${active ? "#F5B841" : "#2A2620"}`,
+        padding: "6px 14px", border: `1px solid ${active ? T.gold : "rgba(255,255,255,0.08)"}`,
         background: active ? "rgba(245,184,65,0.12)" : "transparent",
-        color: active ? "#F5B841" : "#64748B", borderRadius: 2,
-        fontFamily: "'Arial Narrow', Arial, sans-serif", fontSize: 11,
+        color: active ? T.gold : T.textFaint, borderRadius: 3,
+        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11,
         fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase",
         cursor: "pointer", transition: "all 0.15s",
       }}
@@ -388,10 +390,10 @@ function ChannelRow({
   onClick: () => void; loading?: boolean; disabled?: boolean;
 }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: "1px solid #101827" }}>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: `1px solid ${T.border}` }}>
       <div>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: disabled ? "#64748B" : "#F8FAFC" }}>{label}</p>
-        <p style={{ margin: "2px 0 0", fontSize: 12, color: "#64748B" }}>{description}</p>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: disabled ? T.textFaint : T.text }}>{label}</p>
+        <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textMuted }}>{description}</p>
       </div>
       <button
         onClick={disabled ? undefined : onClick}
@@ -399,14 +401,14 @@ function ChannelRow({
         style={{
           width: 44, height: 24, borderRadius: 12, border: "none",
           cursor: disabled || loading ? "not-allowed" : "pointer",
-          background: active ? "#F5B841" : "#2A2620",
+          background: active ? T.gold : T.surface3,
           position: "relative", transition: "background 0.2s", flexShrink: 0, marginLeft: 16,
           opacity: disabled ? 0.4 : 1,
         }}
       >
         <span style={{
           position: "absolute", top: 3, left: active ? 23 : 3,
-          width: 18, height: 18, borderRadius: "50%", background: "#F8FAFC",
+          width: 18, height: 18, borderRadius: "50%", background: T.text,
           transition: "left 0.2s",
         }} />
       </button>

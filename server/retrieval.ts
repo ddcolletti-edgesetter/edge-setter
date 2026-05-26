@@ -12,7 +12,7 @@
  *                                injury/transaction report with a matching status.
  *
  * 3. checkLineReaction         — checks the games table to see whether the spread
- *                                or total moved in the direction implied by the
+ *                                or total changed in the direction implied by the
  *                                claim, treating market movement as implicit evidence.
  */
 
@@ -283,10 +283,10 @@ export async function checkOfficialInjuryStatus(
 
 /**
  * Looks up the team's game in the pipeline games table and checks
- * whether the spread or total moved since the opening line.
+ * whether the spread or total changed since the opening line.
  *
  * For injury/negative-impact claims: if the team became a bigger underdog
- * (spread moved away from them), the market implicitly validated the claim.
+ * (spread changed away from them), the market implicitly validated the claim.
  *
  * Returns null stance if there's no game data or no meaningful movement.
  */
@@ -358,7 +358,7 @@ export function checkLineReaction(
 
   // For a negative claim (injury, etc.) about a team:
   // - If they're the favourite and the line got tighter (delta > 0, less negative), market validated the claim.
-  // - If they're the underdog and the spread moved further against them (delta > 0), market validated.
+  // - If they're the underdog and the spread changed further against them (delta > 0), market validated.
   const marketValidated = isNegativeClaim && (
     (teamIsFav  && delta > 0) ||  // fav getting less credit
     (!teamIsFav && delta < 0)     // dog getting fewer points
@@ -370,3 +370,4 @@ export function checkLineReaction(
     notes: `${league} line moved ${delta > 0 ? "+" : ""}${delta.toFixed(1)} pts from open (${openSpread} → ${currentSpread}).`,
   };
 }
+

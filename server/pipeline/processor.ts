@@ -21,6 +21,8 @@ import {
   upsertLiveSignal, getLiveSignal,
 } from "./store";
 import { scoreSignal } from "./scorer";
+import { rawEventToNormalizedEvent, confidenceInputFromRawEvent } from "./situations-adapter";
+import { evolveCanonicalSituation } from "./situations-engine";
 import type { RawEvent, LiveSignal, League, SignalType, LineMovement } from "./types";
 
 /* ─── Helper ────────────────────────────────────────────── */
@@ -70,11 +72,11 @@ function handleLineup(raw: RawEvent, isChange: boolean): Partial<LiveSignal> {
     headline: `${raw.player ?? raw.team ?? "Player"} ${isChange ? "scratched" : "confirmed"} — ${status}`,
     body: p.notes ?? `${raw.player ?? "Player"} ${status} in today's lineup.`,
     action_note: isChange
-      ? `Reassess roster/betting exposure — ${raw.player} is out.`
-      : `${raw.player} locked in — lineups confirmed, proceed with confidence.`,
+      ? `Reassess roster and availability context — ${raw.player} is out.`
+      : `${raw.player} confirmed — lineups confirmed, monitor as verified context.`,
     why_it_matters: isChange
-      ? `Lineup change creates market inefficiency — check if books have adjusted.`
-      : `Confirmed starters reduce uncertainty for pre-game bets.`,
+      ? `Lineup change alters team context, role availability, and downstream market signals.`
+      : `Confirmed starters reduce uncertainty for pre-game roster and game context.`,
     lineup_status: status,
     betting_relevance: true,
     fantasy_relevance: true,
@@ -98,14 +100,14 @@ function handleLineMove(raw: RawEvent): Partial<LiveSignal> {
 
   return {
     signal_type: "line_move",
-    headline: `${raw.team ?? "Market"}: ${openLine > 0 ? "+" : ""}${openLine} → ${currentLine > 0 ? "+" : ""}${currentLine} — ${isSharp ? "sharp action" : "line movement"}`,
+    headline: `${raw.team ?? "Market"}: ${openLine > 0 ? "+" : ""}${openLine} → ${currentLine > 0 ? "+" : ""}${currentLine} — ${isSharp ? "source-backed market move" : "market movement"}`,
     body: p.notes ?? `Line moved ${delta.toFixed(1)} points ${direction} from open. ${isSharp && sharpPct ? `${sharpPct}% of sharp tickets on ${raw.team}.` : ""}`,
     action_note: delta >= 2
-      ? `Significant movement — if you like this side, take it now before further movement.`
-      : `Monitor. Line may continue moving if sharp money is one-sided.`,
+      ? `Significant movement detected. Treat the market move as supporting context and wait for confirmation.`
+      : `Monitor. Market may continue moving if source pressure is one-sided.`,
     why_it_matters: isSharp
-      ? `Sharp money diverging from public — classic steam move signal.`
-      : `Market inefficiency detected — line adjusting toward true probability.`,
+      ? `Professional market activity diverges from public consensus and may confirm a team or game-context change.`
+      : `Market movement may be reacting to new sports context before full public confirmation.`,
     line_movement: lm,
     betting_relevance: true,
     fantasy_relevance: false,
@@ -149,10 +151,10 @@ function handleSchemeNote(raw: RawEvent): Partial<LiveSignal> {
   const p = raw.payload as any;
   return {
     signal_type: "scheme_note",
-    headline: p.headline ?? `${raw.team ?? "Team"} — schematic edge`,
+    headline: p.headline ?? `${raw.team ?? "Team"} — schematic matchup`,
     body: p.body ?? p.notes ?? "",
     action_note: p.action_note ?? "Evaluate for props and team totals.",
-    why_it_matters: p.why_it_matters ?? "Schematic mismatch creates exploitable edge.",
+    why_it_matters: p.why_it_matters ?? "Schematic mismatch changes player role, usage, and game-context expectations.",
     betting_relevance: true,
     fantasy_relevance: true,
     confidence: p.confidence ?? 65,
@@ -171,8 +173,8 @@ function handleTransaction(raw: RawEvent): Partial<LiveSignal> {
     signal_type: "transaction",
     headline: `${raw.player ?? raw.team ?? "Roster"} — ${txType}`,
     body: p.notes ?? `${raw.player ?? "Player"} — ${txType} confirmed.`,
-    action_note: p.action_note ?? `Reassess market exposure — ${txType} changes expected value.`,
-    why_it_matters: p.why_it_matters ?? `${txType} creates direct line impact.`,
+    action_note: p.action_note ?? `Reassess roster, availability, and game context — ${txType} changes expected roles.`,
+    why_it_matters: p.why_it_matters ?? `${txType} changes roster availability and may affect downstream market signals.`,
     injury_designation: designation,
     betting_relevance: true,
     fantasy_relevance: true,
@@ -194,8 +196,8 @@ function handleOddsOpen(raw: RawEvent): Partial<LiveSignal> {
     signal_type: "line_move",
     headline: `${p.matchup ?? raw.team ?? "Game"}: Opening line ${spreadStr} | O/U ${totalStr}`,
     body: `Opening spread: ${spreadStr}. Total: ${totalStr}. Market baseline established — monitor for sharp movement.`,
-    action_note: "Opening line only. No edge yet — watch for moves from this number.",
-    why_it_matters: "Opening lines set the market baseline. Sharp movement away from open signals professional action.",
+    action_note: "Opening line only. No confirmed timing advantage yet — watch for source-backed movement from this number.",
+    why_it_matters: "Opening lines set the market baseline. Movement away from open is supporting context until tied to team or game news.",
     line_movement: spread !== null ? { open: spread, current: spread, delta: 0, direction: "flat" } : null,
     betting_relevance: true,
     fantasy_relevance: false,
@@ -341,6 +343,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       };
 
       upsertLiveSignal(signal);
+      processCanonicalSituationSafe(raw, signal);
       markRawEventProcessed(raw.id);
       processed++;
     } catch (err: any) {
@@ -407,6 +410,7 @@ export async function processOne(raw: RawEvent): Promise<LiveSignal | null> {
     };
 
     upsertLiveSignal(signal);
+    processCanonicalSituationSafe(raw, signal);
     markRawEventProcessed(raw.id);
     return signal;
   } catch (err: any) {
@@ -414,3 +418,16 @@ export async function processOne(raw: RawEvent): Promise<LiveSignal | null> {
     return null;
   }
 }
+
+function processCanonicalSituationSafe(raw: RawEvent, signal: LiveSignal): void {
+  try {
+    const normalized = rawEventToNormalizedEvent(raw, signal);
+    evolveCanonicalSituation({
+      event: normalized,
+      confidence_input: confidenceInputFromRawEvent(raw, signal),
+    });
+  } catch (err: any) {
+    console.warn(`[pipeline/processor] Canonical situation processing skipped for raw event ${raw.id}:`, err.message);
+  }
+}
+

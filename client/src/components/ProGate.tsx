@@ -59,19 +59,19 @@ const MODAL_COPY: Record<ModalTrigger, SportCopy> = {
     features: [
       { icon: Zap,          label: "Full signal feed",          detail: "Every pitcher and lineup signal — no blurring, no limits." },
       { icon: AlertCircle,  label: "Pitcher & health reports",  detail: "Scratches, bullpen load, and IL movement the moment it surfaces." },
-      { icon: TrendingUp,   label: "Line movement & steam",     detail: "Sharp percentages and overnight line movement before first pitch." },
+      { icon: TrendingUp,   label: "Context movement",            detail: "External movement and overnight source pressure before first pitch." },
       { icon: BarChart2,    label: "Action takeaways",          detail: "Run-line, total, and prop angles for every high-confidence signal." },
       { icon: CheckCircle2, label: "Weather + park factors",    detail: "Wind direction, temperature, and ballpark edge signals unlocked." },
     ],
   },
   NFL: {
-    headline: "Football intel before the market moves.",
+    headline: "Football intel before context shifts.",
     subhead: "High-conviction signals with confidence scores, injury context, and market-aware edges — every week, fully readable.",
     cta: "Unlock Pro — $19/mo",
     features: [
       { icon: Zap,          label: "Full signal feed",          detail: "Every injury, line move, and role change — nothing locked." },
       { icon: AlertCircle,  label: "Practice & injury reports", detail: "Wednesday through Friday designations and snap-share changes." },
-      { icon: TrendingUp,   label: "Sharp money & line moves",  detail: "Steam moves, reverse line movement, and sharp side identification." },
+      { icon: TrendingUp,   label: "Source pressure",           detail: "Professional activity, context movement, and side identification." },
       { icon: BarChart2,    label: "Action takeaways",          detail: "Spread, total, and prop actions for every high-confidence signal." },
       { icon: CheckCircle2, label: "Depth chart & role edges",  detail: "Target share shifts, backfield splits, and role changes — early." },
     ],
@@ -83,7 +83,7 @@ const MODAL_COPY: Record<ModalTrigger, SportCopy> = {
     features: [
       { icon: Zap,          label: "Full signal feed",          detail: "Every transfer, depth chart, and line move signal unlocked." },
       { icon: AlertCircle,  label: "Transfer portal & depth",   detail: "Portal commits, starter battles, and eligibility decisions — first." },
-      { icon: TrendingUp,   label: "Sharp line movement",       detail: "Early CFB line moves and steam before the public arrives." },
+      { icon: TrendingUp,   label: "Context movement",            detail: "Early CFB source pressure and external movement before consensus arrives." },
       { icon: BarChart2,    label: "Action takeaways",          detail: "ATS, total, and player prop actions for every high-confidence signal." },
       { icon: CheckCircle2, label: "Coaching & scheme intel",   detail: "Coordinator moves, gameplanning tendencies, and motivational edges." },
     ],
@@ -810,3 +810,4 @@ export function NavLoginButton() {
     </div>
   );
 }
+

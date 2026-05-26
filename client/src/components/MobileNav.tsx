@@ -92,7 +92,7 @@ const DEFAULT_NAV: NavItem[] = [
     ),
   },
   {
-    label: 'Market Movement',
+    label: 'Context Movement',
     path: '/tools/market-movement',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">

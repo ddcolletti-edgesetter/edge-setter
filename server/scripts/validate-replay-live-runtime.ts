@@ -28,11 +28,11 @@ const INTERVAL_MS = 60_000;
 
 const cycleOne = bridgeInput("runtime-a", "2026-05-20T07:00:00.000Z", [
   signalSpec("runtime-a-injury-win", "injury_update", "BOS", "Jayson Tatum", "ESPN NBA Injuries", true, 2.4, 88, 90),
-  signalSpec("runtime-a-line-win", "line_move", "NYK", null, "Market Watch", true, 1.2, 82, 84),
+  signalSpec("runtime-a-line-win", "line_move", "NYK", null, "Movement Context", true, 1.2, 82, 84),
 ]);
 const cycleTwo = bridgeInput("runtime-b", "2026-05-20T07:01:15.000Z", [
   signalSpec("runtime-b-injury-loss", "injury_update", "MIA", "Jimmy Butler", "Unverified Beat", false, -2.3, 62, 58),
-  signalSpec("runtime-b-line-loss", "line_move", "LAL", null, "Market Watch", false, -1.7, 73, 70),
+  signalSpec("runtime-b-line-loss", "line_move", "LAL", null, "Movement Context", false, -1.7, 73, 70),
 ]);
 
 const db = new Database(":memory:");
@@ -302,3 +302,4 @@ function assertStateSupported(_state: ReplayLiveRuntimeState): void { return; }
 function assertEqual<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) throw new Error(`${message}. Expected ${String(expected)}, got ${String(actual)}.`);
 }
+

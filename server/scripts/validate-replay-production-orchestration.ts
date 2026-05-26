@@ -149,7 +149,7 @@ try {
 function bridgeInput(prefix: string, generatedAt: string, positive: boolean): ReplayLiveBridgeInput {
   const specs = [
     { id: `${prefix}-injury`, signalType: "injury_update" as const, team: positive ? "BOS" : "MIA", player: positive ? "Jayson Tatum" : "Jimmy Butler", source: positive ? "ESPN NBA Injuries" : "Unverified Beat", confidence: positive ? 88 : 62, score: positive ? 90 : 58 },
-    { id: `${prefix}-line`, signalType: "line_move" as const, team: positive ? "NYK" : "LAL", player: null, source: "Market Watch", confidence: positive ? 82 : 72, score: positive ? 84 : 70 },
+    { id: `${prefix}-line`, signalType: "line_move" as const, team: positive ? "NYK" : "LAL", player: null, source: "Movement Context", confidence: positive ? 82 : 72, score: positive ? 84 : 70 },
   ];
   const signals = specs.map((spec) => liveSignal(prefix, spec, positive));
   return {
@@ -293,3 +293,4 @@ function assertStateSupported(_state: ReplayProductionOrchestrationState): void 
 function assertEqual<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) throw new Error(`${message}. Expected ${String(expected)}, got ${String(actual)}.`);
 }
+

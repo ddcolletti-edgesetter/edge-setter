@@ -31,7 +31,7 @@ const PERSISTED_AT = "2026-05-20T04:05:00.000Z";
 
 const liveSignals = [
   liveSignal("trust-signal-injury-win", "injury_update", "NBA", "trust-game-1", "BOS", "Jayson Tatum", 86, 88, ["trust-raw-injury-win"], "ESPN NBA Injuries", "trust-outcome-win"),
-  liveSignal("trust-signal-line-loss", "line_move", "NBA", "trust-game-2", "LAL", null, 78, 72, ["trust-raw-line-loss"], "Market Watch", "trust-outcome-loss"),
+  liveSignal("trust-signal-line-loss", "line_move", "NBA", "trust-game-2", "LAL", null, 78, 72, ["trust-raw-line-loss"], "Movement Context", "trust-outcome-loss"),
   liveSignal("trust-signal-injury-loss", "injury_update", "NBA", "trust-game-3", "MIA", "Jimmy Butler", 69, 64, ["trust-raw-injury-loss"], "Unverified Beat", "trust-outcome-injury-loss"),
 ] as const;
 
@@ -105,7 +105,7 @@ const bridgeInput: ReplayLiveBridgeInput = {
     {
       event_id: "trust-source-market",
       source_id: "market-watch",
-      source_name: "Market Watch",
+      source_name: "Movement Context",
       source_type: "model",
       reliability_score: 78,
       topic: "odds",
@@ -348,3 +348,4 @@ function assertStateSupported(_state: ReplayValidatorTrustState): void { return;
 function assertEqual<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) throw new Error(`${message}. Expected ${String(expected)}, got ${String(actual)}.`);
 }
+
