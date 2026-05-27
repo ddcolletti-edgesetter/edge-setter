@@ -153,7 +153,7 @@ function LedgerTrustCard({
       style={{
         minWidth: 0,
         width: "100%",
-        maxWidth: "min(100%, calc(100vw - 96px))",
+        maxWidth: "min(100%, calc(100vw - 120px))",
         background: "rgba(16,24,39,0.55)",
         border: `1px solid ${T.goldBorder}`,
         borderRadius: 4,
@@ -312,7 +312,7 @@ function AccuracyPageInner() {
 
   return (
     <div className="source-accuracy-page" style={{ background: T.bg, minHeight: "100%", padding: "24px 24px 60px", boxSizing: "border-box", maxWidth: "100vw", overflowX: "hidden" }}>
-      <div style={{ maxWidth: "min(1140px, calc(100vw - 96px))", margin: "0 auto", width: "100%", minWidth: 0 }}>
+      <div style={{ maxWidth: "min(1140px, calc(100vw - 120px))", margin: "0 auto", width: "100%", minWidth: 0 }}>
 
         {/* ── Page header ── */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
@@ -332,8 +332,8 @@ function AccuracyPageInner() {
             <p style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, margin: 0, letterSpacing: "0.04em",
-              maxWidth: "min(680px, calc(100vw - 96px))", lineHeight: 1.45, overflowWrap: "anywhere",
-            }}>Outcome tracking for developing sports stories, showing how source agreement, timing, verification, and replay evidence support confidence.</p>
+              maxWidth: "min(680px, calc(100vw - 120px))", lineHeight: 1.45, overflowWrap: "anywhere",
+            }}>Outcome tracking for stories, source agreement, timing, verification, and replay evidence.</p>
           </div>
 
           {/* Stats bar */}

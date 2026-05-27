@@ -3703,6 +3703,20 @@
     padding: 16px 12px calc(84px + env(safe-area-inset-bottom, 0px)) !important;
   }
 
+  .source-accuracy-page > div {
+    width: calc(100vw - 120px) !important;
+    max-width: calc(100vw - 120px) !important;
+    min-width: 0 !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+
+  .source-accuracy-page p,
+  .source-accuracy-page strong,
+  .source-accuracy-page span {
+    overflow-wrap: anywhere;
+  }
+
   .source-guidance {
     margin-bottom: 12px;
   }
@@ -3751,6 +3765,13 @@
    in their respective files (see DraftBoard.tsx,
    SourceLeaderboard.tsx).
    ═══════════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .source-accuracy-page > div {
+    width: 270px !important;
+    max-width: 270px !important;
+  }
+}
+
 @media (min-width: 1024px) {
   html {
     /* Desktop base: 16px — text-xs=12px, text-sm=14px, text-base=16px */

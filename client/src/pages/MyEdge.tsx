@@ -262,7 +262,7 @@ export default function MyEdge() {
         @keyframes intelligence-pulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
       `}</style>
 
-      <div style={{ maxWidth: "min(980px, calc(100vw - 80px))", width: "100%", minWidth: 0, margin: "0 auto", padding: "32px 0 60px", boxSizing: "border-box", overflowX: "hidden" }}>
+      <div style={{ maxWidth: "min(980px, calc(100vw - 120px))", width: "100%", minWidth: 0, margin: "0 auto", padding: "32px 0 60px", boxSizing: "border-box", overflowX: "hidden" }}>
 
         {/* ── Hero header ── */}
         <div style={{
@@ -288,7 +288,7 @@ export default function MyEdge() {
             <p style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, margin: 0, lineHeight: 1.7,
-              maxWidth: 540, letterSpacing: "0.04em",
+              maxWidth: "min(540px, 100%)", letterSpacing: "0.04em", overflowWrap: "anywhere",
             }}>
               My Edge will shape EdgeSetter around teams, players, leagues, and developing stories you follow. This preview shows how confidence movement, source agreement, timing windows, fantasy impact, market reaction, and team/fan impact will route into a personal feed once personalization data is connected.
             </p>

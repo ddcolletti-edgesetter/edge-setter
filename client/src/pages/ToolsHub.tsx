@@ -420,8 +420,8 @@ function ProductStateStrip() {
           return (
             <Link key={item.sport} href={item.href}>
               <div style={{
-                minHeight: 92,
-                padding: "12px 14px",
+              minHeight: 92,
+              padding: "12px 14px",
                 borderRadius: 5,
                 border: `1px solid ${accent}33`,
                 background: "rgba(10,15,26,0.82)",
@@ -433,7 +433,7 @@ function ProductStateStrip() {
                     {item.status}
                   </span>
                 </div>
-                <p style={{ margin: 0, color: T.textMuted, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, lineHeight: 1.45, letterSpacing: "0.03em" }}>
+                <p style={{ margin: 0, color: T.textMuted, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, lineHeight: 1.45, letterSpacing: "0.03em", overflowWrap: "anywhere" }}>
                   {item.detail}
                 </p>
               </div>
@@ -545,7 +545,7 @@ export default function ToolsHub() {
 
   return (
     <V2Shell brandContext="SPORTS INTEL TOOLS">
-      <div style={{ maxWidth: 1100, width: "calc(100vw - 80px)", minWidth: 0, margin: "0 auto", padding: "28px 0 60px", boxSizing: "border-box", overflowX: "hidden" }}>
+      <div style={{ maxWidth: 1100, width: "calc(100vw - 120px)", minWidth: 0, margin: "0 auto", padding: "28px 0 60px", boxSizing: "border-box", overflowX: "hidden" }}>
 
         {/* ── Page Header ── */}
         <div style={{ marginBottom: 28 }}>
@@ -557,13 +557,13 @@ export default function ToolsHub() {
             }}>Sports Intelligence Tools</span>
           </div>
           <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 8px" }}>
-            Turn Intelligence Into Decisions
+            Intelligence Tools
           </h1>
           <p style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-            fontSize: 12, color: T.textMuted, margin: 0, letterSpacing: "0.04em", lineHeight: 1.65, maxWidth: 560,
+            fontSize: 12, color: T.textMuted, margin: 0, letterSpacing: "0.04em", lineHeight: 1.65, maxWidth: "min(560px, 100%)", overflowWrap: "anywhere",
           }}>
-            Evaluate developing stories, check source agreement, track confidence movement, review market reaction, and measure fantasy or team impact. NBA is live, MLB is active, and NFL/CFB remain limited watchlists until coverage is reliable enough for full live-board treatment.
+            Evaluate stories, source agreement, confidence movement, market reaction, fantasy impact, and team context.
           </p>
         </div>
 

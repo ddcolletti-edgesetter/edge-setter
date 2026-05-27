@@ -169,7 +169,7 @@ function TrustCard({
       style={{
         minWidth: 0,
         width: "100%",
-        maxWidth: "min(100%, calc(100vw - 96px))",
+        maxWidth: "min(100%, calc(100vw - 120px))",
         border: `1px solid ${C.borderSub}`,
         borderRadius: 4,
         background: "rgba(16,24,39,0.48)",
@@ -289,7 +289,7 @@ function SourceLeaderboardInner() {
       data-testid="leaderboard-page"
       style={{ background: C.bgBase, boxSizing: "border-box", maxWidth: "100vw", overflowX: "hidden" }}
     >
-      <div className="max-w-7xl mx-auto" style={{ width: "100%", maxWidth: "min(80rem, calc(100vw - 96px))", minWidth: 0 }}>
+      <div className="max-w-7xl mx-auto" style={{ width: "100%", maxWidth: "min(80rem, calc(100vw - 120px))", minWidth: 0 }}>
 
         {/* Header */}
         <div className="flex items-start justify-between gap-4 mb-5">
@@ -303,7 +303,7 @@ function SourceLeaderboardInner() {
             >
               Source Intelligence
             </h1>
-            <p className="text-[12px] mt-0.5" style={{ color: C.ivoryMuted, maxWidth: "min(720px, calc(100vw - 96px))", lineHeight: 1.45, overflowWrap: "anywhere" }}>
+            <p className="text-[12px] mt-0.5" style={{ color: C.ivoryMuted, maxWidth: "min(720px, calc(100vw - 120px))", lineHeight: 1.45, overflowWrap: "anywhere" }}>
               Reliability tracking for the sources that shape developing sports stories, from official confirmation to market, fantasy, team, and broader media context.
             </p>
           </div>
