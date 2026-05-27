@@ -3,9 +3,11 @@ import V2Shell from "../components/V2Shell";
 import { Link } from "wouter";
 import {
   ArrowRight, Star, Bell, TrendingUp, Users, Bookmark, Lock,
-  ChevronRight, Zap, Activity, BarChart2,
+  Zap, ShieldCheck, Clock3, GitBranch, CheckCircle,
 } from "lucide-react";
-import { TeamLogo, PlayerAvatar, T as _T, getTeamColors } from "../components/v2/SportVisuals";
+import { StoryCard, type StoryCardData } from "@/components/StoryCard";
+import { WhatToWatchNext } from "@/components/AgentCalibration";
+import { TeamLogo, T as _T } from "../components/v2/SportVisuals";
 
 // Override legacy accent with site-wide clean gold
 const T = { ..._T, gold: "#F5B841", goldBright: "#F5B841", goldDim: "rgba(245,184,65,0.15)" };
@@ -24,54 +26,54 @@ interface FeatureCard {
 const FEATURES: FeatureCard[] = [
   {
     icon: <Star size={18} />,
-    title: "Saved Teams",
-    description: "Follow teams you care about so their board situations surface first.",
-    detail: "NBA and MLB saved teams define the first personalization pass. NFL and CFB follows stay limited until season coverage expands.",
+    title: "Followed Teams",
+    description: "Follow teams you care about so their developing stories surface first.",
+    detail: "NBA and MLB followed teams define the first personalization pass. NFL and CFB follows stay limited until season coverage expands.",
     timeline: "Q3 2026",
     status: "coming",
     accentColor: T.gold,
   },
   {
     icon: <Bell size={18} />,
-    title: "Watchlist Alerts",
-    description: "Get notified when saved teams, players, or situations cross your alert threshold.",
-    detail: "Availability, lineup, pitcher, and context-movement alerts start with NBA and MLB coverage.",
+    title: "Story Alerts",
+    description: "Get notified when confidence, source agreement, or timing changes for your watchlist.",
+    detail: "Availability, lineup, pitcher, market, fantasy, and team/fan impact alerts start with NBA and MLB coverage.",
     timeline: "Q3 2026",
     status: "coming",
     accentColor: T.gold,
   },
   {
     icon: <TrendingUp size={18} />,
-    title: "Saved Situations",
-    description: "Keep injury, lineup, pitcher, weather, or role-change situations on your desk.",
-    detail: "Saved situations preserve the context trail so you can revisit what changed and why it mattered.",
+    title: "Watched Stories",
+    description: "Track injury, lineup, pitcher, roster, market, or role-change stories.",
+    detail: "Watched stories preserve what changed, why it matters, source agreement, and what to watch next.",
     timeline: "Q3 2026",
     status: "coming",
     accentColor: "#00B7FF",
   },
   {
     icon: <Users size={18} />,
-    title: "Saved Players",
-    description: "Track player availability, role movement, and recurring signal context.",
-    detail: "Player follows power alert routing and daily digest priority once enabled.",
+    title: "Followed Players",
+    description: "Track player availability, role movement, fantasy impact, and recurring story context.",
+    detail: "Player follows will power alert routing and daily intelligence priority once enabled.",
     timeline: "Q3 2026",
     status: "coming",
     accentColor: "#00B7FF",
   },
   {
     icon: <Bookmark size={18} />,
-    title: "Saved Signal History",
-    description: "Bookmark signals and keep the full read, source picture, and result context together.",
-    detail: "Signal history is planned as a clean research archive tied to your saved teams and players.",
+    title: "Story History",
+    description: "Keep settled stories, source trail, confidence movement, and result context together.",
+    detail: "Story history is planned as a clean research archive tied to your followed teams, players, and leagues.",
     timeline: "Q4 2026",
     status: "planned",
     accentColor: T.orange,
   },
   {
     icon: <Lock size={18} />,
-    title: "Daily Digest",
-    description: "A daily brief built from followed leagues, saved teams, saved players, and watchlist alerts.",
-    detail: "The digest is planned after watchlist alerts so it can summarize your actual saved context.",
+    title: "Personal Brief",
+    description: "A daily brief built from followed leagues, teams, players, and watched stories.",
+    detail: "The brief is planned after watchlist alerts so it can summarize your actual saved context.",
     timeline: "Q4 2026",
     status: "planned",
     accentColor: T.gold,
@@ -84,8 +86,54 @@ const TIMELINE_STYLE: Record<string, { color: string; bg: string; border: string
   planned: { color: T.textFaint, bg: "rgba(100,116,139,0.08)", border: "rgba(100,116,139,0.18)" },
 };
 
-/* ── Stat cockpit card ── */
-function CockpitStat({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
+const PREVIEW_STORIES: StoryCardData[] = [
+  {
+    id: "my-edge-preview-1",
+    league: "NBA",
+    label: "Preview story",
+    storyType: "Availability watch",
+    headline: "Followed-player availability would move fantasy and matchup context",
+    dek: "Preview only: this shows how a watched player story will appear once personalization is connected.",
+    primaryTeam: "LAL",
+    secondaryTeam: "BOS",
+    player: "Followed player",
+    whatChanged: "Limited participation would move the story into watchlist review.",
+    whyItMatters: "Fantasy projections, team rotation, and market reaction can all shift together.",
+    watchNext: "Official status, beat confirmation, and whether the market reacts.",
+    overlay: {
+      escalationState: "Emerging",
+      confidence: { current: 68, delta: 6, explanation: "Preview confidence movement" },
+      sourceSummary: { count: 2, convergence: "Source agreement preview" },
+      timing: { window: "Developing", freshnessLabel: "Setup preview" },
+      replay: ["Preview created", "Awaiting followed-player data"],
+      status: "Personalization preview",
+    },
+  },
+  {
+    id: "my-edge-preview-2",
+    league: "MLB",
+    label: "Preview story",
+    storyType: "Lineup and market watch",
+    headline: "Followed-team lineup change would trigger a watched-story alert",
+    dek: "Preview only: personalized alerts will prioritize teams, players, leagues, and story types you choose.",
+    primaryTeam: "LAD",
+    secondaryTeam: "NYY",
+    whatChanged: "A lineup or pitcher-context change would enter your watchlist.",
+    whyItMatters: "Market, fantasy, and fan/team impact can update before public consensus settles.",
+    watchNext: "Confirmed lineup, odds movement, and role impact after lock.",
+    overlay: {
+      escalationState: "Confirming",
+      confidence: { current: 74, delta: 4, explanation: "Preview source agreement" },
+      sourceSummary: { count: 3, convergence: "Reports corroborating" },
+      timing: { window: "Early", freshnessLabel: "Not live personalization" },
+      replay: ["Preview setup", "Source agreement example", "Timing edge example"],
+      status: "Preview state",
+    },
+  },
+];
+
+/* ── Personal intelligence stat card ── */
+function PersonalStat({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
     <div style={{
       flex: 1, minWidth: 100,
@@ -98,6 +146,24 @@ function CockpitStat({ label, value, sub, color }: { label: string; value: strin
       {sub && <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: T.textFaint, letterSpacing: "0.1em", marginTop: 2 }}>{sub}</div>}
       <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.textFaint, marginTop: 4 }}>{label}</div>
     </div>
+  );
+}
+
+function SetupPill({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "6px 9px", borderRadius: 3,
+      background: "rgba(255,255,255,0.035)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      color: T.textMuted,
+      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+      fontSize: 12, fontWeight: 750, letterSpacing: "0.08em", textTransform: "uppercase",
+      minWidth: 0,
+    }}>
+      <span style={{ color: T.gold, display: "inline-flex" }}>{icon}</span>
+      {label}
+    </span>
   );
 }
 
@@ -193,10 +259,10 @@ export default function MyEdge() {
   return (
     <V2Shell>
       <style>{`
-        @keyframes cockpit-pulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+        @keyframes intelligence-pulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
       `}</style>
 
-      <div style={{ maxWidth: 980, margin: "0 auto", padding: "32px 28px 60px" }}>
+      <div style={{ maxWidth: "min(980px, calc(100vw - 80px))", width: "100%", minWidth: 0, margin: "0 auto", padding: "32px 0 60px", boxSizing: "border-box", overflowX: "hidden" }}>
 
         {/* ── Hero header ── */}
         <div style={{
@@ -206,14 +272,7 @@ export default function MyEdge() {
           border: `1px solid rgba(245,184,65,0.22)`,
           marginBottom: 28,
         }}>
-          {/* Top gold bar */}
           <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, #F5B841, #FFD16644)" }} />
-          {/* Background orb */}
-          <div style={{
-            position: "absolute", right: -60, top: -60, width: 280, height: 280, borderRadius: "50%",
-            background: "radial-gradient(circle, rgba(245,184,65,0.05), transparent 70%)",
-            pointerEvents: "none",
-          }} />
 
           <div style={{ position: "relative", zIndex: 2 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -221,28 +280,33 @@ export default function MyEdge() {
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 12, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint,
-              }}>My Edge — Personalization Cockpit</span>
+              }}>My Edge - Personal Intelligence</span>
             </div>
             <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 10px" }}>
-              Your Personalized Research Hub
+              Your My Edge Feed
             </h1>
             <p style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, margin: 0, lineHeight: 1.7,
               maxWidth: 540, letterSpacing: "0.04em",
             }}>
-              My Edge is the personalization layer of Edge Setter: saved teams, saved players, saved situations, watchlist alerts, followed leagues, a daily digest, and saved signal history.
-              Disabled items below are labeled by rollout state, but this is the system that will shape your desk around the sports context you follow.
+              My Edge will shape EdgeSetter around teams, players, leagues, and developing stories you follow. This preview shows how confidence movement, source agreement, timing windows, fantasy impact, market reaction, and team/fan impact will route into a personal feed once personalization data is connected.
             </p>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 14 }}>
+              <SetupPill icon={<Star size={13} />} label="Follow teams" />
+              <SetupPill icon={<Users size={13} />} label="Follow players" />
+              <SetupPill icon={<TrendingUp size={13} />} label="Watch stories" />
+              <SetupPill icon={<Bell size={13} />} label="Alert thresholds" />
+            </div>
           </div>
         </div>
 
-        {/* ── Cockpit stat row ── */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
-          <CockpitStat label="Personal Layers" value="7" color={T.gold} />
-          <CockpitStat label="Launching" value="Q3" sub="2026" color={T.green} />
-          <CockpitStat label="Followed Leagues" value="4" color="#00B7FF" />
-          <CockpitStat label="Pro Early Access" value="On" color={T.gold} />
+        {/* ── Personal feed stat row ── */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: 8, marginBottom: 24 }}>
+          <PersonalStat label="Feed Layers" value="7" color={T.gold} />
+          <PersonalStat label="Setup Preview" value="On" color={T.green} />
+          <PersonalStat label="Followed Leagues" value="4" color="#00B7FF" />
+          <PersonalStat label="Alert Logic" value="Preview" color={T.gold} />
         </div>
 
         {/* ── Status development banner ── */}
@@ -253,20 +317,19 @@ export default function MyEdge() {
         }}>
           <div style={{
             width: 7, height: 7, borderRadius: "50%", background: T.gold, flexShrink: 0, marginTop: 5,
-            animation: "cockpit-pulse 2s ease-in-out infinite",
+            animation: "intelligence-pulse 2s ease-in-out infinite",
           }} />
           <div>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
               color: T.gold, marginBottom: 5,
-            }}>In Development — Launching Q3 2026</div>
+            }}>Preview State - Setup Not Live</div>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.04em",
             }}>
-              Pro subscribers will get early access to My Edge features as they roll out. 
-              Saved teams, saved players, saved situations, and watchlist alerts launch first; saved signal history and the daily digest follow after that foundation is active.
+              The cards below are setup previews, not fake live personalization. Followed teams, followed players, watched stories, and alert routing will use real saved context once those hooks are active.
             </div>
           </div>
         </div>
@@ -280,9 +343,69 @@ export default function MyEdge() {
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint,
             marginBottom: 12,
-          }}>Followed League Preview</div>
+          }}>Followed Intelligence Setup Preview</div>
           <TeamSilhouettes />
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 12 }}>
+            <SetupPill icon={<ShieldCheck size={13} />} label="Injuries" />
+            <SetupPill icon={<TrendingUp size={13} />} label="Lineups" />
+            <SetupPill icon={<GitBranch size={13} />} label="Roster moves" />
+            <SetupPill icon={<Clock3 size={13} />} label="Market moves" />
+            <SetupPill icon={<Users size={13} />} label="Fantasy roles" />
+          </div>
         </div>
+
+        <section style={{ marginBottom: 34 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <div style={{ width: 3, height: 16, borderRadius: 2, background: T.gold }} />
+            <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold,
+            }}>Personalized Story Preview</span>
+          </div>
+          <p style={{
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 12, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.04em",
+            margin: "0 0 12px", maxWidth: 700,
+          }}>
+            These are preview cards only. They show the intended My Edge shape for watched stories: what changed, why it matters, source agreement, confidence movement, timing, replay state, and what to watch next.
+          </p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 12 }}>
+            {PREVIEW_STORIES.map((story) => (
+              <StoryCard key={story.id} story={story} variant="compact" />
+            ))}
+          </div>
+        </section>
+
+        <section style={{ marginBottom: 34 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+            <div style={{ width: 3, height: 16, borderRadius: 2, background: T.green }} />
+            <span style={{
+              fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+              fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green,
+            }}>Alert Preferences Preview</span>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10, marginBottom: 12 }}>
+            {[
+              "Confidence rises",
+              "Official confirmation appears",
+              "Market reaction moves",
+              "Fantasy or team impact changes",
+              "Watched story weakens or resolves",
+            ].map((label) => (
+              <div key={label} style={{ padding: "12px 14px", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 4, background: T.surface1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <CheckCircle size={13} style={{ color: T.green, flexShrink: 0 }} />
+                  <strong style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, color: T.text, letterSpacing: "0.08em", textTransform: "uppercase" }}>{label}</strong>
+                </div>
+              </div>
+            ))}
+          </div>
+          <WhatToWatchNext
+            confirm="A watched story strengthens when reliable sources agree, official status appears, or market/fantasy/team context follows."
+            weaken="It weakens when reports conflict, the source trail goes stale, market reaction reverses, or official clarification changes the read."
+            next="Personal alert routing will prioritize the teams, players, leagues, and story types you follow."
+          />
+        </section>
 
         {/* ── Feature grid ── */}
         <div style={{ marginBottom: 14 }}>
@@ -291,7 +414,7 @@ export default function MyEdge() {
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold,
-            }}>Personalization Layers</span>
+            }}>Followed Intelligence Layers</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(290px, 1fr))", gap: 12, marginBottom: 40 }}>
             {FEATURES.map(feature => (
@@ -311,10 +434,10 @@ export default function MyEdge() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
             {[
-              { label: "NBA Board",          desc: "Live signal stream and saved-team source.", href: "/nba",      color: T.gold,      dotColor: T.gold },
+              { label: "NBA Board",          desc: "Developing stories and followed-team context.", href: "/nba",      color: T.gold,      dotColor: T.gold },
               { label: "MLB Board",          desc: "Active pitcher, lineup, and weather context.", href: "/mlb",   color: "#00B7FF",   dotColor: "#00B7FF" },
               { label: "Tool Desk",          desc: "Live, active, and limited workflows clearly labeled.", href: "/tools", color: T.gold, dotColor: T.green },
-              { label: "Source Leaderboard", desc: "Track source reliability.",           href: "/sources",    color: T.textMuted, dotColor: T.textFaint },
+              { label: "Source Intelligence", desc: "Track source reliability and agreement.",           href: "/sources",    color: T.textMuted, dotColor: T.textFaint },
             ].map(item => (
               <Link key={item.label} href={item.href}>
                 <div
@@ -356,7 +479,7 @@ export default function MyEdge() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <Zap size={13} style={{ color: T.gold }} />
             <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.gold }}>
-              Pro — Early Access to My Edge
+              Pro - Early Access to My Edge
             </span>
           </div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 8 }}>
@@ -368,7 +491,7 @@ export default function MyEdge() {
             marginBottom: 18, maxWidth: 500,
           }}>
             Pro subscribers get first access to every My Edge feature as it ships, plus real-time alerts, 
-            saved situations, daily digest routing, and saved signal history as each layer ships.
+            watched stories, daily brief routing, and story history as each layer ships.
           </div>
           <Link href="/pro">
             <button style={{
