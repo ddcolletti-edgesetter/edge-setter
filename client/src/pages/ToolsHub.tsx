@@ -2,7 +2,7 @@ import { useState } from "react";
 import V2Shell from "../components/V2Shell";
 import { TOOLS } from "../data/v2MockData";
 import { Link } from "wouter";
-import { ArrowRight, ExternalLink, Zap, TrendingUp, Activity, BarChart2, Search, Database } from "lucide-react";
+import { ArrowRight, ExternalLink, Zap, TrendingUp, Activity, BarChart2, Search, Database, ShieldCheck, History, Star, Bell } from "lucide-react";
 import { T } from "../components/v2/SportVisuals";
 import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
 
@@ -46,10 +46,10 @@ const TOOL_VISUAL_TEAMS: Record<string, [string, string]> = {
 };
 
 const PRODUCT_STATES = [
-  { sport: "NBA", status: "Live board", detail: "Full board and tool workflow active", href: "/nba" },
-  { sport: "MLB", status: "Active board", detail: "Lineup, pitcher, weather, and game context supported", href: "/mlb" },
-  { sport: "NFL", status: "Limited watchlist", detail: "Offseason context only until game-week coverage is reliable", href: "/nfl" },
-  { sport: "CFB", status: "Limited watchlist", detail: "Offseason and conference monitoring, not a full live slate", href: "/cfb" },
+  { sport: "NBA", status: "Live board", detail: "Evaluate developing stories, confidence movement, and source agreement", href: "/nba" },
+  { sport: "MLB", status: "Active board", detail: "Review lineup, pitcher, weather, market, and game context", href: "/mlb" },
+  { sport: "NFL", status: "Limited watchlist", detail: "Offseason story monitoring until game-week coverage is reliable", href: "/nfl" },
+  { sport: "CFB", status: "Limited watchlist", detail: "Roster, conference, and team/fan impact watch, not a full live slate", href: "/cfb" },
 ];
 
 function toolWorkflowCopy(tool: typeof TOOLS[number]) {
@@ -57,28 +57,28 @@ function toolWorkflowCopy(tool: typeof TOOLS[number]) {
   const name = tool.name.toLowerCase();
   if (name.includes("lineup") || name.includes("injur")) {
     return {
-      monitors: "Player status, late lineup changes, and source confirmation",
-      outputs: "Availability context, urgency, and board-ready story leads",
+      monitors: "What changed in player status, lineup role, and source agreement",
+      outputs: "Confidence movement, availability context, and what to watch next",
       supports: sport === "NBA" ? "NBA live board" : sport === "MLB" ? "MLB active board" : `${sport} limited watchlist`,
     };
   }
   if (name.includes("source") || name.includes("leader")) {
     return {
-      monitors: "Reporter reliability, confirmation patterns, and source coverage",
-      outputs: "Trust context and source-check status",
-      supports: "Signals and detail drawers",
+      monitors: "Source reliability, confirmation behavior, and agreement patterns",
+      outputs: "Trust context, verification state, and replay support",
+      supports: "Sources, accuracy ledger, and story overlays",
     };
   }
   if (name.includes("market") || name.includes("movement")) {
     return {
-      monitors: "External movement tied to verified sports context",
-      outputs: "Timing support and context movement labels",
-      supports: "Board confidence support",
+      monitors: "Market reaction tied to verified sports context",
+      outputs: "Timing advantage, fantasy impact, and team/fan ripple effects",
+      supports: "Board confidence and story impact review",
     };
   }
   return {
-    monitors: "Sports stories, source checks, and timing windows",
-    outputs: "Workflow-ready context with confidence support",
+    monitors: "Developing stories, source checks, and timing windows",
+    outputs: "What changed, why it matters, and decision-ready context",
     supports: `${tool.sport.join(" / ")} workflows`,
   };
 }
@@ -261,13 +261,6 @@ function FeaturedToolBanner() {
       {/* Gold top bar */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: "linear-gradient(90deg, #F5B841, #FFD16655)" }} />
 
-      {/* Background orb */}
-      <div style={{
-        position: "absolute", right: -40, top: -40, width: 200, height: 200, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(245,184,65,0.07), transparent 70%)",
-        pointerEvents: "none",
-      }} />
-
       <div style={{ position: "relative", zIndex: 2, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 20, flexWrap: "wrap" }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -275,17 +268,16 @@ function FeaturedToolBanner() {
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold,
-            }}>Featured Tool — Now Live</span>
+            }}>Featured Workflow - Now Live</span>
           </div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 20, fontWeight: 700, color: T.text, marginBottom: 6 }}>
-            NBA Intelligence Board
+            NBA Story Evaluation Board
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, color: T.textMuted, letterSpacing: "0.04em", lineHeight: 1.6, maxWidth: 480,
           }}>
-            Real-time playoff intelligence. Player injuries, rotation notes, matchup context, and external movement as supporting context — 
-            all in one visual board with confidence scoring and source-backed takeaways.
+            Evaluate developing stories through player availability, rotation notes, matchup context, source agreement, timing advantage, and market reaction. Confidence stays visible so the tool helps turn intelligence into decisions.
           </div>
         </div>
         <Link href="/nba">
@@ -435,7 +427,7 @@ function ProductStateStrip() {
                 background: "rgba(10,15,26,0.82)",
                 cursor: "pointer",
               }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 900, letterSpacing: "0.16em", color: accent }}>{item.sport}</span>
                   <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: item.status.includes("Live") ? T.green : item.status.includes("Active") ? "#00B7FF" : T.textFaint }}>
                     {item.status}
@@ -453,6 +445,99 @@ function ProductStateStrip() {
   );
 }
 
+function WorkflowRouteCards() {
+  const cards = [
+    {
+      label: "Research + Trust",
+      description: "Check source reliability, accuracy ledger context, replay trail, and historical calibration before acting.",
+      href: "/sources",
+      icon: <ShieldCheck size={15} />,
+      accent: T.gold,
+      cta: "Open source intelligence",
+    },
+    {
+      label: "Outcome Tracking",
+      description: "Use the accuracy ledger to review settled outcomes, timing advantage, and what strengthened or weakened confidence.",
+      href: "/accuracy",
+      icon: <History size={15} />,
+      accent: "#00B7FF",
+      cta: "Open accuracy ledger",
+    },
+    {
+      label: "Personal Workflow",
+      description: "Preview followed teams, players, watched stories, and alerts for confidence, source agreement, and market movement.",
+      href: "/my-edge",
+      icon: <Star size={15} />,
+      accent: T.green,
+      cta: "Open My Edge",
+    },
+    {
+      label: "Alert Routing",
+      description: "Configure notification behavior for official confirmation, confidence movement, and story resolution when available.",
+      href: "/alerts",
+      icon: <Bell size={15} />,
+      accent: T.textMuted,
+      cta: "Open alerts",
+    },
+  ];
+
+  return (
+    <section style={{ marginBottom: 32 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <div style={{ width: 3, height: 16, borderRadius: 2, background: "#00B7FF" }} />
+        <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 800, letterSpacing: "0.18em", textTransform: "uppercase", color: "#00B7FF" }}>
+          Research, Trust, and Personal Workflow
+        </span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
+        {cards.map((card) => (
+          <Link key={card.label} href={card.href}>
+            <article style={{
+              minHeight: 142,
+              padding: "14px 16px",
+              borderRadius: 5,
+              border: `1px solid ${card.accent}33`,
+              background: T.surface1,
+              cursor: "pointer",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ color: card.accent, display: "inline-flex" }}>{card.icon}</span>
+                <ArrowRight size={12} style={{ color: card.accent }} />
+              </div>
+              <strong style={{
+                fontFamily: "'Playfair Display', Georgia, serif",
+                color: T.text,
+                fontSize: 15,
+                lineHeight: 1.2,
+              }}>{card.label}</strong>
+              <p style={{
+                margin: 0,
+                color: T.textMuted,
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 12,
+                lineHeight: 1.5,
+                letterSpacing: "0.03em",
+              }}>{card.description}</p>
+              <span style={{
+                marginTop: "auto",
+                color: card.accent,
+                fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: "0.14em",
+                textTransform: "uppercase",
+              }}>{card.cta}</span>
+            </article>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function ToolsHub() {
   const liveTools = TOOLS.filter(t => t.status === "Live");
   const betaTools = TOOLS.filter(t => t.status === "Beta");
@@ -460,7 +545,7 @@ export default function ToolsHub() {
 
   return (
     <V2Shell brandContext="SPORTS INTEL TOOLS">
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "28px 28px 60px" }}>
+      <div style={{ maxWidth: 1100, width: "calc(100vw - 80px)", minWidth: 0, margin: "0 auto", padding: "28px 0 60px", boxSizing: "border-box", overflowX: "hidden" }}>
 
         {/* ── Page Header ── */}
         <div style={{ marginBottom: 28 }}>
@@ -469,16 +554,16 @@ export default function ToolsHub() {
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint,
-            }}>Intelligence Tools</span>
+            }}>Sports Intelligence Tools</span>
           </div>
           <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 8px" }}>
-            Tool Desk
+            Turn Intelligence Into Decisions
           </h1>
           <p style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, color: T.textMuted, margin: 0, letterSpacing: "0.04em", lineHeight: 1.65, maxWidth: 560,
           }}>
-            Operational research tools for injuries, lineups, role changes, source checks, and game-context review. NBA is live, MLB is active, and NFL/CFB remain limited watchlists until their coverage is reliable enough for full live-board treatment.
+            Evaluate developing stories, check source agreement, track confidence movement, review market reaction, and measure fantasy or team impact. NBA is live, MLB is active, and NFL/CFB remain limited watchlists until coverage is reliable enough for full live-board treatment.
           </p>
         </div>
 
@@ -487,10 +572,10 @@ export default function ToolsHub() {
         {/* ── Status summary pills ── */}
         <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
           {[
-            { label: "Live Boards", count: 1,                 color: T.green,     bg: "rgba(0,230,118,0.1)",   border: "rgba(0,230,118,0.2)" },
-            { label: "Active MLB",  count: 1,                 color: "#00B7FF",   bg: "rgba(0,183,255,0.08)",  border: "rgba(0,183,255,0.2)" },
-            { label: "Limited",     count: 2 + betaTools.length, color: T.gold,   bg: "rgba(245,184,65,0.08)",  border: "rgba(245,184,65,0.2)" },
-            { label: "Available",   count: visibleTools.length,color: T.textMuted, bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)" },
+            { label: "Story Boards", count: 1,                 color: T.green,     bg: "rgba(0,230,118,0.1)",   border: "rgba(0,230,118,0.2)" },
+            { label: "Market + Fantasy",  count: 1,                 color: "#00B7FF",   bg: "rgba(0,183,255,0.08)",  border: "rgba(0,183,255,0.2)" },
+            { label: "Limited Watch",     count: 2 + betaTools.length, color: T.gold,   bg: "rgba(245,184,65,0.08)",  border: "rgba(245,184,65,0.2)" },
+            { label: "Workflow Links",   count: visibleTools.length,color: T.textMuted, bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)" },
           ].map(s => (
             <div key={s.label} style={{
               padding: "7px 14px",
@@ -515,13 +600,15 @@ export default function ToolsHub() {
 
         <FeaturedToolBanner />
 
+        <WorkflowRouteCards />
+
         {/* ── Sport filter row (visual only) ── */}
         <div style={{ display: "flex", gap: 8, marginBottom: 28, flexWrap: "wrap", alignItems: "center" }}>
           <span style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint,
             marginRight: 4,
-          }}>By Sport:</span>
+          }}>By Workflow Sport:</span>
           {["NBA", "MLB", "NFL", "CFB"].map(sport => {
             const accent = SPORT_ACCENT[sport] ?? T.textFaint;
             const count = TOOLS.filter(t => t.sport.includes(sport)).length;
@@ -548,8 +635,8 @@ export default function ToolsHub() {
 
         {/* ── Tool grid — grouped by status ── */}
         {[
-          { label: "Live Now",               tools: liveTools,  accentColor: T.green,     icon: <Activity size={12} /> },
-          { label: "Limited Tool Access",    tools: betaTools,  accentColor: T.gold,      icon: <Zap size={12} /> },
+          { label: "Story Evaluation Tools", tools: liveTools,  accentColor: T.green,     icon: <Activity size={12} /> },
+          { label: "Market + Fantasy Tools", tools: betaTools,  accentColor: T.gold,      icon: <Zap size={12} /> },
         ].map(group => group.tools.length > 0 && (
           <section key={group.label} style={{ marginBottom: 36 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
@@ -588,7 +675,7 @@ export default function ToolsHub() {
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, color: T.textMuted, lineHeight: 1.7, letterSpacing: "0.04em", marginBottom: 14,
           }}>
-            This desk only shows tools that support current sports intelligence workflows. Limited tools are marked as limited or watchlist until their signal coverage is reliable enough for production use.
+            This desk only shows workflows that support current sports intelligence decisions. Limited tools remain marked as limited or watchlist until their signal coverage, replay trail, and outcome tracking are reliable enough for production use.
           </div>
           <Link href="/pro">
             <button style={{
