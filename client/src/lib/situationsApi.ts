@@ -114,6 +114,7 @@ export interface FetchCanonicalSituationsOptions {
   activeOnly?: boolean;
   limit?: number;
   orderBy?: CanonicalSituationOrderBy;
+  poll?: boolean;
 }
 
 interface CanonicalSituationsResponse {
@@ -145,6 +146,7 @@ export function useCanonicalSituations(options: FetchCanonicalSituationsOptions 
     options.activeOnly,
     options.limit,
     options.orderBy,
+    options.poll,
   ]);
   const [situations, setSituations] = useState<CanonicalSituation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,7 +171,7 @@ export function useCanonicalSituations(options: FetchCanonicalSituationsOptions 
 
   useEffect(() => {
     refresh();
-    timerRef.current = setInterval(refresh, REFRESH_MS);
+    if (stableOptions.poll !== false) timerRef.current = setInterval(refresh, REFRESH_MS);
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };

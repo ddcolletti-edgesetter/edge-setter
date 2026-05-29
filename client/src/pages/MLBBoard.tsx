@@ -26,6 +26,7 @@ import { getLeagueBoardProfile } from "@/lib/leagueBoardProfiles";
 import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations } from "@/lib/situationAdapters";
 import { filterCanonicalSituations, useCanonicalSituations } from "@/lib/situationsApi";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "@/lib/signalBoardUx";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import type { SituationLaneType } from "@/components/board/SituationRow";
 
 type Signal = {
@@ -101,13 +102,14 @@ export default function MLBBoard() {
     activeOnly: false,
     limit: 100,
     orderBy: "operational_visibility_score",
+    poll: false,
   });
   const profile = getLeagueBoardProfile("MLB");
   const allSignals = (data ?? []) as Signal[];
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
-    fetch("/api/v2/games?league=MLB")
+    fetchWithTimeout("/api/v2/games?league=MLB", {}, 4500)
       .then((response) => response.json())
       .then((payload) => {
         const statusLabel: Record<string, string> = {
@@ -202,6 +204,9 @@ export default function MLBBoard() {
         headline,
         meta: index === 0 ? "Before first pitch" : "Watch item",
       }));
+  const fallbackWatchCount = leadStory.relatedItems?.length || headlineItems.length || quickLinks.length;
+  const monitoredCount = situations.length || fallbackWatchCount;
+  const monitoredLabel = situations.length ? `${situations.length} stories monitored` : `${monitoredCount} watch items monitored`;
 
   const openSituation = (situation: BoardSituation) => {
     if (situation.kind !== "signal" && situation.kind !== "canonical") return;
@@ -227,7 +232,7 @@ export default function MLBBoard() {
           <BoardCommandBar
           kicker="MLB Watch Desk"
           title="MLB Today"
-          statusLabel={`${situations.length} stories monitored / Lineups, pitchers, weather, and market movement`}
+          statusLabel={`${monitoredLabel} / Lineups, pitchers, weather, and market movement`}
           liveCount={liveGames.filter((game) => game.statusDescription?.toLowerCase().includes("in progress")).length}
           tabs={FEED_TABS.map((tab) => ({ id: tab.key, label: tab.label }))}
           activeTabId={activeTab}
@@ -262,7 +267,7 @@ export default function MLBBoard() {
               summary={gamesLoading ? "Slate context loading." : "Probable pitchers, lineup cards, weather, bullpen load, source agreement, and inning states stay on watch."}
               games={livePills}
               activeGameId={activeGameId}
-              watchStoryCount={situations.length}
+              watchStoryCount={monitoredCount}
               copyVariant="editorial"
               emptyLabel="Lineup cards, probable pitchers, weather, and bullpen context remain on watch before first pitch."
               onGameSelect={(game) => setActiveGameId(activeGameId === game.id ? undefined : game.id)}

@@ -26,10 +26,10 @@ type SportAdapted<S extends "NBA" | "MLB"> = V2Signal & { _score: SignalScore; _
 
 /* ── NBA / MLB ─────────────────────────────────────────────── */
 export function useNBASignals(mockFallback: V2Signal[]) {
-  return useLeagueSignals("NBA", mockFallback, (ls) => adaptToV2Signal(ls, "NBA"));
+  return useLeagueSignals("NBA", mockFallback, (ls) => adaptToV2Signal(ls, "NBA"), { poll: false });
 }
 export function useMLBSignals(mockFallback: V2Signal[]) {
-  return useLeagueSignals("MLB", mockFallback, (ls) => adaptToV2Signal(ls, "MLB"));
+  return useLeagueSignals("MLB", mockFallback, (ls) => adaptToV2Signal(ls, "MLB"), { poll: false });
 }
 export function useNFLSignals(mockFallback: NFLSignal[]) {
   return useLeagueSignals("NFL", mockFallback as any[], (ls) => adaptToNFLSignal(ls));
@@ -93,6 +93,7 @@ function useLeagueSignals<T>(
   league: string,
   mockFallback: T[],
   adapter: (ls: LiveSignal) => T,
+  options: { poll?: boolean } = {},
 ): {
   signals: T[];
   loading: boolean;
@@ -108,6 +109,7 @@ function useLeagueSignals<T>(
   const [isLive, setIsLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const shouldPoll = options.poll ?? true;
   const isFirstLoad = useRef(true);
   const displayedIds = useRef<Set<string>>(new Set());
 
@@ -166,9 +168,9 @@ function useLeagueSignals<T>(
 
   useEffect(() => {
     load();
-    timerRef.current = setInterval(load, REFRESH_MS);
+    if (shouldPoll) timerRef.current = setInterval(load, REFRESH_MS);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [load]);
+  }, [load, shouldPoll]);
 
   return { signals, loading, isLive, error, refresh: load, pendingCount: pending.length, flushPending };
 }

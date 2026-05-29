@@ -27,6 +27,7 @@ import { getLeagueBoardProfile } from "@/lib/leagueBoardProfiles";
 import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations } from "@/lib/situationAdapters";
 import { filterCanonicalSituations, useCanonicalSituations } from "@/lib/situationsApi";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "@/lib/signalBoardUx";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import type { SituationLaneType } from "@/components/board/SituationRow";
 
 type Signal = {
@@ -103,13 +104,14 @@ export default function NBABoard() {
     activeOnly: false,
     limit: 100,
     orderBy: "operational_visibility_score",
+    poll: false,
   });
   const profile = getLeagueBoardProfile("NBA");
   const allSignals = (data ?? []) as Signal[];
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
-    fetch("/api/v2/games?league=NBA")
+    fetchWithTimeout("/api/v2/games?league=NBA", {}, 4500)
       .then((response) => response.json())
       .then((payload) => {
         const statusLabel: Record<string, string> = {
@@ -204,6 +206,9 @@ export default function NBABoard() {
         headline,
         meta: index === 0 ? "Before tip" : "Watch item",
       }));
+  const fallbackWatchCount = leadStory.relatedItems?.length || headlineItems.length || quickLinks.length;
+  const monitoredCount = situations.length || fallbackWatchCount;
+  const monitoredLabel = situations.length ? `${situations.length} stories monitored` : `${monitoredCount} watch items monitored`;
 
   const openSituation = (situation: BoardSituation) => {
     if (situation.kind !== "signal" && situation.kind !== "canonical") return;
@@ -234,7 +239,7 @@ export default function NBABoard() {
           <BoardCommandBar
             kicker="NBA Watch Desk"
             title="NBA Tonight"
-            statusLabel={`${situations.length} stories monitored / Starters, injuries, rotations, and pre-tip movement`}
+            statusLabel={`${monitoredLabel} / Starters, injuries, rotations, and pre-tip movement`}
             liveCount={liveGames.filter((game) => game.statusDescription?.toLowerCase().includes("in progress")).length}
             tabs={FEED_TABS.map((tab) => ({ id: tab.key, label: tab.label }))}
             activeTabId={activeTab}
@@ -269,7 +274,7 @@ export default function NBABoard() {
                 summary={gamesLoading ? "Slate context loading." : "Rotation, injury, warmup, source agreement, and market reaction remain active until tip."}
                 games={livePills}
                 activeGameId={activeGameId}
-                watchStoryCount={situations.length}
+                watchStoryCount={monitoredCount}
                 copyVariant="editorial"
                 emptyLabel="Starter confirmations, injury context, warmups, and pre-tip movement remain on watch."
                 onGameSelect={(game) => setActiveGameId(activeGameId === game.id ? undefined : game.id)}
