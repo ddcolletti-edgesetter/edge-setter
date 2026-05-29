@@ -3754,8 +3754,8 @@
 
   .board-main-col {
     flex: 1 1 auto !important;
-    width: 100%;
-    max-width: 100%;
+    width: calc(100vw - 24px) !important;
+    max-width: calc(100vw - 24px) !important;
     overflow-x: hidden !important;
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
   }
@@ -3830,11 +3830,86 @@
   }
 
   .league-board-shell .situation-story-card > *,
+  .league-board-shell .league-editorial-page-frame,
+  .league-board-shell .league-editorial-page-frame > *,
+  .league-board-shell .editorial-lead-story,
+  .league-board-shell .editorial-lead-story > *,
+  .league-board-shell .editorial-lead-story h1,
+  .league-board-shell .editorial-lead-story p,
+  .league-board-shell .editorial-lead-block,
+  .league-board-shell .editorial-lead-block > *,
+  .league-board-shell .editorial-lead-block > div:first-child,
+  .league-board-shell .editorial-lead-block > div:first-child > *,
+  .league-board-shell .editorial-lead-block h2,
+  .league-board-shell .editorial-lead-block p,
+  .league-board-shell .editorial-lead-block span,
   .league-board-shell .situation-story-card h3,
   .league-board-shell .situation-story-card p {
     min-width: 0;
     max-width: 100%;
     overflow-wrap: anywhere;
+  }
+
+  .league-board-shell .league-editorial-page-frame,
+  .league-board-shell .editorial-lead-story {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .league-board-shell .editorial-lead-story > div {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .league-board-shell .editorial-lead-story h1 {
+    max-width: calc(100vw - 72px) !important;
+    font-size: 1.42rem !important;
+    line-height: 1.08 !important;
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .league-board-shell .editorial-lead-story p {
+    max-width: calc(100vw - 72px) !important;
+    font-size: 0.88rem !important;
+    line-height: 1.5 !important;
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .league-board-shell .editorial-lead-block {
+    width: 100% !important;
+  }
+
+  .league-board-shell .editorial-lead-block > div:first-child {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) !important;
+    width: 100% !important;
+  }
+
+  .league-board-shell .editorial-lead-block h2,
+  .league-board-shell .editorial-lead-block p {
+    width: 100%;
+    white-space: normal;
+    word-break: normal;
+  }
+
+  .league-board-shell .editorial-lead-block > div:first-child > div:last-child {
+    width: 100% !important;
+    max-width: calc(100vw - 48px) !important;
+    padding-right: 28px !important;
+  }
+
+  .league-board-shell .editorial-lead-block h2 {
+    max-width: calc(100vw - 72px) !important;
+    font-size: 1.42rem !important;
+    line-height: 1.08 !important;
+  }
+
+  .league-board-shell .editorial-lead-block p {
+    max-width: calc(100vw - 72px) !important;
+    font-size: 0.88rem !important;
+    line-height: 1.5 !important;
   }
 
   .league-board-shell .situation-story-card > div:first-child {
@@ -3939,6 +4014,12 @@
    SourceLeaderboard.tsx).
    ═══════════════════════════════════════════════ */
 @media (max-width: 480px) {
+  .league-board-shell .editorial-lead-story h1,
+  .league-board-shell .editorial-lead-story p,
+  .league-board-shell .editorial-lead-story [class*="max-w-"] {
+    max-width: 326px !important;
+  }
+
   .source-accuracy-page > div {
     width: 270px !important;
     max-width: 270px !important;
