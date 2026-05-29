@@ -13,20 +13,20 @@ const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
 
 function BrandEmblem({ size = 38 }: { size?: number }) {
   return (
-    <span style={{ width: size, height: size, display: "grid", placeItems: "center", borderRadius: "7px", border: "1px solid rgba(245,184,65,0.30)", background: "linear-gradient(135deg, rgba(245,184,65,0.14), rgba(24,212,123,0.08))", boxShadow: "0 10px 26px rgba(0,0,0,0.30), inset 0 1px 0 rgba(248,250,252,0.08)", flexShrink: 0, overflow: "hidden", position: "relative" }}>
+    <span style={{ width: size, height: size, display: "grid", placeItems: "center", borderRadius: "7px", border: "1px solid rgba(245,184,65,0.30)", background: "linear-gradient(135deg, rgba(245,184,65,0.10), rgba(24,212,123,0.06))", boxShadow: "0 10px 26px rgba(0,0,0,0.30), inset 0 1px 0 rgba(248,250,252,0.08)", flexShrink: 0, overflow: "hidden", position: "relative" }}>
       <img
         src={EDGESETTER_EMBLEM_SRC}
         alt="EdgeSetter live sports intelligence"
         width={size}
         height={size}
-        style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", transform: "scale(1.55)", opacity: 0.42 }}
+        style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", padding: Math.max(3, Math.round(size * 0.11)) }}
         onError={(event) => {
           event.currentTarget.style.display = "none";
           const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
           if (fallback) fallback.style.display = "grid";
         }}
       />
-      <span aria-hidden="true" style={{ position: "absolute", inset: 0, display: "grid", width: "100%", height: "100%", placeItems: "center", color: "#F8FAFC", fontFamily: "'Barlow Condensed', sans-serif", fontSize: `${Math.max(12, size * 0.34)}px`, fontWeight: 950, letterSpacing: "0.02em", textShadow: "0 0 12px rgba(24,212,123,0.34)" }}>
+      <span aria-hidden="true" style={{ position: "absolute", inset: 0, display: "none", width: "100%", height: "100%", placeItems: "center", color: "#F8FAFC", fontFamily: "'Barlow Condensed', sans-serif", fontSize: `${Math.max(12, size * 0.34)}px`, fontWeight: 950, letterSpacing: "0.02em", textShadow: "0 0 12px rgba(24,212,123,0.34)" }}>
         ES
       </span>
     </span>
@@ -35,13 +35,24 @@ function BrandEmblem({ size = 38 }: { size?: number }) {
 
 function BrandWordmark() {
   return (
-    <div aria-label="EdgeSetter live sports desk" style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", fontFamily: "'Barlow Condensed', sans-serif", lineHeight: 1, textTransform: "uppercase" }}>
-      <strong style={{ display: "block", color: "#F8FAFC", fontSize: "0.96rem", fontWeight: 950, letterSpacing: "0.055em", whiteSpace: "nowrap" }}>
+    <div aria-label="EdgeSetter live sports desk" style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", lineHeight: 1 }}>
+      <span style={{ display: "block", width: 154, maxWidth: "100%", height: 56, overflow: "hidden" }}>
+        <img
+          src={EDGESETTER_LOGO_SRC}
+          alt="EdgeSetter"
+          width={154}
+          height={56}
+          style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", objectPosition: "left center" }}
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+            const fallback = event.currentTarget.parentElement?.nextElementSibling as HTMLElement | null;
+            if (fallback) fallback.style.display = "block";
+          }}
+        />
+      </span>
+      <strong style={{ display: "none", color: "#F8FAFC", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.96rem", fontWeight: 950, letterSpacing: "0.055em", whiteSpace: "nowrap" }}>
         EDGESETTER
       </strong>
-      <span style={{ display: "block", marginTop: 5, color: "#F5B841", fontSize: "0.5rem", fontWeight: 900, letterSpacing: "0.10em", whiteSpace: "nowrap" }}>
-        SPORTS INTEL DESK
-      </span>
     </div>
   );
 }
@@ -143,8 +154,8 @@ function Sidebar({
   return (
     <aside
       style={{
-        width: collapsed ? "60px" : "228px",
-        minWidth: collapsed ? "60px" : "228px",
+        width: collapsed ? "56px" : "228px",
+        minWidth: collapsed ? "56px" : "228px",
         height: "100vh",
         background: "linear-gradient(180deg, rgba(6,14,22,0.995), rgba(4,7,10,0.99))",
         borderRight: "1px solid var(--es-border)",
@@ -164,10 +175,10 @@ function Sidebar({
       {/* Logo */}
       <div
         style={{
-          height: collapsed ? "60px" : "72px",
+          height: collapsed ? "54px" : "72px",
           display: "flex",
           alignItems: "center",
-          padding: collapsed ? "0 10px" : "0 12px",
+          padding: collapsed ? "0 8px" : "0 12px",
           borderBottom: "1px solid var(--es-border)",
           flexShrink: 0,
           gap: collapsed ? "0" : "10px",
@@ -183,14 +194,13 @@ function Sidebar({
             style={{
               background: "none", border: "none", padding: 0, cursor: "pointer",
               display: "flex", alignItems: "center", justifyContent: "center",
-              width: "40px", height: "40px",
+              width: "38px", height: "38px",
             }}
           >
-            <BrandEmblem size={36} />
+            <BrandEmblem size={34} />
           </button>
         ) : (
           <>
-            <BrandEmblem size={36} />
             <BrandWordmark />
             <button
               className="ux-button-interactive"
@@ -208,7 +218,7 @@ function Sidebar({
         )}
       </div>
 
-      <nav aria-label="Primary navigation" style={{ flex: 1, overflowY: "auto", padding: "8px 7px" }}>
+      <nav aria-label="Primary navigation" style={{ flex: 1, overflowY: "auto", padding: collapsed ? "6px 6px" : "8px 7px" }}>
         {sidebarNav.map((item) => (
           <button
             key={item.label}
@@ -218,13 +228,13 @@ function Sidebar({
             title={collapsed ? item.label : undefined}
             style={{
               width: "100%",
-              minHeight: 35,
+              minHeight: collapsed ? 32 : 35,
               display: "flex",
               alignItems: "center",
               justifyContent: collapsed ? "center" : "flex-start",
               gap: collapsed ? 0 : 9,
               padding: collapsed ? "0" : "0 9px",
-              marginBottom: 2,
+              marginBottom: collapsed ? 1 : 2,
               border: item.active ? "1px solid rgba(24,212,123,0.14)" : "1px solid transparent",
               borderLeft: item.active ? "2px solid #18D47B" : "2px solid transparent",
               borderRadius: "6px",
@@ -787,11 +797,13 @@ function TopTabBar({
             lineHeight: 1,
           }}
         >
-          <span style={{ display: "block", width: 132, height: 28, overflow: "hidden" }}>
+          <span style={{ display: "block", width: 140, height: 44, overflow: "hidden" }}>
             <img
               src={EDGESETTER_LOGO_SRC}
               alt="EdgeSetter live sports intelligence"
-              style={{ display: "block", width: 250, maxWidth: "none", height: 53, objectFit: "contain", objectPosition: "left center", transform: "translate(-27px, -13px)" }}
+              width={140}
+              height={44}
+              style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", objectPosition: "left center" }}
               onError={(event) => {
                 event.currentTarget.style.display = "none";
                 const fallback = event.currentTarget.parentElement?.nextElementSibling as HTMLElement | null;

@@ -7,11 +7,11 @@ self.addEventListener("push", function (event) {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { /**/ }
 
-  const title   = data.title  ?? "Edge Setter";
+  const title   = data.title  ?? "EdgeSetter";
   const options = {
     body:               data.body ?? "New signal alert",
-    icon:               "/favicon.ico",
-    badge:              "/favicon.ico",
+    icon:               "/brand/edgesetter-emblem.png",
+    badge:              "/brand/edgesetter-emblem.png",
     data:               data.data ?? {},
     vibrate:            [100, 50, 100],
     requireInteraction: false,
