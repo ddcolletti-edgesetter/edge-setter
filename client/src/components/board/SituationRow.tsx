@@ -228,8 +228,8 @@ export function SituationRow({ situation, selected, compact, rightSlot, onSelect
 
         {(situation.confidenceNote || situation.sourceSummary || situation.timingAdvantage || situation.marketReaction) && (
           <span className="mt-1.5 grid min-w-0 gap-1 text-[0.68rem] font-semibold leading-snug text-muted-foreground sm:grid-cols-2">
-            {situation.confidenceNote && <IntelLine label="Agent confidence" value={situation.confidenceNote} />}
-            {(situation.sourceProgressLabel || situation.sourceSummary) && <IntelLine icon={<Link2 className="h-3 w-3" />} label="Source agreement" value={situation.sourceProgressLabel ?? situation.sourceSummary ?? ""} />}
+            {situation.confidenceNote && <IntelLine label="Confidence read" value={situation.confidenceNote} />}
+            {(situation.sourceProgressLabel || situation.sourceSummary) && <IntelLine icon={<Link2 className="h-3 w-3" />} label="Report posture" value={situation.sourceProgressLabel ?? situation.sourceSummary ?? ""} />}
             {situation.timingAdvantage && <IntelLine label="Timing window" value={situation.timingAdvantage} />}
             {!compact && situation.marketReaction && <IntelLine icon={<TrendingUp className="h-3 w-3" />} label="Market reaction" value={situation.marketReaction} />}
             {!compact && situation.uncertaintyLabel && <IntelLine label="Watch next" value={situation.uncertaintyLabel} />}

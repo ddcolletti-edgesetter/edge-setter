@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 import V2Shell, { useShellTheme } from "../components/V2Shell";
-import { SignalDetailDrawer } from "../components/SignalDetailDrawer";
+import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalDetailDrawer";
 import { ProBoardBanner } from "../components/ProGate";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
@@ -55,7 +55,7 @@ function NFLBoardInner() {
   const darkMode = useShellTheme();
   const { rowIsFree, openModal } = useSignalGate();
   const [activeFilter, setActiveFilter] = useState("today");
-  const [selectedSig, setSelectedSig] = useState<NFLSignal | null>(null);
+  const [selectedSig, setSelectedSig] = useState<NFLSignal | SignalDetailLike | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
   const [activeLane, setActiveLane] = useState<SituationLaneType | "all">("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
@@ -115,13 +115,15 @@ function NFLBoardInner() {
   const topUrgentSituations = situations.filter((situation) => situation.lane === "escalating").slice(0, 2);
 
   const openSituation = (situation: BoardSituation) => {
-    if (situation.kind !== "signal") return;
-    const signal = situation.signal as NFLSignal | undefined;
+    if (situation.kind !== "signal" && situation.kind !== "canonical") return;
+    const signal = situation.signal as NFLSignal | SignalDetailLike | undefined;
     if (!signal) return;
-    const index = visibleSignals.findIndex((item) => String(item.id) === String(signal.id));
-    if (!rowIsFree(index)) {
-      openModal("NFL");
-      return;
+    if (situation.kind === "signal") {
+      const index = visibleSignals.findIndex((item) => String(item.id) === String(signal.id));
+      if (!rowIsFree(index)) {
+        openModal("NFL");
+        return;
+      }
     }
     setSelectedSig(signal);
   };

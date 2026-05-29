@@ -9,6 +9,7 @@ import {
   type IntelligenceSituation,
   type LiveGameSituation,
 } from "@/lib/intelligenceSituationsApi";
+import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { fetchSignals } from "@/lib/signalsApi";
 import { AlertTriangle, Crosshair, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import { Link } from "wouter";
@@ -174,7 +175,7 @@ export default function LiveIntelligenceHome() {
                 />
               </div>
               <strong>EdgeSetter</strong>
-              <span>Sports media network with agent-calibrated intelligence</span>
+              <span>Live sports desk for source, timing, and market context</span>
             </div>
             <div className="media-homepage-leagues" aria-label="League story filters">
               {LEAGUES.map((league) => {
@@ -203,13 +204,13 @@ export default function LiveIntelligenceHome() {
             <div className="media-homepage-main">
               <div className="media-section-label">
                 <span className="es-live-dot es-live-pulse" />
-                Top story
+                Lead story
               </div>
               <StoryCard story={homepageStories.lead} variant="lead" />
             </div>
 
             <aside className="media-homepage-rail" aria-label="Headline stack">
-              <div className="media-section-label">Headline stack</div>
+              <div className="media-section-label">Assignment desk</div>
               {homepageStories.rail.map((story) => (
                 <StoryCard key={story.id} story={story} variant="rail" />
               ))}
@@ -221,7 +222,7 @@ export default function LiveIntelligenceHome() {
             <div className="live-intel-section-header">
               <div>
                 <Zap size={15} />
-                <span>Active Matchups</span>
+                  <span>Game windows</span>
               </div>
               <small>{livePressure.timing} / {livePressure.market}</small>
             </div>
@@ -246,7 +247,7 @@ export default function LiveIntelligenceHome() {
               <div className="live-intel-section-header">
                 <div>
                   <Crosshair size={15} />
-                  <span>{section.league} Developing Stories</span>
+                  <span>{section.league} Story Desk</span>
                 </div>
                 <small>{section.summary}</small>
               </div>
@@ -299,7 +300,7 @@ function buildHomepageStoryModel({
     editorialSituation,
     ...situations.filter((situation) => situation.id !== featured?.id),
   ]);
-  const rail = railSource.slice(0, 5).map((situation) => situationToStoryCard(situation, { slot: "rail" }));
+  const rail = railSource.slice(0, 4).map((situation) => situationToStoryCard(situation, { slot: "rail" }));
 
   const gameStories = games
     .slice(0, 4)
@@ -333,17 +334,20 @@ function uniqueSituations(items: Array<IntelligenceSituation | null | undefined>
 
 function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot: "lead" | "rail" | "league" }): StoryCardData {
   const matchupTeams = splitMatchup(situation.subject.matchup);
+  const primaryTeam = matchupTeams.length === 2 ? matchupTeams[0] : situation.subject.team ?? matchupTeams[0] ?? undefined;
+  const secondaryTeam = matchupTeams.length === 2 ? matchupTeams[1] : undefined;
+  const storyType = storyFrameLabel(situation);
   return {
     id: situation.id,
     league: situation.league,
     headline: slot === "lead" ? sportsFirstHeadline(situation) : editorialHeadline(situation),
     dek: slot === "rail" ? compactIntelPhrase(situation.currentRead) : overlayRead(situation),
-    label: slot === "lead" ? "Top developing story" : storyFrameLabel(situation),
+    label: slot === "lead" ? "Lead desk read" : storyFrameLabel(situation),
     href: `/${situation.league.toLowerCase()}`,
-    primaryTeam: situation.subject.team ?? matchupTeams[0] ?? undefined,
-    secondaryTeam: matchupTeams[1] ?? undefined,
+    primaryTeam,
+    secondaryTeam,
     player: situation.subject.player ?? undefined,
-    storyType: storyFrameLabel(situation),
+    storyType,
     detail: latestChangeLabel(situation),
     whatChanged: storyChangeLabel(situation),
     whyItMatters: compactIntelPhrase(situation.whyItMatters),
@@ -354,9 +358,17 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
       sourceSummary: situation.sourceSummary,
       timing: situation.timing,
       replay: replayLabelsForSituation(situation),
-      status: "Agent-calibrated confidence",
+      status: "Confidence support",
     },
     situation,
+    imageAsset: resolveSportsImageAsset({
+      league: situation.league,
+      team: primaryTeam,
+      opponent: secondaryTeam,
+      player: situation.subject.player,
+      storyType,
+      slot: slot === "lead" ? "hero" : slot === "rail" ? "matchup" : "featured",
+    }),
   };
 }
 
@@ -370,7 +382,7 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
     league: game.league,
     headline,
     dek: situation ? compactIntelPhrase(situation.currentRead) : `${game.status} / ${score}. EdgeSetter is monitoring lineup, injury, source, and game-state changes.`,
-    label: game.status === "In Progress" ? "Live matchup" : "Game context",
+    label: game.status === "In Progress" ? "Live game window" : "Matchup watch",
     href: `/${game.league.toLowerCase()}`,
     primaryTeam: game.awayTeam,
     secondaryTeam: game.homeTeam,
@@ -385,16 +397,23 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
       sourceSummary: situation.sourceSummary,
       timing: situation.timing,
       replay: replayLabelsForSituation(situation),
-      status: "Evidence-backed story",
+      status: "Evidence posture",
     } : {
       escalationState: game.topEscalation,
       confidence: { current: null, delta: null, explanation: "No agent confidence score until a verified story attaches." },
-      sourceSummary: { count: 0, convergence: "Awaiting source chain" },
+      sourceSummary: { count: 0, convergence: "Awaiting confirmed source" },
       timing: { window: game.status, freshnessLabel: score },
       replay: ["Game window", "Source watch", "No major shift"],
-      status: game.topEscalation ? "Developing story attached" : "Coverage watch",
+      status: game.topEscalation ? "Story attached" : "Coverage watch",
     },
     situation,
+    imageAsset: resolveSportsImageAsset({
+      league: game.league,
+      team: game.awayTeam,
+      opponent: game.homeTeam,
+      storyType: situation ? storyFrameLabel(situation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
+      slot: "matchup",
+    }),
   };
 }
 
@@ -425,11 +444,17 @@ function quietLeagueStory(league: typeof LEAGUES[number], title: string, note: s
     overlay: {
       escalationState: "Monitoring",
       confidence: { current: null, delta: null, explanation: "Confidence pending until a verified story attaches." },
-      sourceSummary: { count: 0, convergence: "Awaiting source chain" },
+      sourceSummary: { count: 0, convergence: "Awaiting confirmed source" },
       timing: { window: loading ? "Checking" : "Monitoring", freshnessLabel: "Live scan" },
       replay: ["Coverage scan", "No major shift", "Continue watch"],
       status: "Quiet coverage",
     },
+    imageAsset: resolveSportsImageAsset({
+      league,
+      team: league,
+      storyType: "Coverage watch",
+      slot: "quiet",
+    }),
   };
 }
 
@@ -818,7 +843,7 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
     convergenceSteps: [
       { label: "Slate context", state: "complete" },
       { label: sourceCount ? "Reports attached" : "Reports scanning", state: sourceCount ? "complete" : "active" },
-      { label: marketCount ? "Sports movement" : "No major shift", state: marketCount ? "complete" : "active" },
+      { label: marketCount ? "Market reacting" : "No major shift", state: marketCount ? "complete" : "active" },
       { label: "Official confirmation", state: "waiting" },
     ],
   };
@@ -871,16 +896,16 @@ function sourcePostureShortLabel(situation: IntelligenceSituation | null) {
   const posture = situation.sourceSummary.convergence;
   if (posture === "Source convergence" || posture === "Confirmed source chain") return "Reports aligned";
   if (posture === "Official source") return "Official";
-  if (posture === "Awaiting source chain") return "Reports pending";
+  if (posture === "Awaiting source chain" || posture === "Awaiting confirmed source") return "Reports pending";
   return posture;
 }
 
 function marketReactionLabel(situation: IntelligenceSituation | null) {
   if (!situation?.marketReaction) return "No verified movement yet";
-  if (situation.marketReaction.delta) return "Sports movement";
+  if (situation.marketReaction.delta) return "Market reacting";
   if (situation.marketReaction.note) return situation.marketReaction.note;
   if (situation.marketReaction.current) return "External movement detected";
-  return "Sports movement active";
+  return "Market reacting";
 }
 
 function confidenceMovementLabel(situation: IntelligenceSituation | null) {
@@ -891,7 +916,7 @@ function confidenceMovementLabel(situation: IntelligenceSituation | null) {
 
 function latestChangeLabel(situation: IntelligenceSituation | null) {
   if (!situation) return "Reports pending";
-  return situation.timeline.at(-1)?.detail ?? situation.currentRead;
+  return compactIntelPhrase(situation.timeline.at(-1)?.detail ?? situation.currentRead) ?? "Reports pending";
 }
 
 function storyChangeLabel(situation: IntelligenceSituation) {
@@ -951,7 +976,7 @@ function leagueWatchLabel(count: number) {
 function compactIntelPhrase(value?: string) {
   if (!value) return undefined;
   const firstSentence = value.split(/[.!?]/)[0]?.trim();
-  const phrase = firstSentence || value.trim();
+  const phrase = (firstSentence || value.trim()).replace(/\((\d+(\.\d+)?)\/100\)/g, "").replace(/\s{2,}/g, " ").trim();
   if (phrase.length <= 72) return phrase;
   return `${phrase.slice(0, 69).trim()}...`;
 }
@@ -991,7 +1016,7 @@ function pressureWindowsForSituation(situation: IntelligenceSituation) {
     situation.timing.window === "Early" ? "early signal" : null,
     situation.raw.lineup_status ? "Lineup window active" : null,
     situation.raw.injury_designation ? "Availability pressure" : null,
-    situation.marketReaction ? `Sports movement ${situation.marketReaction.delta ?? ""}`.trim() : "No major shift",
+    situation.marketReaction ? `Market reacting ${situation.marketReaction.delta ?? ""}`.trim() : "No major shift",
     situation.sourceSummary.count > 1 ? `${situation.sourceSummary.count} reports attached` : null,
   ].filter(Boolean) as string[];
   return windows.slice(0, 3);
@@ -1029,7 +1054,7 @@ function SourceArc({ situation, counts, pressure }: { situation: IntelligenceSit
           <strong>{situation ? confidenceMovementLabel(situation) : "Holding for signal quality"}</strong>
         </div>
         <div>
-          <span>Sports movement</span>
+          <span>Market reacting</span>
           <strong>{situation ? marketReactionLabel(situation) : pressure.market}</strong>
         </div>
         <div>
@@ -1053,13 +1078,13 @@ function sourceStorySteps(situation: IntelligenceSituation): Array<{ label: stri
   return [
     { label: `${situation.sourceSummary.count || 1} report${situation.sourceSummary.count === 1 ? "" : "s"}`, state: situation.sourceSummary.count > 1 ? "complete" : "active" },
     { label: situation.validators.agreement.includes("strong") ? "Strong report quality" : situation.validators.label, state: situation.sourceSummary.count > 1 ? "complete" : "active" },
-    { label: situation.marketReaction ? "Sports movement confirmed" : "No major shift", state: situation.marketReaction ? "complete" : "waiting" },
+    { label: situation.marketReaction ? "Market reacting" : "No major shift", state: situation.marketReaction ? "complete" : "waiting" },
     { label: situation.escalationState === "Official" ? "Official confirmation" : "Official not final", state: situation.escalationState === "Official" ? "complete" : "waiting" },
   ];
 }
 
 function storyFrameLabel(situation: IntelligenceSituation) {
-  if (situation.marketReaction) return "Sports movement";
+  if (situation.marketReaction) return "Market reacting";
   if (situation.raw.injury_designation) return "Availability pressure";
   if (situation.raw.lineup_status) return "Lineup volatility";
   if (situation.raw.weather_note) return "Weather pressure";
@@ -1107,10 +1132,10 @@ const liveIntelCss = `
 }
 .media-homepage {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   width: 100%;
   max-width: 1320px;
-  margin: 0 auto 18px;
+  margin: 0 auto 12px;
   box-sizing: border-box;
 }
 .media-homepage a {
@@ -1124,7 +1149,8 @@ const liveIntelCss = `
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  padding: 10px 0 2px;
+  padding: 12px 0 4px;
+  border-bottom: 1px solid rgba(217,164,65,0.18);
 }
 .media-homepage-leagues {
   display: flex;
@@ -1164,7 +1190,7 @@ const liveIntelCss = `
 .media-homepage-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 390px;
-  gap: 14px;
+  gap: 12px;
   align-items: start;
   max-width: 100%;
   overflow: hidden;
@@ -1173,32 +1199,35 @@ const liveIntelCss = `
 .media-homepage-rail,
 .media-game-context,
 .media-league-section {
+  position: relative;
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
   border: 1px solid rgba(82,101,122,0.24);
   border-radius: 8px;
-  background: linear-gradient(180deg, rgba(9,16,25,0.72), rgba(5,8,12,0.58));
+  background:
+    repeating-linear-gradient(90deg, rgba(248,250,252,0.028) 0 1px, transparent 1px 34px),
+    linear-gradient(180deg, rgba(9,16,25,0.78), rgba(5,8,12,0.62));
   box-shadow: 0 18px 48px rgba(0,0,0,0.22);
 }
 .media-homepage-main {
-  padding: 12px;
+  padding: 10px;
 }
 .media-homepage-rail {
   display: grid;
-  gap: 10px;
-  padding: 12px;
+  gap: 8px;
+  padding: 10px;
 }
 .media-section-label {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   color: #f5b841;
   font-family: var(--font-cond);
   font-size: 0.72rem;
   font-weight: 900;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 .media-game-context,
@@ -1209,8 +1238,8 @@ const liveIntelCss = `
 .media-league-story-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  padding: 8px;
 }
 .media-league-sections {
   display: grid;
@@ -1223,15 +1252,17 @@ const liveIntelCss = `
 }
 .story-card {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   height: 100%;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 12px;
+  padding: 10px;
   border: 1px solid rgba(82,101,122,0.26);
   border-radius: 7px;
-  background: linear-gradient(180deg, rgba(12,20,31,0.86), rgba(6,10,15,0.78));
+  background:
+    linear-gradient(90deg, rgba(245,184,65,0.055), transparent 30%),
+    linear-gradient(180deg, rgba(12,20,31,0.88), rgba(6,10,15,0.8));
   color: #f8fafc;
   cursor: pointer;
   overflow: hidden;
@@ -1243,9 +1274,9 @@ const liveIntelCss = `
   background: linear-gradient(180deg, rgba(14,24,36,0.94), rgba(7,12,18,0.84));
 }
 .story-card-lead {
-  grid-template-columns: minmax(260px, 0.82fr) minmax(0, 1fr);
+  grid-template-columns: minmax(240px, 0.74fr) minmax(0, 1fr);
   align-items: stretch;
-  padding: 14px;
+  padding: 12px;
 }
 .story-card-visual,
 .story-card-visual .sports-story-visual {
@@ -1260,22 +1291,66 @@ const liveIntelCss = `
 .story-card-lead .edge-overlay {
   grid-column: 1 / -1;
 }
+.story-card-rail .edge-overlay,
+.story-card-compact .edge-overlay {
+  padding-top: 6px;
+}
 .story-card-rail,
 .story-card-compact {
-  gap: 9px;
-  padding: 10px;
+  gap: 7px;
+  padding: 9px;
 }
-.story-card-rail .story-card-visual,
-.story-card-compact .story-card-visual {
+.story-card-compact {
+  grid-template-columns: 118px minmax(0, 1fr);
+}
+.story-card-rail .story-card-visual {
   display: none;
+}
+.story-card-compact .story-card-visual .sports-story-visual {
+  min-height: 126px;
+  padding: 9px;
+}
+.story-card-compact .story-card-visual .sports-story-visual-top strong,
+.story-card-compact .story-card-visual .sports-story-visual-copy small {
+  display: none;
+}
+.story-card-compact .story-card-visual .sports-story-visual-stage {
+  padding: 7px 0 5px;
+}
+.story-card-compact .story-card-visual .sports-story-visual-copy strong {
+  font-size: 0.82rem;
+  line-height: 1.05;
 }
 .story-card-copy {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 6px;
+  min-width: 0;
   width: 100%;
   max-width: 100%;
   overflow: hidden;
+}
+.story-card-context {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
+}
+.story-card-lead .story-card-context {
+  color: #f5b841;
+  font-family: var(--font-cond);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.story-card-context + p {
+  margin-top: -2px;
 }
 .story-card-kicker {
   display: flex;
@@ -1284,9 +1359,9 @@ const liveIntelCss = `
   gap: 6px;
   color: #94a3b8;
   font-family: var(--font-cond);
-  font-size: 0.66rem;
+  font-size: 0.7rem;
   font-weight: 900;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
 }
 .story-card-kicker span {
@@ -1298,22 +1373,27 @@ const liveIntelCss = `
   max-width: 100%;
   color: #f8fafc;
   font-family: var(--font-cond);
-  font-size: 1.12rem;
+  font-size: 1.2rem;
   font-weight: 950;
   letter-spacing: 0;
-  line-height: 1.08;
+  line-height: 1.03;
   overflow-wrap: anywhere;
   word-break: break-word;
   white-space: normal;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 .story-card-lead h2 {
-  font-size: clamp(1.65rem, 3.2vw, 3.25rem);
-  line-height: 0.98;
+  font-size: clamp(1.75rem, 3.15vw, 3.15rem);
+  line-height: 1;
+  -webkit-line-clamp: 3;
 }
 .story-card-rail h2,
 .story-card-compact h2 {
-  font-size: 0.96rem;
-  line-height: 1.12;
+  font-size: 0.98rem;
+  line-height: 1.08;
 }
 .story-card-compact p,
 .story-card-rail p {
@@ -1323,13 +1403,13 @@ const liveIntelCss = `
 .story-card p {
   margin: 0;
   color: #cbd5e1;
-  font-size: 0.86rem;
-  line-height: 1.45;
+  font-size: 0.9rem;
+  line-height: 1.48;
 }
 .story-card-reads {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  gap: 6px;
 }
 .story-card-rail .story-card-reads,
 .story-card-compact .story-card-reads {
@@ -1340,8 +1420,8 @@ const liveIntelCss = `
   display: none;
 }
 .story-card-reads div {
-  min-height: 64px;
-  padding: 8px 9px;
+  min-height: 52px;
+  padding: 7px 8px;
   border-left: 1px solid rgba(82,101,122,0.32);
   background: rgba(255,255,255,0.028);
 }
@@ -1360,20 +1440,22 @@ const liveIntelCss = `
   overflow: hidden;
   color: #dbe7f4;
   font-size: 0.76rem;
-  line-height: 1.35;
-  -webkit-line-clamp: 3;
+  line-height: 1.28;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 .edge-overlay {
   display: grid;
-  gap: 9px;
+  gap: 6px;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 10px;
-  border: 1px solid rgba(111,164,191,0.22);
-  border-radius: 6px;
-  background: rgba(5,8,12,0.48);
+  padding: 9px 0 0;
+  border: 0;
+  border-top: 1px solid rgba(111,164,191,0.22);
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgba(24,212,123,0.035), transparent 42%);
 }
 .edge-overlay-top,
 .edge-overlay-replay {
@@ -1381,7 +1463,7 @@ const liveIntelCss = `
   align-items: center;
   gap: 8px;
   color: #94a3b8;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
 }
 .edge-overlay-status {
@@ -1402,7 +1484,7 @@ const liveIntelCss = `
 .edge-overlay-primitives {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
+  gap: 6px;
 }
 .edge-overlay-primitives {
   grid-template-columns: 1fr 1fr;
@@ -1410,10 +1492,14 @@ const liveIntelCss = `
 .edge-overlay-grid div {
   display: grid;
   gap: 3px;
-  padding: 8px;
-  border: 1px solid rgba(82,101,122,0.20);
-  border-radius: 5px;
-  background: rgba(255,255,255,0.026);
+  padding: 0 8px 0 0;
+  border: 0;
+  border-right: 1px solid rgba(82,101,122,0.22);
+  border-radius: 0;
+  background: transparent;
+}
+.edge-overlay-grid div:last-child {
+  border-right: 0;
 }
 .edge-overlay-grid svg,
 .edge-overlay-replay svg {
@@ -1422,9 +1508,9 @@ const liveIntelCss = `
 .edge-overlay-grid span {
   color: #64748b;
   font-family: var(--font-cond);
-  font-size: 0.58rem;
+  font-size: 0.6rem;
   font-weight: 900;
-  letter-spacing: 0.10em;
+  letter-spacing: 0.13em;
   text-transform: uppercase;
 }
 .edge-overlay-grid strong,
@@ -1432,7 +1518,7 @@ const liveIntelCss = `
   overflow: hidden;
   color: #dbe7f4;
   font-size: 0.72rem;
-  line-height: 1.28;
+  line-height: 1.22;
   text-overflow: ellipsis;
 }
 .edge-overlay.is-compact .edge-overlay-grid {
@@ -1440,6 +1526,15 @@ const liveIntelCss = `
 }
 .edge-overlay.is-compact .edge-overlay-grid div:nth-child(n+3) {
   display: none;
+}
+.story-card-rail .edge-overlay-grid {
+  display: none;
+}
+.story-card-rail .edge-overlay-replay {
+  display: none;
+}
+.story-card-rail .agent-calibration-badge {
+  max-width: 100%;
 }
 .media-quiet-card {
   display: grid;
@@ -1531,8 +1626,26 @@ const liveIntelCss = `
   .story-card {
     padding: 10px;
   }
+  .story-card-copy {
+    width: 100%;
+    max-width: calc(100vw - 72px);
+    overflow: hidden;
+  }
   .story-card-lead {
     padding: 10px;
+  }
+  .story-card-compact {
+    grid-template-columns: 94px minmax(0, 1fr);
+  }
+  .story-card-compact .story-card-visual .sports-story-visual {
+    min-height: 112px;
+    padding: 8px;
+  }
+  .story-card-compact .story-card-visual .sports-story-visual-top span {
+    font-size: 0.58rem;
+  }
+  .story-card-compact .story-card-visual .sports-story-visual-copy strong {
+    font-size: 0.72rem;
   }
   .story-card-visual .sports-story-visual {
     min-height: 172px;
@@ -1550,20 +1663,30 @@ const liveIntelCss = `
     text-overflow: clip;
   }
   article.story-card.story-card-lead .story-card-copy > h2 {
-    display: block;
-    overflow: visible;
-    width: min(260px, calc(100vw - 128px));
-    max-width: min(260px, calc(100vw - 128px));
-    font-size: 1.32rem;
-    line-height: 1.02;
+    display: -webkit-box;
+    overflow: hidden;
+    width: min(100%, calc(100vw - 96px));
+    max-width: calc(100vw - 96px);
+    font-size: 1.14rem;
+    line-height: 1.08;
     white-space: normal !important;
-    overflow-wrap: normal;
+    overflow-wrap: anywhere;
     word-break: normal;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
   }
   .story-card p {
-    width: calc(100vw - 128px);
-    max-width: calc(100vw - 128px);
-    font-size: 0.8rem;
+    width: min(100%, calc(100vw - 118px));
+    max-width: calc(100vw - 118px);
+    font-size: 0.84rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+  }
+  .story-card-context {
+    width: 100%;
+    max-width: 100%;
+    white-space: normal;
     overflow-wrap: anywhere;
   }
   .story-card-reads strong {
@@ -1829,11 +1952,14 @@ const liveIntelCss = `
   position: relative;
   width: fit-content;
   gap: 3px;
-  padding: 11px 16px 10px 18px;
-  border-left: 3px solid rgba(245,184,65,0.88);
+  padding: 12px 18px 11px 20px;
+  border: 1px solid rgba(217,164,65,0.24);
+  border-left: 4px solid rgba(245,184,65,0.92);
+  border-radius: 7px;
   background:
-    linear-gradient(90deg, rgba(245,184,65,0.16), rgba(24,212,123,0.045) 58%, transparent);
-  box-shadow: 18px 0 42px rgba(245,184,65,0.045);
+    linear-gradient(90deg, rgba(245,184,65,0.18), rgba(24,212,123,0.055) 58%, rgba(5,8,12,0.42)),
+    rgba(5,8,12,0.38);
+  box-shadow: 18px 0 42px rgba(245,184,65,0.06);
 }
 .live-intel-brand-anchor::after {
   content: "";
@@ -1845,7 +1971,7 @@ const liveIntelCss = `
   background: linear-gradient(90deg, rgba(245,184,65,0.74), rgba(24,212,123,0.28), transparent);
 }
 .live-intel-brand-logo-crop {
-  display: block;
+  display: none;
   width: min(250px, 54vw);
   height: 42px;
   overflow: hidden;
@@ -1860,7 +1986,7 @@ const liveIntelCss = `
   transform: translate(-44px, -20px);
 }
 .live-intel-brand-anchor strong {
-  display: none;
+  display: block;
   color: #f8fafc;
   font-family: var(--font-cond);
   font-size: 1.34rem;
@@ -1872,9 +1998,9 @@ const liveIntelCss = `
 .live-intel-brand-anchor span {
   color: #f5b841;
   font-family: var(--font-cond);
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 900;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
 }
 .live-intel-hero-scoreboard {

@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 import V2Shell, { useShellTheme } from "../components/V2Shell";
-import { SignalDetailDrawer } from "../components/SignalDetailDrawer";
+import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalDetailDrawer";
 import { ProBoardBanner } from "../components/ProGate";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
@@ -60,7 +60,7 @@ function CFBBoardInner() {
   const { rowIsFree, openModal } = useSignalGate();
   const [sidebarFilter, setSidebarFilter] = useState<CFBFilterKey>("SIGNAL STREAM");
   const [tabFilter, setTabFilter] = useState<TabFilter>("Today");
-  const [selectedSig, setSelectedSig] = useState<CFBSignal | null>(null);
+  const [selectedSig, setSelectedSig] = useState<CFBSignal | SignalDetailLike | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
   const [activeLane, setActiveLane] = useState<SituationLaneType | "all">("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
@@ -122,13 +122,15 @@ function CFBBoardInner() {
   const topUrgentSituations = situations.filter((situation) => situation.lane === "escalating").slice(0, 2);
 
   const openSituation = (situation: BoardSituation) => {
-    if (situation.kind !== "signal") return;
-    const signal = situation.signal as CFBSignal | undefined;
+    if (situation.kind !== "signal" && situation.kind !== "canonical") return;
+    const signal = situation.signal as CFBSignal | SignalDetailLike | undefined;
     if (!signal) return;
-    const index = visibleSignals.findIndex((item) => String(item.id) === String(signal.id));
-    if (!rowIsFree(index)) {
-      openModal("CFB");
-      return;
+    if (situation.kind === "signal") {
+      const index = visibleSignals.findIndex((item) => String(item.id) === String(signal.id));
+      if (!rowIsFree(index)) {
+        openModal("CFB");
+        return;
+      }
     }
     setSelectedSig(signal);
   };

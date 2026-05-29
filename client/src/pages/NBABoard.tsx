@@ -4,7 +4,7 @@ import { useSearch } from "wouter";
 
 import AppShell from "@/components/V2Shell";
 import { NewSignalsToast } from "@/components/NewSignalsToast";
-import { SignalDetailDrawer } from "@/components/SignalDetailDrawer";
+import { SignalDetailDrawer, type SignalDetailLike } from "@/components/SignalDetailDrawer";
 import { BoardCommandBar } from "@/components/board/BoardCommandBar";
 import { BoardPriorityControls } from "@/components/board/BoardPriorityControls";
 import { FeaturedSituation } from "@/components/board/FeaturedSituation";
@@ -76,7 +76,7 @@ const PRO_THRESHOLD = 10;
 
 export default function NBABoard() {
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
-  const [drawerSignal, setDrawerSignal] = useState<Signal | null>(null);
+  const [drawerSignal, setDrawerSignal] = useState<Signal | SignalDetailLike | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
   const [activeLane, setActiveLane] = useState<SituationLaneType | "all">("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
@@ -172,11 +172,13 @@ export default function NBABoard() {
   const topUrgentSituations = situations.filter((situation) => situation.lane === "escalating").slice(0, 2);
 
   const openSituation = (situation: BoardSituation) => {
-    if (situation.kind !== "signal") return;
-    const signal = situation.signal as Signal | undefined;
+    if (situation.kind !== "signal" && situation.kind !== "canonical") return;
+    const signal = situation.signal as Signal | SignalDetailLike | undefined;
     if (!signal) return;
-    const index = filteredSignals.findIndex((item) => String(item.id) === String(signal.id));
-    if (index >= PRO_THRESHOLD) return;
+    if (situation.kind === "signal") {
+      const index = filteredSignals.findIndex((item) => String(item.id) === String(signal.id));
+      if (index >= PRO_THRESHOLD) return;
+    }
     setDrawerSignal(signal);
   };
 

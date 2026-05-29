@@ -39,7 +39,7 @@ export function AgentCalibrationBadge({
       title={`${detail}. Confidence support, not certainty.`}
     >
       <BrainCircuit className="h-3.5 w-3.5 shrink-0" />
-      <span className="truncate">{compact ? "Historically calibrated" : detail}</span>
+      <span className="truncate">{compact ? "EdgeSetter evidence" : detail}</span>
     </span>
   );
 }
@@ -54,7 +54,7 @@ export function HistoricalPatternMatch({
   className?: string;
 }) {
   const pattern = patternLabel(input);
-  const support = input.confidence ? `${Math.round(input.confidence)}% confidence support` : "Confidence support pending";
+  const support = input.confidence ? `${Math.round(input.confidence)}% support signal` : "Awaiting verification";
 
   return (
     <div className={cn("min-w-0 rounded border border-border bg-muted/10 p-2", className)}>
@@ -135,7 +135,7 @@ function calibrationTone(input: AgentCalibrationInput): CalibrationTone {
 
 function calibrationDetail(input: AgentCalibrationInput) {
   const pieces = [
-    "Historically calibrated",
+    "EdgeSetter evidence",
     input.sourceCount ? "source reliability tested" : "source reliability pending",
     input.timingLabel ? "timing pattern compared" : "timing watch",
   ];

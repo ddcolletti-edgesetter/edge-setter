@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { EdgeSetterOverlay, type EdgeSetterOverlayData } from "@/components/EdgeSetterOverlay";
 import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
 import type { IntelligenceSituation } from "@/lib/intelligenceSituationsApi";
+import type { SportsImageAsset } from "@/lib/sportsImageAssets";
 import { cn } from "@/lib/utils";
 
 export interface StoryCardData {
@@ -22,6 +23,7 @@ export interface StoryCardData {
   watchNext?: string;
   overlay: EdgeSetterOverlayData;
   situation?: IntelligenceSituation | null;
+  imageAsset?: SportsImageAsset | null;
 }
 
 interface StoryCardProps {
@@ -44,6 +46,7 @@ export function StoryCard({ story, variant = "feature", className }: StoryCardPr
           storyType={story.storyType ?? story.label ?? "Developing story"}
           detail={story.detail ?? story.watchNext}
           size={variant === "lead" ? "hero" : variant === "compact" || variant === "rail" ? "compact" : "feature"}
+          imageAsset={story.imageAsset}
         />
       </div>
 
@@ -53,6 +56,9 @@ export function StoryCard({ story, variant = "feature", className }: StoryCardPr
           <strong>{story.label ?? story.storyType ?? "Developing story"}</strong>
         </div>
         <h2>{story.headline}</h2>
+        <div className="story-card-context">
+          {[story.primaryTeam && story.secondaryTeam ? `${story.primaryTeam} @ ${story.secondaryTeam}` : story.primaryTeam, story.player, story.storyType].filter(Boolean).join(" / ") || "Sports context"}
+        </div>
         {story.dek && <p>{story.dek}</p>}
 
         <div className="story-card-reads">

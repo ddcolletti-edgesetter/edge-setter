@@ -1,5 +1,8 @@
+import { useEffect, useMemo, useState } from "react";
+
 import { cn } from "@/lib/utils";
 import { TeamLogoImg, toTeamAbbr } from "@/components/v2/SportVisuals";
+import type { SportsImageAsset } from "@/lib/sportsImageAssets";
 
 type Sport = "nba" | "mlb" | "nfl" | "cfb";
 
@@ -14,6 +17,7 @@ export interface SportsStoryVisualProps {
   detail?: string;
   size?: "hero" | "feature" | "compact" | "mini";
   className?: string;
+  imageAsset?: SportsImageAsset | null;
 }
 
 export interface HeadlineStoryItem {
@@ -47,6 +51,7 @@ export function SportsStoryVisual({
   detail,
   size = "feature",
   className,
+  imageAsset,
 }: SportsStoryVisualProps) {
   const resolvedSport = sport ?? leagueToSport(league);
   const primary = toTeamAbbr(primaryTeam ?? "") || toTeamAbbr(secondaryTeam ?? "") || league?.toUpperCase() || "ES";
@@ -56,10 +61,27 @@ export function SportsStoryVisual({
   const subject = player || title || (showMatchup ? `${primary} @ ${secondary}` : primary);
   const initials = playerInitials(player || title || primary);
   const texture = resolvedSport ? SPORT_FALLBACKS[resolvedSport].texture : "is-generic";
+  const imageCandidates = useMemo(() => imageAsset?.candidateSrcs ?? [], [imageAsset]);
+  const [imageIndex, setImageIndex] = useState(0);
+  const activeImageSrc = imageCandidates[imageIndex];
+
+  useEffect(() => {
+    setImageIndex(0);
+  }, [imageCandidates]);
 
   return (
-    <div className={cn("sports-story-visual", `is-${size}`, texture, className)} aria-label={`${leagueLabel} sports story visual`}>
+    <div className={cn("sports-story-visual", `is-${size}`, texture, activeImageSrc && "has-image", className)} aria-label={`${leagueLabel} sports story visual`}>
       <div className="sports-story-visual-bg" />
+      {activeImageSrc && (
+        <div className="sports-story-image-slot" data-slot={imageAsset?.slot}>
+          <img
+            src={activeImageSrc}
+            alt={imageAsset?.alt ?? `${leagueLabel} sports story image`}
+            loading={size === "hero" ? "eager" : "lazy"}
+            onError={() => setImageIndex((current) => current + 1)}
+          />
+        </div>
+      )}
       <div className="sports-story-visual-top">
         <span>{leagueLabel}</span>
         <strong>{storyType || "Story watch"}</strong>

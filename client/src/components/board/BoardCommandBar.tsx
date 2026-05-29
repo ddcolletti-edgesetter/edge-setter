@@ -57,6 +57,10 @@ export function BoardCommandBar({
   return (
     <section className={cn("board-command-bar max-w-full overflow-hidden rounded-md border border-border bg-card/90 shadow-[0_18px_48px_rgba(0,0,0,0.18)]", className)}>
       <div className={cn("flex max-w-full flex-wrap items-center gap-2 px-3 sm:gap-3 sm:px-4", isCompact ? "py-2 sm:py-2.5" : "py-2.5 sm:py-3")}>
+        <div className="board-command-brand" aria-label="EdgeSetter sports intelligence">
+          <span>ES</span>
+          <strong>EdgeSetter</strong>
+        </div>
         <div className="min-w-0 flex-1 basis-[calc(100%-3.25rem)] sm:basis-auto">
           <div className="section-kicker mb-1">
             <span>{kicker}</span>

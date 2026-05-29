@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { Bell, Bookmark, CheckCircle2, Clock3, History, LineChart, ShieldCheck, TrendingUp, X } from "lucide-react";
 
 import { AgentCalibrationBadge, ChainReactionPreview, HistoricalPatternMatch, WhatToWatchNext } from "@/components/AgentCalibration";
+import { SportsStoryVisual } from "@/components/SportsMedia";
+import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 
 type LineMovementLike = {
   open?: string | null;
@@ -23,6 +25,12 @@ type AccuracyContextLike = {
   categoryPerformance?: string | null;
   trendDirection?: string | null;
   comparableOutcomes?: string | null;
+};
+
+type CalibrationRow = {
+  label: string;
+  value: string;
+  detail: string;
 };
 
 export type SignalDetailLike = {
@@ -60,6 +68,17 @@ export type SignalDetailLike = {
   rotationNote?: string | null;
   matchupEdge?: string | null;
   accuracyContext?: AccuracyContextLike | null;
+  historicalPatternLabel?: string | null;
+  historicalPatternConfidence?: string | null;
+  historicalPatternBasis?: string[] | null;
+  comparableStoryType?: string | null;
+  sourceTimingProfile?: string | null;
+  sourceReliabilityBasis?: string | null;
+  marketReactionWindow?: string | null;
+  confirmationSignals?: string[] | null;
+  weakeningSignals?: string[] | null;
+  calibrationSummary?: string | null;
+  calibrationLimitations?: string[] | null;
 };
 
 type SignalDetailDrawerProps = {
@@ -106,8 +125,8 @@ function confidenceLabel(value: number) {
 
 function confidenceBand(value: number) {
   if (!value) return "Not scored";
-  if (value >= 85) return "Agent-calibrated confidence high";
-  if (value >= 72) return "Agent confidence elevated";
+  if (value >= 85) return "Strong confidence support";
+  if (value >= 72) return "Elevated confidence support";
   if (value >= 58) return "Confidence still forming";
   return "Verification watch";
 }
@@ -210,7 +229,7 @@ function storyContext(signal: SignalDetailLike, sport?: string) {
 function verificationState(signal: SignalDetailLike, confidence: number, sources: number) {
   const status = (signal.verdict ?? signal.status_tag ?? "").toLowerCase();
   if (status.includes("confirmed") || status.includes("verified")) return "Verified by public confirmation";
-  if (sources >= 3 && confidence >= 72) return "Source agreement forming";
+  if (sources >= 3 && confidence >= 72) return "Source-confirmed posture forming";
   if (sources >= 2) return "Corroborated, still developing";
   if (sources === 1) return "Single-source verification watch";
   return "Verification state pending";
@@ -274,11 +293,15 @@ function confidenceDrivers(signal: SignalDetailLike, ageMinutes: number | null) 
   const sourceQuality = clamp((signal.sourceTypes?.length ?? 0) * 18 + (sources ? 42 : 24));
 
   return [
-    { label: "Source agreement", value: sources ? sourceScore : Math.max(28, confidence - 35), detail: sources ? `${sources} source checks attached` : "No source checks attached" },
+    { label: "Report posture", value: sources ? sourceScore : Math.max(28, confidence - 35), detail: sources ? `${sources} source checks attached` : "No source checks attached" },
     { label: "Source quality", value: sourceQuality, detail: signal.confirmationStrength ?? "Source quality not yet scored" },
     { label: "Market reaction", value: hasMovement ? 78 : 36, detail: hasMovement ? "Market movement attached" : "No movement attached yet" },
     { label: "Timing freshness", value: timingScore, detail: freshnessLabel(ageMinutes, signalTimestamp(signal)) },
-    { label: "Historical pattern match", value: confidence ? clamp(confidence - 8) : 42, detail: confidence ? "Compared with settled story bands" : "Settled sample unavailable" },
+    {
+      label: "Historical calibration",
+      value: signal.historicalPatternConfidence ? calibrationDriverValue(signal.historicalPatternConfidence) : confidence ? clamp(confidence - 12) : 42,
+      detail: cleanCalibrationText(signal.historicalPatternLabel, confidence ? "Pattern support is being compared qualitatively." : "Settled sample unavailable"),
+    },
   ];
 }
 
@@ -317,14 +340,95 @@ function trustSummary(signal: SignalDetailLike, confidence: number, sources: num
   return reasons;
 }
 
-function accuracyRows(signal: SignalDetailLike) {
-  const context = signal.accuracyContext;
-  return [
-    { label: "Recent hit rate", value: context?.recentHitRate ?? "Not enough settled samples", detail: "Requires settled story outcomes." },
-    { label: "Confidence alignment", value: context?.confidenceAlignment ?? "Pending review", detail: "Compares current confidence to historical settled ranges." },
-    { label: "Category performance", value: context?.categoryPerformance ?? "Pending review", detail: "Tracks this story type after outcome review." },
-    { label: "Trend direction", value: context?.trendDirection ?? "No trend yet", detail: "Shows whether comparable stories are improving or weakening." },
+function calibrationModel(signal: SignalDetailLike): {
+  label: string;
+  support: string;
+  summary: string;
+  rows: CalibrationRow[];
+  basis: string[];
+  confirmationSignals: string[];
+  weakeningSignals: string[];
+  limitations: string[];
+  comparableHistory: string;
+} {
+  const label = cleanCalibrationText(signal.historicalPatternLabel, "Calibration pending");
+  const support = calibrationSupportLabel(signal.historicalPatternConfidence);
+  const summary = cleanCalibrationText(
+    signal.calibrationSummary,
+    "Historical calibration is pending; replay and outcome linkage will appear when comparable evidence is attached.",
+  );
+  const hasMarket = Boolean(signal.marketReactionWindow || signal.lineMovement?.note || signal.line_movement?.note);
+  const rows = [
+    {
+      label: "Historical pattern",
+      value: label,
+      detail: support,
+    },
+    {
+      label: "Comparable story type",
+      value: cleanCalibrationText(signal.comparableStoryType, signalType(signal) ?? "Comparable story pending"),
+      detail: "Matched on safe story dimensions only.",
+    },
+    {
+      label: "Source timing",
+      value: cleanCalibrationText(signal.sourceTimingProfile, "Source timing compared where available"),
+      detail: "No timing advantage is claimed without support.",
+    },
+    {
+      label: "Source reliability basis",
+      value: cleanCalibrationText(signal.sourceReliabilityBasis, "Source reliability basis pending"),
+      detail: "Uses attached source context where available.",
+    },
+    {
+      label: "Market reaction window",
+      value: cleanCalibrationText(signal.marketReactionWindow, hasMarket ? "Comparable movement pattern" : "Market movement support unavailable"),
+      detail: "Market context is supporting evidence, not a performance claim.",
+    },
   ];
+  const basis = cleanCalibrationList(signal.historicalPatternBasis, ["Replay-only comparison until comparable outcome linkage is available."]);
+  const confirmationSignals = cleanCalibrationList(signal.confirmationSignals, ["Confirmation signals pending."]);
+  const weakeningSignals = cleanCalibrationList(signal.weakeningSignals, ["Weakening signals pending."]);
+  const limitations = cleanCalibrationList(signal.calibrationLimitations, ["Outcome linkage unavailable for this story view."]);
+  const comparableHistory = cleanCalibrationText(
+    signal.accuracyContext?.comparableOutcomes,
+    limitations[0] ?? "Comparable outcomes are unavailable until enough settled historical samples are attached.",
+  );
+
+  return { label, support, summary, rows, basis, confirmationSignals, weakeningSignals, limitations, comparableHistory };
+}
+
+function calibrationDriverValue(value: string) {
+  const normalized = value.toLowerCase();
+  if (normalized.includes("stronger") || normalized.includes("strong")) return 78;
+  if (normalized.includes("directional") || normalized.includes("moderate")) return 66;
+  if (normalized.includes("limited")) return 52;
+  if (normalized.includes("no_sample") || normalized.includes("insufficient")) return 34;
+  return 46;
+}
+
+function calibrationSupportLabel(value?: string | null) {
+  const normalized = value?.replace(/_/g, " ").trim();
+  if (!normalized) return "Support level pending";
+  if (/strong/i.test(normalized)) return "Stronger qualitative support";
+  if (/directional|moderate/i.test(normalized)) return "Directional qualitative support";
+  if (/limited/i.test(normalized)) return "Limited historical support";
+  if (/no sample|insufficient/i.test(normalized)) return "Insufficient settled sample";
+  return cleanCalibrationText(normalized, "Support level pending");
+}
+
+function cleanCalibrationList(values: string[] | null | undefined, fallback: string[]) {
+  const cleaned = (values ?? [])
+    .map((value) => cleanCalibrationText(value, ""))
+    .filter(Boolean);
+  return Array.from(new Set(cleaned.length ? cleaned : fallback));
+}
+
+function cleanCalibrationText(value: string | number | null | undefined, fallback: string) {
+  const text = String(value ?? "").trim();
+  if (!text) return fallback;
+  const unsupportedClaim = /\b\d+(\.\d+)?%|\bwin rates?\b|\bprediction accuracy\b|\baccurate\b|\bsample counts?\b|\bpositive clv\b|\bguaranteed edge\b|\bagents predict\b/i;
+  if (unsupportedClaim.test(text)) return fallback;
+  return text;
 }
 
 function adoptionBand(value: number) {
@@ -435,7 +539,17 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
     const timing = timingProfile(ageMinutes);
     const edge = edgeStrength(confidence);
     const sources = readSourceCount(signal);
-    return { confidence, ageMinutes, timing, edge, sources, drivers: confidenceDrivers(signal, ageMinutes), rows: sourceRows(signal), trust: trustSummary(signal, confidence, sources, timing), accuracy: accuracyRows(signal) };
+    return {
+      confidence,
+      ageMinutes,
+      timing,
+      edge,
+      sources,
+      drivers: confidenceDrivers(signal, ageMinutes),
+      rows: sourceRows(signal),
+      trust: trustSummary(signal, confidence, sources, timing),
+      calibration: calibrationModel(signal),
+    };
   }, [signal]);
 
   if (!open || !signal || !model) return null;
@@ -452,11 +566,18 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   const calibrationInput = {
     confidence: model.confidence,
     sourceCount: model.sources,
-    timingLabel: model.timing.label,
-    storyType: signalType(signal) ?? signal.title ?? signal.headline,
-    marketReaction: movement?.open && movement.current ? `${movement.open} to ${movement.current}` : movement?.note ?? movement?.direction ?? null,
-    sourceSummary: signal.confirmationStrength,
+    timingLabel: signal.sourceTimingProfile ?? model.timing.label,
+    storyType: signal.comparableStoryType ?? signal.historicalPatternLabel ?? signalType(signal) ?? signal.title ?? signal.headline,
+    marketReaction: signal.marketReactionWindow ?? (movement?.open && movement.current ? `${movement.open} to ${movement.current}` : movement?.note ?? movement?.direction ?? null),
+    sourceSummary: signal.sourceReliabilityBasis ?? signal.confirmationStrength,
   };
+  const drawerImageAsset = resolveSportsImageAsset({
+    league: sport,
+    team: signal.team,
+    player: signal.player ?? signal.player_name,
+    storyType: signalType(signal) ?? signal.historicalPatternLabel ?? "Story brief",
+    slot: "drawer",
+  });
 
   return (
     <div className="signal-detail-backdrop" role="presentation" onClick={onClose}>
@@ -469,7 +590,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
       >
         <header className="signal-detail-header">
           <div>
-            <div className="signal-detail-kicker">{sport ? `${sport} developing story` : "Developing story"}</div>
+            <div className="signal-detail-kicker">{sport ? `EdgeSetter / ${sport} story desk` : "EdgeSetter story desk"}</div>
             <h2 className="signal-detail-title">{signalTitle(signal)}</h2>
             <div className="signal-detail-meta">{meta}</div>
           </div>
@@ -479,8 +600,20 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
         </header>
 
         <div className="signal-detail-sections">
+          <SportsStoryVisual
+            className="signal-detail-media-slot"
+            league={sport}
+            primaryTeam={signal.team ?? undefined}
+            player={signal.player ?? signal.player_name ?? undefined}
+            title={signalTitle(signal)}
+            storyType={signalType(signal) ?? "Developing story"}
+            detail={storyVerificationState}
+            size="compact"
+            imageAsset={drawerImageAsset}
+          />
+
           <div className="signal-detail-stat-grid">
-            <StatCard label="Agent confidence" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
+            <StatCard label="Confidence support" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
             <StatCard label="Verification state" value={storyVerificationState} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />
             <StatCard label="Timing window" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
             <StatCard label="Replay freshness" value={freshnessLabel(model.ageMinutes, signalTimestamp(signal))} detail="Detection age" tone={model.ageMinutes !== null && model.ageMinutes <= 45 ? "green" : "gray"} />
@@ -544,7 +677,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
           <Section title="Evidence" icon={<ShieldCheck size={14} />}>
             <div className="signal-source-summary">
               <strong>{model.sources ? `${model.sources} source checks attached` : "No source checks attached"}</strong>
-              <span>{signal.confirmationStrength ?? "Source agreement is not available for this story view."}</span>
+              <span>{signal.confirmationStrength ?? "Report posture is not available for this story view."}</span>
             </div>
             <div className="signal-trust-stack">
               {model.trust.map((reason) => (
@@ -565,7 +698,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             </div>
           </Section>
 
-          <Section title="Agent-calibrated confidence" icon={<LineChart size={14} />}>
+          <Section title="EdgeSetter evidence layer" icon={<LineChart size={14} />}>
             <div className="mb-2 grid min-w-0 gap-1.5 sm:grid-cols-2">
               <HistoricalPatternMatch input={calibrationInput} />
               <ChainReactionPreview input={calibrationInput} />
@@ -590,9 +723,13 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             </div>
           </Section>
 
-          <Section title="Historical pattern match" icon={<History size={14} />}>
+          <Section title="Historical calibration" icon={<History size={14} />}>
+            <div className="signal-source-summary">
+              <strong>{model.calibration.label}</strong>
+              <span>{model.calibration.summary}</span>
+            </div>
             <div className="signal-accuracy-grid">
-              {model.accuracy.map((row) => (
+              {model.calibration.rows.map((row) => (
                 <div className="signal-accuracy-card" key={row.label}>
                   <span>{row.label}</span>
                   <strong>{row.value}</strong>
@@ -600,6 +737,27 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
                 </div>
               ))}
             </div>
+            <div className="signal-trust-stack">
+              {model.calibration.basis.map((item) => (
+                <div className="signal-trust-row" key={item}>
+                  <CheckCircle2 size={13} />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+            <div className="signal-accuracy-grid">
+              <div className="signal-accuracy-card">
+                <span>Confirmation signals</span>
+                <strong>{model.calibration.confirmationSignals[0]}</strong>
+                <small>{model.calibration.confirmationSignals.slice(1).join(" / ") || "Additional confirmation not attached."}</small>
+              </div>
+              <div className="signal-accuracy-card">
+                <span>Weakening signals</span>
+                <strong>{model.calibration.weakeningSignals[0]}</strong>
+                <small>{model.calibration.weakeningSignals.slice(1).join(" / ") || "Additional weakening signal not attached."}</small>
+              </div>
+            </div>
+            <div className="signal-empty-inline">{model.calibration.limitations.join(" ")}</div>
           </Section>
 
           <Section title="What to watch next" icon={<Clock3 size={14} />}>
@@ -611,7 +769,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
           </Section>
 
           <Section title="Comparable story history" icon={<LineChart size={14} />}>
-            <p>{signal.accuracyContext?.comparableOutcomes ?? "Comparable outcomes are unavailable until enough settled historical samples are attached. Use current confidence, source agreement, replay trail, and market reaction as the active trust context."}</p>
+            <p>{model.calibration.comparableHistory}</p>
           </Section>
 
           <Section title="Follow-up watch" icon={<Bell size={14} />}>

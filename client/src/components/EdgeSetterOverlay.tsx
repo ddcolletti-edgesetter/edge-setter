@@ -32,10 +32,11 @@ interface EdgeSetterOverlayProps {
 export function EdgeSetterOverlay({ data, situation, compact }: EdgeSetterOverlayProps) {
   const confidence = data.confidence?.current;
   const delta = data.confidence?.delta;
-  const confidenceLabel = typeof confidence === "number" ? `${Math.round(confidence)}% evidence-backed` : "Awaiting score";
+  const confidenceLabel = typeof confidence === "number" ? `${Math.round(confidence)}% support signal` : "Awaiting verification";
   const deltaLabel = typeof delta === "number" && delta !== 0 ? `${delta > 0 ? "+" : ""}${Math.round(delta)}` : "Hold";
   const sourceCount = data.sourceSummary?.count ?? 0;
   const sourceLabel = data.sourceSummary?.convergence ?? (sourceCount > 1 ? "Reports corroborating" : sourceCount === 1 ? "Single report" : "Report watch");
+  const sourcePosture = sourcePostureLabel(sourceCount, sourceLabel);
   const timingLabel = [data.timing?.window, data.timing?.freshnessLabel].filter(Boolean).join(" / ") || "Timing watch";
   const replay = data.replay?.filter(Boolean).slice(0, compact ? 2 : 3) ?? [];
   const calibrationInput = {
@@ -44,14 +45,14 @@ export function EdgeSetterOverlay({ data, situation, compact }: EdgeSetterOverla
     timingLabel,
     storyType: data.status ?? situation?.signalType,
     marketReaction: situation?.marketReaction ? `${situation.marketReaction.open} to ${situation.marketReaction.current}` : null,
-    sourceSummary: sourceLabel,
+    sourceSummary: sourcePosture,
   };
 
   return (
     <div className={compact ? "edge-overlay is-compact" : "edge-overlay"}>
       <div className="edge-overlay-top">
         {data.escalationState ? <EscalationBadge state={data.escalationState} /> : <span className="edge-overlay-status">{data.status ?? "Monitoring"}</span>}
-        <span>{data.status ?? "Agent-calibrated"}</span>
+        <span>EdgeSetter evidence</span>
       </div>
 
       {situation && !compact ? (
@@ -63,17 +64,17 @@ export function EdgeSetterOverlay({ data, situation, compact }: EdgeSetterOverla
         <div className="edge-overlay-grid">
           <div>
             <ShieldCheck size={13} />
-            <span>Confidence</span>
+            <span>Confidence support</span>
             <strong>{confidenceLabel}</strong>
           </div>
           <div>
             <ShieldCheck size={13} />
-            <span>Source state</span>
-            <strong>{sourceCount ? `${sourceCount} / ${sourceLabel}` : sourceLabel}</strong>
+            <span>Source posture</span>
+            <strong>{sourcePosture}</strong>
           </div>
           <div>
             <Clock3 size={13} />
-            <span>Timing</span>
+            <span>Timing window</span>
             <strong>{timingLabel}</strong>
           </div>
         </div>
@@ -81,7 +82,7 @@ export function EdgeSetterOverlay({ data, situation, compact }: EdgeSetterOverla
 
       <div className="edge-overlay-replay">
         <History size={13} />
-        <span>{replay.length ? replay.join(" -> ") : `Verification ${deltaLabel} / ${sourceLabel}`}</span>
+        <span>{replay.length ? replay.join(" -> ") : `Verification ${deltaLabel} / ${sourcePosture}`}</span>
       </div>
       <div className="mt-1 flex min-w-0 flex-wrap gap-1.5">
         <AgentCalibrationBadge input={calibrationInput} compact={compact} />
@@ -89,4 +90,13 @@ export function EdgeSetterOverlay({ data, situation, compact }: EdgeSetterOverla
       </div>
     </div>
   );
+}
+
+function sourcePostureLabel(count: number, label: string) {
+  const normalized = label.toLowerCase();
+  if (!count) return label;
+  const sourceWord = count === 1 ? "source" : "sources";
+  if (normalized.includes("confirmed") || normalized.includes("corroborat")) return `${count} confirmed ${sourceWord}`;
+  if (normalized.includes("single")) return "Single source";
+  return `${count} ${sourceWord} / ${label}`;
 }

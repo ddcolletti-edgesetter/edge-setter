@@ -1,12 +1,13 @@
 import type { ReactNode } from "react";
 import { ArrowUpRight, Clock3 } from "lucide-react";
 
-import { AgentCalibrationBadge, ChainReactionPreview, HistoricalPatternMatch } from "@/components/AgentCalibration";
+import { AgentCalibrationBadge } from "@/components/AgentCalibration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { EvidenceChain, SportsIdentityLine, SportsIdentityMark, type SituationMetric, type SituationRowData } from "./SituationRow";
 import { SportsStoryVisual } from "@/components/SportsMedia";
+import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 
 interface FeaturedSituationAction {
   label: string;
@@ -71,7 +72,7 @@ export function FeaturedSituation({
         className,
       )}
     >
-      <div className={cn("grid min-w-0 items-stretch", isMobileCompact ? "gap-2 lg:grid-cols-[minmax(0,1fr)_250px]" : "gap-2 sm:gap-2.5 lg:grid-cols-[minmax(0,1fr)_292px]")}>
+      <div className={cn("grid min-w-0 items-stretch", situation && (isMobileCompact ? "gap-2 lg:grid-cols-[minmax(0,1fr)_250px]" : "gap-2 sm:gap-2.5 lg:grid-cols-[minmax(0,1fr)_292px]"))}>
         <div className="min-w-0 flex-1 basis-full sm:basis-auto">
           <div className={cn("section-kicker", isMobileCompact ? "mb-1 sm:mb-2" : "mb-2")}>
             <span>{eyebrow}</span>
@@ -93,14 +94,14 @@ export function FeaturedSituation({
           </div>
           <h2 className={cn("max-w-full overflow-hidden whitespace-normal break-words font-sans font-bold leading-snug text-foreground [display:-webkit-box] [overflow-wrap:anywhere] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]", isCompact ? "mt-1 text-base sm:mt-1.5 sm:text-lg" : isMobileCompact ? "mt-1 text-base sm:mt-2 sm:text-lg" : "mt-1.5 text-base sm:mt-2 sm:text-lg")}>{displayTitle}</h2>
           {displaySummary && (
-            <p className={cn("max-w-3xl overflow-hidden break-words text-sm font-medium text-muted-foreground [display:-webkit-box] [overflow-wrap:anywhere] [-webkit-box-orient:vertical]", isCompact ? "mt-1 leading-snug [-webkit-line-clamp:1] sm:[-webkit-line-clamp:2]" : isMobileCompact ? "mt-1 leading-snug [-webkit-line-clamp:1] sm:mt-1.5 sm:[-webkit-line-clamp:2]" : "mt-1.5 leading-snug [-webkit-line-clamp:2]")}>
+            <p className={cn("max-w-3xl overflow-hidden break-words text-sm font-medium text-muted-foreground [display:-webkit-box] [overflow-wrap:anywhere] [-webkit-box-orient:vertical]", isCompact ? "mt-1 leading-snug [-webkit-line-clamp:2]" : isMobileCompact ? "mt-1 leading-snug [-webkit-line-clamp:2] sm:mt-1.5" : "mt-1.5 leading-snug [-webkit-line-clamp:2]")}>
               {displaySummary}
             </p>
           )}
           {!isMobileCompact && <SportsIdentityLine identity={situation?.sportsIdentity} />}
         </div>
 
-        <SportsIdentityPanel situation={situation} title={displayTitle} compact={isMobileCompact} />
+        {situation && <SportsIdentityPanel situation={situation} title={displayTitle} compact={isMobileCompact} />}
       </div>
 
       {!isCompact && (primaryRead || secondaryRead) && (
@@ -111,16 +112,14 @@ export function FeaturedSituation({
       )}
 
       <div className="mt-2 grid min-w-0 gap-1.5 sm:grid-cols-3">
-        <PlainRead label="Agent confidence" value={plainConfidenceLabel(confidenceMetric, situation)} />
+        <PlainRead label="Confidence support" value={plainConfidenceLabel(confidenceMetric, situation)} />
         <PlainRead label="Verification state" value={plainStatusLabel(situation?.statusLabel ?? escalation)} />
-        <PlainRead label="Source agreement" value={plainSupportLabel(situation)} />
+        <PlainRead label="Report posture" value={plainSupportLabel(situation)} />
       </div>
 
       {situation && (
-        <div className="mt-2 grid min-w-0 gap-1.5 sm:grid-cols-3">
+        <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
           <AgentCalibrationBadge input={calibrationInput(situation, confidenceMetric)} />
-          <HistoricalPatternMatch input={calibrationInput(situation, confidenceMetric)} compact />
-          <ChainReactionPreview input={calibrationInput(situation, confidenceMetric)} compact />
         </div>
       )}
 
@@ -159,6 +158,7 @@ export function FeaturedSituation({
 
 function SportsIdentityPanel({ situation, title, compact }: { situation?: SituationRowData; title: string; compact?: boolean }) {
   const identity = situation?.sportsIdentity;
+  const storyType = storyTypeLabel(situation);
   return (
     <SportsStoryVisual
       className="board-featured-identity-panel"
@@ -168,9 +168,18 @@ function SportsIdentityPanel({ situation, title, compact }: { situation?: Situat
       secondaryTeam={identity?.opponent ?? identity?.homeTeam}
       player={identity?.player}
       title={situation?.matchup ?? title}
-      storyType={storyTypeLabel(situation)}
+      storyType={storyType}
       detail={situation?.sourceProgressLabel ?? situation?.statusLabel}
       size={compact ? "compact" : "feature"}
+      imageAsset={resolveSportsImageAsset({
+        league: situation?.league,
+        sport: identity?.sport,
+        team: identity?.team ?? identity?.awayTeam,
+        opponent: identity?.opponent ?? identity?.homeTeam,
+        player: identity?.player,
+        storyType,
+        slot: "featured",
+      })}
     />
   );
 }
@@ -189,7 +198,7 @@ function plainConfidenceLabel(metric?: SituationMetric, situation?: SituationRow
   const checks = situation?.evidenceCount ?? situation?.sourceCount;
   if (checks) return `${checks} report${checks === 1 ? "" : "s"} supporting`;
   if (value === "source/context support") return value;
-  return `${value} confidence support`;
+  return `${value} support signal`;
 }
 
 function calibrationInput(situation: SituationRowData, metric?: SituationMetric) {
@@ -220,7 +229,7 @@ function plainStatusLabel(status?: string) {
 
 function plainSupportLabel(situation?: SituationRowData) {
   if (situation?.sourceProgressLabel) return situation.sourceProgressLabel;
-  if (situation?.sourceCount) return `${situation.sourceCount} report${situation.sourceCount === 1 ? "" : "s"} attached`;
+  if (situation?.sourceCount) return situation.sourceCount === 1 ? "Single confirmed source" : `${situation.sourceCount} confirmed sources`;
   return "Awaiting stronger report support";
 }
 

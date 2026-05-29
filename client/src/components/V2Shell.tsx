@@ -13,7 +13,7 @@ const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
 
 function BrandEmblem({ size = 38 }: { size?: number }) {
   return (
-    <span style={{ width: size, height: size, display: "grid", placeItems: "center", borderRadius: "6px", border: "1px solid rgba(24,212,123,0.20)", background: "linear-gradient(135deg, rgba(24,212,123,0.09), rgba(245,184,65,0.06))", boxShadow: "0 8px 22px rgba(0,0,0,0.26)", flexShrink: 0, overflow: "hidden", position: "relative" }}>
+    <span style={{ width: size, height: size, display: "grid", placeItems: "center", borderRadius: "7px", border: "1px solid rgba(245,184,65,0.30)", background: "linear-gradient(135deg, rgba(245,184,65,0.14), rgba(24,212,123,0.08))", boxShadow: "0 10px 26px rgba(0,0,0,0.30), inset 0 1px 0 rgba(248,250,252,0.08)", flexShrink: 0, overflow: "hidden", position: "relative" }}>
       <img
         src={EDGESETTER_EMBLEM_SRC}
         alt="EdgeSetter live sports intelligence"
@@ -36,11 +36,11 @@ function BrandEmblem({ size = 38 }: { size?: number }) {
 function BrandWordmark() {
   return (
     <div aria-label="EdgeSetter live sports desk" style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", fontFamily: "'Barlow Condensed', sans-serif", lineHeight: 1, textTransform: "uppercase" }}>
-      <strong style={{ display: "block", color: "#F8FAFC", fontSize: "0.94rem", fontWeight: 950, letterSpacing: "0.028em", whiteSpace: "nowrap" }}>
+      <strong style={{ display: "block", color: "#F8FAFC", fontSize: "0.96rem", fontWeight: 950, letterSpacing: "0.055em", whiteSpace: "nowrap" }}>
         EDGESETTER
       </strong>
-      <span style={{ display: "block", marginTop: 5, color: "var(--es-brand-green)", fontSize: "0.46rem", fontWeight: 900, letterSpacing: "0.045em", whiteSpace: "nowrap" }}>
-        LIVE SPORTS DESK
+      <span style={{ display: "block", marginTop: 5, color: "#F5B841", fontSize: "0.5rem", fontWeight: 900, letterSpacing: "0.10em", whiteSpace: "nowrap" }}>
+        SPORTS INTEL DESK
       </span>
     </div>
   );
