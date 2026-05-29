@@ -62,6 +62,13 @@ export function rawEventToNormalizedEvent(raw: RawEvent, signal: LiveSignal): No
     payload: {
       raw_payload: payload,
       signal_id: signal.id,
+      signalId: signal.id,
+      signal_lineage: {
+        signalId: signal.id,
+        rawEventId: raw.id,
+        sourceEventId: raw.source_id,
+        lineageStatus: "signal_linked",
+      },
       signal_type: signal.signal_type,
       signal_verdict: signal.verdict,
       trust_label: signal.trust_label,

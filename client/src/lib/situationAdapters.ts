@@ -67,6 +67,7 @@ export function canonicalSituationToBoardSituation(situation: CanonicalSituation
     isLive: situation.timingPressure === "high" || situation.timingPressure === "critical",
     isActionable: !cooling && situation.operationalVisibilityScore >= 55,
     relatedSignalIds: [],
+    signal: canonicalSituationToDrawerSignal(situation),
     canonicalSituation: situation,
   };
 }
@@ -180,4 +181,40 @@ function relativeTime(iso: string) {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.round(hours / 24)}d ago`;
+}
+
+function canonicalSituationToDrawerSignal(situation: CanonicalSituation) {
+  const marketImpact = situation.latestEvidence.find((event) => event.marketImpact)?.marketImpact ?? null;
+  return {
+    id: `canonical-${situation.id}`,
+    headline: situation.title,
+    title: situation.title,
+    detail: situation.summary,
+    summary: situation.lifecycleExplanation,
+    player: situation.players[0] ?? null,
+    team: situation.teams[0] ?? null,
+    type: situation.situationType,
+    confidence: situation.confidence,
+    verdict: situation.confidenceLabel,
+    status_tag: canonicalLifecycleLabel(situation.lifecycleState),
+    action_takeaway: situation.confidenceFactors.whatRemainsUncertain[0] ?? situation.lifecycleExplanation,
+    isoTimestamp: situation.firstSeenAt,
+    updated_at: situation.lastUpdatedAt,
+    source_count: situation.sourceCount,
+    sourceLabels: situation.latestEvidence.map((event) => event.sourceType ?? event.eventType).filter(Boolean),
+    confirmationStrength: sourceConvergenceLabel(situation),
+    why_it_matters: canonicalConfidenceSummary(situation),
+    lineMovement: marketImpact ? { note: marketImpact } : null,
+    historicalPatternLabel: situation.historicalPatternLabel,
+    historicalPatternConfidence: situation.historicalPatternConfidence,
+    historicalPatternBasis: situation.historicalPatternBasis,
+    comparableStoryType: situation.comparableStoryType,
+    sourceTimingProfile: situation.sourceTimingProfile,
+    sourceReliabilityBasis: situation.sourceReliabilityBasis,
+    marketReactionWindow: situation.marketReactionWindow,
+    confirmationSignals: situation.confirmationSignals,
+    weakeningSignals: situation.weakeningSignals,
+    calibrationSummary: situation.calibrationSummary,
+    calibrationLimitations: situation.calibrationLimitations,
+  };
 }

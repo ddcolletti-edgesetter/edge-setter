@@ -127,6 +127,101 @@ export interface SituationConfidenceExplanation {
   readonly replay_hash: string;
 }
 
+export interface SituationHistoricalCalibrationFields {
+  readonly historicalPatternLabel?: string;
+  readonly historicalPatternConfidence?: "limited" | "moderate" | "strong";
+  readonly historicalPatternBasis?: readonly string[];
+  readonly comparableStoryType?: string;
+  readonly sourceTimingProfile?: string;
+  readonly sourceReliabilityBasis?: string;
+  readonly marketReactionWindow?: string;
+  readonly confirmationSignals?: readonly string[];
+  readonly weakeningSignals?: readonly string[];
+  readonly calibrationSummary?: string;
+  readonly calibrationLimitations?: readonly string[];
+}
+
+export type SituationLineageStatus =
+  | "signal_linked"
+  | "raw_event_linked"
+  | "normalized_event_linked"
+  | "source_only"
+  | "missing_lineage";
+
+export interface SituationEvidenceLineage {
+  readonly signalId?: string;
+  readonly rawEventId?: string;
+  readonly normalizedEventId?: string;
+  readonly sourceEventId?: string;
+  readonly lineageStatus: SituationLineageStatus;
+  readonly lineageBasis: readonly string[];
+  readonly lineageLimitations: readonly string[];
+}
+
+export type SituationConfidenceBand = "watch" | "low" | "medium" | "high" | "very_high";
+export type SituationSourceDepthBand = "none" | "single" | "multiple" | "deep";
+export type SituationMarketReactionBand = "none" | "attached" | "moderate" | "material";
+export type SituationTimingProfileBand = "unknown" | "immediate" | "same_hour" | "delayed";
+export type SituationOutcomeStatus = "pending" | "settled" | "invalidated" | "replay_only";
+export type SituationReplayVerificationStatus = "verified_replay_hash" | "replay_only" | "missing_replay_hash";
+export type SituationOutcomeLinkStatus = "pending_outcome" | "replay_only" | "outcome_linked" | "clv_linked" | "insufficient_data";
+export type SituationCalibrationSampleBand = "no_sample" | "limited_sample" | "directional_sample" | "stronger_sample";
+export type SituationSettlementStatus = "unsettled" | "settled" | "invalidated" | "unknown";
+export type SituationClvSupportStatus = "unavailable" | "absent" | "available";
+
+export interface ComparableSituationCorpusRecord {
+  readonly corpus_id: string;
+  readonly situation_id: string;
+  readonly sport: SituationSport;
+  readonly league: League;
+  readonly situation_type: SituationType;
+  readonly teams: readonly string[];
+  readonly players: readonly string[];
+  readonly lifecycle_path: readonly SituationLifecycleState[];
+  readonly lifecycle_state: SituationLifecycleState;
+  readonly confidence_band: SituationConfidenceBand;
+  readonly source_depth_band: SituationSourceDepthBand;
+  readonly market_reaction_band: SituationMarketReactionBand;
+  readonly timing_profile: SituationTimingProfileBand;
+  readonly outcome_status: SituationOutcomeStatus;
+  readonly replay_verification_status: SituationReplayVerificationStatus;
+  readonly outcomeLinkStatus?: SituationOutcomeLinkStatus;
+  readonly calibrationSampleBand?: SituationCalibrationSampleBand;
+  readonly settlementStatus?: SituationSettlementStatus;
+  readonly clvSupportStatus?: SituationClvSupportStatus;
+  readonly outcomeCalibrationBasis?: readonly string[];
+  readonly outcomeCalibrationLimitations?: readonly string[];
+  readonly calibration_limitations: readonly string[];
+  readonly replay_hash: string | null;
+  readonly created_at: string;
+}
+
+export interface ComparableSituationMatch {
+  readonly situation_id: string;
+  readonly match_score: number;
+  readonly matched_dimensions: readonly string[];
+  readonly differing_dimensions: readonly string[];
+  readonly outcome_status: SituationOutcomeStatus;
+  readonly replay_verification_status: SituationReplayVerificationStatus;
+  readonly outcomeLinkStatus?: SituationOutcomeLinkStatus;
+  readonly calibrationSampleBand?: SituationCalibrationSampleBand;
+  readonly settlementStatus?: SituationSettlementStatus;
+  readonly clvSupportStatus?: SituationClvSupportStatus;
+  readonly limitations: readonly string[];
+}
+
+export interface ComparableSituationMatchSummary {
+  readonly support_level: "none" | "limited" | "moderate" | "strong";
+  readonly sample_status: "missing_corpus" | "replay_only" | "insufficient_settled_sample" | "settled_sample_available" | "clv_sample_available";
+  readonly calibration_sample_band?: SituationCalibrationSampleBand;
+  readonly outcome_link_status?: SituationOutcomeLinkStatus;
+  readonly clv_support_status?: SituationClvSupportStatus;
+  readonly basis: readonly string[];
+  readonly limitations: readonly string[];
+  readonly matches: readonly ComparableSituationMatch[];
+  readonly deterministic_hash: string;
+}
+
 export interface SituationSnapshot {
   readonly snapshot_id: string;
   readonly situation_id: string;
@@ -139,6 +234,7 @@ export interface SituationSnapshot {
   readonly replay_hash: string;
   readonly previous_snapshot_hash: string | null;
   readonly created_at: string;
+  readonly historical_calibration?: SituationHistoricalCalibrationFields;
 }
 
 export interface SituationConfidenceHistory {

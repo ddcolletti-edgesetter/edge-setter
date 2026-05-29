@@ -304,7 +304,7 @@ function sourceConvergence(signal: LiveSignal) {
   if (confirmation.includes("consensus") || confirmation.includes("confirmed")) return "Confirmed source chain";
   if (confirmation.includes("corroborated") || signal.source_count >= 2) return "Corroborated";
   if (signal.source_count === 1) return "Single source";
-  return "Awaiting source chain";
+  return "Awaiting confirmed source";
 }
 
 function validatorAgreement(signal: LiveSignal) {

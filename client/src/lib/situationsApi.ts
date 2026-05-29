@@ -93,6 +93,17 @@ export interface CanonicalSituation {
   stateHistoryPreview: CanonicalSituationStateHistoryPreview[];
   confidenceHistoryPreview: CanonicalSituationConfidenceHistoryPreview[];
   replayHash: string;
+  historicalPatternLabel?: string;
+  historicalPatternConfidence?: string;
+  historicalPatternBasis?: string[];
+  comparableStoryType?: string;
+  sourceTimingProfile?: string;
+  sourceReliabilityBasis?: string;
+  marketReactionWindow?: string;
+  confirmationSignals?: string[];
+  weakeningSignals?: string[];
+  calibrationSummary?: string;
+  calibrationLimitations?: string[];
 }
 
 export interface FetchCanonicalSituationsOptions {

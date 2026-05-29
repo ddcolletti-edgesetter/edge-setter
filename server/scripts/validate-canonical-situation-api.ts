@@ -148,6 +148,48 @@ async function main(): Promise<void> {
     result("confidence_explanations_are_present", Boolean(alpha) && alpha!.confidenceFactors.whyConfidenceIncreased.length > 0 && alpha!.confidenceFactors.evidenceThatMattersMost.length > 0 && alpha!.confidenceFactors.whatRemainsUncertain.length > 0, {
       confidenceFactors: alpha?.confidenceFactors ?? null,
     }),
+    result("historical_calibration_fields_are_present", all.length > 0 && all.every((item) =>
+      Boolean(item.historicalPatternLabel) &&
+      Boolean(item.historicalPatternConfidence) &&
+      Boolean(item.comparableStoryType) &&
+      Boolean(item.sourceTimingProfile) &&
+      Boolean(item.sourceReliabilityBasis) &&
+      Boolean(item.marketReactionWindow) &&
+      Boolean(item.calibrationSummary) &&
+      Array.isArray(item.historicalPatternBasis) &&
+      item.historicalPatternBasis.length > 0 &&
+      Array.isArray(item.confirmationSignals) &&
+      item.confirmationSignals.length > 0 &&
+      Array.isArray(item.weakeningSignals) &&
+      item.weakeningSignals.length > 0 &&
+      Array.isArray(item.calibrationLimitations) &&
+      item.calibrationLimitations.length > 0
+    ), {
+      calibration: all.map((item) => ({
+        id: item.id,
+        label: item.historicalPatternLabel,
+        confidence: item.historicalPatternConfidence,
+        limitations: item.calibrationLimitations,
+      })),
+    }),
+    result("historical_calibration_is_deterministic", Boolean(alpha) && stableJson(pickCalibrationFields(alpha!)) === stableJson(pickCalibrationFields(listCanonicalSituationApiResponses({ league: "MLB" }).find((item) => item.id === alpha!.id)!)), {
+      calibration: alpha ? pickCalibrationFields(alpha) : null,
+    }),
+    result("historical_calibration_uses_honest_fallbacks", all.some((item) =>
+      item.historicalPatternConfidence === "limited" &&
+      item.calibrationLimitations?.some((limitation) => /Limited sample|Market reaction is pending|No exact win rate/.test(limitation)) &&
+      item.weakeningSignals?.some((signal) => /limited sample|pending market reaction|limited source depth/.test(signal))
+    ) && all.every((item) =>
+      !stableJson(pickCalibrationFields(item)).match(/win rate|prediction accuracy|prior-season|positive CLV/i) ||
+      item.calibrationLimitations?.some((limitation) => limitation.includes("No exact win rate or prediction accuracy is claimed"))
+    ), {
+      limited: all.map((item) => ({
+        id: item.id,
+        confidence: item.historicalPatternConfidence,
+        weakeningSignals: item.weakeningSignals,
+        limitations: item.calibrationLimitations,
+      })),
+    }),
     result("lifecycle_explanations_are_present", all.length > 0 && all.every((item) => item.lifecycleExplanation.length > 0), {
       lifecycleExplanations: all.map((item) => [item.lifecycleState, item.lifecycleExplanation]),
     }),
@@ -211,6 +253,22 @@ function sortJson(value: unknown): unknown {
     }, {});
   }
   return value;
+}
+
+function pickCalibrationFields(item: Awaited<ReturnType<typeof import("../pipeline/situations-api").listCanonicalSituationApiResponses>>[number]) {
+  return {
+    historicalPatternLabel: item.historicalPatternLabel,
+    historicalPatternConfidence: item.historicalPatternConfidence,
+    historicalPatternBasis: item.historicalPatternBasis,
+    comparableStoryType: item.comparableStoryType,
+    sourceTimingProfile: item.sourceTimingProfile,
+    sourceReliabilityBasis: item.sourceReliabilityBasis,
+    marketReactionWindow: item.marketReactionWindow,
+    confirmationSignals: item.confirmationSignals,
+    weakeningSignals: item.weakeningSignals,
+    calibrationSummary: item.calibrationSummary,
+    calibrationLimitations: item.calibrationLimitations,
+  };
 }
 
 function result(name: string, ok: boolean, details: Record<string, unknown>) {

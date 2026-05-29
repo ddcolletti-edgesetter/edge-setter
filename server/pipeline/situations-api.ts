@@ -1,11 +1,19 @@
 import type {
+  ComparableSituationCorpusRecord,
   SituationConfidenceFactorBreakdown,
   SituationConfidenceHistory,
   SituationEvent,
+  SituationHistoricalCalibrationFields,
   SituationLifecycleState,
   SituationSnapshot,
   SituationStateHistory,
 } from "./situations-contract";
+import { deriveSituationHistoricalCalibration } from "./situations-calibration";
+import {
+  buildComparableSituationCorpus,
+  buildComparableSituationCorpusRecord,
+  matchComparableSituations,
+} from "./situations-comparable-corpus";
 import {
   type CanonicalSituationRecord,
   listCanonicalSituations,
@@ -66,6 +74,17 @@ export interface CanonicalSituationApiResponse {
   readonly stateHistoryPreview: readonly CanonicalSituationStateHistoryPreview[];
   readonly confidenceHistoryPreview: readonly CanonicalSituationConfidenceHistoryPreview[];
   readonly replayHash: string;
+  readonly historicalPatternLabel?: SituationHistoricalCalibrationFields["historicalPatternLabel"];
+  readonly historicalPatternConfidence?: SituationHistoricalCalibrationFields["historicalPatternConfidence"];
+  readonly historicalPatternBasis?: SituationHistoricalCalibrationFields["historicalPatternBasis"];
+  readonly comparableStoryType?: SituationHistoricalCalibrationFields["comparableStoryType"];
+  readonly sourceTimingProfile?: SituationHistoricalCalibrationFields["sourceTimingProfile"];
+  readonly sourceReliabilityBasis?: SituationHistoricalCalibrationFields["sourceReliabilityBasis"];
+  readonly marketReactionWindow?: SituationHistoricalCalibrationFields["marketReactionWindow"];
+  readonly confirmationSignals?: SituationHistoricalCalibrationFields["confirmationSignals"];
+  readonly weakeningSignals?: SituationHistoricalCalibrationFields["weakeningSignals"];
+  readonly calibrationSummary?: SituationHistoricalCalibrationFields["calibrationSummary"];
+  readonly calibrationLimitations?: SituationHistoricalCalibrationFields["calibrationLimitations"];
 }
 
 export interface CanonicalSituationConfidenceFactors {
@@ -115,12 +134,16 @@ export function listCanonicalSituationApiResponses(query: CanonicalSituationApiQ
     limit: query.orderBy === "operational_visibility_score" ? 1000 : query.limit,
   });
 
-  const mapped = records.map(mapCanonicalSituationToApiResponse);
+  const comparableCorpus = buildComparableSituationCorpus();
+  const mapped = records.map((record) => mapCanonicalSituationToApiResponse(record, comparableCorpus));
   const sorted = sortCanonicalSituationApiResponses(mapped, query.orderBy ?? "updated_at");
   return sorted.slice(0, sanitizeLimit(query.limit));
 }
 
-export function mapCanonicalSituationToApiResponse(record: CanonicalSituationRecord): CanonicalSituationApiResponse {
+export function mapCanonicalSituationToApiResponse(
+  record: CanonicalSituationRecord,
+  comparableCorpus: readonly ComparableSituationCorpusRecord[] = buildComparableSituationCorpus(),
+): CanonicalSituationApiResponse {
   const snapshot = record.latest_snapshot;
   const events = listSituationEvents(record.situation_id);
   const stateHistory = listSituationStateHistory(record.situation_id);
@@ -130,7 +153,19 @@ export function mapCanonicalSituationToApiResponse(record: CanonicalSituationRec
   const escalationScore = snapshot?.escalation_score ?? 0;
   const latestEvidence = mapLatestEvidence(events, confidenceHistory);
   const sourceCount = new Set(events.map((event) => event.source_id).filter(Boolean)).size;
+  const calibrationSourceCount = new Set(events
+    .filter((event) => event.payload.normalized_event)
+    .map((event) => event.source_id)
+    .filter(Boolean)).size;
   const lastUpdatedAt = snapshot?.created_at ?? record.created_at;
+  const historicalCalibration = deriveSituationHistoricalCalibration({
+    record,
+    snapshot,
+    events,
+    confidenceHistory,
+    sourceCount: calibrationSourceCount,
+    comparableSummary: comparableSummaryFor(record, events, stateHistory, comparableCorpus),
+  });
   const operationalVisibilityScore = computeOperationalVisibilityScore({
     confidence,
     escalationScore,
@@ -172,6 +207,7 @@ export function mapCanonicalSituationToApiResponse(record: CanonicalSituationRec
       .slice(0, 5)
       .map(mapConfidenceHistoryPreview),
     replayHash: snapshot?.replay_hash ?? record.canonical_hash,
+    ...historicalCalibration,
   };
 }
 
@@ -281,6 +317,16 @@ function mapConfidenceHistoryPreview(history: SituationConfidenceHistory): Canon
     timestamp: history.created_at,
     replayHash: history.replay_hash,
   };
+}
+
+function comparableSummaryFor(
+  record: CanonicalSituationRecord,
+  events: readonly SituationEvent[],
+  stateHistory: readonly SituationStateHistory[],
+  comparableCorpus: readonly ComparableSituationCorpusRecord[],
+) {
+  const target = buildComparableSituationCorpusRecord({ record, events, stateHistory });
+  return matchComparableSituations({ target, corpus: comparableCorpus });
 }
 
 function computeOperationalVisibilityScore(input: {

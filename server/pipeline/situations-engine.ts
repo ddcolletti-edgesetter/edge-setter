@@ -14,6 +14,7 @@ import type {
 import { canonicalSituationFingerprint, generateCanonicalSituationId } from "./situations-hash";
 import { matchSituation, type SituationMatchResult } from "./situations-matching";
 import { createSituationSnapshot } from "./situations-snapshot";
+import { buildSituationEvidenceLineage } from "./situations-lineage";
 import {
   appendSituationConfidenceHistory,
   appendSituationEvent,
@@ -56,6 +57,7 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
   if (!matched) insertSituation(situation);
 
   const previousSnapshot = getLatestSituationSnapshot(situation.situation_id);
+  const evidenceLineage = buildSituationEvidenceLineage(input.event);
   const evidenceEvent = appendSituationEvent(buildSituationEvent({
     situation_id: situation.situation_id,
     kind: matched ? "situation_matched" : "situation_created",
@@ -66,6 +68,7 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
     recorded_at: input.event.received_at,
     payload: {
       normalized_event: input.event,
+      evidence_lineage: evidenceLineage,
       match_confidence: match.match_confidence,
       match_reasoning: match.reasoning_breakdown,
     },
@@ -122,6 +125,7 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
     payload: {
       snapshot_id: snapshot.snapshot_id,
       snapshot_replay_hash: snapshot.replay_hash,
+      evidence_lineage: evidenceLineage,
       confidence_history_id: confidenceHistory.history_id,
       state_history_id: stateHistory.history_id,
     },
