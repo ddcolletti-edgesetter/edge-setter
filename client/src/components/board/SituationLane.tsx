@@ -14,33 +14,45 @@ interface SituationLaneProps {
   cadence?: "default" | "entry" | "quiet";
   limit?: number;
   emptyLabel?: string;
+  copyVariant?: "legacy" | "editorial";
   className?: string;
   onSituationSelect?: (situation: SituationRowData) => void;
 }
 
-const laneMeta: Record<SituationLaneType, { label: string; icon: JSX.Element; className: string }> = {
+const legacyLaneLabels: Record<SituationLaneType, string> = {
+  escalating: "Escalating Stories",
+  live: "Live Game Watch",
+  decision: "Decision Windows",
+  confirmed: "Verified Stories",
+  background: "Background Watch",
+};
+
+const editorialLaneLabels: Record<SituationLaneType, string> = {
+  escalating: "Lead Developments",
+  live: "Game Windows",
+  decision: "Watch Before Lock",
+  confirmed: "Confirmed Updates",
+  background: "Monitoring",
+};
+
+const laneMeta: Record<SituationLaneType, { icon: JSX.Element; className: string }> = {
   escalating: {
-    label: "Escalating Stories",
     icon: <ShieldAlert className="h-4 w-4" />,
     className: "border-destructive/35 text-destructive",
   },
   live: {
-    label: "Live Game Watch",
     icon: <Radio className="h-4 w-4" />,
     className: "border-[rgba(24,212,123,0.34)] text-[var(--es-green)]",
   },
   decision: {
-    label: "Decision Windows",
     icon: <AlertTriangle className="h-4 w-4" />,
     className: "border-[rgba(230,180,80,0.36)] text-[var(--es-amber)]",
   },
   confirmed: {
-    label: "Verified Stories",
     icon: <CheckCircle2 className="h-4 w-4" />,
     className: "border-primary/35 text-primary",
   },
   background: {
-    label: "Background Watch",
     icon: <Clock3 className="h-4 w-4" />,
     className: "border-border text-muted-foreground",
   },
@@ -56,10 +68,12 @@ export function SituationLane({
   cadence = "default",
   limit,
   emptyLabel = "No developing stories in this lane",
+  copyVariant = "legacy",
   className,
   onSituationSelect,
 }: SituationLaneProps) {
   const meta = laneMeta[lane];
+  const laneLabels = copyVariant === "editorial" ? editorialLaneLabels : legacyLaneLabels;
   const visibleSituations = typeof limit === "number" ? situations.slice(0, limit) : situations;
   const hiddenCount = Math.max(0, situations.length - visibleSituations.length);
 
@@ -76,7 +90,7 @@ export function SituationLane({
       <header className={cn("flex flex-wrap items-center gap-2 border-b border-border/70 px-3", cadence === "entry" ? "bg-muted/15 py-2.5" : "bg-muted/10 py-2")}>
         <span className={cn("inline-flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-2 rounded border bg-muted/10 px-2 py-1", meta.className)}>
           {meta.icon}
-          <span className="data-label truncate text-[0.68rem]">{title ?? meta.label}</span>
+          <span className="data-label truncate text-[0.68rem]">{title ?? laneLabels[lane]}</span>
         </span>
         <Badge variant="outline" className="ml-auto h-5 border-border bg-muted/20 px-1.5 text-[0.62rem] text-muted-foreground tabular-nums">
           {situations.length}
@@ -91,6 +105,7 @@ export function SituationLane({
               key={situation.id}
               situation={{ ...situation, lane: situation.lane ?? lane }}
               compact={compact}
+              copyVariant={copyVariant}
               selected={situation.id === selectedSituationId}
               onSelect={onSituationSelect}
             />

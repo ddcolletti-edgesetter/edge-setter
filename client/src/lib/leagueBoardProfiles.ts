@@ -13,12 +13,20 @@ export type LeagueBoardProfile = {
   emptyState: string;
 };
 
-const LANE_LABELS: Record<SituationLane, string> = {
+const LEGACY_LANE_LABELS: Record<SituationLane, string> = {
   escalating: "Escalating Stories",
   live: "Live Game Watch",
   decision: "Decision Windows",
   confirmed: "Verified Stories",
   background: "Background Watch",
+};
+
+const EDITORIAL_LANE_LABELS: Record<SituationLane, string> = {
+  escalating: "Lead Developments",
+  live: "Game Windows",
+  decision: "Watch Before Lock",
+  confirmed: "Confirmed Updates",
+  background: "Monitoring",
 };
 
 const DEFAULT_LANE_ORDER: SituationLane[] = [
@@ -38,7 +46,7 @@ export const LEAGUE_BOARD_PROFILES: Record<Sport, LeagueBoardProfile> = {
     primarySignalTypes: ["injury", "rotation", "lineup", "line_move", "sharp_money"],
     livePrioritySignalTypes: ["injury", "rotation", "lineup"],
     laneOrder: DEFAULT_LANE_ORDER,
-    laneLabels: LANE_LABELS,
+    laneLabels: EDITORIAL_LANE_LABELS,
     emptyState: "Monitoring injuries, rotations, source agreement, external movement, and lineup confirmations.",
   },
   MLB: {
@@ -49,7 +57,7 @@ export const LEAGUE_BOARD_PROFILES: Record<Sport, LeagueBoardProfile> = {
     primarySignalTypes: ["lineup", "transaction", "weather", "injury", "line_move"],
     livePrioritySignalTypes: ["lineup", "transaction", "weather"],
     laneOrder: DEFAULT_LANE_ORDER,
-    laneLabels: LANE_LABELS,
+    laneLabels: EDITORIAL_LANE_LABELS,
     emptyState: "Monitoring lineups, pitchers, weather, transactions, source agreement, and external movement.",
   },
   NFL: {
@@ -60,7 +68,7 @@ export const LEAGUE_BOARD_PROFILES: Record<Sport, LeagueBoardProfile> = {
     primarySignalTypes: ["injury", "line_move", "sharp", "sharp_money", "weather", "role_change"],
     livePrioritySignalTypes: ["injury", "weather", "line_move"],
     laneOrder: DEFAULT_LANE_ORDER,
-    laneLabels: LANE_LABELS,
+    laneLabels: LEGACY_LANE_LABELS,
     emptyState: "Monitoring injury reports, weather, source agreement, external movement, roles, and matchup context.",
   },
   CFB: {
@@ -71,7 +79,7 @@ export const LEAGUE_BOARD_PROFILES: Record<Sport, LeagueBoardProfile> = {
     primarySignalTypes: ["line_move", "sharp", "injury", "coaching", "scheme", "transfer", "portal"],
     livePrioritySignalTypes: ["line_move", "injury", "weather", "coaching"],
     laneOrder: DEFAULT_LANE_ORDER,
-    laneLabels: LANE_LABELS,
+    laneLabels: LEGACY_LANE_LABELS,
     emptyState: "Monitoring injuries, scheme changes, source agreement, market reaction, weather, and conference context.",
   },
 };

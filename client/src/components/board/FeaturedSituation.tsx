@@ -5,9 +5,10 @@ import { AgentCalibrationBadge } from "@/components/AgentCalibration";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { EvidenceChain, SportsIdentityLine, SportsIdentityMark, type SituationMetric, type SituationRowData } from "./SituationRow";
+import { EvidenceChain, SportsIdentityLine, SportsIdentityMark, type SituationMetric, type SituationRowData, type SituationSportsIdentity } from "./SituationRow";
 import { SportsStoryVisual } from "@/components/SportsMedia";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
+import { toSituationStoryCardData, type SituationStoryCardData } from "./boardAdapters";
 
 interface FeaturedSituationAction {
   label: string;
@@ -29,6 +30,8 @@ interface FeaturedSituationProps {
   className?: string;
   density?: "default" | "compact";
   mobileDensity?: "default" | "compact";
+  presentation?: "default" | "story";
+  league?: string;
 }
 
 export function FeaturedSituation({
@@ -44,6 +47,8 @@ export function FeaturedSituation({
   className,
   density = "default",
   mobileDensity = "default",
+  presentation = "default",
+  league,
 }: FeaturedSituationProps) {
   const displayTitle = title ?? situation?.title ?? "No developing story";
   const displaySummary = summary ?? situation?.subtitle;
@@ -57,6 +62,37 @@ export function FeaturedSituation({
   const confidenceMetric = displayMetrics.find((metric) => metric.label.toLowerCase().includes("confidence") || metric.label.toLowerCase() === "conf");
   const isLive = situation?.lane === "live";
   const isEscalated = escalation === "escalated";
+
+  if (presentation === "story") {
+    const story = situation
+      ? toSituationStoryCardData(situation)
+      : quietStoryCardData({
+          eyebrow,
+          title: displayTitle,
+          summary: displaySummary,
+          primaryRead,
+          secondaryRead,
+          metrics: displayMetrics,
+          league,
+        });
+
+    return (
+      <section className={cn("board-featured-situation-story", className)}>
+        <EditorialLeadBlock story={{ ...story, sectionTitle: story.sectionTitle ?? eyebrow }} onOpen={actions?.[0]?.onClick} />
+        {!isCompact && situation?.evidenceChain?.length ? (
+          <div className="mt-2 rounded-md border border-border bg-card/75 p-2">
+            <EvidenceChain
+              steps={situation.evidenceChain}
+              confidenceDelta={situation.confidenceDelta}
+              evidenceGrowthLabel={situation.evidenceGrowthLabel}
+              compact
+            />
+          </div>
+        ) : null}
+        {children && <div className="mt-2 border-t border-border/70 pt-2">{children}</div>}
+      </section>
+    );
+  }
 
   return (
     <section
@@ -154,6 +190,207 @@ export function FeaturedSituation({
       )}
     </section>
   );
+}
+
+function EditorialLeadBlock({ story, onOpen }: { story: SituationStoryCardData; onOpen?: () => void }) {
+  const identity = story.row.sportsIdentity;
+  const imageAsset = resolveSportsImageAsset({
+    league: story.league,
+    sport: identity?.sport,
+    team: story.primaryTeam,
+    opponent: story.secondaryTeam,
+    player: story.player,
+    storyType: story.storyType,
+    slot: "featured",
+  });
+  const relatedItems = story.relatedItems?.length
+    ? story.relatedItems
+    : [story.whatHappened, story.whyItMatters, story.watchNext].filter(Boolean);
+
+  return (
+    <article className="editorial-lead-block overflow-hidden rounded-md border border-border bg-card/90 shadow-[0_18px_46px_rgba(0,0,0,0.22)]">
+      <div className="grid min-w-0 lg:grid-cols-[minmax(280px,420px)_minmax(0,1fr)]">
+        <SportsStoryVisual
+          className="h-full min-h-[260px] rounded-none border-0 lg:min-h-[360px]"
+          league={story.league}
+          sport={identity?.sport}
+          primaryTeam={story.primaryTeam}
+          secondaryTeam={story.secondaryTeam}
+          player={story.player}
+          title={story.headline}
+          storyType={story.storyType}
+          detail={story.dek}
+          size="feature"
+          imageAsset={imageAsset}
+        />
+        <div className="min-w-0 p-4 sm:p-5">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span className="section-kicker text-primary">{story.sectionTitle ?? story.league ?? "Watch Board"}</span>
+            {story.matchup && <span className="truncate text-[0.74rem] font-bold text-muted-foreground">{story.matchup}</span>}
+            {story.timestamp && (
+              <span className="ml-auto inline-flex min-w-0 items-center gap-1 truncate text-[0.72rem] font-semibold text-muted-foreground tabular-nums">
+                <Clock3 className="h-3.5 w-3.5" />
+                {story.timestamp}
+              </span>
+            )}
+          </div>
+          <h2 className="mt-2 max-w-4xl break-words font-sans text-2xl font-black leading-none text-foreground sm:text-3xl">
+            {story.headline}
+          </h2>
+          {story.dek && (
+            <p className="mt-3 max-w-3xl break-words text-sm font-medium leading-relaxed text-muted-foreground sm:text-base">
+              {story.dek}
+            </p>
+          )}
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            {relatedItems.slice(0, 4).map((item) => (
+              <div key={item} className="min-w-0 border-l border-border/80 bg-muted/5 py-1.5 pl-3 pr-2">
+                <p className="overflow-hidden break-words text-[0.82rem] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] sm:[display:-webkit-box] sm:[-webkit-box-orient:vertical] sm:[-webkit-line-clamp:2]">{item}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-border/70 bg-muted/10 px-4 py-3 sm:px-5">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <span className="data-label mr-1 text-primary">EdgeSetter Intelligence</span>
+          <ProofPill label="Confidence" value={story.confidence ?? "Monitoring"} />
+          <ProofPill label="Sources" value={story.sourceCount ? `${story.sourceCount} report${story.sourceCount === 1 ? "" : "s"}` : story.verification ?? "Check pending"} />
+          <ProofPill label="Timing" value={story.timing ?? "Monitoring"} />
+          <ProofPill label="Evidence" value={story.evidence ?? "No elevated story yet"} />
+          <AgentCalibrationBadge
+            compact
+            copyVariant="editorial"
+            input={{
+              confidence: parseProofConfidence(story.confidence),
+              sourceCount: story.sourceCount,
+              timingLabel: story.timing,
+              storyType: story.storyType,
+              marketReaction: story.market,
+              sourceSummary: story.verification,
+            }}
+            className="ml-0"
+          />
+          {(story.ctaLabel || onOpen) && (
+            <Button type="button" size="sm" variant="outline" onClick={onOpen} className="ml-auto shrink-0">
+              <ArrowUpRight className="h-4 w-4" />
+              {story.ctaLabel ?? "Open Story"}
+            </Button>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function ProofPill({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded border border-border bg-card/70 px-2 py-1 text-[0.68rem] font-bold text-muted-foreground">
+      <span className="data-label text-[0.56rem]">{label}</span>
+      <strong className="truncate text-foreground">{value}</strong>
+    </span>
+  );
+}
+
+function parseProofConfidence(value?: string) {
+  if (!value) return null;
+  const parsed = Number.parseFloat(value.replace("%", ""));
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function quietStoryCardData({
+  eyebrow,
+  title,
+  summary,
+  primaryRead,
+  secondaryRead,
+  metrics,
+  league,
+}: {
+  eyebrow: string;
+  title: string;
+  summary?: string;
+  primaryRead?: string;
+  secondaryRead?: string;
+  metrics: SituationMetric[];
+  league?: string;
+}): SituationStoryCardData {
+  const confidence = metrics.find((metric) => metric.label.toLowerCase().includes("confidence"))?.value;
+  const sportsIdentity: SituationSportsIdentity = { team: league, sport: leagueToSituationSport(league) };
+  const leagueLabel = league?.toUpperCase();
+  const isMlb = leagueLabel === "MLB";
+  const isNba = leagueLabel === "NBA";
+  const headline = title;
+  const dek = summary ?? (isMlb
+    ? "EdgeSetter is tracking confirmed lineups, pitcher changes, bullpen usage, weather cells, injury updates, and market movement across today's slate."
+    : isNba
+      ? "EdgeSetter is tracking starter confirmations, injury context, rotation changes, late scratches, and pre-tip market movement across tonight's slate."
+      : undefined);
+  const relatedItems = isMlb
+    ? [
+        "Lineup cards posting before first pitch",
+        "Pitcher confirmations and bullpen availability",
+        "Weather or park conditions affecting totals",
+        "Late scratches, roster moves, and movement before public confirmation",
+      ]
+    : isNba
+      ? [
+          "Starter confirmations before tip",
+          "Injury context and warmup reports",
+          "Rotation changes and late scratches",
+          "Pre-tip movement before public confirmation",
+        ]
+      : [
+          primaryRead ?? "Official updates and source agreement",
+          secondaryRead ?? "Market reaction and game-state changes",
+        ];
+  const sectionTitle = isMlb ? "MLB Watch Board" : isNba ? "NBA Watch Board" : eyebrow;
+  const timing = isMlb ? "Before first pitch" : isNba ? "Before tip" : "Monitoring";
+  const row: SituationRowData = {
+    id: `featured-empty-${league ?? "sports"}`,
+    title: headline,
+    subtitle: dek,
+    league,
+    market: eyebrow,
+    statusLabel: "Monitoring",
+    lifecycleLabel: "Quiet slate",
+    sourceProgressLabel: "Check pending",
+    sourceCount: undefined,
+    sportsIdentity,
+  };
+
+  return {
+    id: row.id,
+    league,
+    sectionTitle,
+    headline,
+    dek,
+    whatHappened: primaryRead ?? relatedItems[0],
+    whyItMatters: secondaryRead ?? "EdgeSetter keeps the slate organized around the next lineup, availability, weather, and movement checkpoints.",
+    edgeSetterKnows: confidence ? `${confidence} confidence support remains on watch.` : "EdgeSetter is monitoring source support, timing, confidence, and downstream sports context.",
+    watchNext: leagueLabel === "MLB"
+      ? "Confirmed lineup cards, pitcher changes, late scratches, weather cells, bullpen load, and live inning states."
+      : leagueLabel === "NBA"
+        ? "Confirmed starters, warmup reports, late scratches, rotation changes, injury updates, and pre-tip market reaction."
+        : "Official updates, source agreement, market reaction, and game-state changes.",
+    relatedItems,
+    ctaLabel: isMlb || isNba ? "Open Watch Board" : "View Monitoring Details",
+    primaryTeam: undefined,
+    storyType: "Slate watch",
+    lifecycle: "Monitoring",
+    verification: "Check pending",
+    evidence: "No elevated story yet",
+    timing,
+    row,
+  };
+}
+
+function leagueToSituationSport(league?: string): SituationSportsIdentity["sport"] {
+  const normalized = league?.toLowerCase();
+  if (normalized === "mlb" || normalized === "nba" || normalized === "nfl" || normalized === "cfb") return normalized;
+  return undefined;
 }
 
 function SportsIdentityPanel({ situation, title, compact }: { situation?: SituationRowData; title: string; compact?: boolean }) {

@@ -27,9 +27,10 @@ interface EdgeSetterOverlayProps {
   data: EdgeSetterOverlayData;
   situation?: IntelligenceSituation | null;
   compact?: boolean;
+  copyVariant?: "legacy" | "editorial";
 }
 
-export function EdgeSetterOverlay({ data, situation, compact }: EdgeSetterOverlayProps) {
+export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "legacy" }: EdgeSetterOverlayProps) {
   const confidence = data.confidence?.current;
   const delta = data.confidence?.delta;
   const confidenceLabel = typeof confidence === "number" ? `${Math.round(confidence)}% support signal` : "Awaiting verification";
@@ -52,7 +53,7 @@ export function EdgeSetterOverlay({ data, situation, compact }: EdgeSetterOverla
     <div className={compact ? "edge-overlay is-compact" : "edge-overlay"}>
       <div className="edge-overlay-top">
         {data.escalationState ? <EscalationBadge state={data.escalationState} /> : <span className="edge-overlay-status">{data.status ?? "Monitoring"}</span>}
-        <span>EdgeSetter evidence</span>
+        <span>{copyVariant === "editorial" ? "View evidence" : "EdgeSetter evidence"}</span>
       </div>
 
       {situation && !compact ? (
@@ -85,7 +86,7 @@ export function EdgeSetterOverlay({ data, situation, compact }: EdgeSetterOverla
         <span>{replay.length ? replay.join(" -> ") : `Verification ${deltaLabel} / ${sourcePosture}`}</span>
       </div>
       <div className="mt-1 flex min-w-0 flex-wrap gap-1.5">
-        <AgentCalibrationBadge input={calibrationInput} compact={compact} />
+        <AgentCalibrationBadge input={calibrationInput} compact={compact} copyVariant={copyVariant} />
         {!compact && <HistoricalPatternMatch input={calibrationInput} compact />}
       </div>
     </div>

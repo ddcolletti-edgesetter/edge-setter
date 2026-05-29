@@ -20,6 +20,7 @@ interface BoardPriorityControlsProps {
   activeUrgencyId?: string;
   compact?: boolean;
   showConfirmed?: boolean;
+  copyVariant?: "legacy" | "editorial";
   className?: string;
   onLaneChange?: (lane: SituationLaneType | "all") => void;
   onSortChange?: (sortId: string) => void;
@@ -28,13 +29,18 @@ interface BoardPriorityControlsProps {
   onShowConfirmedChange?: (showConfirmed: boolean) => void;
 }
 
-const laneLabels: Record<SituationLaneType | "all", string> = {
+const legacyLaneLabels: Record<SituationLaneType | "all", string> = {
   all: "All",
   escalating: "Escalating stories",
   live: "Live watch",
   decision: "Decision windows",
   confirmed: "Verified",
   background: "Background watch",
+};
+
+const editorialLaneLabels: Record<SituationLaneType | "all", string> = {
+  ...legacyLaneLabels,
+  confirmed: "Confirmed updates",
 };
 
 export function BoardPriorityControls({
@@ -46,14 +52,11 @@ export function BoardPriorityControls({
     { id: "confidence", label: "Confidence" },
   ],
   activeSortId = "urgency",
-  urgencyOptions = [
-    { id: "all", label: "All priorities" },
-    { id: "high", label: "High+" },
-    { id: "critical", label: "Critical" },
-  ],
+  urgencyOptions,
   activeUrgencyId = "all",
   compact,
   showConfirmed = true,
+  copyVariant = "legacy",
   className,
   onLaneChange,
   onSortChange,
@@ -61,6 +64,20 @@ export function BoardPriorityControls({
   onCompactChange,
   onShowConfirmedChange,
 }: BoardPriorityControlsProps) {
+  const laneLabels = copyVariant === "editorial" ? editorialLaneLabels : legacyLaneLabels;
+  const resolvedUrgencyOptions = urgencyOptions ?? (
+    copyVariant === "editorial"
+      ? [
+          { id: "all", label: "All priorities" },
+          { id: "high", label: "High movement" },
+          { id: "critical", label: "Major movement" },
+        ]
+      : [
+          { id: "all", label: "All priorities" },
+          { id: "high", label: "High+" },
+          { id: "critical", label: "Critical" },
+        ]
+  );
   return (
     <section className={cn("board-priority-controls flex max-w-full flex-col gap-2 overflow-hidden rounded-md border border-border/90 bg-card/75 p-2.5 sm:flex-row sm:items-center sm:gap-3 sm:p-3", className)}>
       <div className="flex min-w-0 items-center gap-2">
@@ -69,9 +86,9 @@ export function BoardPriorityControls({
       </div>
 
       <div className="flex max-w-full gap-1 overflow-x-auto overscroll-x-contain [scrollbar-width:none] sm:flex-1 [&::-webkit-scrollbar]:hidden">
-        <LaneButton lane="all" active={activeLane === "all"} onClick={() => onLaneChange?.("all")} />
+        <LaneButton label={laneLabels.all} active={activeLane === "all"} onClick={() => onLaneChange?.("all")} />
         {lanes.map((lane) => (
-          <LaneButton key={lane} lane={lane} active={activeLane === lane} onClick={() => onLaneChange?.(lane)} />
+          <LaneButton key={lane} label={laneLabels[lane]} active={activeLane === lane} onClick={() => onLaneChange?.(lane)} />
         ))}
       </div>
 
@@ -82,7 +99,7 @@ export function BoardPriorityControls({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {urgencyOptions.map((option) => (
+            {resolvedUrgencyOptions.map((option) => (
               <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
             ))}
           </SelectContent>
@@ -111,7 +128,7 @@ export function BoardPriorityControls({
         )}
         {onShowConfirmedChange && (
           <label className="flex items-center gap-2 text-[0.72rem] font-bold uppercase tracking-widest text-muted-foreground">
-            Confirmed
+            {copyVariant === "editorial" ? "Confirmed updates" : "Confirmed"}
             <Switch checked={showConfirmed} onCheckedChange={onShowConfirmedChange} className="scale-75" />
           </label>
         )}
@@ -120,7 +137,7 @@ export function BoardPriorityControls({
   );
 }
 
-function LaneButton({ lane, active, onClick }: { lane: SituationLaneType | "all"; active: boolean; onClick: () => void }) {
+function LaneButton({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
     <Button
       type="button"
@@ -129,7 +146,7 @@ function LaneButton({ lane, active, onClick }: { lane: SituationLaneType | "all"
       onClick={onClick}
       className={cn("h-8 shrink-0 px-2.5 text-[0.68rem] uppercase tracking-widest", !active && "border-border bg-muted/20 text-muted-foreground")}
     >
-      {laneLabels[lane]}
+      {label}
     </Button>
   );
 }

@@ -1,5 +1,6 @@
 import { BrainCircuit, GitBranch, History, ShieldCheck } from "lucide-react";
 
+import { publicConfidenceLabel, publicStoryText } from "@/lib/storyLanguage";
 import { cn } from "@/lib/utils";
 
 export type CalibrationTone = "default" | "strong" | "watch";
@@ -16,10 +17,12 @@ export interface AgentCalibrationInput {
 export function AgentCalibrationBadge({
   input,
   compact,
+  copyVariant = "legacy",
   className,
 }: {
   input: AgentCalibrationInput;
   compact?: boolean;
+  copyVariant?: "legacy" | "editorial";
   className?: string;
 }) {
   const tone = calibrationTone(input);
@@ -39,7 +42,7 @@ export function AgentCalibrationBadge({
       title={`${detail}. Confidence support, not certainty.`}
     >
       <BrainCircuit className="h-3.5 w-3.5 shrink-0" />
-      <span className="truncate">{compact ? "EdgeSetter evidence" : detail}</span>
+      <span className="truncate">{compact ? (copyVariant === "editorial" ? "View evidence" : "EdgeSetter evidence") : detail}</span>
     </span>
   );
 }
@@ -54,7 +57,7 @@ export function HistoricalPatternMatch({
   className?: string;
 }) {
   const pattern = patternLabel(input);
-  const support = input.confidence ? `${Math.round(input.confidence)}% support signal` : "Awaiting verification";
+  const support = input.confidence ? publicConfidenceLabel(`${Math.round(input.confidence)}%`) : "Awaiting verification";
 
   return (
     <div className={cn("min-w-0 rounded border border-border bg-muted/10 p-2", className)}>
@@ -135,11 +138,11 @@ function calibrationTone(input: AgentCalibrationInput): CalibrationTone {
 
 function calibrationDetail(input: AgentCalibrationInput) {
   const pieces = [
-    "EdgeSetter evidence",
-    input.sourceCount ? "source reliability tested" : "source reliability pending",
-    input.timingLabel ? "timing pattern compared" : "timing watch",
+    "Evidence review",
+    input.sourceCount ? "Source check complete" : "Source check pending",
+    input.timingLabel ? "Timing check complete" : "Timing check pending",
   ];
-  return pieces.join(" / ");
+  return publicStoryText(pieces.join(" / "));
 }
 
 function patternLabel(input: AgentCalibrationInput) {

@@ -5,6 +5,7 @@ import { Bell, Bookmark, CheckCircle2, Clock3, History, LineChart, ShieldCheck, 
 import { AgentCalibrationBadge, ChainReactionPreview, HistoricalPatternMatch, WhatToWatchNext } from "@/components/AgentCalibration";
 import { SportsStoryVisual } from "@/components/SportsMedia";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
+import { humanizeSignalType, publicConfidenceLabel, publicStoryText, publicTimingLabel, sourceCountText } from "@/lib/storyLanguage";
 
 type LineMovementLike = {
   open?: string | null;
@@ -123,8 +124,9 @@ function confidenceLabel(value: number) {
   return `${Math.round(value)}%`;
 }
 
-function confidenceBand(value: number) {
+function confidenceBand(value: number, editorial = false) {
   if (!value) return "Not scored";
+  if (editorial) return publicConfidenceLabel(`${value}%`);
   if (value >= 85) return "Strong confidence support";
   if (value >= 72) return "Elevated confidence support";
   if (value >= 58) return "Confidence still forming";
@@ -143,8 +145,8 @@ function signalStorageId(signal: SignalDetailLike) {
   return String(signal.id ?? signalTitle(signal));
 }
 
-function signalType(signal: SignalDetailLike) {
-  return signal.type ?? signal.signal_type ?? null;
+function signalType(signal: SignalDetailLike, editorial = false) {
+  return editorial ? humanizeSignalType(signal.type ?? signal.signal_type) : signal.type ?? signal.signal_type ?? null;
 }
 
 function parseAgeMinutes(signal: SignalDetailLike) {
@@ -222,27 +224,36 @@ function actionWindow(signal: SignalDetailLike, timing: ReturnType<typeof timing
   return "Monitoring until the story gains stronger confirmation.";
 }
 
-function storyContext(signal: SignalDetailLike, sport?: string) {
-  return [sport, signal.team, signal.player ?? signal.player_name, signalType(signal)].filter(Boolean).join(" / ") || "Sports context pending";
+function storyContext(signal: SignalDetailLike, sport?: string, editorial = false) {
+  const parts = [sport, signal.team, signal.player ?? signal.player_name, signalType(signal, editorial)].filter(Boolean);
+  return (editorial ? parts.map((item) => publicStoryText(item)).join(" / ") : parts.join(" / ")) || "Sports context pending";
 }
 
-function verificationState(signal: SignalDetailLike, confidence: number, sources: number) {
+function verificationState(signal: SignalDetailLike, confidence: number, sources: number, editorial = false) {
   const status = (signal.verdict ?? signal.status_tag ?? "").toLowerCase();
-  if (status.includes("confirmed") || status.includes("verified")) return "Verified by public confirmation";
-  if (sources >= 3 && confidence >= 72) return "Source-confirmed posture forming";
+  if (!editorial) {
+    if (status.includes("confirmed") || status.includes("verified")) return "Verified by public confirmation";
+    if (sources >= 3 && confidence >= 72) return "Source-confirmed posture forming";
+    if (sources >= 2) return "Corroborated, still developing";
+    if (sources === 1) return "Single-source verification watch";
+    return "Verification state pending";
+  }
+  if (status.includes("confirmed") || status.includes("verified")) return "Verified by sources";
+  if (sources >= 3 && confidence >= 72) return "Sources aligned";
   if (sources >= 2) return "Corroborated, still developing";
-  if (sources === 1) return "Single-source verification watch";
-  return "Verification state pending";
+  if (sources === 1) return "Needs more confirmation";
+  return "Confirmation pending";
 }
 
-function whatChanged(signal: SignalDetailLike, timing: ReturnType<typeof timingProfile>) {
+function whatChanged(signal: SignalDetailLike, timing: ReturnType<typeof timingProfile>, editorial = false) {
   const movement = signal.lineMovement ?? signal.line_movement;
   const parts = [
     signal.detail ?? signal.summary ?? signalTitle(signal),
-    `Timing window: ${timing.label.toLowerCase()}`,
+    `Timing window: ${editorial ? publicTimingLabel(timing.label).toLowerCase() : timing.label.toLowerCase()}`,
     movement?.note ?? movement?.direction ?? (movement?.open && movement.current ? `Market reaction moved from ${movement.open} to ${movement.current}` : null),
   ].filter(Boolean);
-  return parts.join(" ");
+  const text = parts.join(" ");
+  return editorial ? publicStoryText(text) : text;
 }
 
 function impactRows(signal: SignalDetailLike) {
@@ -283,7 +294,7 @@ function confirmWeakenRows(signal: SignalDetailLike, timing: ReturnType<typeof t
   ];
 }
 
-function confidenceDrivers(signal: SignalDetailLike, ageMinutes: number | null) {
+function confidenceDrivers(signal: SignalDetailLike, ageMinutes: number | null, editorial = false) {
   const confidence = readConfidence(signal);
   const sources = readSourceCount(signal);
   const movement = signal.lineMovement ?? signal.line_movement;
@@ -293,8 +304,8 @@ function confidenceDrivers(signal: SignalDetailLike, ageMinutes: number | null) 
   const sourceQuality = clamp((signal.sourceTypes?.length ?? 0) * 18 + (sources ? 42 : 24));
 
   return [
-    { label: "Report posture", value: sources ? sourceScore : Math.max(28, confidence - 35), detail: sources ? `${sources} source checks attached` : "No source checks attached" },
-    { label: "Source quality", value: sourceQuality, detail: signal.confirmationStrength ?? "Source quality not yet scored" },
+    { label: "Report posture", value: sources ? sourceScore : Math.max(28, confidence - 35), detail: editorial ? (sources ? sourceCountText(sources) : "Source check pending") : (sources ? `${sources} source checks attached` : "No source checks attached") },
+    { label: editorial ? "Source check" : "Source quality", value: sourceQuality, detail: editorial ? publicStoryText(signal.confirmationStrength ?? "Source check pending") : signal.confirmationStrength ?? "Source quality not yet scored" },
     { label: "Market reaction", value: hasMovement ? 78 : 36, detail: hasMovement ? "Market movement attached" : "No movement attached yet" },
     { label: "Timing freshness", value: timingScore, detail: freshnessLabel(ageMinutes, signalTimestamp(signal)) },
     {
@@ -305,22 +316,22 @@ function confidenceDrivers(signal: SignalDetailLike, ageMinutes: number | null) 
   ];
 }
 
-function sourceRows(signal: SignalDetailLike) {
+function sourceRows(signal: SignalDetailLike, editorial = false) {
   if (Array.isArray(signal.sources) && signal.sources.length) {
     return signal.sources.map((source, index) => {
       if (typeof source === "string") return { label: source, type: "Tracked source", status: "Attached" };
       return {
         label: source.name ?? `Source ${index + 1}`,
-        type: source.type ?? "Tracked source",
-        status: source.status ?? "Attached",
+        type: editorial ? publicStoryText(source.type ?? "Tracked source") : source.type ?? "Tracked source",
+        status: editorial ? publicStoryText(source.status ?? "Attached") : source.status ?? "Attached",
       };
     });
   }
   const labels = signal.sourceLabels?.length ? signal.sourceLabels : [];
   const types = signal.sourceTypes?.length ? signal.sourceTypes : [];
-  if (labels.length) return labels.map((label, index) => ({ label, type: types[index] ?? "Tracked source", status: "Attached" }));
-  if (types.length) return types.map((type, index) => ({ label: `Source ${index + 1}`, type, status: "Attached" }));
-  return [{ label: "Source trail", type: "No source checks attached", status: "Pending" }];
+  if (labels.length) return labels.map((label, index) => ({ label, type: editorial ? publicStoryText(types[index] ?? "Tracked source") : types[index] ?? "Tracked source", status: "Attached" }));
+  if (types.length) return types.map((type, index) => ({ label: `Source ${index + 1}`, type: editorial ? publicStoryText(type) : type, status: "Attached" }));
+  return [{ label: "Source trail", type: editorial ? "Source check pending" : "No source checks attached", status: "Pending" }];
 }
 
 function trustSummary(signal: SignalDetailLike, confidence: number, sources: number, timing: ReturnType<typeof timingProfile>) {
@@ -340,7 +351,7 @@ function trustSummary(signal: SignalDetailLike, confidence: number, sources: num
   return reasons;
 }
 
-function calibrationModel(signal: SignalDetailLike): {
+function calibrationModel(signal: SignalDetailLike, editorial = false): {
   label: string;
   support: string;
   summary: string;
@@ -371,12 +382,12 @@ function calibrationModel(signal: SignalDetailLike): {
     },
     {
       label: "Source timing",
-      value: cleanCalibrationText(signal.sourceTimingProfile, "Source timing compared where available"),
+      value: cleanCalibrationText(editorial ? publicStoryText(signal.sourceTimingProfile) : signal.sourceTimingProfile, editorial ? "Timing check pending" : "Source timing compared where available"),
       detail: "No timing advantage is claimed without support.",
     },
     {
-      label: "Source reliability basis",
-      value: cleanCalibrationText(signal.sourceReliabilityBasis, "Source reliability basis pending"),
+      label: editorial ? "Source check" : "Source reliability basis",
+      value: cleanCalibrationText(editorial ? publicStoryText(signal.sourceReliabilityBasis) : signal.sourceReliabilityBasis, editorial ? "Source check pending" : "Source reliability basis pending"),
       detail: "Uses attached source context where available.",
     },
     {
@@ -481,6 +492,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   const [following, setFollowing] = useState(false);
   const [alertLevel, setAlertLevel] = useState<"major" | "all">("major");
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const editorialCopy = sport === "MLB" || sport === "NBA";
 
   useEffect(() => {
     if (!open) return;
@@ -545,12 +557,12 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
       timing,
       edge,
       sources,
-      drivers: confidenceDrivers(signal, ageMinutes),
-      rows: sourceRows(signal),
+      drivers: confidenceDrivers(signal, ageMinutes, editorialCopy),
+      rows: sourceRows(signal, editorialCopy),
       trust: trustSummary(signal, confidence, sources, timing),
-      calibration: calibrationModel(signal),
+      calibration: calibrationModel(signal, editorialCopy),
     };
-  }, [signal]);
+  }, [editorialCopy, signal]);
 
   if (!open || !signal || !model) return null;
 
@@ -558,24 +570,25 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   const hasLineMovement = Boolean(movement?.open || movement?.current);
   const hasMovementContext = Boolean(hasLineMovement || movement?.note || movement?.direction);
   const adoptionValue = Math.round(model.timing.adoption);
-  const meta = [signalType(signal), signal.team, signal.player ?? signal.player_name, freshnessLabel(model.ageMinutes, signalTimestamp(signal))].filter(Boolean).join(" / ");
-  const storyContextLabel = storyContext(signal, sport);
-  const storyVerificationState = verificationState(signal, model.confidence, model.sources);
+  const metaParts = [signalType(signal, editorialCopy), signal.team, signal.player ?? signal.player_name, freshnessLabel(model.ageMinutes, signalTimestamp(signal))].filter(Boolean);
+  const meta = editorialCopy ? metaParts.map((item) => publicStoryText(item)).join(" / ") : metaParts.join(" / ");
+  const storyContextLabel = storyContext(signal, sport, editorialCopy);
+  const storyVerificationState = verificationState(signal, model.confidence, model.sources, editorialCopy);
   const storyImpactRows = impactRows(signal);
   const nextRows = confirmWeakenRows(signal, model.timing);
   const calibrationInput = {
     confidence: model.confidence,
     sourceCount: model.sources,
-    timingLabel: signal.sourceTimingProfile ?? model.timing.label,
-    storyType: signal.comparableStoryType ?? signal.historicalPatternLabel ?? signalType(signal) ?? signal.title ?? signal.headline,
-    marketReaction: signal.marketReactionWindow ?? (movement?.open && movement.current ? `${movement.open} to ${movement.current}` : movement?.note ?? movement?.direction ?? null),
-    sourceSummary: signal.sourceReliabilityBasis ?? signal.confirmationStrength,
+    timingLabel: editorialCopy ? publicTimingLabel(signal.sourceTimingProfile ?? model.timing.label, sport) : signal.sourceTimingProfile ?? model.timing.label,
+    storyType: editorialCopy ? publicStoryText(signal.comparableStoryType ?? signal.historicalPatternLabel ?? signalType(signal, editorialCopy) ?? signal.title ?? signal.headline, sport) : signal.comparableStoryType ?? signal.historicalPatternLabel ?? signalType(signal) ?? signal.title ?? signal.headline,
+    marketReaction: editorialCopy ? publicStoryText(signal.marketReactionWindow ?? (movement?.open && movement.current ? `${movement.open} to ${movement.current}` : movement?.note ?? movement?.direction ?? null), sport) : signal.marketReactionWindow ?? (movement?.open && movement.current ? `${movement.open} to ${movement.current}` : movement?.note ?? movement?.direction ?? null),
+    sourceSummary: editorialCopy ? publicStoryText(signal.sourceReliabilityBasis ?? signal.confirmationStrength) : signal.sourceReliabilityBasis ?? signal.confirmationStrength,
   };
   const drawerImageAsset = resolveSportsImageAsset({
     league: sport,
     team: signal.team,
     player: signal.player ?? signal.player_name,
-    storyType: signalType(signal) ?? signal.historicalPatternLabel ?? "Story brief",
+    storyType: signalType(signal, editorialCopy) ?? signal.historicalPatternLabel ?? "Story brief",
     slot: "drawer",
   });
 
@@ -591,7 +604,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
         <header className="signal-detail-header">
           <div>
             <div className="signal-detail-kicker">{sport ? `EdgeSetter / ${sport} story desk` : "EdgeSetter story desk"}</div>
-            <h2 className="signal-detail-title">{signalTitle(signal)}</h2>
+            <h2 className="signal-detail-title">{editorialCopy ? publicStoryText(signalTitle(signal), sport) : signalTitle(signal)}</h2>
             <div className="signal-detail-meta">{meta}</div>
           </div>
           <button ref={closeButtonRef} className="signal-detail-close ux-button-interactive" type="button" onClick={onClose} aria-label="Close developing story detail">
@@ -606,14 +619,14 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             primaryTeam={signal.team ?? undefined}
             player={signal.player ?? signal.player_name ?? undefined}
             title={signalTitle(signal)}
-            storyType={signalType(signal) ?? "Developing story"}
+            storyType={signalType(signal, editorialCopy) ?? "Developing story"}
             detail={storyVerificationState}
             size="compact"
             imageAsset={drawerImageAsset}
           />
 
           <div className="signal-detail-stat-grid">
-            <StatCard label="Confidence support" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
+            <StatCard label="Confidence support" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence, editorialCopy)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
             <StatCard label="Verification state" value={storyVerificationState} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />
             <StatCard label="Timing window" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
             <StatCard label="Replay freshness" value={freshnessLabel(model.ageMinutes, signalTimestamp(signal))} detail="Detection age" tone={model.ageMinutes !== null && model.ageMinutes <= 45 ? "green" : "gray"} />
@@ -625,13 +638,13 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
               <span>{storyVerificationState}</span>
             </div>
             <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
-              <AgentCalibrationBadge input={calibrationInput} />
+              <AgentCalibrationBadge input={calibrationInput} copyVariant={editorialCopy ? "editorial" : "legacy"} />
             </div>
-            <p>{signal.detail ?? signal.summary ?? signalTitle(signal)}</p>
+            <p>{editorialCopy ? publicStoryText(signal.detail ?? signal.summary ?? signalTitle(signal), sport) : signal.detail ?? signal.summary ?? signalTitle(signal)}</p>
           </Section>
 
           <Section title="What changed" icon={<Clock3 size={14} />}>
-            <p>{whatChanged(signal, model.timing)}</p>
+            <p>{whatChanged(signal, model.timing, editorialCopy)}</p>
           </Section>
 
           <Section title="Why it matters" icon={<TrendingUp size={14} />}>
@@ -666,7 +679,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
                 )}
                 <div className="signal-movement-note">
                   <TrendingUp size={14} />
-                  {movement?.note ?? movement?.direction ?? "Movement direction attached."}
+                  {editorialCopy ? publicStoryText(movement?.note ?? movement?.direction ?? "Movement direction attached.", sport) : movement?.note ?? movement?.direction ?? "Movement direction attached."}
                 </div>
               </div>
             ) : (
@@ -676,8 +689,8 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
 
           <Section title="Evidence" icon={<ShieldCheck size={14} />}>
             <div className="signal-source-summary">
-              <strong>{model.sources ? `${model.sources} source checks attached` : "No source checks attached"}</strong>
-              <span>{signal.confirmationStrength ?? "Report posture is not available for this story view."}</span>
+              <strong>{editorialCopy ? (model.sources ? sourceCountText(model.sources) : "Source check pending") : model.sources ? `${model.sources} source checks attached` : "No source checks attached"}</strong>
+              <span>{editorialCopy ? publicStoryText(signal.confirmationStrength ?? "Report posture is not available for this story view.") : signal.confirmationStrength ?? "Report posture is not available for this story view."}</span>
             </div>
             <div className="signal-trust-stack">
               {model.trust.map((reason) => (
@@ -698,7 +711,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             </div>
           </Section>
 
-          <Section title="EdgeSetter evidence layer" icon={<LineChart size={14} />}>
+          <Section title={editorialCopy ? "Evidence review" : "EdgeSetter evidence layer"} icon={<LineChart size={14} />}>
             <div className="mb-2 grid min-w-0 gap-1.5 sm:grid-cols-2">
               <HistoricalPatternMatch input={calibrationInput} />
               <ChainReactionPreview input={calibrationInput} />

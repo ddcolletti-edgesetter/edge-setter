@@ -1,13 +1,14 @@
 import { Clock3 } from "lucide-react";
 
 import { TeamLogoLockup } from "@/components/SportsMedia";
-import { toTeamAbbr } from "@/components/v2/SportVisuals";
+import { isUnknownTeamAbbr, toTeamAbbr } from "@/components/v2/SportVisuals";
 import type { BoardSituation } from "@/lib/boardSituations";
 import { toSituationRowData } from "./boardAdapters";
 
 interface TopDevelopmentsProps {
   league: "NBA" | "MLB" | "NFL" | "CFB";
   situations: BoardSituation[];
+  copyVariant?: "legacy" | "editorial";
   onSelect?: (situation: BoardSituation) => void;
 }
 
@@ -18,7 +19,7 @@ const sportForLeague = {
   CFB: "cfb",
 } as const;
 
-export function TopDevelopments({ league, situations, onSelect }: TopDevelopmentsProps) {
+export function TopDevelopments({ league, situations, copyVariant = "legacy", onSelect }: TopDevelopmentsProps) {
   const rows = situations.slice(0, 5);
 
   return (
@@ -37,10 +38,10 @@ export function TopDevelopments({ league, situations, onSelect }: TopDevelopment
         {rows.map((situation) => {
           const row = toSituationRowData(situation);
           const identity = row.sportsIdentity;
-          const team = toTeamAbbr(identity?.team ?? identity?.awayTeam ?? "");
-          const opponent = toTeamAbbr(identity?.opponent ?? identity?.homeTeam ?? "");
+          const team = cleanTeamAbbr(identity?.team ?? identity?.awayTeam);
+          const opponent = cleanTeamAbbr(identity?.opponent ?? identity?.homeTeam);
           const logo = team || opponent || league;
-          const subject = identity?.player ?? team ?? row.matchup ?? league;
+          const subject = identity?.player && !isUnknownTeamAbbr(identity.player) ? identity.player : team || row.matchup || league;
           return (
             <button
               key={situation.id}
@@ -60,7 +61,13 @@ export function TopDevelopments({ league, situations, onSelect }: TopDevelopment
               <span className="min-w-0 flex-1">
                 <span className="flex min-w-0 items-center gap-2">
                   <strong className="truncate text-[0.78rem] text-foreground">{subject}</strong>
-                  <span className="shrink-0 text-[0.68rem] font-bold text-primary">{row.urgencyScore}</span>
+                  {copyVariant === "editorial" ? (
+                    <span className="shrink-0 rounded border border-border bg-muted/20 px-1.5 py-0.5 text-[0.58rem] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
+                      Priority {row.urgencyScore}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-[0.68rem] font-bold text-primary">{row.urgencyScore}</span>
+                  )}
                 </span>
                 <span className="mt-0.5 block truncate text-[0.76rem] font-semibold text-muted-foreground">{row.title}</span>
                 <span className="mt-1 flex min-w-0 items-center gap-2 text-[0.66rem] font-bold text-muted-foreground">
@@ -79,6 +86,11 @@ export function TopDevelopments({ league, situations, onSelect }: TopDevelopment
       </div>
     </section>
   );
+}
+
+function cleanTeamAbbr(value?: string) {
+  const abbr = toTeamAbbr(value ?? "");
+  return isUnknownTeamAbbr(abbr) ? "" : abbr;
 }
 
 function developmentType(title: string) {

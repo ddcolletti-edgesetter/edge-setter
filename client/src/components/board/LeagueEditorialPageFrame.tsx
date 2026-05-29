@@ -208,6 +208,7 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
           <ProofPill label="Evidence" value={story.evidence ?? (quiet ? "No elevated story yet" : "Review attached")} />
           <AgentCalibrationBadge
             compact
+            copyVariant="editorial"
             input={{
               confidence: parseConfidence(story.confidence),
               sourceCount: story.sourceCount,

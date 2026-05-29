@@ -10,6 +10,8 @@ interface LiveGameStripProps {
   summary?: string;
   emptyLabel?: string;
   density?: "default" | "compact";
+  watchStoryCount?: number;
+  copyVariant?: "legacy" | "editorial";
   className?: string;
   onGameSelect?: (game: LiveGamePillData) => void;
 }
@@ -21,6 +23,8 @@ export function LiveGameStrip({
   summary,
   emptyLabel = "No key games queued",
   density = "default",
+  watchStoryCount,
+  copyVariant = "legacy",
   className,
   onGameSelect,
 }: LiveGameStripProps) {
@@ -29,6 +33,7 @@ export function LiveGameStrip({
   const sortedGames = [...games].sort((a, b) => urgencyRank(b) - urgencyRank(a));
   const featuredGame = sortedGames[0];
   const keyGameCount = sortedGames.filter((game) => urgencyRank(game) >= 2).length;
+  const activityLabel = formatActivityLabel(liveCount, keyGameCount, copyVariant === "editorial" ? watchStoryCount : undefined);
 
   return (
     <section className={cn("board-live-strip max-w-full overflow-hidden rounded-md border border-border bg-card/80 shadow-[0_18px_48px_rgba(0,0,0,0.18)]", className)}>
@@ -43,7 +48,7 @@ export function LiveGameStrip({
           </span>
         )}
         <span className="ml-auto shrink-0 rounded border border-border bg-muted/30 px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
-          {liveCount} live / {keyGameCount} key games
+          {activityLabel}
         </span>
         {summary && (
           <p className={cn("min-w-0 basis-full break-words font-medium leading-snug text-muted-foreground sm:basis-auto", compactMonitoring ? "text-[0.68rem] opacity-75" : "text-[0.72rem]")}>
@@ -59,6 +64,7 @@ export function LiveGameStrip({
               key={game.id}
               game={game}
               compact={compactMonitoring && index > 0}
+              copyVariant={copyVariant}
               selected={game.id === activeGameId}
               className={index === 0 ? "board-live-pill-featured" : undefined}
               onSelect={onGameSelect}
@@ -70,6 +76,19 @@ export function LiveGameStrip({
       )}
     </section>
   );
+}
+
+function formatActivityLabel(liveCount: number, keyGameCount: number, watchStoryCount?: number) {
+  const gameLabel = liveCount > 0
+    ? `${liveCount} live game${liveCount === 1 ? "" : "s"}`
+    : "No live games";
+  if (typeof watchStoryCount === "number") {
+    if (watchStoryCount > 0) {
+      return `${gameLabel} / ${watchStoryCount} watch stor${watchStoryCount === 1 ? "y" : "ies"}`;
+    }
+    return `${gameLabel} / slate watch`;
+  }
+  return `${gameLabel} / ${keyGameCount} key game${keyGameCount === 1 ? "" : "s"}`;
 }
 
 function urgencyRank(game: LiveGamePillData) {

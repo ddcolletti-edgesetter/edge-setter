@@ -3,7 +3,8 @@ import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, Link2, Radio, Shield
 
 import { AgentCalibrationBadge } from "@/components/AgentCalibration";
 import { Badge } from "@/components/ui/badge";
-import { PlayerAvatar, TeamLogoImg, toTeamAbbr } from "@/components/v2/SportVisuals";
+import { PlayerAvatar, TeamLogoImg, isUnknownTeamAbbr, toTeamAbbr } from "@/components/v2/SportVisuals";
+import { publicLifecycleLabel, publicStoryText, sourceCountText } from "@/lib/storyLanguage";
 import { cn } from "@/lib/utils";
 import type { BoardUrgency } from "./LiveGamePill";
 
@@ -83,6 +84,7 @@ interface SituationRowProps extends Omit<HTMLAttributes<HTMLButtonElement>, "onS
   situation: SituationRowData;
   selected?: boolean;
   compact?: boolean;
+  copyVariant?: "legacy" | "editorial";
   rightSlot?: ReactNode;
   onSelect?: (situation: SituationRowData) => void;
 }
@@ -113,7 +115,7 @@ const lifecycleStyle: Record<SituationLifecycleState, string> = {
   stale: "border-border bg-muted/20 text-muted-foreground",
 };
 
-export function SituationRow({ situation, selected, compact, rightSlot, onSelect, className, ...props }: SituationRowProps) {
+export function SituationRow({ situation, selected, compact, copyVariant = "legacy", rightSlot, onSelect, className, ...props }: SituationRowProps) {
   const escalation = situation.escalationState ?? "monitoring";
   const lane = situation.lane ?? "background";
   const metrics = situation.metrics?.slice(0, compact ? 1 : 2) ?? [];
@@ -165,7 +167,13 @@ export function SituationRow({ situation, selected, compact, rightSlot, onSelect
         <span className="mt-0.5 flex min-w-0 items-center gap-2">
           <strong className="min-w-0 truncate text-sm font-bold leading-tight text-foreground [overflow-wrap:anywhere]">{situation.title}</strong>
           {situation.urgencyScore != null && (
-            <span className="shrink-0 font-mono text-[0.72rem] font-bold tabular-nums text-primary">{situation.urgencyScore}</span>
+            copyVariant === "editorial" ? (
+              <span className="shrink-0 rounded border border-border bg-muted/20 px-1.5 py-0.5 text-[0.58rem] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
+                Priority {situation.urgencyScore}
+              </span>
+            ) : (
+              <span className="shrink-0 font-mono text-[0.72rem] font-bold tabular-nums text-primary">{situation.urgencyScore}</span>
+            )
           )}
         </span>
 
@@ -175,20 +183,20 @@ export function SituationRow({ situation, selected, compact, rightSlot, onSelect
 
         <span className="mt-2 flex min-w-0 max-w-full flex-wrap items-center gap-1.5 overflow-hidden">
           <Badge variant="outline" className={cn("h-5 max-w-full truncate px-1.5 text-[0.62rem] uppercase tracking-widest", escalationStyle[escalation])}>
-            {situation.statusLabel ?? escalation}
+            {copyVariant === "editorial" ? publicLifecycleLabel(situation.statusLabel ?? escalation) : situation.statusLabel ?? escalation}
           </Badge>
           {situation.lifecycleLabel && (
             <Badge variant="outline" className={cn("hidden h-5 max-w-full truncate px-1.5 text-[0.62rem] uppercase tracking-widest sm:inline-flex", lifecycleStyle[lifecycle])}>
-              {situation.lifecycleLabel}
+              {copyVariant === "editorial" ? publicLifecycleLabel(situation.lifecycleLabel) : situation.lifecycleLabel}
             </Badge>
           )}
           {situation.market && (
             <Badge variant="outline" className="hidden h-5 max-w-[9rem] truncate border-border bg-muted/20 px-1.5 text-[0.62rem] uppercase tracking-widest text-muted-foreground sm:inline-flex">
-              {situation.market}
+              {copyVariant === "editorial" ? publicStoryText(situation.market) : situation.market}
             </Badge>
           )}
           {situation.sourceCount != null && (
-            <span className="text-[0.7rem] font-semibold text-muted-foreground tabular-nums">{situation.sourceCount} sources</span>
+            <span className="text-[0.7rem] font-semibold text-muted-foreground tabular-nums">{copyVariant === "editorial" ? sourceCountText(situation.sourceCount) : `${situation.sourceCount} sources`}</span>
           )}
           {typeof confidenceDelta === "number" && confidenceDelta !== 0 && (
             <span className={cn("max-w-full truncate text-[0.7rem] font-bold tabular-nums", confidenceDelta > 0 ? "text-[var(--es-green)]" : "text-[var(--es-amber)]")}>
@@ -202,12 +210,12 @@ export function SituationRow({ situation, selected, compact, rightSlot, onSelect
           )}
           {metrics.map((metric) => (
             <span key={`${metric.label}-${metric.value}`} className={cn("max-w-full truncate text-[0.7rem] font-bold tabular-nums", metricTone(metric.tone))}>
-              {metric.label}: {metric.value}
+              {metric.label}: {copyVariant === "editorial" ? publicStoryText(metric.value) : metric.value}
             </span>
           ))}
           {situation.tags?.slice(0, 2).map((tag) => (
             <span key={tag} className="hidden text-[0.68rem] font-medium text-muted-foreground sm:inline">
-              {tag}
+              {copyVariant === "editorial" ? publicStoryText(tag) : tag}
             </span>
           ))}
           {!compact && (
@@ -228,11 +236,11 @@ export function SituationRow({ situation, selected, compact, rightSlot, onSelect
 
         {(situation.confidenceNote || situation.sourceSummary || situation.timingAdvantage || situation.marketReaction) && (
           <span className="mt-1.5 grid min-w-0 gap-1 text-[0.68rem] font-semibold leading-snug text-muted-foreground sm:grid-cols-2">
-            {situation.confidenceNote && <IntelLine label="Confidence read" value={situation.confidenceNote} />}
-            {(situation.sourceProgressLabel || situation.sourceSummary) && <IntelLine icon={<Link2 className="h-3 w-3" />} label="Report posture" value={situation.sourceProgressLabel ?? situation.sourceSummary ?? ""} />}
-            {situation.timingAdvantage && <IntelLine label="Timing window" value={situation.timingAdvantage} />}
-            {!compact && situation.marketReaction && <IntelLine icon={<TrendingUp className="h-3 w-3" />} label="Market reaction" value={situation.marketReaction} />}
-            {!compact && situation.uncertaintyLabel && <IntelLine label="Watch next" value={situation.uncertaintyLabel} />}
+            {situation.confidenceNote && <IntelLine label="Confidence read" value={storyText(situation.confidenceNote, copyVariant)} />}
+            {(situation.sourceProgressLabel || situation.sourceSummary) && <IntelLine icon={<Link2 className="h-3 w-3" />} label="Report posture" value={storyText(situation.sourceProgressLabel ?? situation.sourceSummary ?? "", copyVariant)} />}
+            {situation.timingAdvantage && <IntelLine label="Timing window" value={storyText(situation.timingAdvantage, copyVariant)} />}
+            {!compact && situation.marketReaction && <IntelLine icon={<TrendingUp className="h-3 w-3" />} label="Market reaction" value={storyText(situation.marketReaction, copyVariant)} />}
+            {!compact && situation.uncertaintyLabel && <IntelLine label="Watch next" value={storyText(situation.uncertaintyLabel, copyVariant)} />}
           </span>
         )}
 
@@ -241,6 +249,7 @@ export function SituationRow({ situation, selected, compact, rightSlot, onSelect
             steps={situation.evidenceChain}
             confidenceDelta={confidenceDelta}
             evidenceGrowthLabel={situation.evidenceGrowthLabel}
+            copyVariant={copyVariant}
           />
         ) : null}
 
@@ -273,16 +282,17 @@ export function SituationRow({ situation, selected, compact, rightSlot, onSelect
 
 export function SportsIdentityLine({ identity }: { identity?: SituationSportsIdentity }) {
   if (!hasIdentityAnchor(identity)) return null;
-  const away = toTeamAbbr(identity?.awayTeam ?? identity?.team ?? "");
-  const home = toTeamAbbr(identity?.homeTeam ?? identity?.opponent ?? "");
-  const team = toTeamAbbr(identity?.team ?? identity?.awayTeam ?? "");
+  const away = cleanTeamAbbr(identity?.awayTeam ?? identity?.team);
+  const home = cleanTeamAbbr(identity?.homeTeam ?? identity?.opponent);
+  const team = cleanTeamAbbr(identity?.team ?? identity?.awayTeam);
+  const player = identity?.player && !isUnknownTeamAbbr(identity.player) ? identity.player : undefined;
   return (
     <span className="situation-sports-anchor">
       <SportsIdentityMark identity={identity} />
       <span className="min-w-0">
         <span className="data-label block text-[0.55rem] leading-none">Sports context</span>
         <span className="block truncate text-[0.72rem] font-bold text-foreground">
-          {identity?.player ? `${identity.player}${team ? ` / ${team}` : ""}` : away && home ? `${away} @ ${home}` : team}
+          {player ? `${player}${team ? ` / ${team}` : ""}` : away && home ? `${away} @ ${home}` : team}
         </span>
       </span>
     </span>
@@ -290,13 +300,14 @@ export function SportsIdentityLine({ identity }: { identity?: SituationSportsIde
 }
 
 export function SportsIdentityMark({ identity, compact }: { identity?: SituationSportsIdentity; compact?: boolean }) {
-  const away = toTeamAbbr(identity?.awayTeam ?? identity?.team ?? "");
-  const home = toTeamAbbr(identity?.homeTeam ?? identity?.opponent ?? "");
-  const team = toTeamAbbr(identity?.team ?? identity?.awayTeam ?? "");
+  const away = cleanTeamAbbr(identity?.awayTeam ?? identity?.team);
+  const home = cleanTeamAbbr(identity?.homeTeam ?? identity?.opponent);
+  const team = cleanTeamAbbr(identity?.team ?? identity?.awayTeam);
+  const player = identity?.player && !isUnknownTeamAbbr(identity.player) ? identity.player : undefined;
   const sport = identity?.sport;
   const size = compact ? 18 : 24;
-  if (identity?.player && team && !compact) {
-    return <PlayerAvatar name={identity.player} team={team} size={26} position={sport === "mlb" ? "hitter" : "generic"} />;
+  if (player && team && !compact) {
+    return <PlayerAvatar name={player} team={team} size={26} position={sport === "mlb" ? "hitter" : "generic"} />;
   }
   if (away && home && away !== home) {
     return (
@@ -315,11 +326,13 @@ export function EvidenceChain({
   confidenceDelta,
   evidenceGrowthLabel,
   compact,
+  copyVariant = "legacy",
 }: {
   steps: SituationEvidenceStep[];
   confidenceDelta?: number | null;
   evidenceGrowthLabel?: string;
   compact?: boolean;
+  copyVariant?: "legacy" | "editorial";
 }) {
   return (
     <span
@@ -335,7 +348,7 @@ export function EvidenceChain({
           <span className="situation-evidence-dot" />
           <span className="min-w-0">
             <span className="data-label block text-[0.55rem] leading-none">{step.label}</span>
-            <span className="block truncate text-[0.66rem] font-bold leading-tight text-foreground">{step.value}</span>
+            <span className="block truncate text-[0.66rem] font-bold leading-tight text-foreground">{storyText(step.value, copyVariant)}</span>
           </span>
           {index < Math.min(steps.length, compact ? 4 : 5) - 1 && <span className="situation-evidence-link" />}
         </span>
@@ -344,7 +357,7 @@ export function EvidenceChain({
         <span className={cn("situation-confidence-move", typeof confidenceDelta === "number" && confidenceDelta < 0 && "is-down")}>
           {typeof confidenceDelta === "number" && confidenceDelta !== 0
             ? `${confidenceDelta > 0 ? "+" : ""}${Math.round(confidenceDelta)} agent confidence`
-            : evidenceGrowthLabel}
+            : storyText(evidenceGrowthLabel, copyVariant)}
         </span>
       ) : null}
     </span>
@@ -394,6 +407,15 @@ function parseMetricPercent(value?: string | number) {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+function cleanTeamAbbr(value?: string) {
+  const abbr = toTeamAbbr(value ?? "");
+  return isUnknownTeamAbbr(abbr) ? "" : abbr;
+}
+
+function storyText(value: string | number | null | undefined, copyVariant: "legacy" | "editorial") {
+  return copyVariant === "editorial" ? publicStoryText(value) : String(value ?? "");
+}
+
 function timingMotionClass(label?: string) {
   if (label === "early signal" || label === "early development" || label === "developing edge" || label === "developing window") return "situation-timing-early";
   if (label === "context moving" || label === "partially priced") return "situation-timing-market";
@@ -403,5 +425,10 @@ function timingMotionClass(label?: string) {
 }
 
 function hasIdentityAnchor(identity?: SituationSportsIdentity) {
-  return Boolean(identity?.player || identity?.team || identity?.awayTeam || identity?.homeTeam);
+  return Boolean(
+    (identity?.player && !isUnknownTeamAbbr(identity.player))
+      || cleanTeamAbbr(identity?.team)
+      || cleanTeamAbbr(identity?.awayTeam)
+      || cleanTeamAbbr(identity?.homeTeam),
+  );
 }

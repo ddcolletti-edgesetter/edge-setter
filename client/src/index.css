@@ -3821,6 +3821,27 @@
     white-space: normal !important;
   }
 
+  .league-board-shell .board-featured-situation-story,
+  .league-board-shell .situation-story-card {
+    box-sizing: border-box;
+    width: calc(100vw - 24px);
+    max-width: calc(100vw - 24px);
+    overflow: hidden;
+  }
+
+  .league-board-shell .situation-story-card > *,
+  .league-board-shell .situation-story-card h3,
+  .league-board-shell .situation-story-card p {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .league-board-shell .situation-story-card > div:first-child {
+    width: 84vw;
+    max-width: 84vw;
+  }
+
   .board-control-feedback {
     padding: 7px 10px;
     font-size: 0.68rem;

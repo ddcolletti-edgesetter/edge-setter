@@ -1,0 +1,138 @@
+import { ArrowUpRight, Clock3 } from "lucide-react";
+
+import { AgentCalibrationBadge } from "@/components/AgentCalibration";
+import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
+import { Button } from "@/components/ui/button";
+import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
+import { evidenceCountText, publicStoryText, sourceCountText } from "@/lib/storyLanguage";
+import { cn } from "@/lib/utils";
+import type { SituationStoryCardData } from "./boardAdapters";
+
+interface SituationStoryCardProps {
+  story: SituationStoryCardData;
+  compact?: boolean;
+  featured?: boolean;
+  className?: string;
+  onOpen?: () => void;
+}
+
+export function SituationStoryCard({ story, compact, featured, className, onOpen }: SituationStoryCardProps) {
+  const identity = story.row.sportsIdentity;
+  const imageAsset = resolveSportsImageAsset({
+    league: story.league,
+    sport: identity?.sport,
+    team: story.primaryTeam,
+    opponent: story.secondaryTeam,
+    player: story.player,
+    storyType: story.storyType,
+    slot: featured ? "featured" : "matchup",
+  });
+
+  return (
+    <article
+      className={cn(
+        "situation-story-card grid min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-card/90 shadow-[0_16px_38px_rgba(0,0,0,0.18)]",
+        featured ? "lg:grid-cols-[minmax(0,1fr)_330px]" : "lg:grid-cols-[minmax(0,1fr)_250px]",
+        compact && "situation-story-card-compact",
+        className,
+      )}
+    >
+      <div className={cn("min-w-0 max-w-[calc(100vw-48px)] overflow-hidden sm:max-w-full", compact ? "p-3" : "p-4")}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="data-label text-primary">{story.league ?? "SPORT"}</span>
+          {story.matchup && <span className="truncate text-[0.74rem] font-bold text-muted-foreground">{story.matchup}</span>}
+          {story.timestamp && (
+            <span className="ml-auto inline-flex min-w-0 items-center gap-1 truncate text-[0.72rem] font-semibold text-muted-foreground tabular-nums">
+              <Clock3 className="h-3.5 w-3.5" />
+              {story.timestamp}
+            </span>
+          )}
+        </div>
+
+        <h3 className={cn("mt-2 max-w-3xl break-words font-sans font-bold leading-tight text-foreground", featured ? "text-xl sm:text-2xl" : "text-base sm:text-lg")}>
+          {story.headline}
+        </h3>
+        {story.dek && !compact && (
+          <p className="mt-2 max-w-3xl break-words text-sm font-medium leading-snug text-muted-foreground">
+            {story.dek}
+          </p>
+        )}
+
+        <div className={cn("mt-3 grid min-w-0 gap-2", featured ? "md:grid-cols-2" : "md:grid-cols-3")}>
+          <StoryRead label="What happened" value={story.whatHappened} />
+          <StoryRead label="Why it matters" value={story.whyItMatters} />
+          <StoryRead label="Watch next" value={story.watchNext} />
+          {featured && <StoryRead label="What EdgeSetter knows" value={story.edgeSetterKnows} />}
+        </div>
+
+        <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5 border-t border-border/65 pt-2">
+          <ProofPill label="Confidence" value={story.confidence ?? "Still forming"} />
+          <ProofPill label="Sources" value={sourceCountText(story.sourceCount)} />
+          <ProofPill label="Timing" value={story.timing ?? story.lifecycle ?? story.row.statusLabel ?? "Developing"} />
+          <ProofPill label="Evidence" value={story.evidence ?? evidenceCountText(story.row.evidenceCount)} />
+          {!compact && (
+            <AgentCalibrationBadge
+              compact
+              copyVariant="editorial"
+              input={{
+                confidence: parseConfidence(story.confidence),
+                sourceCount: story.sourceCount,
+                timingLabel: story.timing,
+                storyType: story.storyType,
+                marketReaction: story.market,
+                sourceSummary: publicStoryText(story.verification),
+              }}
+              className="ml-0"
+            />
+          )}
+          {onOpen && (
+            <Button type="button" size="sm" variant="outline" onClick={onOpen} className="ml-auto shrink-0">
+              <ArrowUpRight className="h-4 w-4" />
+              Open Story
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div className={cn("min-w-0 border-t border-border/70 lg:border-l lg:border-t-0", compact && "hidden sm:block")}>
+        <SportsStoryVisual
+          className="h-full min-h-[190px] rounded-none border-0"
+          league={story.league}
+          sport={leagueToSport(story.league)}
+          primaryTeam={story.primaryTeam}
+          secondaryTeam={story.secondaryTeam}
+          player={story.player}
+          title={story.headline}
+          storyType={story.storyType}
+          detail={story.edgeSetterKnows}
+          size={featured ? "feature" : "compact"}
+          imageAsset={imageAsset}
+        />
+      </div>
+    </article>
+  );
+}
+
+function StoryRead({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 border-l border-border/80 bg-muted/5 py-1 pl-3 pr-2">
+      <span className="data-label text-[0.62rem]">{label}</span>
+      <p className="mt-1 overflow-hidden break-words text-[0.82rem] font-semibold leading-snug text-foreground [overflow-wrap:anywhere] sm:[display:-webkit-box] sm:[-webkit-box-orient:vertical] sm:[-webkit-line-clamp:2]">{value}</p>
+    </div>
+  );
+}
+
+function ProofPill({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex min-w-0 max-w-full items-center gap-1 rounded border border-border bg-muted/15 px-2 py-1 text-[0.68rem] font-bold text-muted-foreground">
+      <span className="data-label text-[0.56rem]">{label}</span>
+      <strong className="truncate text-foreground">{value}</strong>
+    </span>
+  );
+}
+
+function parseConfidence(value?: string) {
+  if (!value) return null;
+  const parsed = Number.parseFloat(value.replace("%", ""));
+  return Number.isNaN(parsed) ? null : parsed;
+}

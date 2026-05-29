@@ -123,6 +123,11 @@ export function toTeamAbbr(name?: string): string {
   return TEAM_NAME_TO_ABBR[name.toLowerCase()] ?? name.slice(0, 3).toUpperCase();
 }
 
+export function isUnknownTeamAbbr(value?: string | null): boolean {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  return !normalized || ["UNK", "UNKNOWN", "TBD", "N/A", "NA", "--"].includes(normalized);
+}
+
 export const PLAYER_HEADSHOTS: Record<string, string> = {
   "Anthony Davis":         "https://a.espncdn.com/i/headshots/nba/players/full/6583.png",
   "Jaylen Brown":          "https://a.espncdn.com/i/headshots/nba/players/full/6474.png",
@@ -285,6 +290,7 @@ export const TEAM_LOGO_URLS: Record<string, string> = { ...NBA_LOGO_URLS, ...MLB
 
 export function getTeamLogoUrl(abbr: string, sport?: TeamLogoSport): string {
   const upper = toTeamAbbr(abbr);
+  if (isUnknownTeamAbbr(upper)) return "";
   if (sport === "mlb") return MLB_LOGO_URLS[upper] ?? "";
   if (sport === "nba") return NBA_LOGO_URLS[upper] ?? "";
   if (sport === "nfl") return NFL_LOGO_URLS[upper] ?? "";
@@ -294,6 +300,7 @@ export function getTeamLogoUrl(abbr: string, sport?: TeamLogoSport): string {
 
 interface TeamLogoProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; }
 export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
+  if (isUnknownTeamAbbr(abbr)) return <NeutralTeamPlaceholder size={size} shape={shape} />;
   const colors = getTeamColors(abbr);
   const r = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "4px";
   return (
@@ -306,7 +313,8 @@ export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
 interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: TeamLogoSport; }
 export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: TeamLogoImgProps) {
   const normalizedAbbr = toTeamAbbr(abbr);
-  const logoUrl = src ?? getTeamLogoUrl(normalizedAbbr, sport);
+  const unknownTeam = isUnknownTeamAbbr(normalizedAbbr);
+  const logoUrl = unknownTeam ? "" : src ?? getTeamLogoUrl(normalizedAbbr, sport);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const showFallback = !logoUrl || (Boolean(src) && failedUrl === logoUrl);
   const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "4px";
@@ -318,6 +326,7 @@ export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: T
   }, [logoUrl]);
 
   if (showFallback) {
+    if (unknownTeam) return <NeutralTeamPlaceholder size={size} shape={shape} />;
     return (
       <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, position: "relative", background: fallback.bg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <span aria-hidden="true" style={{ position: "absolute", inset: "18% 12% auto auto", width: "42%", height: "2px", background: fallback.stripe, opacity: 0.72, transform: "rotate(-24deg)" }} />
@@ -334,6 +343,32 @@ export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: T
           if (src) setFailedUrl(logoUrl);
         }}
       />
+    </div>
+  );
+}
+
+function NeutralTeamPlaceholder({ size, shape }: { size: number; shape: TeamLogoProps["shape"] }) {
+  const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "4px";
+  return (
+    <div
+      aria-label="Team pending"
+      title="Team pending"
+      style={{
+        width: size,
+        height: size,
+        borderRadius,
+        overflow: "hidden",
+        flexShrink: 0,
+        position: "relative",
+        background: "linear-gradient(145deg, rgba(15,23,42,0.92), rgba(8,13,20,0.96))",
+        border: "1px solid rgba(148,163,184,0.26)",
+        boxShadow: "0 0 0 1px rgba(248,250,252,0.035), 0 6px 16px rgba(0,0,0,0.34)",
+        display: "grid",
+        placeItems: "center",
+      }}
+    >
+      <span aria-hidden="true" style={{ position: "absolute", inset: "22% 16% auto auto", width: "38%", height: 2, background: "rgba(148,163,184,0.42)", transform: "rotate(-24deg)" }} />
+      <span aria-hidden="true" style={{ width: Math.max(8, Math.round(size * 0.28)), height: Math.max(8, Math.round(size * 0.28)), borderRadius: "50%", border: "1px solid rgba(203,213,225,0.44)", background: "rgba(148,163,184,0.08)" }} />
     </div>
   );
 }

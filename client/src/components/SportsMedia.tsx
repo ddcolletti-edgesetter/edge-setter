@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
-import { TeamLogoImg, toTeamAbbr } from "@/components/v2/SportVisuals";
+import { TeamLogoImg, isUnknownTeamAbbr, toTeamAbbr } from "@/components/v2/SportVisuals";
 import type { SportsImageAsset } from "@/lib/sportsImageAssets";
 
 type Sport = "nba" | "mlb" | "nfl" | "cfb";
@@ -54,8 +54,8 @@ export function SportsStoryVisual({
   imageAsset,
 }: SportsStoryVisualProps) {
   const resolvedSport = sport ?? leagueToSport(league);
-  const primary = toTeamAbbr(primaryTeam ?? "") || toTeamAbbr(secondaryTeam ?? "") || league?.toUpperCase() || "ES";
-  const secondary = toTeamAbbr(secondaryTeam ?? "");
+  const primary = cleanTeamAbbr(primaryTeam) || cleanTeamAbbr(secondaryTeam) || league?.toUpperCase() || "ES";
+  const secondary = cleanTeamAbbr(secondaryTeam);
   const showMatchup = Boolean(secondary && secondary !== primary);
   const leagueLabel = league?.toUpperCase() ?? (resolvedSport ? SPORT_FALLBACKS[resolvedSport].label : "SPORT");
   const subject = player || title || (showMatchup ? `${primary} @ ${secondary}` : primary);
@@ -64,6 +64,7 @@ export function SportsStoryVisual({
   const imageCandidates = useMemo(() => imageAsset?.candidateSrcs ?? [], [imageAsset]);
   const [imageIndex, setImageIndex] = useState(0);
   const activeImageSrc = imageCandidates[imageIndex];
+  const isLeagueOnlyImage = Boolean(activeImageSrc && !player && !showMatchup && primary === leagueLabel);
 
   useEffect(() => {
     setImageIndex(0);
@@ -77,7 +78,8 @@ export function SportsStoryVisual({
           <img
             src={activeImageSrc}
             alt={imageAsset?.alt ?? `${leagueLabel} sports story image`}
-            loading={size === "hero" ? "eager" : "lazy"}
+            loading={size === "hero" || size === "feature" ? "eager" : "lazy"}
+            decoding="async"
             onError={() => setImageIndex((current) => current + 1)}
           />
         </div>
@@ -87,20 +89,20 @@ export function SportsStoryVisual({
         <strong>{storyType || "Story watch"}</strong>
       </div>
       <div className="sports-story-visual-stage">
-        <TeamLogoImg abbr={primary} sport={resolvedSport} size={logoSize(size)} />
+        <TeamLogoImg abbr={primary} sport={resolvedSport} size={isLeagueOnlyImage ? logoSize(size) + 24 : logoSize(size)} />
         {showMatchup ? (
           <>
             <span className="sports-story-visual-vs">VS</span>
             <TeamLogoImg abbr={secondary} sport={resolvedSport} size={logoSize(size)} />
           </>
-        ) : (
+        ) : isLeagueOnlyImage ? null : (
           <div className="sports-story-player-fallback" aria-hidden="true">
             <span>{initials}</span>
           </div>
         )}
       </div>
       <div className="sports-story-visual-copy">
-        <span>{player ? "Player focus" : showMatchup ? "Matchup focus" : "Team focus"}</span>
+        <span>{player ? "Player focus" : showMatchup ? "Matchup focus" : isLeagueOnlyImage ? "League watch" : "Team focus"}</span>
         <strong>{subject}</strong>
         {detail && <small>{detail}</small>}
       </div>
@@ -121,8 +123,8 @@ export function SportsImageFallback({
   opponent?: string;
 }) {
   const resolvedSport = sport ?? leagueToSport(league);
-  const primary = toTeamAbbr(team ?? "") || league?.toUpperCase() || "ES";
-  const secondary = toTeamAbbr(opponent ?? "");
+  const primary = cleanTeamAbbr(team) || league?.toUpperCase() || "ES";
+  const secondary = cleanTeamAbbr(opponent);
   return (
     <div className={cn("sports-image-fallback", resolvedSport && `is-${resolvedSport}`, className)}>
       <div className="sports-image-fallback-texture" />
@@ -214,7 +216,7 @@ export function TeamLogoLockup({
   size?: "compact" | "mini";
 }) {
   const resolvedSport = sport ?? leagueToSport(league);
-  const abbr = toTeamAbbr(team ?? "") || league?.toUpperCase() || "ES";
+  const abbr = cleanTeamAbbr(team) || league?.toUpperCase() || "ES";
   return (
     <div className={cn("team-logo-lockup", size === "mini" && "is-mini", className)}>
       <TeamLogoImg abbr={abbr} sport={resolvedSport} size={size === "mini" ? 36 : 48} />
@@ -230,6 +232,11 @@ export function leagueToSport(league?: string): Sport | undefined {
   const value = league?.toLowerCase();
   if (value === "nba" || value === "mlb" || value === "nfl" || value === "cfb") return value;
   return undefined;
+}
+
+function cleanTeamAbbr(value?: string) {
+  const abbr = toTeamAbbr(value ?? "");
+  return isUnknownTeamAbbr(abbr) ? "" : abbr;
 }
 
 function logoSize(size: SportsStoryVisualProps["size"]) {
