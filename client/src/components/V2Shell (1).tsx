@@ -118,18 +118,18 @@ function SportPill({ sport, status, href, disabled = false, isCurrent = false }:
 }
 
 const TOP_NAV = [
-  { href: "/v2",         label: "Home",    icon: Home       },
-  { href: "/v2/nba",     label: "Boards",  icon: LayoutGrid },
-  { href: "/v2/tools",   label: "Tools",   icon: Wrench     },
-  { href: "/v2/my-edge", label: "My Edge", icon: Star       },
-  { href: "/v2/sources", label: "Sources", icon: List       },
+  { href: "/",         label: "Home",    icon: Home       },
+  { href: "/nba",     label: "Boards",  icon: LayoutGrid },
+  { href: "/tools",   label: "Tools",   icon: Wrench     },
+  { href: "/my-edge", label: "My Edge", icon: Star       },
+  { href: "/sources", label: "Sources", icon: List       },
 ];
 
 export const BOARDS_NAV = [
-  { href: "/v2/nba", label: "NBA Board", status: "LIVE"   as SportStatus, sport: "NBA" },
-  { href: "/v2/mlb", label: "MLB Board", status: "ACTIVE" as SportStatus, sport: "MLB" },
-  { href: "/v2/nfl", label: "NFL Board", status: "ACTIVE" as SportStatus, sport: "NFL" },
-  { href: "/v2/cfb", label: "CFB Board", status: "ACTIVE" as SportStatus, sport: "CFB" },
+  { href: "/nba", label: "NBA Board", status: "LIVE"   as SportStatus, sport: "NBA" },
+  { href: "/mlb", label: "MLB Board", status: "ACTIVE" as SportStatus, sport: "MLB" },
+  { href: "/nfl", label: "NFL Board", status: "ACTIVE" as SportStatus, sport: "NFL" },
+  { href: "/cfb", label: "CFB Board", status: "ACTIVE" as SportStatus, sport: "CFB" },
 ];
 
 const GLOBAL_CSS = `
@@ -205,8 +205,8 @@ export function V2Shell({ children, sport }: V2ShellProps) {
   const txtF   = darkMode ? T.textFaint : "#94A3B8";
   const goldD  = darkMode ? T.border   : "rgba(245,184,65,0.25)";
 
-  const activeTop = TOP_NAV.find(n => location === n.href || (n.href !== "/v2" && location.startsWith(n.href)));
-  const boardsMode = activeTop?.label === "Boards" || location.startsWith("/v2/nba") || location.startsWith("/v2/mlb") || location.startsWith("/v2/nfl") || location.startsWith("/v2/cfb");
+  const activeTop = TOP_NAV.find(n => location === n.href || (n.href !== "/" && location.startsWith(n.href)));
+  const boardsMode = activeTop?.label === "Boards" || location.startsWith("/nba") || location.startsWith("/mlb") || location.startsWith("/nfl") || location.startsWith("/cfb");
 
   return (
     <div className="flex h-full" style={{ background: bg, color: txt, fontFamily: "'Barlow', sans-serif" }}>
@@ -251,7 +251,7 @@ export function V2Shell({ children, sport }: V2ShellProps) {
         {/* ── NAV ── */}
         <nav style={{ flex: 1, overflowY: "auto", padding: "10px 8px 0" }}>
           {TOP_NAV.map(({ href, label, icon: Icon }) => {
-            const isActive = location === href || (href !== "/v2" && location.startsWith(href));
+            const isActive = location === href || (href !== "/" && location.startsWith(href));
             const isBoards = label === "Boards";
             const showSub  = isBoards && boardsMode;
 
@@ -364,7 +364,7 @@ export function V2Shell({ children, sport }: V2ShellProps) {
           {/* Breadcrumb — Bebas Neue page name */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: txtF }}>Edge Setter</span>
-            {activeTop && activeTop.href !== "/v2" && (
+            {activeTop && activeTop.href !== "/" && (
               <>
                 <span style={{ color: txtF, fontSize: 12, opacity: 0.5 }}>›</span>
                 <span style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 18, letterSpacing: "2px", color: sportTheme ? sportTheme.primary : T.gold }}>{activeTop.label}</span>
@@ -374,10 +374,10 @@ export function V2Shell({ children, sport }: V2ShellProps) {
 
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             <div className="hidden sm:flex" style={{ gap: 5 }}>
-              <SportPill sport="NBA" status="LIVE"   href="/v2/nba" isCurrent={currentSport === "NBA"} />
-              <SportPill sport="MLB" status="ACTIVE" href="/v2/mlb" isCurrent={currentSport === "MLB"} />
-              <SportPill sport="NFL" status="ACTIVE" href="/v2/nfl" isCurrent={currentSport === "NFL"} />
-              <SportPill sport="CFB" status="ACTIVE" href="/v2/cfb" isCurrent={currentSport === "CFB"} />
+              <SportPill sport="NBA" status="LIVE"   href="/nba" isCurrent={currentSport === "NBA"} />
+              <SportPill sport="MLB" status="ACTIVE" href="/mlb" isCurrent={currentSport === "MLB"} />
+              <SportPill sport="NFL" status="ACTIVE" href="/nfl" isCurrent={currentSport === "NFL"} />
+              <SportPill sport="CFB" status="ACTIVE" href="/cfb" isCurrent={currentSport === "CFB"} />
             </div>
             <NavLoginButton />
             <ProNavButton sport={(currentSport as any) ?? "generic"} />

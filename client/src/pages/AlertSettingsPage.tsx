@@ -56,7 +56,7 @@ export default function AlertSettingsPage() {
 
   // Redirect non-Pro users
   useEffect(() => {
-    if (!authLoading && !isPro) setLocation("/v2");
+    if (!authLoading && !isPro) setLocation("/");
   }, [authLoading, isPro, setLocation]);
 
   // Load existing preferences

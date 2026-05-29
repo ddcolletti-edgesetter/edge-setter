@@ -322,7 +322,7 @@ function V2HomeInner() {
                 </p>
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <Link href="/v2/nba">
+                <Link href="/nba">
                   <button data-testid="cta-open-nba" style={{
                     background: T.gold, color: T.bg, border: "none", borderRadius: 3,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -334,7 +334,7 @@ function V2HomeInner() {
                     Open NBA Board <ArrowRight size={13} />
                   </button>
                 </Link>
-                <Link href="/v2/tools">
+                <Link href="/tools">
                   <button style={{
                     background: "transparent", color: darkMode ? T.text : "#1A1712",
                     border: `1px solid rgba(245,184,65,0.28)`, borderRadius: 3,
@@ -442,7 +442,7 @@ function V2HomeInner() {
                 <BoardCard
                   sport="NBA" label="NBA Board"
                   description="Playoffs live. Injury flags, context movement, matchup context, rotation intel."
-                  href="/v2/nba" status="LIVE" primary signalCount={allLiveSignals.filter(s => s.sport === "NBA").length || NBA_SIGNALS.length}
+                  href="/nba" status="LIVE" primary signalCount={allLiveSignals.filter(s => s.sport === "NBA").length || NBA_SIGNALS.length}
                   color={T.gold} league="NBA"
                   accentBg="linear-gradient(135deg, rgba(245,184,65,0.08) 0%, rgba(85,37,131,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
@@ -451,7 +451,7 @@ function V2HomeInner() {
                 <BoardCard
                   sport="MLB" label="MLB Board"
                   description="Regular season active. Pitcher news, lineup movement, team trends."
-                  href="/v2/mlb" status="ACTIVE" signalCount={allLiveSignals.filter(s => s.sport === "MLB").length || MLB_SIGNALS.length}
+                  href="/mlb" status="ACTIVE" signalCount={allLiveSignals.filter(s => s.sport === "MLB").length || MLB_SIGNALS.length}
                   color={T.cyan} league="MLB"
                   accentBg="linear-gradient(135deg, rgba(0,183,255,0.08) 0%, rgba(0,42,98,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
@@ -460,7 +460,7 @@ function V2HomeInner() {
                 <BoardCard
                   sport="NFL" label="NFL Board"
                   description="Active board. Injuries, depth chart movement, line shifts, and matchup intel — every week."
-                  href="/v2/nfl" status="ACTIVE" league="NFL"
+                  href="/nfl" status="ACTIVE" league="NFL"
                   color={T.orange}
                   accentBg="linear-gradient(135deg, rgba(255,138,0,0.07) 0%, rgba(30,20,10,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
@@ -469,7 +469,7 @@ function V2HomeInner() {
                 <BoardCard
                   sport="CFB" label="CFB Board"
                   description="Active board. Transfer intel, QB battles, source pressure, and coaching/scheme context."
-                  href="/v2/cfb" status="ACTIVE" league="CFB"
+                  href="/cfb" status="ACTIVE" league="CFB"
                   color={T.green}
                   accentBg="linear-gradient(135deg, rgba(0,230,118,0.07) 0%, rgba(0,30,15,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
@@ -491,7 +491,7 @@ function V2HomeInner() {
                     fontSize: 13, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: textFaintTH,
                   }}>Live Signal Feed</span>
                 </div>
-                <Link href="/v2/nba">
+                <Link href="/nba">
                   <span style={{
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 14, fontWeight: 700, letterSpacing: "0.1em", color: T.gold,
@@ -573,7 +573,7 @@ function V2HomeInner() {
                   );
                 })}
               </div>
-              <Link href="/v2/tools">
+              <Link href="/tools">
                 <div style={{
                   marginTop: 8, padding: "9px 12px",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 5,
@@ -621,7 +621,7 @@ function V2HomeInner() {
                   </div>
                 ))}
                 <div style={{ padding: "9px 14px", borderTop: `1px solid ${feedBorder}` }}>
-                  <Link href="/v2/mlb">
+                  <Link href="/mlb">
                     <span style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                       fontSize: 14, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase",

@@ -311,6 +311,16 @@ function SourceLeaderboardInner() {
 
         <hr className="briefing-rule mb-5" />
 
+        <div
+          className="mb-5 rounded px-4 py-3"
+          style={{ border: `1px solid ${C.borderSub}`, background: "rgba(16,24,39,0.36)" }}
+        >
+          <span className="data-label" style={{ color: C.anaAmberDim }}>Research Reference</span>
+          <p style={{ color: C.ivoryMuted, fontSize: 12, lineHeight: 1.5, margin: "6px 0 0", maxWidth: 760 }}>
+            Source Intelligence is supporting context for reliability, timing, and source agreement. The main product experience remains the live sports desk and league story boards.
+          </p>
+        </div>
+
         <SourceTrustExplainers sourceCount={scores.length} />
 
         {/* League tabs */}

@@ -570,13 +570,13 @@ export const MLB_SIGNALS: V2Signal[] = [
   },
 ];
 
-/* ── Tools stub (used by V2Home sidebar) ── */
+/* ── Tools catalog stub ── */
 export const TOOLS = [
-  { id: "matchups",    name: "Matchups",       sport: ["NBA", "MLB", "NFL"],    status: "Coming Soon", href: "/v2/tools/matchups",   icon: "✗" },
-  { id: "signals",     name: "Player Signals",  sport: ["NBA", "MLB"],           status: "Beta",        href: "/v2/tools/signals",    icon: "↗" },
-  { id: "trends",      name: "Team Trends",     sport: ["NBA", "MLB", "NFL", "CFB"], status: "Coming Soon", href: "/v2/tools/trends", icon: "↗" },
-  { id: "watchlist",   name: "Watchlist",       sport: ["NBA", "MLB", "NFL"],    status: "Coming Soon", href: "/v2/tools/watchlist",  icon: "★" },
-  { id: "movement",    name: "Context Movement", sport: ["NBA", "MLB"],          status: "Beta",        href: "/v2/tools/movement",   icon: "↗", description: "External movement appears as supporting context alongside injuries, lineups, and source checks." },
+  { id: "matchups",    name: "Matchups",       sport: ["NBA", "MLB", "NFL"],    status: "Coming Soon", href: "/tools",                 icon: "✗" },
+  { id: "signals",     name: "Player Signals",  sport: ["NBA", "MLB"],           status: "Beta",        href: "/tools/player-signals", icon: "↗" },
+  { id: "trends",      name: "Team Trends",     sport: ["NBA", "MLB", "NFL", "CFB"], status: "Coming Soon", href: "/tools",           icon: "↗" },
+  { id: "watchlist",   name: "Watchlist",       sport: ["NBA", "MLB", "NFL"],    status: "Coming Soon", href: "/tools",                 icon: "★" },
+  { id: "movement",    name: "Context Movement", sport: ["NBA", "MLB"],          status: "Beta",        href: "/tools/market-movement", icon: "↗", description: "External movement appears as supporting context alongside injuries, lineups, and source checks." },
 ];
 
 

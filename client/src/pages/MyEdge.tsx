@@ -283,14 +283,14 @@ export default function MyEdge() {
               }}>My Edge - Personal Intelligence</span>
             </div>
             <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 10px" }}>
-              Your My Edge Feed
+              Personal watchlist coming soon
             </h1>
             <p style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, margin: 0, lineHeight: 1.7,
               maxWidth: "min(540px, 100%)", letterSpacing: "0.04em", overflowWrap: "anywhere",
             }}>
-              My Edge will shape EdgeSetter around teams, players, leagues, and developing stories you follow. This preview shows how confidence movement, source agreement, timing windows, fantasy impact, market reaction, and team/fan impact will route into a personal feed once personalization data is connected.
+              My Edge will shape EdgeSetter around teams, players, leagues, and developing stories you follow. This page is a preview of the planned personal watchlist and alert workflow.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 14 }}>
               <SetupPill icon={<Star size={13} />} label="Follow teams" />
@@ -324,12 +324,12 @@ export default function MyEdge() {
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
               color: T.gold, marginBottom: 5,
-            }}>Preview State - Setup Not Live</div>
+            }}>Coming Soon - Preview</div>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.04em",
             }}>
-              The cards below are setup previews, not fake live personalization. Followed teams, followed players, watched stories, and alert routing will use real saved context once those hooks are active.
+              Followed teams, followed players, watched stories, and alert routing are not active yet. The examples below show the planned shape without implying saved personalization is available today.
             </div>
           </div>
         </div>

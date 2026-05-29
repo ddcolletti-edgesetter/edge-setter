@@ -1,4 +1,4 @@
-import { Switch, Route, Router } from "wouter";
+import { Switch, Route, Router, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
@@ -19,7 +19,6 @@ import SignalOpsQueue from "./pages/SignalOpsQueue";
 import SiteWatchLogs from "./pages/SiteWatchLogs";
 import DistributionDrafts from "./pages/DistributionDrafts";
 import DailyOps from "./pages/DailyOps";
-import FlagshipHome from "./pages/FlagshipHome";
 import LiveIntelligenceHome from "./pages/LiveIntelligenceHome";
 import NBABoard from "./pages/NBABoard";
 import MLBBoard from "./pages/MLBBoard";
@@ -40,6 +39,16 @@ import { AdminGate } from "./components/AdminGate";
 import { ProModal } from "./components/ProGate";
 
 export type Theme = "dark" | "light";
+
+function HomeRedirect() {
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    setLocation("/");
+  }, [setLocation]);
+
+  return null;
+}
 
 function App() {
   const [theme, setTheme] = useState<Theme>("dark");
@@ -74,8 +83,8 @@ function App() {
           <Route path="/pro" component={ProPage} />
           <Route path="/success" component={SuccessPage} />
 
-          {/* ── Legacy v2 redirects — keep so old bookmarks don't 404 ── */}
-          <Route path="/v2" component={FlagshipHome} />
+          {/* ── Legacy v2 compatibility — keep deep links, send bare /v2 home ── */}
+          <Route path="/v2" component={HomeRedirect} />
           <Route path="/v2/nba" component={NBABoard} />
           <Route path="/v2/mlb" component={MLBBoard} />
           <Route path="/v2/nfl" component={NFLBoard} />
