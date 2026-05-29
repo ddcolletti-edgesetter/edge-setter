@@ -144,6 +144,7 @@ export default function LiveIntelligenceHome() {
     }),
     [activeLeague, editorialSituation, featured, leadGames, livePressure, loading, visibleSituations],
   );
+  const hasAssignmentRail = homepageStories.rail.length > 0;
 
   return (
     <AppShell brandContext="LIVE SPORTS DESK">
@@ -200,7 +201,7 @@ export default function LiveIntelligenceHome() {
             </div>
           </header>
 
-          <div className="media-homepage-grid">
+          <div className={`media-homepage-grid${hasAssignmentRail ? " has-assignment-rail" : ""}`}>
             <div className="media-homepage-main">
               <div className="media-section-label">
                 <span className="es-live-dot es-live-pulse" />
@@ -209,13 +210,14 @@ export default function LiveIntelligenceHome() {
               <StoryCard story={homepageStories.lead} variant="lead" />
             </div>
 
-            <aside className="media-homepage-rail" aria-label="Headline stack">
-              <div className="media-section-label">Assignment desk</div>
-              {homepageStories.rail.map((story) => (
-                <StoryCard key={story.id} story={story} variant="rail" />
-              ))}
-              {!homepageStories.rail.length && <QuietCoverageCard pressure={livePressure} loading={loading} />}
-            </aside>
+            {hasAssignmentRail && (
+              <aside className="media-homepage-rail" aria-label="Headline stack">
+                <div className="media-section-label">Assignment desk</div>
+                {homepageStories.rail.map((story) => (
+                  <StoryCard key={story.id} story={story} variant="rail" />
+                ))}
+              </aside>
+            )}
           </div>
 
           <section className="media-game-context" aria-label="Active matchup and game context">
@@ -229,7 +231,7 @@ export default function LiveIntelligenceHome() {
             <div className="media-game-grid">
               {homepageStories.games.length
                 ? homepageStories.games.map((story) => <StoryCard key={story.id} story={story} variant="compact" />)
-                : HERO_FALLBACK_TILES.map((tile) => <StoryCard key={tile.league} story={quietLeagueStory(tile.league as typeof LEAGUES[number], tile.title, tile.note, loading)} variant="compact" />)}
+                : HERO_FALLBACK_TILES.map((tile) => <CoverageStatusCard key={tile.league} tile={tile} loading={loading} />)}
             </div>
           </section>
         </section>
@@ -241,28 +243,29 @@ export default function LiveIntelligenceHome() {
           </div>
         )}
 
-        <section className="media-league-sections" aria-label="League story sections">
-          {homepageStories.leagues.map((section) => (
-            <section key={section.league} className="media-league-section">
-              <div className="live-intel-section-header">
-                <div>
-                  <Crosshair size={15} />
-                  <span>{section.league} Story Desk</span>
+        {homepageStories.leagues.length > 0 && (
+          <section className="media-league-sections" aria-label="League story sections">
+            {homepageStories.leagues.map((section) => (
+              <section key={section.league} className="media-league-section">
+                <div className="live-intel-section-header">
+                  <div>
+                    <Crosshair size={15} />
+                    <span>{section.league} Story Desk</span>
+                  </div>
+                  <small>{section.summary}</small>
                 </div>
-                <small>{section.summary}</small>
-              </div>
-              <div className="media-league-story-grid">
-                {section.stories.map((story) => (
-                  <StoryCard key={story.id} story={story} variant="feature" />
-                ))}
-              </div>
-            </section>
-          ))}
-        </section>
+                <div className="media-league-story-grid">
+                  {section.stories.map((story) => (
+                    <StoryCard key={story.id} story={story} variant="feature" />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </section>
+        )}
 
         <PressureSection situation={heroSituation} pressure={livePressure} />
         <SourceArc situation={heroSituation} counts={counts} pressure={livePressure} />
-        <LiveOperationsBand games={leadGames} situations={visibleSituations} loading={loading} pressure={livePressure} />
       </div>
       <style>{liveIntelCss}</style>
     </AppShell>
@@ -296,27 +299,31 @@ function buildHomepageStoryModel({
     ? situationToStoryCard(featured, { slot: "lead" })
     : quietNetworkStory(activeLeague, pressure, loading);
 
+  const usedSituationIds = new Set<string>();
+  if (featured) usedSituationIds.add(featured.id);
+
   const railSource = uniqueSituations([
     editorialSituation,
     ...situations.filter((situation) => situation.id !== featured?.id),
   ]);
   const rail = railSource.slice(0, 4).map((situation) => situationToStoryCard(situation, { slot: "rail" }));
+  railSource.slice(0, 4).forEach((situation) => usedSituationIds.add(situation.id));
 
-  const gameStories = games
-    .slice(0, 4)
-    .map((game) => gameToStoryCard(game, situations.find((situation) => gameMatchesSituation(game, situation))));
+  const gameStories = games.slice(0, 4).map((game) => {
+    const matchedSituation = situations.find((situation) => gameMatchesSituation(game, situation));
+    if (matchedSituation) usedSituationIds.add(matchedSituation.id);
+    return gameToStoryCard(game, matchedSituation);
+  });
 
   const leagues = LEAGUES.map((league) => {
-    const leagueSituations = situations.filter((situation) => situation.league === league);
-    const stories = leagueSituations.length
-      ? leagueSituations.slice(0, 3).map((situation) => situationToStoryCard(situation, { slot: "league" }))
-      : [quietLeagueStory(league, `${league} board quiet`, leagueQuietNote(league), loading)];
+    const leagueSituations = situations.filter((situation) => situation.league === league && !usedSituationIds.has(situation.id));
+    const stories = leagueSituations.slice(0, 3).map((situation) => situationToStoryCard(situation, { slot: "league" }));
     return {
       league,
       summary: leagueSituations.length ? `${leagueSituations.length} evidence-backed update${leagueSituations.length === 1 ? "" : "s"}` : "No major verified shift",
       stories,
     } satisfies HomepageLeagueSection;
-  });
+  }).filter((section) => section.stories.length > 0);
 
   return { lead, rail, games: gameStories, leagues };
 }
@@ -465,6 +472,28 @@ function QuietCoverageCard({ pressure, loading }: { pressure: LivePressureContex
       <strong>{loading ? "Checking live coverage" : pressure.heroHeadline}</strong>
       <span>{loading ? "Stories appear here when evidence clears the visibility threshold." : pressure.heroBody}</span>
     </div>
+  );
+}
+
+function CoverageStatusCard({
+  tile,
+  loading,
+}: {
+  tile: typeof HERO_FALLBACK_TILES[number];
+  loading: boolean;
+}) {
+  const meta = leagueWorld[tile.league];
+  return (
+    <Link href={meta.href}>
+      <article className="media-coverage-status" style={{ "--league-color": meta.color } as CSSProperties}>
+        <img src={meta.logo || "/brand/edgesetter-emblem.png"} alt="" aria-hidden="true" />
+        <div>
+          <span>{tile.league}</span>
+          <strong>{loading ? `${tile.league} scan in progress` : tile.title}</strong>
+          <small>{tile.note}</small>
+        </div>
+      </article>
+    </Link>
   );
 }
 
@@ -1189,11 +1218,14 @@ const liveIntelCss = `
 }
 .media-homepage-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 390px;
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   align-items: start;
   max-width: 100%;
   overflow: hidden;
+}
+.media-homepage-grid.has-assignment-rail {
+  grid-template-columns: minmax(0, 1fr) 390px;
 }
 .media-homepage-main,
 .media-homepage-rail,
@@ -1240,6 +1272,54 @@ const liveIntelCss = `
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   padding: 8px;
+}
+.media-coverage-status {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 104px;
+  padding: 12px;
+  border: 1px solid rgba(82,101,122,0.24);
+  border-left: 2px solid var(--league-color);
+  border-radius: 7px;
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--league-color) 9%, transparent), transparent 54%),
+    rgba(8,14,22,0.72);
+  color: #f8fafc;
+}
+.media-coverage-status img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  opacity: 0.86;
+}
+.media-coverage-status span,
+.media-coverage-status small {
+  display: block;
+  color: #94a3b8;
+}
+.media-coverage-status span {
+  color: var(--league-color);
+  font-family: var(--font-cond);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+.media-coverage-status strong {
+  display: block;
+  margin-top: 3px;
+  color: #f8fafc;
+  font-family: var(--font-cond);
+  font-size: 1rem;
+  line-height: 1.08;
+  text-transform: uppercase;
+}
+.media-coverage-status small {
+  margin-top: 5px;
+  font-size: 0.75rem;
+  line-height: 1.35;
 }
 .media-league-sections {
   display: grid;
@@ -1556,6 +1636,7 @@ const liveIntelCss = `
 }
 @media (max-width: 1100px) {
   .media-homepage-grid,
+  .media-homepage-grid.has-assignment-rail,
   .story-card-lead {
     grid-template-columns: minmax(0, 1fr);
   }
