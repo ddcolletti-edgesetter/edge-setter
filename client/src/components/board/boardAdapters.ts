@@ -478,14 +478,14 @@ function timingStageLabel(canonical: CanonicalSituation) {
 
 function fallbackSourceProgress(situation: BoardSituation) {
   const count = Math.max(0, situation.sourceCount ?? 0);
-  if (count >= 3) return `${count} reports / source agreement`;
+  if (count >= 3) return `${count} reports attached`;
   if (count >= 2) return `${count} reports / corroborated`;
   return "1 report / Needs more confirmation";
 }
 
 function fallbackSourceStage(situation: BoardSituation) {
   const count = Math.max(0, situation.sourceCount ?? 0);
-  if (count >= 3) return "source agreement";
+  if (count >= 3) return "reports attached";
   if (count >= 2) return "corroborated";
   return "single-source";
 }

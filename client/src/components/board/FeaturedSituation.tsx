@@ -432,8 +432,12 @@ function PlainRead({ label, value }: { label: string; value: string }) {
 
 function plainConfidenceLabel(metric?: SituationMetric, situation?: SituationRowData) {
   const value = metric?.value ?? situation?.confidenceNote?.match(/\d+%/)?.[0] ?? "source/context support";
-  const checks = situation?.evidenceCount ?? situation?.sourceCount;
-  if (checks) return `${checks} report${checks === 1 ? "" : "s"} supporting`;
+  if (situation?.evidenceCount) {
+    return `${situation.evidenceCount} evidence event${situation.evidenceCount === 1 ? "" : "s"}`;
+  }
+  if (situation?.sourceCount) {
+    return `${situation.sourceCount} report${situation.sourceCount === 1 ? "" : "s"} attached`;
+  }
   if (value === "source/context support") return value;
   return `${value} support signal`;
 }
