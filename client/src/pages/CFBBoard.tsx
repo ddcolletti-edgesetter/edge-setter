@@ -78,6 +78,7 @@ function CFBBoardInner() {
     orderBy: "operational_visibility_score",
   });
   const profile = getLeagueBoardProfile("CFB");
+  const hasLiveCFBData = canonicalSituations.length > 0 || isLive;
 
   const rankedCFB = useMemo(() => {
     const source = (liveCFBSignals as CFBSignal[]).map((signal) => ({ ...signal, sport: "CFB" as const }));
@@ -141,7 +142,9 @@ function CFBBoardInner() {
         <BoardCommandBar
           kicker="CFB Story Board"
           title={profile.boardLabel}
-          statusLabel={`${canonicalSituations.length ? "Verified sources" : isLive ? "Live coverage" : "Offseason coverage"} / ${rankedCFB.length} updates`}
+          statusLabel={hasLiveCFBData
+            ? `${canonicalSituations.length ? "Verified sources" : "Live coverage"} / ${rankedCFB.length} updates`
+            : `Offseason fallback context / ${rankedCFB.length} watch items`}
           liveCount={situations.filter((situation) => situation.lane === "escalating" || situation.lane === "live").length}
           tabs={CFB_FILTERS.map((filter) => ({ id: filter.key, label: filter.label }))}
           activeTabId={sidebarFilter}
@@ -178,7 +181,7 @@ function CFBBoardInner() {
 
         <FeaturedSituation
           situation={featured ? toSituationRowData(featured) : undefined}
-          eyebrow={profile.featuredLabel}
+          eyebrow={hasLiveCFBData ? profile.featuredLabel : "Offseason Watch Context"}
           title={featuredDetails.title}
           summary={featuredDetails.summary}
           primaryRead={featuredDetails.primaryRead}
