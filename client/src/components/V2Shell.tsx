@@ -134,6 +134,8 @@ function Sidebar({
 }) {
   const [location, setLocation] = useLocation();
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ Boards: true });
+  const expandedWidth = 204;
+  const collapsedWidth = 50;
 
   const toggleSection = (label: string) => {
     setOpenSections((prev) => ({ ...prev, [label]: !prev[label] }));
@@ -154,8 +156,8 @@ function Sidebar({
   return (
     <aside
       style={{
-        width: collapsed ? "56px" : "228px",
-        minWidth: collapsed ? "56px" : "228px",
+        width: collapsed ? `${collapsedWidth}px` : `${expandedWidth}px`,
+        minWidth: collapsed ? `${collapsedWidth}px` : `${expandedWidth}px`,
         height: "100vh",
         background: "linear-gradient(180deg, rgba(6,14,22,0.995), rgba(4,7,10,0.99))",
         borderRight: "1px solid var(--es-border)",
@@ -175,13 +177,13 @@ function Sidebar({
       {/* Logo */}
       <div
         style={{
-          height: collapsed ? "54px" : "72px",
+          height: collapsed ? "50px" : "62px",
           display: "flex",
           alignItems: "center",
-          padding: collapsed ? "0 8px" : "0 12px",
+          padding: collapsed ? "0 7px" : "0 10px",
           borderBottom: "1px solid var(--es-border)",
           flexShrink: 0,
-          gap: collapsed ? "0" : "10px",
+          gap: collapsed ? "0" : "8px",
           background: "linear-gradient(180deg, rgba(7,16,25,1), rgba(5,10,15,0.98))",
           overflow: "hidden",
         }}
@@ -197,7 +199,7 @@ function Sidebar({
               width: "38px", height: "38px",
             }}
           >
-            <BrandEmblem size={34} />
+            <BrandEmblem size={32} />
           </button>
         ) : (
           <>
@@ -218,7 +220,7 @@ function Sidebar({
         )}
       </div>
 
-      <nav aria-label="Primary navigation" style={{ flex: 1, overflowY: "auto", padding: collapsed ? "6px 6px" : "8px 7px" }}>
+      <nav aria-label="Primary navigation" style={{ flex: 1, overflowY: "auto", padding: collapsed ? "5px 5px" : "6px 6px" }}>
         {sidebarNav.map((item) => (
           <button
             key={item.label}
@@ -228,12 +230,12 @@ function Sidebar({
             title={collapsed ? item.label : undefined}
             style={{
               width: "100%",
-              minHeight: collapsed ? 32 : 35,
+              minHeight: collapsed ? 30 : 32,
               display: "flex",
               alignItems: "center",
               justifyContent: collapsed ? "center" : "flex-start",
-              gap: collapsed ? 0 : 9,
-              padding: collapsed ? "0" : "0 9px",
+              gap: collapsed ? 0 : 8,
+              padding: collapsed ? "0" : "0 8px",
               marginBottom: collapsed ? 1 : 2,
               border: item.active ? "1px solid rgba(24,212,123,0.14)" : "1px solid transparent",
               borderLeft: item.active ? "2px solid #18D47B" : "2px solid transparent",
@@ -242,7 +244,7 @@ function Sidebar({
               color: item.active ? "#EAFBF2" : "#94A3B8",
               cursor: "pointer",
               fontFamily: "'Barlow Condensed', sans-serif",
-              fontSize: "0.79rem",
+              fontSize: "0.76rem",
               fontWeight: item.active ? 820 : 680,
               letterSpacing: "0.015em",
               textAlign: "left",
@@ -665,8 +667,8 @@ function Sidebar({
       {!collapsed && (
         <div
           style={{
-            margin: "6px 10px 10px",
-            padding: "10px 12px",
+            margin: "5px 8px 8px",
+            padding: "8px 10px",
             background: "linear-gradient(135deg, rgba(245,184,65,0.09), rgba(24,212,123,0.035))",
             border: "1px solid rgba(245,184,65,0.18)",
             borderRadius: "8px",
@@ -675,13 +677,13 @@ function Sidebar({
         >
           <div
             style={{
-              fontSize: "0.72rem", fontWeight: 700, color: "#F5B841",
-              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "4px",
+              fontSize: "0.68rem", fontWeight: 700, color: "#F5B841",
+              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px",
             }}
           >
             Sports Desk
           </div>
-          <div style={{ fontSize: "0.72rem", color: "#CBD5E1", marginBottom: "10px", lineHeight: 1.4 }}>
+          <div style={{ fontSize: "0.68rem", color: "#CBD5E1", marginBottom: "8px", lineHeight: 1.35 }}>
             Lineups · Injuries · Alerts
           </div>
           <ProUpgradeButton />
@@ -996,6 +998,7 @@ export default function AppShell({
   }, [mobileDrawerOpen]);
 
   const [location] = useLocation();
+  const isLeagueBoardRoute = ["/mlb", "/nba", "/nfl", "/cfb"].some((path) => location.startsWith(path));
   useEffect(() => {
     if (isMobile) setMobileDrawerOpen(false);
   }, [location]);
@@ -1046,10 +1049,11 @@ export default function AppShell({
     <div
       style={{
         display: "flex",
-        height: "100vh",
+        height: isLeagueBoardRoute ? "auto" : "100vh",
+        minHeight: "100vh",
         width: "100vw",
         maxWidth: "100vw",
-        overflow: "hidden",
+        overflow: isLeagueBoardRoute ? "visible" : "hidden",
         background: isLight ? "var(--es-bg)" : "#050505",
         backgroundImage: isLight ? "var(--es-paper-texture)" : "none",
         backgroundSize: isLight ? "300px 300px" : "auto",
@@ -1083,6 +1087,8 @@ export default function AppShell({
             top: 0,
             left: 0,
             height: "100dvh",
+            width: "min(204px, 82vw)",
+            minWidth: "min(204px, 82vw)",
             zIndex: 1000,
             background: "linear-gradient(180deg, rgba(5,5,5,0.995), rgba(7,16,25,0.995))",
             boxShadow: mobileDrawerOpen ? "18px 0 46px rgba(0,0,0,0.70)" : "none",
@@ -1105,7 +1111,7 @@ export default function AppShell({
           flex: 1,
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden",
+          overflow: isLeagueBoardRoute ? "visible" : "hidden",
           minWidth: 0,
           width: isMobile ? "100vw" : undefined,
           maxWidth: isMobile ? "100vw" : undefined,
@@ -1118,7 +1124,7 @@ export default function AppShell({
           isMobile={isMobile}
           brandContext={brandContext}
         />
-        <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minWidth: 0, maxWidth: "100%", paddingBottom: isMobile ? "84px" : 0 }}>{children}</div>
+        <div style={{ flex: 1, overflowY: isLeagueBoardRoute ? "visible" : "auto", overflowX: "hidden", minWidth: 0, maxWidth: "100%", paddingBottom: isMobile ? "84px" : 0 }}>{children}</div>
       </div>
       <MobileTabBar />
     </div>

@@ -1144,7 +1144,7 @@ const liveIntelCss = `
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.32;
+  opacity: 0.18;
   background:
     radial-gradient(ellipse 36% 10% at 24% 0%, rgba(248,250,252,0.16), transparent 70%),
     radial-gradient(ellipse 30% 9% at 72% 0%, rgba(248,250,252,0.12), transparent 74%),
@@ -1800,7 +1800,7 @@ const liveIntelCss = `
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.13;
+  opacity: 0.07;
   background-image:
     radial-gradient(ellipse 46% 16% at 50% 18%, rgba(248,250,252,0.075), transparent 70%),
     linear-gradient(rgba(148, 163, 184, 0.045) 1px, transparent 1px),
@@ -1812,7 +1812,7 @@ const liveIntelCss = `
   content: "";
   position: absolute;
   inset: 0;
-  opacity: 0.11;
+  opacity: 0.06;
   background-image:
     linear-gradient(18deg, transparent 0 42%, rgba(203,213,225,0.16) 42.2%, transparent 42.55%),
     linear-gradient(-24deg, transparent 0 56%, rgba(245,184,65,0.13) 56.2%, transparent 56.55%),
@@ -1825,7 +1825,7 @@ const liveIntelCss = `
   position: absolute;
   inset: -8% -8% auto -8%;
   height: 42%;
-  opacity: 0.26;
+  opacity: 0.14;
   background:
     radial-gradient(ellipse 12% 42% at 14% 0%, rgba(248,250,252,0.24), transparent 70%),
     radial-gradient(ellipse 14% 42% at 36% 0%, rgba(248,250,252,0.18), transparent 72%),
@@ -1840,7 +1840,7 @@ const liveIntelCss = `
   right: -6%;
   top: 8%;
   height: 28%;
-  opacity: 0.16;
+  opacity: 0.09;
   background:
     radial-gradient(circle at 8% 70%, rgba(248,250,252,0.18) 0 1px, transparent 2px),
     radial-gradient(circle at 18% 58%, rgba(245,184,65,0.14) 0 1px, transparent 2px),
@@ -1859,7 +1859,7 @@ const liveIntelCss = `
   right: -10%;
   top: 8%;
   height: 58%;
-  opacity: 0.16;
+  opacity: 0.08;
   background:
     radial-gradient(ellipse 70% 24% at 50% 72%, rgba(24,212,123,0.12), transparent 68%),
     repeating-linear-gradient(90deg, rgba(24,90,54,0.06) 0 7%, rgba(8,45,30,0.10) 7% 14%),
@@ -1875,7 +1875,7 @@ const liveIntelCss = `
   top: 13%;
   width: min(42vw, 520px);
   aspect-ratio: 1;
-  opacity: 0.14;
+  opacity: 0.08;
   transform: rotate(45deg);
   border: 1px solid rgba(245, 184, 65, 0.36);
   background:
@@ -1902,7 +1902,7 @@ const liveIntelCss = `
   bottom: 14%;
   width: min(58vw, 760px);
   height: 38%;
-  opacity: 0.15;
+  opacity: 0.08;
   background:
     radial-gradient(ellipse 72% 92% at 8% 92%, transparent 48%, rgba(111, 164, 191, 0.24) 49%, transparent 50%),
     radial-gradient(ellipse 50% 70% at 38% 94%, transparent 48%, rgba(111, 164, 191, 0.18) 49%, transparent 50%),
