@@ -134,6 +134,8 @@ export function listCanonicalSituationApiResponses(query: CanonicalSituationApiQ
     limit: query.orderBy === "operational_visibility_score" ? 1000 : query.limit,
   });
 
+  if (records.length === 0) return [];
+
   const comparableCorpus = buildComparableSituationCorpus();
   const mapped = records.map((record) => mapCanonicalSituationToApiResponse(record, comparableCorpus));
   const sorted = sortCanonicalSituationApiResponses(mapped, query.orderBy ?? "updated_at");

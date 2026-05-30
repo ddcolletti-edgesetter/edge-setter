@@ -1,29 +1,24 @@
 /**
- * Edge Setter — ESPN CFB Transactions Adapter
+ * Edge Setter - ESPN CFB Transactions Adapter
  *
- * Source: https://site.api.espn.com  (free, no key required)
- * Provides: CFB transfer portal moves, signings, depth chart transactions
- *
- * NOTE: This endpoint is untested. ESPN's college-football/transactions
- * response shape may differ from the NFL equivalent, and it is unclear
- * whether transfer portal entries are included or only official roster
- * moves. If the endpoint returns empty or 404, ingest silently no-ops.
- *
- * Runs year-round — transfer portal activity peaks Jan–Apr and May–Jul.
- *
- * Maps each transaction to a `transaction` RawEvent consumed by
- * processor.ts → handleTransaction().
+ * Keeps CFB honest: ingest only current rows returned by ESPN. If ESPN exposes
+ * no transactions, log diagnostics and leave live data empty.
  */
 
 import { insertRawEvent, getRawEvents } from "../store";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/college-football";
-
-/* ─── Types ───────────────────────────────────────────────── */
+const CURRENT_TRANSACTION_MAX_AGE_DAYS = 14;
+let lastTransactionFetchReachable = false;
 
 interface ESPNTransactionAthlete {
   displayName?: string;
   position?: { abbreviation?: string };
+}
+
+interface ESPNTeamRef {
+  abbreviation?: string;
+  displayName?: string;
 }
 
 interface ESPNTransactionItem {
@@ -31,154 +26,185 @@ interface ESPNTransactionItem {
   type?: string;
   description?: string;
   date?: string;
+  team?: ESPNTeamRef;
 }
 
 interface ESPNTransactionGroup {
-  team?: { abbreviation?: string; displayName?: string };
+  team?: ESPNTeamRef;
   items?: ESPNTransactionItem[];
+  athlete?: ESPNTransactionAthlete;
+  type?: string;
+  description?: string;
+  date?: string;
 }
 
 interface ESPNTransactionsResponse {
   transactions?: ESPNTransactionGroup[];
 }
 
-/* ─── Transaction types worth signalling ──────────────────── */
-
-const SIGNAL_TYPES = new Set([
-  "Transfer",
-  "TransferPortal",
-  "Signed",
-  "NationalLetterOfIntent",
-  "Committed",
-  "Decommitted",
-  "GrayshirtCommitment",
-  "WalkOn",
-  "Released",
-]);
+export interface ESPNTransactionDiagnostics {
+  source_reachable: boolean;
+  payload_rows_seen: number;
+  rows_normalized: number;
+  rows_skipped_stale: number;
+  rows_skipped_missing_required: number;
+  raw_events_created: number;
+}
 
 function confidenceFor(type: string): number {
-  if (type === "Transfer" || type === "TransferPortal") return 88;
-  if (type === "NationalLetterOfIntent" || type === "Signed") return 92;
-  if (type === "Committed") return 75;
-  if (type === "Decommitted") return 85;
-  return 78;
+  if (type === "Transfer" || type === "TransferPortal") return 86;
+  if (type === "NationalLetterOfIntent" || type === "Signed") return 88;
+  if (type === "Committed") return 72;
+  if (type === "Decommitted") return 82;
+  return 74;
 }
 
-function notesFor(player: string, team: string, type: string, description?: string): string {
-  if (description) return description;
-  const labels: Record<string, string> = {
-    Transfer:              `${player} entering transfer portal — destination TBD.`,
-    TransferPortal:        `${player} in transfer portal, ${team} listed as destination.`,
-    Signed:                `${player} signed with ${team}.`,
-    NationalLetterOfIntent:`${player} signed National Letter of Intent with ${team}.`,
-    Committed:             `${player} committed to ${team}.`,
-    Decommitted:           `${player} decommitted — now open to other programs.`,
-    GrayshirtCommitment:   `${player} signed greyshirt agreement with ${team}.`,
-    WalkOn:                `${player} joining ${team} as walk-on.`,
-    Released:              `${player} released from scholarship by ${team}.`,
-  };
-  return labels[type] ?? `${player} — ${type} (${team})`;
+function inferTransactionType(description?: string, explicitType?: string): string {
+  if (explicitType) return explicitType;
+  if (/\btransfer\b|\bportal\b/i.test(description ?? "")) return "Transfer";
+  if (/\bcommitted\b/i.test(description ?? "")) return "Committed";
+  if (/\bdecommitted\b/i.test(description ?? "")) return "Decommitted";
+  if (/\bsigned\b/i.test(description ?? "")) return "Signed";
+  return "RosterMove";
 }
 
-function actionFor(type: string, player: string, team: string): string {
-  if (type === "Transfer" || type === "TransferPortal")
-    return `Monitor ${player}'s destination — landing spot determines immediate fantasy/DFS value.`;
-  if (type === "NationalLetterOfIntent" || type === "Signed")
-    return `${player} locks in at ${team} — evaluate early-enroll potential and spring depth chart impact.`;
-  if (type === "Committed")
-    return `Soft commitment — track until NLI signing. Decommitment risk remains.`;
-  if (type === "Decommitted")
-    return `${player} back on the board — top programs likely to pursue immediately.`;
-  return `Monitor roster construction impact from ${type} at ${team}.`;
+function actionFor(type: string, player: string | null, team: string): string {
+  const subject = player ?? team;
+  if (type === "Transfer" || type === "TransferPortal") return `Monitor ${subject} for depth chart and role impact.`;
+  if (type === "Committed" || type === "Decommitted") return `Track recruiting status before treating ${subject} as stable roster context.`;
+  return `Monitor roster construction impact from ${type}.`;
 }
 
-/* ─── Fetch transactions ──────────────────────────────────── */
+export function isCurrentESPNCFBTransaction(date: string | undefined, maxAgeDays = CURRENT_TRANSACTION_MAX_AGE_DAYS, now = new Date()): boolean {
+  if (!date) return false;
+  const time = Date.parse(date);
+  if (!Number.isFinite(time)) return false;
+  const ageMs = now.getTime() - time;
+  return ageMs >= 0 && ageMs <= maxAgeDays * 24 * 60 * 60 * 1000;
+}
 
-async function fetchCFBTransactions(): Promise<ESPNTransactionGroup[]> {
+export function normalizeESPNCFBTransactionRows(rows: ESPNTransactionGroup[] = []): ESPNTransactionItem[] {
+  const normalized: ESPNTransactionItem[] = [];
+  for (const row of rows) {
+    if (Array.isArray(row.items)) {
+      for (const item of row.items) {
+        normalized.push({ ...item, team: item.team ?? row.team });
+      }
+      continue;
+    }
+    normalized.push({
+      athlete: row.athlete,
+      type: row.type,
+      description: row.description,
+      date: row.date,
+      team: row.team,
+    });
+  }
+  return normalized;
+}
+
+async function fetchCFBTransactions(): Promise<ESPNTransactionItem[]> {
   try {
     const resp = await fetch(`${ESPN_BASE}/transactions`);
     if (!resp.ok) {
-      // 404 is expected if ESPN doesn't support this endpoint for CFB — silent no-op
+      lastTransactionFetchReachable = false;
       if (resp.status !== 404) {
         console.error(`[espn-cfb-tx] HTTP ${resp.status} fetching transactions`);
       }
       return [];
     }
+    lastTransactionFetchReachable = true;
     const data = await resp.json() as ESPNTransactionsResponse;
-    return data.transactions ?? [];
+    return normalizeESPNCFBTransactionRows(data.transactions);
   } catch (err: any) {
+    lastTransactionFetchReachable = false;
     console.error("[espn-cfb-tx] Fetch error:", err.message);
     return [];
   }
 }
 
-/* ─── Ingest CFB transactions ─────────────────────────────── */
-
-export async function ingestCFBTransactions(): Promise<{ created: number; skipped: number }> {
-  const groups = await fetchCFBTransactions();
+export async function ingestCFBTransactions(): Promise<{ created: number; skipped: number; diagnostics: ESPNTransactionDiagnostics }> {
+  const transactions = await fetchCFBTransactions();
   let created = 0;
   let skipped = 0;
+  const diagnostics: ESPNTransactionDiagnostics = {
+    source_reachable: lastTransactionFetchReachable,
+    payload_rows_seen: transactions.length,
+    rows_normalized: transactions.length,
+    rows_skipped_stale: 0,
+    rows_skipped_missing_required: 0,
+    raw_events_created: 0,
+  };
 
-  if (groups.length === 0) {
-    console.log("[espn-cfb-tx] No CFB transactions returned (endpoint may not support this league)");
-    return { created: 0, skipped: 0 };
+  if (transactions.length === 0) {
+    console.log(`[espn-cfb-tx] CFB transactions diagnostics: ${JSON.stringify(diagnostics)}`);
+    return { created: 0, skipped: 0, diagnostics };
   }
 
-  // Dedup against recent unprocessed transaction events
-  const recentEvents = getRawEvents({ league: "CFB", processed: false, limit: 500 });
+  const recentEvents = getRawEvents({ league: "CFB", limit: 1000 });
   const existingKeys = new Set(
     recentEvents
       .filter(e => e.event_type === "transaction")
-      .map(e => `${e.player}_${(e.payload as any).transaction_type}_${(e.payload as any).date ?? ""}`)
+      .map(e => `${e.team}_${e.player ?? "team"}_${(e.payload as any).transaction_type}_${(e.payload as any).date ?? ""}_${(e.payload as any).description_hash ?? ""}`)
   );
 
-  for (const group of groups) {
-    const team = group.team?.abbreviation ?? "UNK";
+  for (const item of transactions) {
+    const txDate = item.date;
+    const team = item.team?.abbreviation ?? "UNK";
+    const description = item.description;
+    const playerName = item.athlete?.displayName ?? null;
 
-    for (const item of group.items ?? []) {
-      const playerName = item.athlete?.displayName;
-      if (!playerName) continue;
-
-      const txType = item.type ?? "Unknown";
-      if (!SIGNAL_TYPES.has(txType)) { skipped++; continue; }
-
-      const txDate = item.date?.slice(0, 10) ?? "";
-      const key = `${playerName}_${txType}_${txDate}`;
-      if (existingKeys.has(key)) { skipped++; continue; }
-
-      const position = item.athlete?.position?.abbreviation ?? "";
-      const confidence = confidenceFor(txType);
-      const notes = notesFor(playerName, team, txType, item.description);
-
-      insertRawEvent({
-        source_id:   "espn",
-        source_type: "api",
-        league:      "CFB",
-        game_id:     null,
-        team,
-        player:      playerName,
-        event_type:  "transaction",
-        payload: {
-          transaction_type:  txType,
-          date:              txDate,
-          position,
-          notes,
-          action_note:       actionFor(txType, playerName, team),
-          why_it_matters:    `${txType} directly impacts ${playerName}'s role and team depth chart heading into next season.`,
-          confidence,
-          confirmation:      "Consensus",
-          source_types:      ["official report"],
-          source_labels:     ["ESPN / NCAA Official"],
-          source_count:      1,
-          sources:           [{ name: "ESPN", type: "official report" }],
-        },
-      });
-
-      created++;
-      existingKeys.add(key);
+    if (!description && !playerName) {
+      diagnostics.rows_skipped_missing_required++;
+      skipped++;
+      continue;
     }
+    if (!isCurrentESPNCFBTransaction(txDate)) {
+      diagnostics.rows_skipped_stale++;
+      skipped++;
+      continue;
+    }
+
+    const txType = inferTransactionType(description, item.type);
+    const descriptionHash = Buffer.from(description ?? playerName ?? "").toString("base64").slice(0, 24);
+    const key = `${team}_${playerName ?? "team"}_${txType}_${txDate?.slice(0, 10) ?? ""}_${descriptionHash}`;
+    if (existingKeys.has(key)) {
+      skipped++;
+      continue;
+    }
+
+    insertRawEvent({
+      source_id: "espn",
+      source_type: "api",
+      league: "CFB",
+      game_id: null,
+      team,
+      player: playerName,
+      event_type: "transaction",
+      payload: {
+        transaction_type: txType,
+        date: txDate?.slice(0, 10) ?? "",
+        occurred_at: txDate,
+        event_time: txDate,
+        description_hash: descriptionHash,
+        position: item.athlete?.position?.abbreviation ?? "",
+        notes: description ?? `${playerName ?? team} - ${txType} transaction confirmed by ESPN.`,
+        action_note: actionFor(txType, playerName, team),
+        why_it_matters: `${txType} changes roster context and may affect depth chart expectations.`,
+        confidence: confidenceFor(txType),
+        confirmation: "Developing",
+        source_types: ["sports_api"],
+        source_labels: ["ESPN CFB"],
+        source_count: 1,
+        sources: [{ name: "ESPN CFB", type: "sports_api" }],
+      },
+    }, { eventTime: txDate });
+
+    created++;
+    diagnostics.raw_events_created++;
+    existingKeys.add(key);
   }
 
-  console.log(`[espn-cfb-tx] CFB transactions: ${created} created, ${skipped} skipped`);
-  return { created, skipped };
+  console.log(`[espn-cfb-tx] CFB transactions diagnostics: ${JSON.stringify(diagnostics)}`);
+  return { created, skipped, diagnostics };
 }

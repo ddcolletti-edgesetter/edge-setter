@@ -1,34 +1,45 @@
 /**
- * Edge Setter — ESPN NFL Adapter
+ * Edge Setter - ESPN NFL Adapter
  *
- * Source: https://site.api.espn.com  (free, no key required)
+ * Source: https://site.api.espn.com (free, no key required)
  * Provides: NFL injury reports, final game scores
- *
- * Fetches:
- *   - Active NFL injuries  → injury_update RawEvents
- *   - Completed game scores → used by the settlement engine
- *     (matched to our DB by team abbreviation + game date)
  */
 
 import { insertRawEvent, getRawEvents, findGameByTeams } from "../store";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
+const CURRENT_INJURY_MAX_AGE_DAYS = 21;
+let lastInjuryFetchReachable = false;
 
-/* ─── Types ───────────────────────────────────────────────── */
+interface ESPNTeamRef {
+  abbreviation?: string;
+  displayName?: string;
+}
 
 interface ESPNInjuryEntry {
   athlete?: {
     displayName?: string;
     position?: { abbreviation?: string };
+    team?: ESPNTeamRef;
   };
-  team?: { abbreviation?: string; displayName?: string };
+  team?: ESPNTeamRef;
   status?: string;
   shortComment?: string;
   longComment?: string;
+  date?: string;
+  type?: { description?: string; abbreviation?: string };
+  details?: { type?: string; location?: string; detail?: string };
+}
+
+interface ESPNInjuryGroup {
+  team?: ESPNTeamRef;
+  abbreviation?: string;
+  displayName?: string;
+  injuries?: ESPNInjuryEntry[];
 }
 
 interface ESPNInjuryResponse {
-  injuries?: ESPNInjuryEntry[];
+  injuries?: Array<ESPNInjuryEntry | ESPNInjuryGroup>;
 }
 
 interface ESPNCompetitor {
@@ -52,104 +63,178 @@ interface ESPNScoreboardResponse {
   events?: ESPNEvent[];
 }
 
-/* ─── Normalize designation ───────────────────────────────── */
+export interface ESPNInjuryDiagnostics {
+  source_reachable: boolean;
+  payload_rows_seen: number;
+  rows_normalized: number;
+  rows_skipped_stale: number;
+  rows_skipped_missing_required: number;
+  rows_skipped_non_impactful_status: number;
+  raw_events_created: number;
+}
 
 function normalizeDesignation(status: string): string {
   const s = status.toLowerCase();
   if (s.includes("physically unable")) return "PUP";
-  if (s.includes("injured reserve"))   return "IR";
-  if (s.includes("out"))               return "OUT";
-  if (s.includes("doubtful"))          return "Doubtful";
-  if (s.includes("questionable"))      return "Questionable";
-  if (s.includes("probable"))          return "Probable";
-  return status;
+  if (s.includes("injured reserve")) return "IR";
+  if (s.includes("out")) return "OUT";
+  if (s.includes("doubtful")) return "Doubtful";
+  if (s.includes("questionable")) return "Questionable";
+  if (s.includes("probable")) return "Probable";
+  return status || "Active";
 }
 
-/* ─── Fetch injuries ──────────────────────────────────────── */
+export function normalizeESPNNFLInjuryRows(rows: ESPNInjuryResponse["injuries"] = []): ESPNInjuryEntry[] {
+  const normalized: ESPNInjuryEntry[] = [];
+  for (const row of rows) {
+    if (Array.isArray((row as ESPNInjuryGroup).injuries)) {
+      const group = row as ESPNInjuryGroup;
+      const groupTeam = group.team ?? {
+        abbreviation: group.abbreviation,
+        displayName: group.displayName,
+      };
+      for (const injury of group.injuries ?? []) {
+        normalized.push({
+          ...injury,
+          team: injury.team ?? injury.athlete?.team ?? groupTeam,
+        });
+      }
+      continue;
+    }
+
+    const entry = row as ESPNInjuryEntry;
+    normalized.push({
+      ...entry,
+      team: entry.team ?? entry.athlete?.team,
+    });
+  }
+  return normalized;
+}
+
+export function isCurrentESPNRow(date: string | undefined, maxAgeDays = CURRENT_INJURY_MAX_AGE_DAYS, now = new Date()): boolean {
+  if (!date) return false;
+  const time = Date.parse(date);
+  if (!Number.isFinite(time)) return false;
+  const ageMs = now.getTime() - time;
+  return ageMs >= 0 && ageMs <= maxAgeDays * 24 * 60 * 60 * 1000;
+}
+
+export function isSignalWorthyNFLInjuryStatus(status: string | undefined): boolean {
+  const designation = normalizeDesignation(status ?? "");
+  return ["OUT", "IR", "PUP", "Doubtful", "Questionable"].includes(designation);
+}
 
 export async function fetchNFLInjuries(): Promise<ESPNInjuryEntry[]> {
   try {
     const resp = await fetch(`${ESPN_BASE}/injuries`);
     if (!resp.ok) {
+      lastInjuryFetchReachable = false;
       console.error(`[espn-nfl] HTTP ${resp.status} fetching injuries`);
       return [];
     }
+    lastInjuryFetchReachable = true;
     const data = await resp.json() as ESPNInjuryResponse;
-    return data.injuries ?? [];
+    return normalizeESPNNFLInjuryRows(data.injuries);
   } catch (err: any) {
+    lastInjuryFetchReachable = false;
     console.error("[espn-nfl] Injury fetch error:", err.message);
     return [];
   }
 }
 
-/* ─── Ingest NFL injuries ─────────────────────────────────── */
-
-export async function ingestNFLInjuries(): Promise<{ created: number; skipped: number }> {
+export async function ingestNFLInjuries(): Promise<{ created: number; skipped: number; diagnostics: ESPNInjuryDiagnostics }> {
   const injuries = await fetchNFLInjuries();
   let created = 0;
   let skipped = 0;
+  const diagnostics: ESPNInjuryDiagnostics = {
+    source_reachable: lastInjuryFetchReachable,
+    payload_rows_seen: injuries.length,
+    rows_normalized: injuries.length,
+    rows_skipped_stale: 0,
+    rows_skipped_missing_required: 0,
+    rows_skipped_non_impactful_status: 0,
+    raw_events_created: 0,
+  };
 
-  const recentEvents = getRawEvents({ league: "NFL", processed: false, limit: 500 });
+  const recentEvents = getRawEvents({ league: "NFL", limit: 1000 });
   const existingKeys = new Set(
     recentEvents
       .filter(e => e.event_type === "injury_update")
-      .map(e => `${e.player}_${(e.payload as any).designation}`)
+      .map(e => `${e.player}_${(e.payload as any).designation}_${String((e.payload as any).occurred_at ?? "").slice(0, 10)}`)
   );
 
   for (const inj of injuries) {
     const playerName = inj.athlete?.displayName;
-    if (!playerName) continue;
+    const eventDate = inj.date;
+    if (!playerName) {
+      diagnostics.rows_skipped_missing_required++;
+      skipped++;
+      continue;
+    }
+    if (!isCurrentESPNRow(eventDate)) {
+      diagnostics.rows_skipped_stale++;
+      skipped++;
+      continue;
+    }
 
-    const team        = inj.team?.abbreviation ?? "UNK";
-    const rawStatus   = inj.status ?? "";
+    const team = inj.team?.abbreviation ?? inj.athlete?.team?.abbreviation ?? "UNK";
+    const rawStatus = inj.status ?? inj.type?.description ?? "";
     const designation = normalizeDesignation(rawStatus);
-    const position    = inj.athlete?.position?.abbreviation ?? "";
-    const bodyPart    = inj.shortComment ?? inj.longComment ?? "undisclosed";
-    const key         = `${playerName}_${designation}`;
+    if (!isSignalWorthyNFLInjuryStatus(rawStatus)) {
+      diagnostics.rows_skipped_non_impactful_status++;
+      skipped++;
+      continue;
+    }
+    const position = inj.athlete?.position?.abbreviation ?? "";
+    const bodyPart = inj.details?.type ?? inj.details?.location ?? "undisclosed";
+    const key = `${playerName}_${designation}_${eventDate?.slice(0, 10) ?? ""}`;
 
-    if (existingKeys.has(key)) { skipped++; continue; }
+    if (existingKeys.has(key)) {
+      skipped++;
+      continue;
+    }
 
     const isHighImpact = ["OUT", "IR", "PUP", "Doubtful"].includes(designation);
-    const confidence   = isHighImpact ? 88 : 68;
+    const confidence = isHighImpact ? 84 : 62;
+    const notes = inj.longComment ?? inj.shortComment ?? `${playerName} (${team}) listed ${designation}.`;
 
     insertRawEvent({
-      source_id:   "espn",
+      source_id: "espn",
       source_type: "api",
-      league:      "NFL",
-      game_id:     null,
+      league: "NFL",
+      game_id: null,
       team,
-      player:      playerName,
-      event_type:  "injury_update",
+      player: playerName,
+      event_type: "injury_update",
       payload: {
         designation,
-        status:       rawStatus,
+        status: rawStatus,
         position,
-        body_part:    bodyPart,
-        notes:        inj.longComment ?? `${playerName} (${team}) listed ${designation}${bodyPart !== "undisclosed" ? ` — ${bodyPart}` : ""}.`,
+        body_part: bodyPart,
+        occurred_at: eventDate,
+        event_time: eventDate,
+        notes,
         confidence,
         confirmation: isHighImpact ? "Corroborated" : "Developing",
-        source_types:  ["official report"],
-        source_labels: ["ESPN / NFL Official"],
-        source_count:  1,
-        sources:       [{ name: "ESPN", type: "official report" }],
+        source_types: ["sports_api"],
+        source_labels: ["ESPN NFL"],
+        source_count: 1,
+        sources: [{ name: "ESPN NFL", type: "sports_api" }],
       },
-    });
+    }, { eventTime: eventDate });
 
     created++;
+    diagnostics.raw_events_created++;
     existingKeys.add(key);
   }
 
-  console.log(`[espn-nfl] NFL injuries: ${created} created, ${skipped} skipped`);
-  return { created, skipped };
+  console.log(`[espn-nfl] NFL injuries diagnostics: ${JSON.stringify(diagnostics)}`);
+  return { created, skipped, diagnostics };
 }
-
-/* ─── Fetch final scores ──────────────────────────────────── */
 
 /**
  * Fetches the current-week NFL scoreboard from ESPN and resolves
- * completed games to their canonical game_id in our DB (matched by
- * team abbreviation + game date, since ESPN and The Odds API use
- * different internal IDs).
+ * completed games to their canonical game_id in our DB.
  */
 export async function fetchNFLFinalScores(): Promise<Array<{
   game_id: string;
