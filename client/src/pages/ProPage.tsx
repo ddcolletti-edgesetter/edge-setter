@@ -270,10 +270,10 @@ export default function ProPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: C.bg, color: C.text }}>
+    <div className="pro-product-page" style={{ minHeight: "100vh", background: C.bg, color: C.text }}>
 
       {/* Nav */}
-      <div style={{
+      <div className="pro-product-nav" style={{
         background: C.surface1,
         borderBottom: `1px solid rgba(245,184,65,0.14)`,
         borderTop: "2px solid rgba(245,184,65,0.60)",
@@ -286,16 +286,10 @@ export default function ProPage() {
         }}>
           <Link href="/">
             <div style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}>
-              <svg width="28" height="28" viewBox="0 0 32 32" fill="none">
-                <rect width="32" height="32" rx="3" fill="#0A0F1A" />
-                <rect x="6" y="7" width="20" height="2.5" rx="0.5" fill="#F5B841" />
-                <rect x="6" y="14.75" width="13" height="2.5" rx="0.5" fill="#F5B841" />
-                <rect x="6" y="22.5" width="20" height="2.5" rx="0.5" fill="#F5B841" />
-                <rect x="21" y="14.75" width="5" height="2.5" rx="0.5" fill="#FFD166" opacity="0.6" />
-              </svg>
+              <img src="/brand/edgesetter-emblem.png" alt="" style={{ width: 30, height: 30, objectFit: "contain" }} />
               <span style={{
-                fontFamily: "'Playfair Display',Georgia,serif",
-                fontSize: 16, fontWeight: 700, color: C.text,
+                fontFamily: "'Satoshi','Inter',system-ui,sans-serif",
+                fontSize: 15, fontWeight: 800, color: C.text, letterSpacing: "0.02em",
               }}>Edge Setter</span>
             </div>
           </Link>
@@ -314,7 +308,7 @@ export default function ProPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "64px 32px 96px" }}>
+      <div className="pro-product-main" style={{ maxWidth: 1120, margin: "0 auto", padding: "56px 32px 86px" }}>
 
         {isPro === true ? (
           <>
@@ -357,7 +351,7 @@ export default function ProPage() {
         ) : (
           <>
             {/* Draft Week urgency banner */}
-            <div style={{
+            <div className="pro-status-banner" style={{
               display: "flex", alignItems: "flex-start", gap: 10,
               background: "rgba(245,184,65,0.07)",
               border: "1px solid rgba(245,184,65,0.30)",
@@ -378,7 +372,7 @@ export default function ProPage() {
             </div>
 
             {/* Eyebrow */}
-            <div style={{
+            <div className="pro-eyebrow" style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               fontSize: 13, fontWeight: 700, letterSpacing: "0.22em",
               textTransform: "uppercase", color: C.gold, marginBottom: 18,
@@ -387,7 +381,7 @@ export default function ProPage() {
             </div>
 
             {/* Headline */}
-            <h1 style={{
+            <h1 className="pro-product-headline" style={{
               fontFamily: "'Playfair Display',Georgia,serif",
               fontSize: "clamp(1.9rem, 3.8vw, 3rem)",
               fontWeight: 700, color: C.text,
@@ -400,13 +394,13 @@ export default function ProPage() {
             </h1>
 
             {/* Sub-headline */}
-            <p style={{
+            <p className="pro-product-dek" style={{
               fontSize: 18, color: C.textMuted, lineHeight: 1.65,
               maxWidth: 560, margin: "0 0 12px",
             }}>
               Built for sharp fantasy, DFS, and betting players who already follow the news but want it condensed into edges.
             </p>
-            <p style={{
+            <p className="pro-product-support" style={{
               fontSize: 16, color: C.textFaint, lineHeight: 1.6,
               maxWidth: 540, margin: "0 0 48px",
             }}>
@@ -414,14 +408,14 @@ export default function ProPage() {
             </p>
 
             {/* 4 direct bullet proof points */}
-            <div style={{
+            <div className="pro-feature-grid" style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
               gap: 16,
               marginBottom: 52,
             }}>
               {FEATURES.map(({ icon: Icon, label, detail }) => (
-                <div key={label} style={{
+                <div key={label} className="pro-feature-card" style={{
                   background: C.surface1,
                   border: "1px solid rgba(245,184,65,0.12)",
                   borderRadius: 4,
@@ -453,7 +447,7 @@ export default function ProPage() {
             <div style={{ height: 1, background: C.gold, opacity: 0.14, marginBottom: 44 }} />
 
             {/* Checkout block */}
-            <div>
+            <div className="pro-checkout-panel">
               <p style={{
                 fontFamily: "'Playfair Display',Georgia,serif",
                 fontSize: 24, fontWeight: 700,
@@ -471,7 +465,7 @@ export default function ProPage() {
             </div>
 
             {/* Already Pro? */}
-            <div style={{
+            <div className="pro-subscriber-panel" style={{
               marginTop: 48, paddingTop: 32,
               borderTop: "1px solid rgba(255,255,255,0.06)",
             }}>
@@ -525,6 +519,122 @@ export default function ProPage() {
           </>
         )}
       </div>
+      <style>{proPageCss}</style>
     </div>
   );
 }
+
+const proPageCss = `
+.pro-product-page {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 72% 36% at 48% -10%, rgba(111,164,191,0.18), transparent 62%),
+    radial-gradient(ellipse 42% 28% at 84% 10%, rgba(245,184,65,0.10), transparent 64%),
+    linear-gradient(180deg, #071019 0%, #050505 64%, #030303 100%) !important;
+}
+.pro-product-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.10;
+  background:
+    linear-gradient(rgba(148,163,184,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148,163,184,0.035) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: linear-gradient(180deg, black 0%, transparent 74%);
+}
+.pro-product-nav,
+.pro-product-main {
+  position: relative;
+  z-index: 1;
+}
+.pro-product-nav {
+  background: rgba(7,16,25,0.86) !important;
+  border-top: 0 !important;
+  border-bottom-color: rgba(82,101,122,0.22) !important;
+  backdrop-filter: blur(14px);
+}
+.pro-status-banner {
+  max-width: 760px;
+  background: rgba(10,20,32,0.58) !important;
+  border-color: rgba(245,184,65,0.20) !important;
+  box-shadow: inset 0 1px 0 rgba(248,250,252,0.04);
+}
+.pro-eyebrow {
+  font-family: var(--font-sans) !important;
+  letter-spacing: 0.10em !important;
+}
+.pro-product-headline {
+  max-width: 820px !important;
+  font-size: clamp(2.45rem, 5vw, 4.85rem) !important;
+  line-height: 0.98 !important;
+  letter-spacing: -0.025em !important;
+}
+.pro-product-dek,
+.pro-product-support {
+  max-width: 680px !important;
+}
+.pro-feature-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  max-width: 980px;
+  gap: 14px !important;
+  margin-bottom: 42px !important;
+}
+.pro-feature-card {
+  border-color: rgba(82,101,122,0.22) !important;
+  background:
+    linear-gradient(135deg, rgba(245,184,65,0.055), transparent 38%),
+    rgba(10,20,32,0.66) !important;
+  box-shadow: 0 14px 34px rgba(0,0,0,0.16);
+}
+.pro-checkout-panel {
+  max-width: 720px;
+  padding: 28px;
+  border: 1px solid rgba(82,101,122,0.22);
+  border-radius: 8px;
+  background: rgba(7,16,25,0.72);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.22), inset 0 1px 0 rgba(248,250,252,0.04);
+}
+.pro-subscriber-panel {
+  max-width: 720px;
+}
+@media (max-width: 760px) {
+  .pro-product-main {
+    padding: 28px 16px 96px !important;
+  }
+  .pro-product-nav > div {
+    padding: 0 16px !important;
+  }
+  .pro-status-banner {
+    display: grid !important;
+    gap: 6px !important;
+    margin-bottom: 26px !important;
+  }
+  .pro-product-headline {
+    font-size: clamp(2.1rem, 13vw, 3.25rem) !important;
+  }
+  .pro-product-dek {
+    font-size: 1rem !important;
+    line-height: 1.55 !important;
+  }
+  .pro-product-support {
+    margin-bottom: 30px !important;
+  }
+  .pro-feature-grid {
+    grid-template-columns: 1fr !important;
+    margin-bottom: 30px !important;
+  }
+  .pro-checkout-panel {
+    padding: 18px 14px;
+  }
+  .pro-checkout-panel > div {
+    grid-template-columns: 1fr !important;
+  }
+  .pro-checkout-panel input,
+  .pro-checkout-panel button {
+    width: 100%;
+  }
+}
+`;

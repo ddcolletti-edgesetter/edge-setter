@@ -59,7 +59,7 @@ function NFLBoardInner() {
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
   const [activeLane, setActiveLane] = useState<SituationLaneType | "all">("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
-  const [compact, setCompact] = useState(true);
+  const [compact, setCompact] = useState(false);
   const [showConfirmed, setShowConfirmed] = useState(true);
   const [liveOnly, setLiveOnly] = useState(false);
   const [actionableOnly, setActionableOnly] = useState(false);
@@ -130,7 +130,7 @@ function NFLBoardInner() {
 
   return (
     <div className="league-board-shell es-league-nfl">
-      <main className="board-main-col mx-auto flex w-[calc(100vw-24px)] max-w-[calc(100vw-24px)] flex-col gap-2 overflow-x-hidden py-3 sm:w-full sm:max-w-7xl sm:px-6 sm:py-4">
+      <main className="board-main-col mx-auto flex w-[calc(100vw-24px)] max-w-[calc(100vw-24px)] flex-col gap-3 overflow-x-hidden py-3 sm:w-full sm:max-w-7xl sm:gap-4 sm:px-6 sm:py-5">
         <BoardCommandBar
           kicker="NFL Story Board"
           title={profile.boardLabel}
@@ -162,14 +162,14 @@ function NFLBoardInner() {
           secondaryRead={featuredDetails.secondaryRead}
           metrics={featuredDetails.metrics}
           mobileDensity="compact"
-          className="sm:mb-0.5"
+          className="sm:mb-1"
           actions={featured?.kind === "signal" ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
         />
 
         <TopDevelopments league="NFL" situations={situations} onSelect={openSituation} />
 
         <BoardPriorityControls
-          className="-mt-0.5"
+          className="sm:-mt-1"
           activeLane={activeLane}
           activeSortId={sortIdForMode(sortMode)}
           activeUrgencyId={urgencyFilter}
@@ -205,7 +205,7 @@ function NFLBoardInner() {
           {canonicalError ? ` ${canonicalError}` : ""}
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="board-premium-stat-grid grid grid-cols-2 gap-2 sm:grid-cols-4">
           {[
             ["Stories", rankedNFL.length],
             ["Confirmed", confirmed],

@@ -87,12 +87,12 @@ export function SituationLane({
         className,
       )}
     >
-      <header className={cn("flex flex-wrap items-center gap-2 border-b border-border/70 px-3", cadence === "entry" ? "bg-muted/15 py-2.5" : "bg-muted/10 py-2")}>
-        <span className={cn("inline-flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-2 rounded border bg-muted/10 px-2 py-1", meta.className)}>
+      <header className={cn("flex flex-wrap items-center gap-2 border-b border-border/60 px-3", cadence === "entry" ? "bg-muted/10 py-3" : "bg-muted/5 py-2.5")}>
+        <span className={cn("inline-flex min-w-0 max-w-[calc(100%-3rem)] items-center gap-2 text-sm font-semibold", meta.className)}>
           {meta.icon}
-          <span className="data-label truncate text-[0.68rem]">{title ?? laneLabels[lane]}</span>
+          <span className="truncate">{title ?? laneLabels[lane]}</span>
         </span>
-        <Badge variant="outline" className="ml-auto h-5 border-border bg-muted/20 px-1.5 text-[0.62rem] text-muted-foreground tabular-nums">
+        <Badge variant="outline" className="ml-auto h-5 border-border/60 bg-transparent px-1.5 text-[0.62rem] text-muted-foreground/80 tabular-nums">
           {situations.length}
         </Badge>
         {summary && <p className="basis-full text-[0.74rem] font-medium leading-snug text-muted-foreground">{summary}</p>}

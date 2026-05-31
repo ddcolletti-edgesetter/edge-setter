@@ -306,10 +306,10 @@ function buildHomepageStoryModel({
     editorialSituation,
     ...situations.filter((situation) => situation.id !== featured?.id),
   ]);
-  const rail = railSource.slice(0, 4).map((situation) => situationToStoryCard(situation, { slot: "rail" }));
-  railSource.slice(0, 4).forEach((situation) => usedSituationIds.add(situation.id));
+  const rail = railSource.slice(0, 3).map((situation) => situationToStoryCard(situation, { slot: "rail" }));
+  railSource.slice(0, 3).forEach((situation) => usedSituationIds.add(situation.id));
 
-  const gameStories = games.slice(0, 4).map((game) => {
+  const gameStories = games.slice(0, 3).map((game) => {
     const matchedSituation = situations.find((situation) => gameMatchesSituation(game, situation));
     if (matchedSituation) usedSituationIds.add(matchedSituation.id);
     return gameToStoryCard(game, matchedSituation);
@@ -1134,7 +1134,7 @@ const liveIntelCss = `
     radial-gradient(ellipse 56% 42% at 15% 42%, rgba(24,212,123,0.045), transparent 70%),
     linear-gradient(180deg, var(--es-navy-950), var(--es-ink) 36%, #050505 100%);
   color: var(--es-text-primary);
-  padding: 18px 20px 48px;
+  padding: 22px 24px 40px;
   position: relative;
   overflow: hidden;
 }
@@ -1161,10 +1161,10 @@ const liveIntelCss = `
 }
 .media-homepage {
   display: grid;
-  gap: 12px;
+  gap: 14px;
   width: 100%;
-  max-width: 1320px;
-  margin: 0 auto 12px;
+  max-width: 1360px;
+  margin: 0 auto 10px;
   box-sizing: border-box;
 }
 .media-homepage a {
@@ -1177,34 +1177,35 @@ const liveIntelCss = `
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 12px 0 4px;
-  border-bottom: 1px solid rgba(217,164,65,0.18);
+  gap: 18px;
+  padding: 14px 0 6px;
+  border-bottom: 1px solid rgba(217,164,65,0.12);
 }
 .media-homepage-leagues {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 7px;
+  gap: 6px;
 }
 .media-homepage-leagues button {
-  min-height: 38px;
-  padding: 7px 10px;
-  border: 1px solid rgba(82,101,122,0.36);
-  border-radius: 6px;
-  background: rgba(10,18,28,0.64);
-  color: #94a3b8;
-  font-family: var(--font-cond);
-  font-size: 0.68rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
+  min-height: 34px;
+  padding: 7px 11px;
+  border: 1px solid rgba(82,101,122,0.24);
+  border-radius: 999px;
+  background: rgba(10,18,28,0.42);
+  color: #a9b6c5;
+  font-family: var(--font-sans);
+  font-size: 0.74rem;
+  font-weight: 760;
+  letter-spacing: 0.01em;
   text-transform: uppercase;
   cursor: pointer;
 }
 .media-homepage-leagues button.is-active {
   border-color: var(--league-color);
   color: #f8fafc;
-  box-shadow: inset 0 -2px 0 var(--league-color);
+  background: color-mix(in srgb, var(--league-color) 14%, rgba(10,18,28,0.52));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--league-color) 20%, transparent);
 }
 .media-homepage-leagues button strong,
 .media-homepage-leagues button span {
@@ -1212,20 +1213,18 @@ const liveIntelCss = `
   line-height: 1.05;
 }
 .media-homepage-leagues button strong {
-  margin-top: 4px;
-  color: #cbd5e1;
-  font-size: 0.57rem;
+  display: none;
 }
 .media-homepage-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 14px;
   align-items: start;
   max-width: 100%;
   overflow: hidden;
 }
 .media-homepage-grid.has-assignment-rail {
-  grid-template-columns: minmax(0, 1fr) 390px;
+  grid-template-columns: minmax(0, 1fr) 360px;
 }
 .media-homepage-main,
 .media-homepage-rail,
@@ -1235,31 +1234,30 @@ const liveIntelCss = `
   max-width: 100%;
   box-sizing: border-box;
   overflow: hidden;
-  border: 1px solid rgba(82,101,122,0.24);
+  border: 1px solid rgba(82,101,122,0.18);
   border-radius: 8px;
   background:
-    repeating-linear-gradient(90deg, rgba(248,250,252,0.028) 0 1px, transparent 1px 34px),
-    linear-gradient(180deg, rgba(9,16,25,0.78), rgba(5,8,12,0.62));
-  box-shadow: 0 18px 48px rgba(0,0,0,0.22);
+    linear-gradient(180deg, rgba(9,16,25,0.82), rgba(5,8,12,0.68));
+  box-shadow: 0 18px 44px rgba(0,0,0,0.18);
 }
 .media-homepage-main {
-  padding: 10px;
+  padding: 12px;
 }
 .media-homepage-rail {
   display: grid;
-  gap: 8px;
-  padding: 10px;
+  gap: 9px;
+  padding: 12px;
 }
 .media-section-label {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   color: #f5b841;
-  font-family: var(--font-cond);
+  font-family: var(--font-sans);
   font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.16em;
+  font-weight: 780;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .media-game-context,
@@ -1270,8 +1268,8 @@ const liveIntelCss = `
 .media-league-story-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  padding: 8px;
+  gap: 10px;
+  padding: 10px;
 }
 .media-coverage-status {
   display: grid;
@@ -1323,26 +1321,26 @@ const liveIntelCss = `
 }
 .media-league-sections {
   display: grid;
-  max-width: 1320px;
-  margin: 18px auto 0;
-  gap: 14px;
+  max-width: 1360px;
+  margin: 14px auto 0;
+  gap: 12px;
 }
 .media-league-story-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .story-card {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   height: 100%;
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 10px;
-  border: 1px solid rgba(82,101,122,0.26);
+  padding: 12px;
+  border: 1px solid rgba(82,101,122,0.20);
   border-radius: 7px;
   background:
-    linear-gradient(90deg, rgba(245,184,65,0.055), transparent 30%),
-    linear-gradient(180deg, rgba(12,20,31,0.88), rgba(6,10,15,0.8));
+    linear-gradient(90deg, rgba(245,184,65,0.04), transparent 32%),
+    linear-gradient(180deg, rgba(12,20,31,0.9), rgba(6,10,15,0.82));
   color: #f8fafc;
   cursor: pointer;
   overflow: hidden;
@@ -1354,9 +1352,19 @@ const liveIntelCss = `
   background: linear-gradient(180deg, rgba(14,24,36,0.94), rgba(7,12,18,0.84));
 }
 .story-card-lead {
-  grid-template-columns: minmax(240px, 0.74fr) minmax(0, 1fr);
-  align-items: stretch;
-  padding: 12px;
+  grid-template-columns: minmax(360px, 0.82fr) minmax(0, 1fr);
+  grid-template-areas:
+    "visual copy"
+    "visual evidence";
+  align-items: start;
+  padding: 14px;
+}
+.story-card-lead .story-card-visual {
+  grid-area: visual;
+  height: 100%;
+}
+.story-card-lead .story-card-copy {
+  grid-area: copy;
 }
 .story-card-visual,
 .story-card-visual .sports-story-visual {
@@ -1369,7 +1377,8 @@ const liveIntelCss = `
   max-width: 100%;
 }
 .story-card-lead .edge-overlay {
-  grid-column: 1 / -1;
+  grid-area: evidence;
+  margin-top: 8px;
 }
 .story-card-rail .edge-overlay,
 .story-card-compact .edge-overlay {
@@ -1438,10 +1447,10 @@ const liveIntelCss = `
   align-items: center;
   gap: 6px;
   color: #94a3b8;
-  font-family: var(--font-cond);
+  font-family: var(--font-sans);
   font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.15em;
+  font-weight: 760;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .story-card-kicker span {
@@ -1452,9 +1461,9 @@ const liveIntelCss = `
   width: 100%;
   max-width: 100%;
   color: #f8fafc;
-  font-family: var(--font-cond);
-  font-size: 1.2rem;
-  font-weight: 950;
+  font-family: var(--font-sans);
+  font-size: 1.12rem;
+  font-weight: 780;
   letter-spacing: 0;
   line-height: 1.03;
   overflow-wrap: anywhere;
@@ -1466,8 +1475,9 @@ const liveIntelCss = `
   -webkit-box-orient: vertical;
 }
 .story-card-lead h2 {
-  font-size: clamp(1.75rem, 3.15vw, 3.15rem);
-  line-height: 1;
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 3.35vw, 3.35rem);
+  line-height: 1.03;
   -webkit-line-clamp: 3;
 }
 .story-card-rail h2,
@@ -1483,8 +1493,8 @@ const liveIntelCss = `
 .story-card p {
   margin: 0;
   color: #cbd5e1;
-  font-size: 0.9rem;
-  line-height: 1.48;
+  font-size: 0.94rem;
+  line-height: 1.55;
 }
 .story-card-reads {
   display: grid;
@@ -1500,19 +1510,19 @@ const liveIntelCss = `
   display: none;
 }
 .story-card-reads div {
-  min-height: 52px;
-  padding: 7px 8px;
-  border-left: 1px solid rgba(82,101,122,0.32);
-  background: rgba(255,255,255,0.028);
+  min-height: 48px;
+  padding: 7px 9px;
+  border-left: 1px solid rgba(82,101,122,0.22);
+  background: rgba(255,255,255,0.018);
 }
 .story-card-reads span {
   display: block;
   margin-bottom: 4px;
   color: #64748b;
-  font-family: var(--font-cond);
+  font-family: var(--font-sans);
   font-size: 0.58rem;
-  font-weight: 900;
-  letter-spacing: 0.12em;
+  font-weight: 760;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 .story-card-reads strong {
@@ -1530,12 +1540,12 @@ const liveIntelCss = `
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
-  padding: 9px 0 0;
+  padding: 8px 0 0;
   border: 0;
   border-top: 1px solid rgba(111,164,191,0.22);
   border-radius: 0;
   background:
-    linear-gradient(90deg, rgba(24,212,123,0.035), transparent 42%);
+    linear-gradient(90deg, rgba(24,212,123,0.018), transparent 42%);
 }
 .edge-overlay-top,
 .edge-overlay-replay {
@@ -1587,10 +1597,10 @@ const liveIntelCss = `
 }
 .edge-overlay-grid span {
   color: #64748b;
-  font-family: var(--font-cond);
+  font-family: var(--font-sans);
   font-size: 0.6rem;
-  font-weight: 900;
-  letter-spacing: 0.13em;
+  font-weight: 740;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
 }
 .edge-overlay-grid strong,
@@ -1598,8 +1608,18 @@ const liveIntelCss = `
   overflow: hidden;
   color: #dbe7f4;
   font-size: 0.72rem;
-  line-height: 1.22;
+  line-height: 1.28;
   text-overflow: ellipsis;
+}
+.story-card-lead .edge-overlay-primitives,
+.story-card-lead .edge-overlay-grid {
+  grid-template-columns: 1fr;
+}
+.story-card-lead .edge-overlay-primitives > *:nth-child(n+2),
+.story-card-lead .edge-overlay-grid > div:nth-child(n+3),
+.story-card-lead .edge-overlay-replay,
+.story-card-lead .edge-overlay .agent-calibration-badge + * {
+  display: none;
 }
 .edge-overlay.is-compact .edge-overlay-grid {
   grid-template-columns: 1fr;
@@ -1640,6 +1660,12 @@ const liveIntelCss = `
   .story-card-lead {
     grid-template-columns: minmax(0, 1fr);
   }
+  .story-card-lead {
+    grid-template-areas:
+      "visual"
+      "copy"
+      "evidence";
+  }
   .media-game-grid,
   .media-league-story-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1651,19 +1677,18 @@ const liveIntelCss = `
     max-width: 100vw;
     box-sizing: border-box;
     overflow-x: hidden;
-    padding-right: 12px;
-    padding-left: 12px;
+    padding: 10px 12px 104px;
   }
   .media-homepage {
-    gap: 10px;
-    width: calc(100vw - 48px);
-    margin-bottom: 12px;
-    max-width: calc(100vw - 48px);
+    gap: 12px;
+    width: calc(100vw - 24px);
+    margin-bottom: 10px;
+    max-width: calc(100vw - 24px);
     overflow: hidden;
   }
   .media-homepage-header {
     display: grid;
-    gap: 10px;
+    gap: 12px;
   }
   .media-homepage-header .live-intel-brand-anchor {
     width: 100%;
@@ -1679,25 +1704,26 @@ const liveIntelCss = `
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-content: stretch;
-    width: calc(100vw - 72px);
-    max-width: calc(100vw - 72px);
+    width: 100%;
+    max-width: 100%;
   }
   .media-homepage-leagues button {
-    min-height: 36px;
-    padding: 6px;
+    min-height: 42px;
+    padding: 9px 10px;
+    text-align: left;
   }
   .media-homepage-main,
   .media-homepage-rail {
     width: 100%;
-    max-width: calc(100vw - 48px);
-    padding: 9px;
+    max-width: 100%;
+    padding: 10px;
   }
   .media-homepage-grid,
   .media-league-sections,
   .media-game-context,
   .media-league-section {
     width: 100%;
-    max-width: calc(100vw - 48px);
+    max-width: 100%;
   }
   .media-game-grid,
   .media-league-story-grid {
@@ -1705,15 +1731,15 @@ const liveIntelCss = `
     padding: 8px;
   }
   .story-card {
-    padding: 10px;
+    padding: 11px;
   }
   .story-card-copy {
     width: 100%;
-    max-width: calc(100vw - 72px);
+    max-width: 100%;
     overflow: hidden;
   }
   .story-card-lead {
-    padding: 10px;
+    padding: 11px;
   }
   .story-card-compact {
     grid-template-columns: 94px minmax(0, 1fr);
@@ -1746,20 +1772,21 @@ const liveIntelCss = `
   article.story-card.story-card-lead .story-card-copy > h2 {
     display: -webkit-box;
     overflow: hidden;
-    width: min(100%, calc(100vw - 96px));
-    max-width: calc(100vw - 96px);
-    font-size: 1.14rem;
+    width: min(100%, calc(100vw - 72px));
+    max-width: calc(100vw - 72px);
+    font-size: 1.34rem;
     line-height: 1.08;
     white-space: normal !important;
     overflow-wrap: anywhere;
-    word-break: normal;
+    word-break: break-word;
     -webkit-line-clamp: 3;
     -webkit-box-orient: vertical;
   }
   .story-card p {
-    width: min(100%, calc(100vw - 118px));
-    max-width: calc(100vw - 118px);
-    font-size: 0.84rem;
+    width: 100%;
+    max-width: 100%;
+    font-size: 0.88rem;
+    line-height: 1.52;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: normal;
@@ -1771,7 +1798,7 @@ const liveIntelCss = `
     overflow-wrap: anywhere;
   }
   .story-card-reads strong {
-    max-width: calc(100vw - 128px);
+    max-width: 100%;
   }
   .story-card-reads,
   .edge-overlay-grid,

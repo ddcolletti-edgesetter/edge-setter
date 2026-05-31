@@ -108,7 +108,7 @@ export function FeaturedSituation({
         className,
       )}
     >
-      <div className={cn("grid min-w-0 items-stretch", situation && (isMobileCompact ? "gap-2 lg:grid-cols-[minmax(0,1fr)_250px]" : "gap-2 sm:gap-2.5 lg:grid-cols-[minmax(0,1fr)_292px]"))}>
+      <div className={cn("grid min-w-0 items-start", situation && (isMobileCompact ? "gap-2 lg:grid-cols-[minmax(0,1fr)_230px]" : "gap-2 sm:gap-2.5 lg:grid-cols-[minmax(0,1fr)_260px]"))}>
         <div className="min-w-0 flex-1 basis-full sm:basis-auto">
           <div className={cn("section-kicker", isMobileCompact ? "mb-1 sm:mb-2" : "mb-2")}>
             <span>{eyebrow}</span>
