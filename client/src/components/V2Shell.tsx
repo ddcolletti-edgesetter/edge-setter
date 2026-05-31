@@ -103,7 +103,8 @@ const NBA_TEAMS_TODAY = ["LAL", "BOS", "GSW", "DEN", "MIA", "MIL", "PHI", "NYK"]
 
 // ── Pro CTA hook ─────────────────────────────────────────────────────────────
 function useProCheckout() {
-  const handleUpgrade = () => {};
+  const [, setLocation] = useLocation();
+  const handleUpgrade = () => setLocation("/pro");
   return { handleUpgrade, loading: false };
 }
 
