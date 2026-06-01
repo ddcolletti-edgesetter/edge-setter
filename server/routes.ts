@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { Server } from "http";
 import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress, getVerifiedCountBySource } from "./storage";
 import { runFullBackfill } from "./pipeline/backfill";
-import { insertSignalSchema, insertWaitlistSchema } from "@shared/schema";
+import { insertSignalSchema, insertWaitlistSchema, type User } from "@shared/schema";
 import { sendDailyDigest } from "./email";
 import { runFullPipeline, qaAuditAgent, scoutAgent, clustererAgent, retrieverAgent, verifierAgent, sourceScorerAgent, publisherAgent } from "./agents";
 import { runSignalOps, batchSignalOps } from "./signal-ops";
@@ -18,6 +18,8 @@ import { syncToSupabase } from "./supabase-sync";
 import { isProUser } from "@shared/pro-utils";
 import { getPipelineDb } from "./pipeline/store";
 import type { LiveSignal } from "./pipeline/types";
+import { createHmac, timingSafeEqual } from "crypto";
+import type { Request, Response } from "express";
 
 export function getAutoSeedOwnerEmail(): string | null {
   if (process.env.NODE_ENV === "production") return null;
@@ -30,6 +32,111 @@ export function getConfiguredAdminPassword(): string | null {
 
 function normalizeSubscriberEmail(email: unknown): string {
   return typeof email === "string" ? email.trim().toLowerCase() : "";
+}
+
+const BILLING_AUTH_COOKIE = "es_billing_auth";
+const BILLING_AUTH_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+
+function getBillingAuthSecret(): string | null {
+  const billingAuthSecret = process.env.BILLING_AUTH_SECRET?.trim() || null;
+  if (process.env.NODE_ENV === "production") return billingAuthSecret;
+
+  return (
+    billingAuthSecret
+      || process.env.SESSION_SECRET?.trim()
+      || process.env.ADMIN_PASSWORD?.trim()
+      || process.env.STRIPE_WEBHOOK_SECRET?.trim()
+      || null
+  );
+}
+
+function signBillingPortalIdentity(email: string, expiresAt: number, secret: string): string {
+  return createHmac("sha256", secret).update(`${email}.${expiresAt}`).digest("base64url");
+}
+
+export function createBillingPortalIdentityToken(email: unknown, nowMs = Date.now()): string | null {
+  const normalizedEmail = normalizeSubscriberEmail(email);
+  const secret = getBillingAuthSecret();
+  if (!normalizedEmail || !secret) return null;
+
+  const expiresAt = nowMs + BILLING_AUTH_MAX_AGE_MS;
+  const emailPart = Buffer.from(normalizedEmail, "utf8").toString("base64url");
+  const signature = signBillingPortalIdentity(normalizedEmail, expiresAt, secret);
+  return `${emailPart}.${expiresAt}.${signature}`;
+}
+
+export function verifyBillingPortalIdentityToken(token: unknown, nowMs = Date.now()): string | null {
+  if (typeof token !== "string" || !token) return null;
+  const secret = getBillingAuthSecret();
+  if (!secret) return null;
+
+  const [emailPart, expiresAtPart, signature] = token.split(".");
+  if (!emailPart || !expiresAtPart || !signature) return null;
+
+  const expiresAt = Number(expiresAtPart);
+  if (!Number.isFinite(expiresAt) || expiresAt <= nowMs) return null;
+
+  let email: string;
+  try {
+    email = normalizeSubscriberEmail(Buffer.from(emailPart, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+  if (!email) return null;
+
+  const expected = signBillingPortalIdentity(email, expiresAt, secret);
+  const actualBuffer = Buffer.from(signature);
+  const expectedBuffer = Buffer.from(expected);
+  if (actualBuffer.length !== expectedBuffer.length) return null;
+  return timingSafeEqual(actualBuffer, expectedBuffer) ? email : null;
+}
+
+function readCookie(req: Request, name: string): string | null {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return null;
+
+  for (const item of cookieHeader.split(";")) {
+    const [rawName, ...rawValue] = item.trim().split("=");
+    if (rawName === name) return decodeURIComponent(rawValue.join("="));
+  }
+  return null;
+}
+
+function setBillingIdentityCookie(res: Response, email: string) {
+  const token = createBillingPortalIdentityToken(email);
+  if (!token) return;
+
+  res.cookie(BILLING_AUTH_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: BILLING_AUTH_MAX_AGE_MS,
+    path: "/",
+  });
+}
+
+type BillingPortalAuthorization =
+  | { ok: true; email: string; user: User & { stripe_customer_id: string } }
+  | { ok: false; status: 400 | 401 | 403 | 404; error: string };
+
+export function authorizeBillingPortalAccess(
+  requestedEmail: unknown,
+  identityToken: unknown,
+  getUserByEmail: (email: string) => User | undefined,
+): BillingPortalAuthorization {
+  const email = normalizeSubscriberEmail(requestedEmail);
+  if (!email) return { ok: false, status: 400, error: "email required" };
+
+  const verifiedEmail = verifyBillingPortalIdentityToken(identityToken);
+  if (!verifiedEmail) return { ok: false, status: 401, error: "Authentication required" };
+  if (verifiedEmail !== email) return { ok: false, status: 403, error: "Forbidden" };
+
+  const user = getUserByEmail(verifiedEmail);
+  if (!user?.stripe_customer_id || !isProUser(user)) {
+    return { ok: false, status: 404, error: "Billing account not found" };
+  }
+
+  return { ok: true, email: verifiedEmail, user: { ...user, stripe_customer_id: user.stripe_customer_id } };
 }
 
 export function checkoutSessionEmail(session: any): string {
@@ -640,17 +747,20 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ─── Stripe Customer Portal ────────────────────────────────────────────────
   app.post("/api/billing/portal", async (req, res) => {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ error: "email required" });
+    const access = authorizeBillingPortalAccess(
+      req.body?.email,
+      readCookie(req, BILLING_AUTH_COOKIE),
+      email => storage.getUserByEmail(email),
+    );
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
+
     try {
       const stripe = getStripe();
-      const user = storage.getUserByEmail(email);
-      if (!user?.stripe_customer_id) return res.status(404).json({ error: "No billing account found for this email" });
       const session = await stripe.billingPortal.sessions.create({
-        customer: user.stripe_customer_id,
+        customer: access.user.stripe_customer_id,
         return_url: `${process.env.BASE_URL ?? "https://edgesetter.net"}/#/pro`,
       });
-      storage.logEvent({ event_name: "billing_portal_opened", email, metadata: JSON.stringify({ customer_id: user.stripe_customer_id }) });
+      storage.logEvent({ event_name: "billing_portal_opened", email: access.email, metadata: JSON.stringify({ customer_id: access.user.stripe_customer_id }) });
       return res.json({ url: session.url });
     } catch (e: any) {
       console.error("[billing/portal]", e.message);
@@ -672,6 +782,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
         const sessionEmail = checkoutSessionEmail(session);
         const proData = { email: sessionEmail, stripe_customer_id: session.customer as string, stripe_subscription_id: session.subscription as string, plan: "pro", access_status: "active", billing_status: "active" };
         storage.upsertUser(proData);
+        setBillingIdentityCookie(res, sessionEmail);
         storage.logEvent({ event_name: "success_page_view", email: sessionEmail, metadata: JSON.stringify({ session_id }) });
         syncToSupabase("users", proData, "upsert").catch(() => {});
         syncToSupabase("event_log", { event_name: "subscription_started", email: sessionEmail, metadata: { session_id } }, "insert").catch(() => {});
