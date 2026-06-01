@@ -100,6 +100,19 @@ describe("subscriber safety configuration", () => {
     expect(createBillingPortalIdentityToken("subscriber@example.com")).toBeNull();
   });
 
+  it("uses BILLING_AUTH_SECRET for billing auth tokens in production when present", () => {
+    process.env.NODE_ENV = "production";
+    process.env.BILLING_AUTH_SECRET = "production-billing-auth-secret";
+    process.env.SESSION_SECRET = "session-secret-must-not-sign-billing";
+    process.env.ADMIN_PASSWORD = "admin-password-must-not-sign-billing";
+    process.env.STRIPE_WEBHOOK_SECRET = "stripe-webhook-secret-must-not-sign-billing";
+
+    const token = createBillingPortalIdentityToken("subscriber@example.com");
+
+    expect(token).toEqual(expect.any(String));
+    expect(verifyBillingPortalIdentityToken(token)).toBe("subscriber@example.com");
+  });
+
   it("rejects billing portal access for non-subscribers", () => {
     const token = createBillingPortalIdentityToken("free@example.com");
     const result = authorizeBillingPortalAccess("free@example.com", token, email => ({
