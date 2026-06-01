@@ -19,6 +19,41 @@ import { isProUser } from "@shared/pro-utils";
 import { getPipelineDb } from "./pipeline/store";
 import type { LiveSignal } from "./pipeline/types";
 
+export function getAutoSeedOwnerEmail(): string | null {
+  if (process.env.NODE_ENV === "production") return null;
+  return process.env.OWNER_EMAIL?.trim() || null;
+}
+
+export function getConfiguredAdminPassword(): string | null {
+  return process.env.ADMIN_PASSWORD?.trim() || null;
+}
+
+function normalizeSubscriberEmail(email: unknown): string {
+  return typeof email === "string" ? email.trim().toLowerCase() : "";
+}
+
+export function checkoutSessionEmail(session: any): string {
+  return normalizeSubscriberEmail(
+    session?.metadata?.email
+      ?? session?.customer_details?.email
+      ?? session?.customer_email,
+  );
+}
+
+export function checkoutSessionHasPaidSubscription(session: any): boolean {
+  return session?.mode === "subscription"
+    && session?.status === "complete"
+    && session?.payment_status === "paid"
+    && typeof session?.subscription === "string"
+    && session.subscription.length > 0;
+}
+
+export function checkoutSessionMatchesRequestedEmail(session: any, requestedEmail: unknown): boolean {
+  const sessionEmail = checkoutSessionEmail(session);
+  const email = normalizeSubscriberEmail(requestedEmail);
+  return Boolean(sessionEmail && email && sessionEmail === email);
+}
+
 function mapLiveSignalToFrontend(s: LiveSignal) {
   return {
     id: s.id,
@@ -78,7 +113,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       const activeUsers = getActiveAlertUsers();
       if (activeUsers.length === 0) {
-        const ownerEmail = process.env.OWNER_EMAIL ?? "ddcolletti@gmail.com";
+        const ownerEmail = getAutoSeedOwnerEmail();
+        if (!ownerEmail) return;
         storage.upsertUser({ email: ownerEmail, plan: "pro", access_status: "active" });
         const existing = getAlertPreferences(ownerEmail);
         if (!existing) {
@@ -420,10 +456,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   app.post("/api/admin/make-pro", (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const auth = req.headers.authorization ?? "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-    if (token !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
 
     const { email } = req.body ?? {};
     if (!email) return res.status(400).json({ error: "email is required" });
@@ -537,8 +570,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
       // ── checkout.session.completed ─────────────────────────────────────────
       if (event.type === "checkout.session.completed") {
         const session = event.data.object;
-        const email = session.metadata?.email ?? session.customer_email;
-        if (email) {
+        const email = checkoutSessionEmail(session);
+        if (email && checkoutSessionHasPaidSubscription(session)) {
           const proData = {
             email,
             stripe_customer_id: session.customer as string,
@@ -552,6 +585,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
           syncToSupabase("users", proData, "upsert").catch(() => {});
           syncToSupabase("event_log", { event_name: "subscription_started", email, metadata: { session_id: session.id, source: "webhook" } }, "insert").catch(() => {});
           sendProWelcome(email).catch(() => {});
+        } else {
+          console.warn(`[webhook] checkout.session.completed ignored: session ${session.id ?? "unknown"} is not a paid subscription checkout`);
         }
       }
 
@@ -630,12 +665,16 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       const stripe = getStripe();
       const session = await stripe.checkout.sessions.retrieve(session_id);
-      if (session.payment_status === "paid" || session.status === "complete") {
-        const proData = { email, stripe_customer_id: session.customer as string, stripe_subscription_id: session.subscription as string, plan: "pro", access_status: "active" };
+      if (!checkoutSessionMatchesRequestedEmail(session, email)) {
+        return res.status(403).json({ error: "Session email does not match requested email" });
+      }
+      if (checkoutSessionHasPaidSubscription(session)) {
+        const sessionEmail = checkoutSessionEmail(session);
+        const proData = { email: sessionEmail, stripe_customer_id: session.customer as string, stripe_subscription_id: session.subscription as string, plan: "pro", access_status: "active", billing_status: "active" };
         storage.upsertUser(proData);
-        storage.logEvent({ event_name: "success_page_view", email, metadata: JSON.stringify({ session_id }) });
+        storage.logEvent({ event_name: "success_page_view", email: sessionEmail, metadata: JSON.stringify({ session_id }) });
         syncToSupabase("users", proData, "upsert").catch(() => {});
-        syncToSupabase("event_log", { event_name: "subscription_started", email, metadata: { session_id } }, "insert").catch(() => {});
+        syncToSupabase("event_log", { event_name: "subscription_started", email: sessionEmail, metadata: { session_id } }, "insert").catch(() => {});
         return res.json({ success: true, plan: "pro" });
       }
       return res.json({ success: false, plan: "free" });
@@ -874,9 +913,12 @@ export function registerRoutes(httpServer: Server, app: Express) {
   app.get("/api/admin/event-log", (_req, res) => { res.json(storage.getEventLog()); });
 
   // ─── Distribution Draft Agent routes ──────────────────────────────────────
-  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-
   function requireAdmin(req: any, res: any): boolean {
+    const ADMIN_PASSWORD = getConfiguredAdminPassword();
+    if (!ADMIN_PASSWORD) {
+      res.status(503).json({ error: "Admin auth not configured" });
+      return false;
+    }
     const authHeader = req.headers.authorization ?? "";
     const pw = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : (req.body?.password ?? req.query?.password);
     if (pw !== ADMIN_PASSWORD) { res.status(401).json({ error: "Unauthorized" }); return false; }
