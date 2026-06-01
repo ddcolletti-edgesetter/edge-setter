@@ -16,13 +16,12 @@
  */
 
 import { storage } from "./storage";
-import { sendEmail } from "./email";
+import { getConfiguredAlertRecipients, sendAlertEmail } from "./email";
 
 const BASE_URL = process.env.BASE_URL ?? "https://edgesetter.net";
 // API health checks use localhost so they hit the actual Express routes regardless
 // of how the public domain is hosted (e.g. edgesetter.net is a SPA CDN, not a proxy).
 const SELF_URL = `http://localhost:${process.env.PORT ?? 5000}`;
-const ALERT_TO  = process.env.ALERT_EMAIL ?? "ddcolletti@gmail.com";
 const FETCH_TIMEOUT_MS = 8000;
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -218,7 +217,7 @@ function alertedWithinLastHour(): boolean {
 }
 
 // ─── Alert email ─────────────────────────────────────────────────────────────
-async function sendSiteWatchAlert(output: SiteWatchOutput): Promise<void> {
+async function sendSiteWatchAlert(output: SiteWatchOutput): Promise<boolean> {
   const criticalChecks = output.checks.filter(c => c.status !== "ok");
   const rows = [...criticalChecks.map(c =>
     `<tr><td style="padding:6px 12px;color:#F3EFE6;font-size:13px">${c.name}</td>` +
@@ -230,8 +229,8 @@ async function sendSiteWatchAlert(output: SiteWatchOutput): Promise<void> {
     `<td style="padding:6px 12px;color:#B7AFA0;font-size:12px">${a.detail}</td></tr>`
   )].join("");
 
-  await sendEmail({
-    to: ALERT_TO,
+  return sendAlertEmail({
+    to: getConfiguredAlertRecipients(),
     subject: `[Edge Setter ${output.status.toUpperCase()}] Site Watch Alert — ${new Date(output.timestamp).toLocaleString()}`,
     html: `
 <!DOCTYPE html><html><head><meta charset="utf-8"></head>
@@ -327,8 +326,8 @@ export async function runSiteWatch(): Promise<SiteWatchOutput> {
   // Alert if warning/critical and not already alerted in the last hour
   if (status !== "ok" && !alertedWithinLastHour()) {
     try {
-      await sendSiteWatchAlert(output);
-      (storage as any).markSiteWatchAlertSent(run.id);
+      const sent = await sendSiteWatchAlert(output);
+      if (sent) (storage as any).markSiteWatchAlertSent(run.id);
     } catch (e: any) {
       agentLog("Alert send failed", e.message);
     }

@@ -20,9 +20,8 @@
  */
 
 import { storage } from "./storage";
-import { sendEmail } from "./email";
+import { getConfiguredAlertRecipients, sendAlertEmail } from "./email";
 
-const ALERT_TO  = process.env.ALERT_EMAIL ?? "ddcolletti@gmail.com";
 const BASE_URL  = process.env.BASE_URL ?? "https://edgesetter.net";
 
 // ─── Output types ─────────────────────────────────────────────────────────────
@@ -380,16 +379,21 @@ export async function runDailyOps(options: { sendEmailReport?: boolean } = {}): 
   const shouldEmail = options.sendEmailReport !== false;
   if (shouldEmail) {
     try {
-      await sendEmail({
-        to:      ALERT_TO,
+      const recipients = getConfiguredAlertRecipients();
+      const sent = await sendAlertEmail({
+        to:      recipients,
         subject: `Edge Setter Daily Ops — ${date} [${site_health.last_status.toUpperCase()}]`,
         html:    `<pre>${formatEmailBody(summary)}</pre>`,
         text:    formatEmailBody(summary),
       });
-      summary.email_sent = true;
-      agentLog("Email", runId, runId, `Daily ops email sent to ${ALERT_TO}`);
-      // Update email_sent in DB
-      try { (storage as any).markDailyOpsSummaryEmailSent(runId); } catch {}
+      summary.email_sent = sent;
+      if (sent) {
+        agentLog("Email", runId, runId, `Daily ops email sent to ${recipients.length} configured recipient(s)`);
+        // Update email_sent in DB
+        try { (storage as any).markDailyOpsSummaryEmailSent(runId); } catch {}
+      } else {
+        agentLog("Email", runId, runId, `Daily ops email suppressed`);
+      }
     } catch (e: any) {
       agentLog("Email", runId, runId, `Email delivery failed`, e.message);
       console.error("[daily-ops] Email failed:", e.message);

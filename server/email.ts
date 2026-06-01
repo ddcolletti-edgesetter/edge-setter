@@ -10,10 +10,48 @@ const FROM_EMAIL = process.env.FROM_EMAIL ?? "Edge Setter <hello@edgesetter.com>
 const BASE_URL = process.env.BASE_URL ?? "https://edgesetter.net";
 
 interface SendEmailOptions {
-  to: string;
+  to: string | string[];
   subject: string;
   html: string;
   text?: string;
+}
+
+type AlertEmailOptions = Omit<SendEmailOptions, "to"> & {
+  to?: string | string[] | null;
+};
+
+function normalizeEmailRecipients(to?: string | string[] | null): string[] {
+  const values = Array.isArray(to) ? to : [to ?? ""];
+  return values
+    .flatMap(value => value.split(","))
+    .map(value => value.trim())
+    .filter(Boolean);
+}
+
+export function getConfiguredAlertRecipients(): string[] {
+  return normalizeEmailRecipients(process.env.ALERT_EMAIL);
+}
+
+export function emailAlertsEnabled(): boolean {
+  return process.env.EMAIL_ALERTS_ENABLED === "true";
+}
+
+export async function sendAlertEmail(opts: AlertEmailOptions): Promise<boolean> {
+  const recipients = normalizeEmailRecipients(opts.to);
+  if (!emailAlertsEnabled()) {
+    console.log(
+      `[email] alert suppressed: EMAIL_ALERTS_ENABLED is not true; subject="${opts.subject}"; recipient_count=${recipients.length}`,
+    );
+    return false;
+  }
+  if (recipients.length === 0) {
+    console.log(`[email] alert suppressed: no recipients configured; subject="${opts.subject}"`);
+    return false;
+  }
+  return sendEmail({
+    ...opts,
+    to: recipients,
+  });
 }
 
 // Rate-limit guard: after a 429/403, skip all sends until this timestamp
