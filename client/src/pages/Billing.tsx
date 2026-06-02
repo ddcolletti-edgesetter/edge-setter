@@ -1,6 +1,10 @@
 import AppShell from "@/components/V2Shell";
 import { CreditCard, Zap, CheckCircle, AlertCircle, Calendar, ExternalLink, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
+import { apiRequest } from "@/lib/queryClient";
+import { useState } from "react";
+import { useLocation } from "wouter";
 
 function formatDate(d: Date | string | null | undefined) {
   if (!d) return "—";
@@ -23,12 +27,29 @@ interface SubscriptionDetails {
 
 export default function Billing() {
   const { toast } = useToast();
-  const isPro = false as boolean;
-  const isLoading = false as boolean;
+  const [, setLocation] = useLocation();
+  const { email, isPro, authLoading } = useAuth();
+  const [portalLoading, setPortalLoading] = useState(false);
+  const isLoading = authLoading;
   const subDetails = null as SubscriptionDetails | null;
-  const user = null as { id?: string } | null;
-  const portalMutation = { isPending: false, mutate: (_args: { origin: string }) => {} };
-  const checkoutMutation = { isPending: false, mutate: (_args: any) => {} };
+  const user = email ? { id: email } : null;
+  const portalMutation = {
+    isPending: portalLoading,
+    mutate: async (_args?: { origin?: string }) => {
+      if (!email || portalLoading) return;
+      setPortalLoading(true);
+      try {
+        const res = await apiRequest("POST", "/api/billing/portal", { email });
+        const data = await res.json();
+        if (data.url) window.location.href = data.url;
+      } catch {
+        toast({ title: "Billing portal unavailable", description: "Please try again after refreshing your subscriber session." });
+      } finally {
+        setPortalLoading(false);
+      }
+    },
+  };
+  const checkoutMutation = { isPending: false, mutate: (_args?: unknown) => setLocation("/pro") };
 
   return (
     <AppShell>

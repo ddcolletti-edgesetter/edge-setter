@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { NavLoginButton } from "./ProGate";
+import { useAuth } from "@/context/AuthContext";
 
 /* ── Public nav (shown to all users) ── */
 const publicNavItems = [
@@ -63,6 +64,7 @@ interface Props {
 export default function AppLayout({ children, theme, toggleTheme, opsMode = false }: Props) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { email, isPro } = useAuth();
 
   const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
@@ -239,9 +241,9 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
         <div style={{ padding: "0 12px 12px" }}>
           <div
             style={{
-              border: `1px solid rgba(245,184,65,0.28)`,
+              border: `1px solid ${isPro ? "rgba(24,212,123,0.28)" : "rgba(245,184,65,0.28)"}`,
               borderRadius: 4,
-              background: "rgba(245,184,65,0.05)",
+              background: isPro ? "rgba(24,212,123,0.05)" : "rgba(245,184,65,0.05)",
               position: "relative",
               overflow: "hidden",
             }}
@@ -250,7 +252,7 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
             <div
               style={{
                 position: "absolute", top: 0, left: 0, right: 0,
-                height: 2, background: T.gold,
+                height: 2, background: isPro ? "#18D47B" : T.gold,
                 pointerEvents: "none",
               }}
             />
@@ -258,11 +260,11 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
               <div
                 style={{
                   fontFamily: "'Playfair Display', Georgia, serif",
-                  fontSize: 13, fontWeight: 700, color: T.gold,
+                  fontSize: 13, fontWeight: 700, color: isPro ? "#18D47B" : T.gold,
                   marginBottom: 3, lineHeight: 1.3,
                 }}
               >
-                Pro Intelligence
+                {isPro ? "Pro Active" : "Pro Intelligence"}
               </div>
               <div
                 style={{
@@ -272,17 +274,17 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                   textTransform: "uppercase",
                 }}
               >
-                Real-time alerts · Full archive
+                {isPro ? (email ?? "Subscriber account") : "Real-time alerts · Full archive"}
               </div>
-              <Link href="/pro">
+              <Link href={isPro ? "/billing" : "/pro"}>
                 <button
-                  data-testid="button-upgrade-pro"
+                  data-testid={isPro ? "button-manage-billing" : "button-upgrade-pro"}
                   style={{
                     width: "100%",
                     minHeight: 38,
-                    background: T.gold,
-                    color: T.bg,
-                    border: "none",
+                    background: isPro ? "rgba(24,212,123,0.12)" : T.gold,
+                    color: isPro ? "#DFFBEA" : T.bg,
+                    border: isPro ? "1px solid rgba(24,212,123,0.28)" : "none",
                     borderRadius: 3,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 11, fontWeight: 700,
@@ -291,10 +293,10 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                     cursor: "pointer",
                     transition: "background 0.15s",
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = T.goldBright; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = T.gold; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(24,212,123,0.18)" : T.goldBright; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(24,212,123,0.12)" : T.gold; }}
                 >
-                  $19 / Month
+                  {isPro ? "Manage Billing" : "$19 / Month"}
                 </button>
               </Link>
             </div>

@@ -8,6 +8,7 @@ import {
 import { StoryCard, type StoryCardData } from "@/components/StoryCard";
 import { WhatToWatchNext } from "@/components/AgentCalibration";
 import { TeamLogo, T as _T } from "../components/v2/SportVisuals";
+import { useAuth } from "@/context/AuthContext";
 
 // Override legacy accent with site-wide clean gold
 const T = { ..._T, gold: "#F5B841", goldBright: "#F5B841", goldDim: "rgba(245,184,65,0.15)" };
@@ -256,6 +257,8 @@ function TeamSilhouettes() {
 }
 
 export default function MyEdge() {
+  const { email, isPro } = useAuth();
+
   return (
     <V2Shell>
       <style>{`
@@ -283,14 +286,16 @@ export default function MyEdge() {
               }}>My Edge - Personal Intelligence</span>
             </div>
             <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 10px" }}>
-              Personal watchlist coming soon
+              {isPro ? "Pro access active - My Edge preview" : "Personal watchlist coming soon"}
             </h1>
             <p style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, margin: 0, lineHeight: 1.7,
               maxWidth: "min(540px, 100%)", letterSpacing: "0.04em", overflowWrap: "anywhere",
             }}>
-              My Edge will shape EdgeSetter around teams, players, leagues, and developing stories you follow. This page is a preview of the planned personal watchlist and alert workflow.
+              {isPro
+                ? `Your Pro account${email ? ` (${email})` : ""} is active. My Edge personalization is still a preview of the planned watchlist and alert workflow.`
+                : "My Edge will shape EdgeSetter around teams, players, leagues, and developing stories you follow. This page is a preview of the planned personal watchlist and alert workflow."}
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 14 }}>
               <SetupPill icon={<Star size={13} />} label="Follow teams" />
@@ -304,7 +309,7 @@ export default function MyEdge() {
         {/* ── Personal feed stat row ── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: 8, marginBottom: 24 }}>
           <PersonalStat label="Feed Layers" value="7" color={T.gold} />
-          <PersonalStat label="Setup Preview" value="On" color={T.green} />
+          <PersonalStat label={isPro ? "Pro Access" : "Setup Preview"} value={isPro ? "Active" : "On"} color={T.green} />
           <PersonalStat label="Followed Leagues" value="4" color="#00B7FF" />
           <PersonalStat label="Alert Logic" value="Preview" color={T.gold} />
         </div>
@@ -324,12 +329,14 @@ export default function MyEdge() {
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
               color: T.gold, marginBottom: 5,
-            }}>Coming Soon - Preview</div>
+            }}>{isPro ? "Pro Active - Preview" : "Coming Soon - Preview"}</div>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.04em",
             }}>
-              Followed teams, followed players, watched stories, and alert routing are not active yet. The examples below show the planned shape without implying saved personalization is available today.
+              {isPro
+                ? "Your Pro access is active now. Followed teams, followed players, watched stories, and alert routing are not active yet, so the examples below remain preview-only."
+                : "Followed teams, followed players, watched stories, and alert routing are not active yet. The examples below show the planned shape without implying saved personalization is available today."}
             </div>
           </div>
         </div>
@@ -469,38 +476,39 @@ export default function MyEdge() {
         {/* ── Pro CTA ── */}
         <div style={{
           padding: "24px 24px",
-          background: "linear-gradient(135deg, rgba(245,184,65,0.07) 0%, transparent 70%)",
-          border: `1px solid rgba(245,184,65,0.3)`,
+          background: isPro ? "linear-gradient(135deg, rgba(24,212,123,0.07) 0%, transparent 70%)" : "linear-gradient(135deg, rgba(245,184,65,0.07) 0%, transparent 70%)",
+          border: `1px solid ${isPro ? "rgba(24,212,123,0.28)" : "rgba(245,184,65,0.3)"}`,
           borderRadius: 5, position: "relative", overflow: "hidden",
         }}>
-          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold }} />
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: isPro ? T.green : T.gold }} />
           <div style={{ position: "absolute", bottom: -30, right: -30, width: 160, height: 160, borderRadius: "50%", background: "radial-gradient(circle, rgba(245,184,65,0.05), transparent 70%)", pointerEvents: "none" }} />
 
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <Zap size={13} style={{ color: T.gold }} />
-            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: T.gold }}>
-              Pro - Early Access to My Edge
+            <Zap size={13} style={{ color: isPro ? T.green : T.gold }} />
+            <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: isPro ? T.green : T.gold }}>
+              {isPro ? "Pro Active - My Edge Preview" : "Pro - Early Access to My Edge"}
             </span>
           </div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 8 }}>
-            Get Early Access to Personalization
+            {isPro ? "Subscriber Account Active" : "Get Early Access to Personalization"}
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, color: T.textMuted, lineHeight: 1.7, letterSpacing: "0.04em",
             marginBottom: 18, maxWidth: 500,
           }}>
-            Pro subscribers get first access to every My Edge feature as it ships, plus real-time alerts, 
-            watched stories, daily brief routing, and story history as each layer ships.
+            {isPro
+              ? "You have Pro access. This page will become your personal watchlist surface as followed teams, watched stories, alerts, daily brief routing, and story history ship."
+              : "Pro subscribers get first access to every My Edge feature as it ships, plus real-time alerts, watched stories, daily brief routing, and story history as each layer ships."}
           </div>
-          <Link href="/pro">
+          <Link href={isPro ? "/billing" : "/pro"}>
             <button style={{
-              background: T.gold, color: T.bg, border: "none", borderRadius: 3,
+              background: isPro ? "rgba(24,212,123,0.12)" : T.gold, color: isPro ? T.green : T.bg, border: isPro ? "1px solid rgba(24,212,123,0.32)" : "none", borderRadius: 3,
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
               padding: "10px 24px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
             }}>
-              Go Pro · $19/mo <ArrowRight size={12} />
+              {isPro ? "Manage Billing" : "Go Pro - $19/mo"} <ArrowRight size={12} />
             </button>
           </Link>
         </div>

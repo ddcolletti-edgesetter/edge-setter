@@ -8,6 +8,7 @@ import {
   Star, TrendingUp, Wrench, Zap, CreditCard,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/AuthContext";
 const EDGESETTER_EMBLEM_SRC = "/brand/edgesetter-emblem.png";
 const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
 
@@ -134,6 +135,7 @@ function Sidebar({
   style?: React.CSSProperties;
 }) {
   const [location, setLocation] = useLocation();
+  const { email, isPro } = useAuth();
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ Boards: true });
   const expandedWidth = 204;
   const collapsedWidth = 50;
@@ -664,30 +666,46 @@ function Sidebar({
         ))}
       </div>
 
-      {/* Pro CTA */}
+      {/* Account / Pro CTA */}
       {!collapsed && (
         <div
           style={{
             margin: "5px 8px 8px",
             padding: "8px 10px",
-            background: "linear-gradient(135deg, rgba(245,184,65,0.09), rgba(24,212,123,0.035))",
-            border: "1px solid rgba(245,184,65,0.18)",
+            background: isPro ? "linear-gradient(135deg, rgba(24,212,123,0.09), rgba(245,184,65,0.035))" : "linear-gradient(135deg, rgba(245,184,65,0.09), rgba(24,212,123,0.035))",
+            border: `1px solid ${isPro ? "rgba(24,212,123,0.18)" : "rgba(245,184,65,0.18)"}`,
             borderRadius: "8px",
             flexShrink: 0,
           }}
         >
           <div
             style={{
-              fontSize: "0.68rem", fontWeight: 700, color: "#F5B841",
+              fontSize: "0.68rem", fontWeight: 700, color: isPro ? "#18D47B" : "#F5B841",
               textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px",
             }}
           >
-            Sports Desk
+            {isPro ? "Pro Active" : "Sports Desk"}
           </div>
           <div style={{ fontSize: "0.68rem", color: "#CBD5E1", marginBottom: "8px", lineHeight: 1.35 }}>
-            Lineups · Injuries · Alerts
+            {isPro ? (email ?? "Subscriber account") : "Lineups · Injuries · Alerts"}
           </div>
-          <ProUpgradeButton />
+          {isPro ? (
+            <button
+              type="button"
+              onClick={() => setLocation("/billing")}
+              style={{
+                width: "100%", padding: "7px 12px", fontSize: "0.78rem",
+                borderRadius: "6px", border: "1px solid rgba(24,212,123,0.24)",
+                background: "rgba(24,212,123,0.08)", color: "#DFFBEA",
+                fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+                letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
+              }}
+            >
+              Manage Billing
+            </button>
+          ) : (
+            <ProUpgradeButton />
+          )}
         </div>
       )}
     </aside>
@@ -713,6 +731,7 @@ function TopTabBar({
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
   const { handleUpgrade, loading: proLoading } = useProCheckout();
+  const { isPro } = useAuth();
   const activeSport = SPORT_TABS.find((t) => location.startsWith(t.path))?.key ?? null;
 
   return (
@@ -905,10 +924,10 @@ function TopTabBar({
 
       {/* PRO button — icon-only on mobile */}
       <button
-        onClick={handleUpgrade}
+        onClick={isPro ? () => setLocation("/billing") : handleUpgrade}
         disabled={proLoading}
-        aria-label="Upgrade to Pro"
-        title="Upgrade to Pro"
+        aria-label={isPro ? "Open billing settings" : "Upgrade to Pro"}
+        title={isPro ? "Pro active" : "Upgrade to Pro"}
         style={{
           display: isMobile ? "none" : "inline-flex",
           alignItems: "center",
@@ -921,9 +940,9 @@ function TopTabBar({
           letterSpacing: "0.06em",
           textTransform: "uppercase",
           cursor: "pointer",
-          background: "linear-gradient(135deg, rgba(245,184,65,0.15), rgba(245,184,65,0.05))",
-          color: "#F5B841",
-          border: "1px solid rgba(245,184,65,0.3)",
+          background: isPro ? "linear-gradient(135deg, rgba(24,212,123,0.14), rgba(24,212,123,0.045))" : "linear-gradient(135deg, rgba(245,184,65,0.15), rgba(245,184,65,0.05))",
+          color: isPro ? "#18D47B" : "#F5B841",
+          border: `1px solid ${isPro ? "rgba(24,212,123,0.3)" : "rgba(245,184,65,0.3)"}`,
           transition: "all 0.15s ease",
           marginLeft: isMobile ? "2px" : "8px",
           opacity: proLoading ? 0.7 : 1,
@@ -932,7 +951,7 @@ function TopTabBar({
       >
         <Zap size={12} />
         {/* FIX: hide text on mobile — icon-only PRO button */}
-        {!isMobile && (proLoading ? "LOADING…" : "PRO — $19/MO")}
+        {!isMobile && (isPro ? "PRO ACTIVE" : (proLoading ? "LOADING…" : "PRO - $19/MO"))}
       </button>
 
       {/* Dark mode toggle — icon-only on mobile */}
