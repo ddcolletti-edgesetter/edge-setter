@@ -119,7 +119,7 @@ function ProUpgradeButton() {
       className="btn-gold"
       style={{ width: "100%", padding: "7px 12px", fontSize: "0.78rem", opacity: loading ? 0.7 : 1 }}
     >
-      {loading ? "Redirecting…" : "$19 / Month"}
+      {loading ? "Redirecting..." : "GET PRO / $19 MONTH"}
     </button>
   );
 }
@@ -739,7 +739,23 @@ function Sidebar({
               </button>
             </div>
           ) : (
-            <ProUpgradeButton />
+            <div style={{ display: "grid", gap: 5 }}>
+              <button
+                data-testid="sidebar-sign-in"
+                type="button"
+                onClick={() => setLocation("/pro")}
+                style={{
+                  width: "100%", padding: "6px 10px", fontSize: "0.76rem",
+                  borderRadius: "6px", border: "1px solid rgba(248,250,252,0.18)",
+                  background: "rgba(248,250,252,0.08)", color: "#F8FAFC",
+                  fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+                  letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
+                }}
+              >
+                SIGN IN
+              </button>
+              <ProUpgradeButton />
+            </div>
           )}
         </div>
       )}
@@ -972,12 +988,39 @@ function TopTabBar({
         })}
       </div>
 
+      {!isPro && !isMobile && (
+        <button
+          data-testid="topbar-sign-in"
+          type="button"
+          onClick={() => setLocation("/pro")}
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "5px",
+            padding: "6px 12px",
+            borderRadius: "6px",
+            fontFamily: "'Barlow Condensed', sans-serif",
+            fontSize: "0.78rem",
+            fontWeight: 800,
+            letterSpacing: "0.06em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            background: "rgba(248,250,252,0.06)",
+            color: "#F8FAFC",
+            border: "1px solid rgba(248,250,252,0.18)",
+            flexShrink: 0,
+          }}
+        >
+          Sign In
+        </button>
+      )}
+
       {/* PRO button — icon-only on mobile */}
       <button
         onClick={isPro ? handleManageBilling : handleUpgrade}
         disabled={proLoading}
-        aria-label={isPro ? "Open billing settings" : "Upgrade to Pro"}
-        title={isPro ? "Pro active" : "Upgrade to Pro"}
+        aria-label={isPro ? "Open billing settings" : "Get Pro"}
+        title={isPro ? "Pro active" : "Get Pro"}
         style={{
           display: isMobile ? "none" : "inline-flex",
           alignItems: "center",
@@ -1001,7 +1044,7 @@ function TopTabBar({
       >
         <Zap size={12} />
         {/* FIX: hide text on mobile — icon-only PRO button */}
-        {!isMobile && (isPro ? "PRO ACTIVE" : (proLoading ? "LOADING…" : "PRO - $19/MO"))}
+        {!isMobile && (isPro ? "PRO ACTIVE" : (proLoading ? "LOADING..." : "GET PRO"))}
       </button>
 
       {isPro && !isMobile && (

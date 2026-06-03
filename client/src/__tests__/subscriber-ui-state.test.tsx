@@ -56,6 +56,8 @@ describe("subscriber-aware UI state", () => {
     expect(logout).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Go Pro - $19/mo")).not.toBeInTheDocument();
     expect(screen.queryByText("PRO - $19/MO")).not.toBeInTheDocument();
+    expect(screen.queryByText("Q3 2026")).not.toBeInTheDocument();
+    expect(screen.queryByText("Q4 2026")).not.toBeInTheDocument();
   });
 
   it("opens the active Pro sidebar billing portal with session refresh retry", async () => {
@@ -103,9 +105,54 @@ describe("subscriber-aware UI state", () => {
     render(<MyEdge />);
 
     expect(screen.getByText("Personal watchlist coming soon")).toBeInTheDocument();
+    expect(screen.getAllByText("Sign In").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Get Pro/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Go Pro - $19/mo")).toBeInTheDocument();
-    expect(screen.getByText("PRO - $19/MO")).toBeInTheDocument();
+    expect(screen.queryByText("PRO - $19/MO")).not.toBeInTheDocument();
+    expect(screen.getByText("GET PRO / $19 MONTH")).toBeInTheDocument();
     expect(screen.queryByTestId("sidebar-manage-billing")).not.toBeInTheDocument();
     expect(screen.queryByText("MANAGE BILLING")).not.toBeInTheDocument();
+    expect(screen.queryByText("Q3 2026")).not.toBeInTheDocument();
+    expect(screen.queryByText("Q4 2026")).not.toBeInTheDocument();
+  });
+
+  it("logout returns the shell to signed-out state with Sign In visible", () => {
+    let active = true;
+    const logout = vi.fn(() => {
+      active = false;
+    });
+    mockUseAuth.mockImplementation(() => active ? {
+      email: "subscriber@example.com",
+      user: {
+        email: "subscriber@example.com",
+        plan: "pro",
+        access_status: "active",
+        billing_status: "active",
+        stripe_customer_id: "cus_test",
+        is_pro: true,
+      },
+      isPro: true,
+      authLoading: false,
+      login: vi.fn(),
+      logout,
+    } : {
+      email: null,
+      user: null,
+      isPro: false,
+      authLoading: false,
+      login: vi.fn(),
+      logout,
+    });
+
+    const { rerender } = render(<MyEdge />);
+
+    fireEvent.click(screen.getByTestId("sidebar-sign-out"));
+    expect(logout).toHaveBeenCalledTimes(1);
+
+    rerender(<MyEdge />);
+
+    expect(screen.getByTestId("sidebar-sign-in")).toHaveTextContent("SIGN IN");
+    expect(screen.getByTestId("topbar-sign-in")).toHaveTextContent("Sign In");
+    expect(screen.getAllByText(/Get Pro/i).length).toBeGreaterThan(0);
   });
 });

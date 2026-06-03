@@ -144,6 +144,8 @@ describe("entitlement UI leak coverage", () => {
     expect(screen.queryByText(/LIMITED WATCHLIST/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/\bINCLUDED\b/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/INCLUDED WATCH/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("Plan Access")).toBeInTheDocument();
+    expect(screen.queryByText("Access Notes")).not.toBeInTheDocument();
     expect(screen.getByText("Your Pro plan includes these workflows. Some tools may remain in watch mode while coverage, replay trails, and outcome tracking come online.")).toBeInTheDocument();
     expect(screen.getAllByText(/Manage Billing/i).length).toBeGreaterThan(0);
     expect(screen.getByTestId("topbar-manage-billing")).toBeInTheDocument();

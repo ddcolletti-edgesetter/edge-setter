@@ -18,7 +18,7 @@ interface FeatureCard {
   icon: React.ReactNode;
   title: string;
   description: string;
-  timeline: string;
+  statusLabel: string;
   status: "planned" | "coming" | "soon";
   accentColor: string;
   detail: string;
@@ -30,7 +30,7 @@ const FEATURES: FeatureCard[] = [
     title: "Followed Teams",
     description: "Follow teams you care about so their developing stories surface first.",
     detail: "NBA and MLB followed teams define the first personalization pass. NFL and CFB follows stay limited until season coverage expands.",
-    timeline: "Q3 2026",
+    statusLabel: "Coming Soon",
     status: "coming",
     accentColor: T.gold,
   },
@@ -39,7 +39,7 @@ const FEATURES: FeatureCard[] = [
     title: "Story Alerts",
     description: "Get notified when confidence, source agreement, or timing changes for your watchlist.",
     detail: "Availability, lineup, pitcher, market, fantasy, and team/fan impact alerts start with NBA and MLB coverage.",
-    timeline: "Q3 2026",
+    statusLabel: "Included in Pro",
     status: "coming",
     accentColor: T.gold,
   },
@@ -48,7 +48,7 @@ const FEATURES: FeatureCard[] = [
     title: "Watched Stories",
     description: "Track injury, lineup, pitcher, roster, market, or role-change stories.",
     detail: "Watched stories preserve what changed, why it matters, source agreement, and what to watch next.",
-    timeline: "Q3 2026",
+    statusLabel: "Preview",
     status: "coming",
     accentColor: "#00B7FF",
   },
@@ -57,7 +57,7 @@ const FEATURES: FeatureCard[] = [
     title: "Followed Players",
     description: "Track player availability, role movement, fantasy impact, and recurring story context.",
     detail: "Player follows will power alert routing and daily intelligence priority once enabled.",
-    timeline: "Q3 2026",
+    statusLabel: "Coming Soon",
     status: "coming",
     accentColor: "#00B7FF",
   },
@@ -66,7 +66,7 @@ const FEATURES: FeatureCard[] = [
     title: "Story History",
     description: "Keep settled stories, source trail, confidence movement, and result context together.",
     detail: "Story history is planned as a clean research archive tied to your followed teams, players, and leagues.",
-    timeline: "Q4 2026",
+    statusLabel: "Planned",
     status: "planned",
     accentColor: T.orange,
   },
@@ -75,7 +75,7 @@ const FEATURES: FeatureCard[] = [
     title: "Personal Brief",
     description: "A daily brief built from followed leagues, teams, players, and watched stories.",
     detail: "The brief is planned after watchlist alerts so it can summarize your actual saved context.",
-    timeline: "Q4 2026",
+    statusLabel: "Planned",
     status: "planned",
     accentColor: T.gold,
   },
@@ -215,7 +215,7 @@ function FeatureCardItem({ feature }: { feature: FeatureCard }) {
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
           fontSize: 13, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase",
           flexShrink: 0,
-        }}>{feature.timeline}</span>
+        }}>{feature.statusLabel}</span>
       </div>
 
       <div style={{ paddingLeft: feature.status === "coming" ? 6 : 0 }}>
@@ -303,6 +303,31 @@ export default function MyEdge() {
               <SetupPill icon={<TrendingUp size={13} />} label="Watch stories" />
               <SetupPill icon={<Bell size={13} />} label="Alert thresholds" />
             </div>
+            {!isPro && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
+                <Link href="/pro">
+                  <button style={{
+                    background: "rgba(248,250,252,0.08)", color: T.text,
+                    border: "1px solid rgba(248,250,252,0.18)", borderRadius: 3,
+                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                    fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase",
+                    padding: "9px 18px", cursor: "pointer",
+                  }}>
+                    Sign In
+                  </button>
+                </Link>
+                <Link href="/pro">
+                  <button style={{
+                    background: T.gold, color: T.bg, border: "none", borderRadius: 3,
+                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                    fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase",
+                    padding: "9px 18px", cursor: "pointer",
+                  }}>
+                    Get Pro
+                  </button>
+                </Link>
+              </div>
+            )}
           </div>
         </div>
 
