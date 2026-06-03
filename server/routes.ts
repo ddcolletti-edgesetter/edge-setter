@@ -211,6 +211,43 @@ async function verifiedStripeSubscriberResponseByEmail(requestedEmail: unknown):
   return null;
 }
 
+async function verifiedBillingPortalUserByEmail(requestedEmail: unknown): Promise<(User & { stripe_customer_id: string }) | null> {
+  const email = normalizeSubscriberEmail(requestedEmail);
+  if (!email) return null;
+
+  const localUser = storage.getUserByEmail(email);
+  if (localUser?.stripe_customer_id && isProUser(localUser)) {
+    return { ...localUser, stripe_customer_id: localUser.stripe_customer_id };
+  }
+
+  const stripeUser = await verifiedStripeSubscriberResponseByEmail(email);
+  if (!stripeUser?.stripe_customer_id || !stripeUser.is_pro) return null;
+
+  const refreshedUser = storage.upsertUser({
+    email,
+    stripe_customer_id: stripeUser.stripe_customer_id,
+    stripe_subscription_id: stripeUser.stripe_subscription_id,
+    plan: "pro",
+    access_status: "active",
+    billing_status: stripeUser.billing_status ?? "active",
+  });
+  if (!refreshedUser?.stripe_customer_id || !isProUser(refreshedUser)) return null;
+  return { ...refreshedUser, stripe_customer_id: refreshedUser.stripe_customer_id };
+}
+
+export async function authorizeBillingSessionRefresh(
+  requestedEmail: unknown,
+  getVerifiedBillingUser: (email: string) => Promise<(User & { stripe_customer_id: string }) | null>,
+): Promise<{ ok: true; email: string } | { ok: false; status: 400 | 404; error: string }> {
+  const email = normalizeSubscriberEmail(requestedEmail);
+  if (!email) return { ok: false, status: 400, error: "email required" };
+
+  const user = await getVerifiedBillingUser(email);
+  if (!user) return { ok: false, status: 404, error: "Billing account not found" };
+
+  return { ok: true, email };
+}
+
 function mapLiveSignalToFrontend(s: LiveSignal) {
   return {
     id: s.id,
@@ -798,6 +835,17 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── Stripe Customer Portal ────────────────────────────────────────────────
+  app.post("/api/billing/session", async (req, res) => {
+    const access = await authorizeBillingSessionRefresh(
+      req.body?.email,
+      email => verifiedBillingPortalUserByEmail(email),
+    );
+    if (!access.ok) return res.status(access.status).json({ error: access.error });
+
+    setBillingIdentityCookie(res, access.email);
+    return res.json({ success: true });
+  });
+
   app.post("/api/billing/portal", async (req, res) => {
     const access = authorizeBillingPortalAccess(
       req.body?.email,

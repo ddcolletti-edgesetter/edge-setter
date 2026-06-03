@@ -62,6 +62,7 @@ describe("Pro Verify Access", () => {
 
     await screen.findByText("Pro Active");
     expect(mockApiRequest).toHaveBeenCalledWith("GET", "/api/user?email=subscriber%40example.com");
+    expect(mockApiRequest).toHaveBeenCalledWith("POST", "/api/billing/session", { email: "subscriber@example.com" });
     expect(login).toHaveBeenCalledWith("subscriber@example.com");
     expect(screen.queryByText("No active Pro subscription found for that email.")).not.toBeInTheDocument();
   });

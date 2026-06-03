@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   authorizeBillingPortalAccess,
+  authorizeBillingSessionRefresh,
   checkoutSessionHasPaidSubscription,
   checkoutSessionMatchesRequestedEmail,
   createBillingPortalIdentityToken,
@@ -167,6 +168,30 @@ describe("subscriber safety configuration", () => {
 
     expect(result.ok).toBe(false);
     expect(result).not.toHaveProperty("url");
+  });
+
+  it("allows active subscriber to refresh billing auth session", async () => {
+    const result = await authorizeBillingSessionRefresh(" Subscriber@Example.COM ", async email => ({
+      id: "user_subscriber",
+      email,
+      plan: "pro",
+      access_status: "active",
+      stripe_customer_id: "cus_subscriber",
+    } as any));
+
+    expect(result).toMatchObject({ ok: true, email: "subscriber@example.com" });
+  });
+
+  it("rejects billing auth session refresh for non-subscribers", async () => {
+    const result = await authorizeBillingSessionRefresh("free@example.com", async () => null);
+
+    expect(result).toMatchObject({ ok: false, status: 404, error: "Billing account not found" });
+  });
+
+  it("rejects billing auth session refresh for canceled subscribers", async () => {
+    const result = await authorizeBillingSessionRefresh("subscriber@example.com", async () => null);
+
+    expect(result).toMatchObject({ ok: false, status: 404, error: "Billing account not found" });
   });
 
   it("does not print billing auth secrets while creating or verifying identity tokens", () => {

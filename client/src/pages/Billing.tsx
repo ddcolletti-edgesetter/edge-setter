@@ -62,11 +62,19 @@ export default function Billing() {
       if (!accountEmail || portalLoading) return;
       setPortalLoading(true);
       try {
-        const res = await apiRequest("POST", "/api/billing/portal", { email: accountEmail });
+        let res: Response;
+        try {
+          res = await apiRequest("POST", "/api/billing/portal", { email: accountEmail });
+        } catch {
+          const refresh = await apiRequest("POST", "/api/billing/session", { email: accountEmail });
+          const refreshData = await refresh.json();
+          if (!refreshData.success) throw new Error("Billing session refresh failed");
+          res = await apiRequest("POST", "/api/billing/portal", { email: accountEmail });
+        }
         const data = await res.json();
         if (data.url) window.location.href = data.url;
       } catch {
-        toast({ title: "Billing portal unavailable", description: "Please try again after refreshing your subscriber session." });
+        toast({ title: "Billing portal unavailable", description: "Verify your Pro access or try again after checkout completes." });
       } finally {
         setPortalLoading(false);
       }

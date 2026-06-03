@@ -253,6 +253,7 @@ export default function ProPage() {
       if (active) {
         setBillingStatus(user?.billing_status ?? (user?.beta_until ? "beta" : "active"));
         await login(normalizedEmail);
+        await apiRequest("POST", "/api/billing/session", { email: normalizedEmail }).catch(() => {});
       } else {
         setBillingStatus(user?.billing_status ?? user?.access_status ?? null);
       }
