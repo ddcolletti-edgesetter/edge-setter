@@ -223,7 +223,7 @@ function ProManagementPanel({ email }: { email: string }) {
 
 /* ── Main page ─────────────────────────────────────────────────── */
 export default function ProPage() {
-  const { email: authEmail } = useAuth();
+  const { email: authEmail, login } = useAuth();
   const [email, setEmail] = useState("");
   const [isPro, setIsPro] = useState<boolean | null>(null);
 
@@ -239,16 +239,23 @@ export default function ProPage() {
   const [portalLoading, setPortalLoading] = useState(false);
 
   async function checkAccess(e: string) {
-    if (!e) return;
+    const normalizedEmail = e.trim().toLowerCase();
+    if (!normalizedEmail) return;
     setChecking(true);
     try {
-      const res = await apiRequest("GET", `/api/user?email=${encodeURIComponent(e)}`);
+      const res = await apiRequest("GET", `/api/user?email=${encodeURIComponent(normalizedEmail)}`);
       const user = await res.json();
       // is_pro is computed server-side (covers Stripe + beta_until).
       // isProUser() is the client-side fallback for the same logic.
       const active = user?.is_pro ?? isProUser(user);
+      setEmail(normalizedEmail);
       setIsPro(active);
-      if (active) setBillingStatus(user?.billing_status ?? (user?.beta_until ? "beta" : "active"));
+      if (active) {
+        setBillingStatus(user?.billing_status ?? (user?.beta_until ? "beta" : "active"));
+        await login(normalizedEmail);
+      } else {
+        setBillingStatus(user?.billing_status ?? user?.access_status ?? null);
+      }
     } finally {
       setChecking(false);
     }

@@ -714,7 +714,9 @@ export class SqliteStorage implements IStorage {
 
   // ─── Users ─────────────────────────────────────────────────────────────────
   getUserByEmail(email: string): User | undefined {
-    return db.select().from(users).where(eq(users.email, email)).get();
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) return undefined;
+    return sqlite.prepare(`SELECT * FROM users WHERE lower(email) = ? LIMIT 1`).get(normalizedEmail) as User | undefined;
   }
   getUserByStripeCustomer(customerId: string): User | undefined {
     return db.select().from(users).where(eq(users.stripe_customer_id, customerId)).get();
@@ -723,11 +725,12 @@ export class SqliteStorage implements IStorage {
     return db.select().from(users).where(eq(users.id, id)).get();
   }
   upsertUser(data: InsertUser): User {
-    const existing = data.email ? this.getUserByEmail(data.email) : undefined;
+    const normalizedData = data.email ? { ...data, email: data.email.trim().toLowerCase() } : data;
+    const existing = normalizedData.email ? this.getUserByEmail(normalizedData.email) : undefined;
     if (existing) {
-      return db.update(users).set({ ...data, updated_at: now() }).where(eq(users.id, existing.id)).returning().get()!;
+      return db.update(users).set({ ...normalizedData, updated_at: now() }).where(eq(users.id, existing.id)).returning().get()!;
     }
-    const row = { ...data, id: uuid(), created_at: now(), updated_at: now() };
+    const row = { ...normalizedData, id: uuid(), created_at: now(), updated_at: now() };
     return db.insert(users).values(row).returning().get();
   }
   updateUserByStripeCustomer(customerId: string, data: Partial<InsertUser>): User | undefined {

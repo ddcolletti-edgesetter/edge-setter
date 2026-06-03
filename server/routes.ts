@@ -161,6 +161,56 @@ export function checkoutSessionMatchesRequestedEmail(session: any, requestedEmai
   return Boolean(sessionEmail && email && sessionEmail === email);
 }
 
+export function verifiedUserResponseByEmail(
+  requestedEmail: unknown,
+  getUserByEmail: (email: string) => any,
+): Record<string, any> | null {
+  const email = normalizeSubscriberEmail(requestedEmail);
+  if (!email) return null;
+
+  const user = getUserByEmail(email);
+  if (!user) return null;
+  return { ...user, email: normalizeSubscriberEmail(user.email) || email, is_pro: isProUser(user) };
+}
+
+export function stripeSubscriptionStatusAllowsProAccess(status: unknown): boolean {
+  return status === "active" || status === "trialing" || status === "past_due";
+}
+
+async function verifiedStripeSubscriberResponseByEmail(requestedEmail: unknown): Promise<Record<string, any> | null> {
+  const email = normalizeSubscriberEmail(requestedEmail);
+  if (!email || !process.env.STRIPE_SECRET_KEY) return null;
+
+  try {
+    const stripe = getStripe();
+    const customers = await stripe.customers.list({ email, limit: 10 });
+    for (const customer of customers.data) {
+      const subscriptions = await stripe.subscriptions.list({
+        customer: customer.id,
+        status: "all",
+        limit: 10,
+      });
+      const subscription = subscriptions.data.find(sub => stripeSubscriptionStatusAllowsProAccess(sub.status));
+      if (!subscription) continue;
+
+      return {
+        id: `stripe:${customer.id}`,
+        email,
+        plan: "pro",
+        access_status: "active",
+        billing_status: subscription.status === "past_due" ? "past_due" : "active",
+        stripe_customer_id: customer.id,
+        stripe_subscription_id: subscription.id,
+        is_pro: true,
+      };
+    }
+  } catch (e: any) {
+    console.warn(`[user] Stripe subscriber verification skipped: ${e.message}`);
+  }
+
+  return null;
+}
+
 function mapLiveSignalToFrontend(s: LiveSignal) {
   return {
     id: s.id,
@@ -595,19 +645,21 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── MVP: Users ────────────────────────────────────────────────────────────────
-  app.get("/api/user", (req, res) => {
-    const email = req.query.email as string;
-    if (!email) return res.json(null);
-    const user = storage.getUserByEmail(email) ?? null;
+  app.get("/api/user", async (req, res) => {
+    const user = verifiedUserResponseByEmail(req.query.email, email => storage.getUserByEmail(email));
+    if (!user?.is_pro) {
+      const stripeUser = await verifiedStripeSubscriberResponseByEmail(req.query.email);
+      if (stripeUser) return res.json(stripeUser);
+    }
     if (!user) return res.json(null);
     // Attach computed is_pro flag — covers both Stripe path and beta_until comp path.
     // Client should prefer this flag over re-implementing the logic.
-    return res.json({ ...user, is_pro: isProUser(user) });
+    return res.json(user);
   });
 
   // ─── MVP: Stripe Checkout ──────────────────────────────────────────────────────
   app.post("/api/checkout", async (req, res) => {
-    const { email } = req.body;
+    const email = normalizeSubscriberEmail(req.body?.email);
     if (!email) return res.status(400).json({ error: "email required" });
     try {
       const stripe = getStripe();

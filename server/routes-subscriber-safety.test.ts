@@ -6,6 +6,8 @@ import {
   createBillingPortalIdentityToken,
   getAutoSeedOwnerEmail,
   getConfiguredAdminPassword,
+  stripeSubscriptionStatusAllowsProAccess,
+  verifiedUserResponseByEmail,
   verifyBillingPortalIdentityToken,
 } from "./routes";
 
@@ -182,5 +184,50 @@ describe("subscriber safety configuration", () => {
     ].flat().join(" ");
 
     expect(consoleOutput).not.toContain("test-billing-auth-secret");
+  });
+
+  it("verifies active subscriber lookup with trimmed case-insensitive email", () => {
+    const result = verifiedUserResponseByEmail("  Subscriber@Example.COM  ", email => ({
+      id: "user_subscriber",
+      email,
+      plan: "pro",
+      access_status: "active",
+      billing_status: "active",
+    }));
+
+    expect(result).toMatchObject({
+      email: "subscriber@example.com",
+      is_pro: true,
+      billing_status: "active",
+    });
+  });
+
+  it("does not verify unknown subscriber lookup", () => {
+    expect(verifiedUserResponseByEmail("unknown@example.com", () => undefined)).toBeNull();
+  });
+
+  it("does not mark canceled subscriber lookup as active Pro", () => {
+    const result = verifiedUserResponseByEmail("subscriber@example.com", email => ({
+      id: "user_subscriber",
+      email,
+      plan: "free",
+      access_status: "canceled",
+      billing_status: "canceled",
+    }));
+
+    expect(result).toMatchObject({
+      email: "subscriber@example.com",
+      is_pro: false,
+      access_status: "canceled",
+    });
+  });
+
+  it("only allows active Stripe subscription states for verify access", () => {
+    expect(stripeSubscriptionStatusAllowsProAccess("active")).toBe(true);
+    expect(stripeSubscriptionStatusAllowsProAccess("trialing")).toBe(true);
+    expect(stripeSubscriptionStatusAllowsProAccess("past_due")).toBe(true);
+    expect(stripeSubscriptionStatusAllowsProAccess("canceled")).toBe(false);
+    expect(stripeSubscriptionStatusAllowsProAccess("incomplete")).toBe(false);
+    expect(stripeSubscriptionStatusAllowsProAccess("unpaid")).toBe(false);
   });
 });
