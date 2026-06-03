@@ -27,6 +27,7 @@ describe("subscriber-aware UI state", () => {
   });
 
   it("shows active Pro subscriber state on My Edge without upgrade CTAs", () => {
+    const logout = vi.fn();
     mockUseAuth.mockReturnValue({
       email: "subscriber@example.com",
       user: {
@@ -40,7 +41,7 @@ describe("subscriber-aware UI state", () => {
       isPro: true,
       authLoading: false,
       login: vi.fn(),
-      logout: vi.fn(),
+      logout,
     });
 
     render(<MyEdge />);
@@ -48,6 +49,9 @@ describe("subscriber-aware UI state", () => {
     expect(screen.getByText("Pro access active - My Edge preview")).toBeInTheDocument();
     expect(screen.getAllByText("Pro Active").length).toBeGreaterThan(0);
     expect(screen.getByTestId("sidebar-manage-billing")).toHaveTextContent("MANAGE BILLING");
+    expect(screen.getByTestId("sidebar-sign-out")).toHaveTextContent("Sign Out");
+    fireEvent.click(screen.getByTestId("sidebar-sign-out"));
+    expect(logout).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Go Pro - $19/mo")).not.toBeInTheDocument();
     expect(screen.queryByText("PRO - $19/MO")).not.toBeInTheDocument();
   });

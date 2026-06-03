@@ -5,7 +5,7 @@ import { NBA_LOGOS, MLB_LOGOS } from "@/lib/espnAssets";
 import {
   Activity, BarChart2, ChevronDown, ChevronRight,
   Home, LayoutGrid, List, Menu, Moon, Sun,
-  Star, TrendingUp, Wrench, Zap, CreditCard,
+  Star, TrendingUp, Wrench, Zap, CreditCard, LogOut,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
@@ -136,7 +136,7 @@ function Sidebar({
   style?: React.CSSProperties;
 }) {
   const [location, setLocation] = useLocation();
-  const { email, user, isPro } = useAuth();
+  const { email, user, isPro, logout } = useAuth();
   const { toast } = useToast();
   const [portalLoading, setPortalLoading] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ Boards: true });
@@ -705,22 +705,40 @@ function Sidebar({
             {isPro ? (email ?? "Subscriber account") : "Lineups · Injuries · Alerts"}
           </div>
           {isPro ? (
-            <button
-              data-testid="sidebar-manage-billing"
-              type="button"
-              onClick={handleManageBilling}
-              disabled={portalLoading}
-              style={{
-                width: "100%", padding: "7px 12px", fontSize: "0.78rem",
-                borderRadius: "6px", border: "1px solid rgba(24,212,123,0.24)",
-                background: "rgba(24,212,123,0.08)", color: "#DFFBEA",
-                fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
-                letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
-                opacity: portalLoading ? 0.7 : 1,
-              }}
-            >
-              {portalLoading ? "OPENING..." : "MANAGE BILLING"}
-            </button>
+            <div style={{ display: "grid", gap: 6 }}>
+              <button
+                data-testid="sidebar-manage-billing"
+                type="button"
+                onClick={handleManageBilling}
+                disabled={portalLoading}
+                style={{
+                  width: "100%", padding: "7px 12px", fontSize: "0.78rem",
+                  borderRadius: "6px", border: "1px solid rgba(24,212,123,0.24)",
+                  background: "rgba(24,212,123,0.08)", color: "#DFFBEA",
+                  fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+                  letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
+                  opacity: portalLoading ? 0.7 : 1,
+                }}
+              >
+                {portalLoading ? "OPENING..." : "MANAGE BILLING"}
+              </button>
+              <button
+                data-testid="sidebar-sign-out"
+                type="button"
+                onClick={logout}
+                style={{
+                  width: "100%", padding: "7px 12px", fontSize: "0.74rem",
+                  borderRadius: "6px", border: "1px solid rgba(148,163,184,0.18)",
+                  background: "rgba(148,163,184,0.06)", color: "#CBD5E1",
+                  fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+                  letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                }}
+              >
+                <LogOut size={12} />
+                Sign Out
+              </button>
+            </div>
           ) : (
             <ProUpgradeButton />
           )}

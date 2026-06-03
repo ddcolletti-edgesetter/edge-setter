@@ -131,6 +131,7 @@ describe("entitlement UI leak coverage", () => {
     render(<ToolsHub />);
 
     expect(screen.queryByText(/Get Pro Access/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\bLIMITED\b/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/Manage Billing/i).length).toBeGreaterThan(0);
   });
 

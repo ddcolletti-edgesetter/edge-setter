@@ -53,14 +53,14 @@ const PRODUCT_STATES = [
   { sport: "CFB", status: "Limited watchlist", detail: "Roster, conference, and team/fan impact watch, not a full live slate", href: "/cfb" },
 ];
 
-function toolWorkflowCopy(tool: typeof TOOLS[number]) {
+function toolWorkflowCopy(tool: typeof TOOLS[number], isPro: boolean) {
   const sport = tool.sport[0] ?? "NBA";
   const name = tool.name.toLowerCase();
   if (name.includes("lineup") || name.includes("injur")) {
     return {
       monitors: "What changed in player status, lineup role, and source agreement",
       outputs: "Confidence movement, availability context, and what to watch next",
-      supports: sport === "NBA" ? "NBA live board" : sport === "MLB" ? "MLB active board" : `${sport} limited watchlist`,
+      supports: sport === "NBA" ? "NBA live board" : sport === "MLB" ? "MLB active board" : isPro ? `${sport} Pro included watchlist` : `${sport} limited watchlist`,
     };
   }
   if (name.includes("source") || name.includes("leader")) {
@@ -100,15 +100,18 @@ function SportTag({ sport }: { sport: string }) {
 }
 
 /* ── Individual tool card ── */
-function ToolCard({ tool }: { tool: typeof TOOLS[number] }) {
+function ToolCard({ tool, isPro }: { tool: typeof TOOLS[number]; isPro: boolean }) {
   const [hovered, setHovered] = useState(false);
-  const ss = STATUS_STYLE[tool.status] ?? STATUS_STYLE["Coming Soon"];
+  const baseStatusStyle = STATUS_STYLE[tool.status] ?? STATUS_STYLE["Coming Soon"];
+  const ss = isPro && tool.status === "Beta"
+    ? { ...baseStatusStyle, bg: "rgba(24,212,123,0.10)", color: T.green, border: "rgba(24,212,123,0.28)", label: "INCLUDED" }
+    : baseStatusStyle;
   const isDisabled = tool.status === "Coming Soon";
   const primarySport = tool.sport[0] ?? "NBA";
   const accentColor = SPORT_ACCENT[primarySport] ?? T.gold;
   const description = "description" in tool && typeof tool.description === "string" ? tool.description : undefined;
   const visualTeams = TOOL_VISUAL_TEAMS[primarySport] ?? TOOL_VISUAL_TEAMS.NBA;
-  const workflow = toolWorkflowCopy(tool);
+  const workflow = toolWorkflowCopy(tool, isPro);
 
   const card = (
     <div
@@ -298,7 +301,7 @@ function FeaturedToolBanner() {
   );
 }
 
-function SportsWorkflowDeck() {
+function SportsWorkflowDeck({ isPro }: { isPro: boolean }) {
   const workflows = [
     {
       league: "NBA",
@@ -322,7 +325,7 @@ function SportsWorkflowDeck() {
       title: "Game-Week Context",
       monitors: "Practice reports, injury tags, depth pressure, matchup notes",
       outputs: "Offseason watches, source checks, story priority",
-      supports: "Limited NFL watchlist until season coverage expands",
+      supports: isPro ? "Pro included NFL watchlist until season coverage expands" : "Limited NFL watchlist until season coverage expands",
     },
     {
       league: "CFB",
@@ -330,7 +333,7 @@ function SportsWorkflowDeck() {
       title: "Conference Intelligence",
       monitors: "Roster movement, QB rooms, travel, conference context",
       outputs: "Source-backed developments and game environment notes",
-      supports: "Limited CFB watchlist and conference watch",
+      supports: isPro ? "Pro included CFB watchlist and conference watch" : "Limited CFB watchlist and conference watch",
     },
   ];
 
@@ -412,12 +415,13 @@ function SportsWorkflowDeck() {
   );
 }
 
-function ProductStateStrip() {
+function ProductStateStrip({ isPro }: { isPro: boolean }) {
   return (
     <section style={{ marginBottom: 24 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 10 }}>
         {PRODUCT_STATES.map((item) => {
           const accent = SPORT_ACCENT[item.sport] ?? T.textFaint;
+          const status = isPro && item.status.includes("Limited") ? item.status.replace("Limited", "Included") : item.status;
           return (
             <Link key={item.sport} href={item.href}>
               <div style={{
@@ -430,8 +434,8 @@ function ProductStateStrip() {
               }}>
                 <div style={{ display: "flex", alignItems: "flex-start", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 900, letterSpacing: "0.16em", color: accent }}>{item.sport}</span>
-                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: item.status.includes("Live") ? T.green : item.status.includes("Active") ? "#00B7FF" : T.textFaint }}>
-                    {item.status}
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: item.status.includes("Live") ? T.green : item.status.includes("Active") ? "#00B7FF" : isPro ? T.green : T.textFaint }}>
+                    {status}
                   </span>
                 </div>
                 <p style={{ margin: 0, color: T.textMuted, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, lineHeight: 1.45, letterSpacing: "0.03em", overflowWrap: "anywhere" }}>
@@ -569,14 +573,14 @@ export default function ToolsHub() {
           </p>
         </div>
 
-        <ProductStateStrip />
+        <ProductStateStrip isPro={isPro} />
 
         {/* ── Status summary pills ── */}
         <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
           {[
             { label: "Story Boards", count: 1,                 color: T.green,     bg: "rgba(0,230,118,0.1)",   border: "rgba(0,230,118,0.2)" },
             { label: "Market + Fantasy",  count: 1,                 color: "#00B7FF",   bg: "rgba(0,183,255,0.08)",  border: "rgba(0,183,255,0.2)" },
-            { label: "Limited Watch",     count: 2 + betaTools.length, color: T.gold,   bg: "rgba(245,184,65,0.08)",  border: "rgba(245,184,65,0.2)" },
+            { label: isPro ? "Included Watch" : "Limited Watch", count: 2 + betaTools.length, color: isPro ? T.green : T.gold, bg: isPro ? "rgba(24,212,123,0.08)" : "rgba(245,184,65,0.08)", border: isPro ? "rgba(24,212,123,0.2)" : "rgba(245,184,65,0.2)" },
             { label: "Workflow Links",   count: visibleTools.length,color: T.textMuted, bg: "rgba(255,255,255,0.03)", border: "rgba(255,255,255,0.07)" },
           ].map(s => (
             <div key={s.label} style={{
@@ -598,7 +602,7 @@ export default function ToolsHub() {
         </div>
 
         {/* ── Featured tool hero ── */}
-        <SportsWorkflowDeck />
+        <SportsWorkflowDeck isPro={isPro} />
 
         <FeaturedToolBanner />
 
@@ -657,7 +661,7 @@ export default function ToolsHub() {
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
               {group.tools.map(tool => (
-                <ToolCard key={tool.id} tool={tool} />
+                <ToolCard key={tool.id} tool={tool} isPro={isPro} />
               ))}
             </div>
           </section>
@@ -677,7 +681,9 @@ export default function ToolsHub() {
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, color: T.textMuted, lineHeight: 1.7, letterSpacing: "0.04em", marginBottom: 14,
           }}>
-            This desk only shows workflows that support current sports intelligence decisions. Limited tools remain marked as limited or watchlist until their signal coverage, replay trail, and outcome tracking are reliable enough for production use.
+            {isPro
+              ? "This desk only shows workflows that support current sports intelligence decisions. Included watchlist tools are available in your plan while their signal coverage, replay trail, and outcome tracking come online for production use."
+              : "This desk only shows workflows that support current sports intelligence decisions. Limited tools remain marked as limited or watchlist until their signal coverage, replay trail, and outcome tracking are reliable enough for production use."}
           </div>
           <Link href={isPro ? "/billing" : "/pro"}>
             <button style={{
