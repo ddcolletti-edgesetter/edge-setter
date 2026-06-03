@@ -43,6 +43,8 @@ const DEFAULT_PREFS: Prefs = {
   is_active:      true,
 };
 
+const ALERT_DELIVERY_PAUSED = true;
+
 export default function AlertSettingsPage() {
   const { email, isPro, authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -211,21 +213,31 @@ export default function AlertSettingsPage() {
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold }}>
-            Pro Alert Desk
+            Pro Alert Desk - Pro Active
           </p>
           <h1 style={{ margin: 0, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 800, color: T.text, lineHeight: 1.15 }}>
             Watchlist Alerts
           </h1>
           <p style={{ margin: "8px 0 0", fontSize: 13, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.04em", maxWidth: 560 }}>
-            Configure the Live Sports Desk alerts that match your followed leagues, saved teams, signal types, and confidence threshold.
+            Configure saved alert preferences for followed leagues, saved teams, signal types, and confidence threshold. Delivery is paused during launch QA.
           </p>
         </div>
 
-        {/* Master toggle */}
+        {/* Delivery status */}
+        <div style={{ background: "rgba(245,184,65,0.06)", border: "1px solid rgba(245,184,65,0.24)", borderRadius: 5, padding: "14px 18px", marginBottom: 16 }}>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.gold, letterSpacing: "0.14em", textTransform: "uppercase" }}>Alert delivery paused</p>
+          <p style={{ margin: "4px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.5 }}>
+            Email delivery is currently disabled during launch QA. Your preferences can be configured and saved, but delivery is not active yet.
+          </p>
+        </div>
+
+        {/* Master preference toggle */}
         <div style={{ background: T.surface1, border: `1px solid ${T.border}`, borderRadius: 5, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18 }}>
           <div>
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.text, letterSpacing: "0.1em", textTransform: "uppercase" }}>Alerts enabled</p>
-            <p style={{ margin: "3px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.4 }}>Pause delivery without losing your saved alert settings.</p>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.text, letterSpacing: "0.1em", textTransform: "uppercase" }}>Saved preference profile</p>
+            <p style={{ margin: "3px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.4 }}>
+              Keep your alert preferences ready. Delivery remains paused until launch QA enables it.
+            </p>
           </div>
           <button
             onClick={() => setPrefs(p => ({ ...p, is_active: !p.is_active }))}
@@ -286,13 +298,14 @@ export default function AlertSettingsPage() {
         </Section>
 
         {/* Channels */}
-        <Section title="Delivery Channels">
+        <Section title="Delivery Channels" subtitle="Paused during launch QA. These preferences are saved but not live delivery settings yet.">
           {/* Email */}
           <ChannelRow
             label="Email"
-            description={`Send alerts to ${email}`}
+            description={`Email delivery is currently disabled during launch QA. Saved email: ${email}`}
             active={prefs.channels.includes("email")}
             onClick={() => toggleChannel("email")}
+            paused={ALERT_DELIVERY_PAUSED}
           />
 
           {/* Push */}
@@ -314,6 +327,7 @@ export default function AlertSettingsPage() {
               }}
               loading={pushStatus === "requesting"}
               disabled={pushStatus === "denied"}
+              paused={ALERT_DELIVERY_PAUSED}
             />
           </div>
         </Section>
@@ -384,30 +398,36 @@ function Toggle({ active, onClick, label }: { active: boolean; onClick: () => vo
 }
 
 function ChannelRow({
-  label, description, active, onClick, loading = false, disabled = false,
+  label, description, active, onClick, loading = false, disabled = false, paused = false,
 }: {
   label: string; description: string; active: boolean;
-  onClick: () => void; loading?: boolean; disabled?: boolean;
+  onClick: () => void; loading?: boolean; disabled?: boolean; paused?: boolean;
 }) {
+  const isDisabled = disabled || paused;
+  const shownActive = active && !paused;
+
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderTop: `1px solid ${T.border}` }}>
       <div>
-        <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: disabled ? T.textFaint : T.text }}>{label}</p>
+        <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: isDisabled ? T.textFaint : T.text }}>
+          {label} {paused && <span style={{ color: T.gold, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" }}>- Paused</span>}
+        </p>
         <p style={{ margin: "2px 0 0", fontSize: 12, color: T.textMuted }}>{description}</p>
       </div>
       <button
-        onClick={disabled ? undefined : onClick}
-        disabled={loading || disabled}
+        onClick={isDisabled ? undefined : onClick}
+        disabled={loading || isDisabled}
+        aria-label={`${label} delivery ${paused ? "paused" : shownActive ? "enabled" : "disabled"}`}
         style={{
           width: 44, height: 24, borderRadius: 12, border: "none",
-          cursor: disabled || loading ? "not-allowed" : "pointer",
-          background: active ? T.gold : T.surface3,
+          cursor: isDisabled || loading ? "not-allowed" : "pointer",
+          background: shownActive ? T.gold : T.surface3,
           position: "relative", transition: "background 0.2s", flexShrink: 0, marginLeft: 16,
-          opacity: disabled ? 0.4 : 1,
+          opacity: isDisabled ? 0.5 : 1,
         }}
       >
         <span style={{
-          position: "absolute", top: 3, left: active ? 23 : 3,
+          position: "absolute", top: 3, left: shownActive ? 23 : 3,
           width: 18, height: 18, borderRadius: "50%", background: T.text,
           transition: "left 0.2s",
         }} />
