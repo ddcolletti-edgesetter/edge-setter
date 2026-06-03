@@ -13,6 +13,7 @@ import AlertsPage from "./pages/AlertsPage";
 import AgentLogs from "./pages/AgentLogs";
 import SignalsPage from "./pages/SignalsPage";
 import ProPage from "./pages/ProPage";
+import LoginPage from "./pages/LoginPage";
 import SuccessPage from "./pages/SuccessPage";
 import SignalAdmin from "./pages/SignalAdmin";
 import SignalOpsQueue from "./pages/SignalOpsQueue";
@@ -80,6 +81,7 @@ function App() {
           <Route path="/accuracy" component={AccuracyPage} />
           <Route path="/billing" component={Billing} />
           <Route path="/alerts" component={AlertSettingsPage} />
+          <Route path="/login" component={LoginPage} />
           <Route path="/pro" component={ProPage} />
           <Route path="/success" component={SuccessPage} />
 

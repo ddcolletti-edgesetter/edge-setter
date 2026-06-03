@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import MyEdge from "@/pages/MyEdge";
+import ProPage from "@/pages/ProPage";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -13,6 +14,11 @@ vi.mock("@/lib/queryClient", () => ({
   apiRequest: vi.fn(),
 }));
 
+vi.mock("@/lib/analytics", () => ({
+  trackProVisit: vi.fn(),
+  trackCheckoutClick: vi.fn(),
+}));
+
 const mockUseAuth = vi.mocked(useAuth);
 const mockApiRequest = vi.mocked(apiRequest);
 
@@ -21,6 +27,10 @@ function jsonResponse(body: unknown) {
 }
 
 describe("subscriber-aware UI state", () => {
+  beforeEach(() => {
+    window.history.pushState({}, "", "/");
+  });
+
   afterEach(() => {
     document.body.innerHTML = "";
     vi.clearAllMocks();
@@ -114,6 +124,68 @@ describe("subscriber-aware UI state", () => {
     expect(screen.queryByText("MANAGE BILLING")).not.toBeInTheDocument();
     expect(screen.queryByText("Q3 2026")).not.toBeInTheDocument();
     expect(screen.queryByText("Q4 2026")).not.toBeInTheDocument();
+  });
+
+  it("routes signed-out shell Sign In to login instead of the Pro sales page", () => {
+    mockUseAuth.mockReturnValue({
+      email: null,
+      user: null,
+      isPro: false,
+      authLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+
+    render(<MyEdge />);
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("topbar-sign-in"));
+    });
+
+    expect(window.location.pathname).toBe("/login");
+    expect(window.location.pathname).not.toBe("/pro");
+  });
+
+  it("routes signed-out shell Get Pro to the Pro sales page", () => {
+    mockUseAuth.mockReturnValue({
+      email: null,
+      user: null,
+      isPro: false,
+      authLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+
+    render(<MyEdge />);
+
+    act(() => {
+      fireEvent.click(screen.getByText("GET PRO / $19 MONTH"));
+    });
+
+    expect(window.location.pathname).toBe("/pro");
+  });
+
+  it("/pro renders an existing-subscriber sign-in module that does not trigger checkout", () => {
+    mockUseAuth.mockReturnValue({
+      email: null,
+      user: null,
+      isPro: false,
+      authLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+
+    render(<ProPage />);
+
+    expect(screen.getByText("Already a subscriber?")).toBeInTheDocument();
+    expect(screen.getByText("Sign in to restore your Pro access.")).toBeInTheDocument();
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("button-pro-sign-in"));
+    });
+
+    expect(window.location.pathname).toBe("/login");
+    expect(mockApiRequest).not.toHaveBeenCalledWith("POST", "/api/checkout", expect.anything());
   });
 
   it("logout returns the shell to signed-out state with Sign In visible", () => {

@@ -139,6 +139,56 @@ function CheckoutForm({ initialEmail = "" }: { initialEmail?: string }) {
   );
 }
 
+/* ── Existing-subscriber sign-in panel ─────────────────────────── */
+function SubscriberSignInPanel() {
+  return (
+    <div className="pro-subscriber-panel" style={{
+      maxWidth: 760,
+      marginBottom: 32,
+      padding: "18px 20px",
+      border: "1px solid rgba(248,250,252,0.10)",
+      borderLeft: `3px solid ${C.gold}`,
+      borderRadius: 6,
+      background: "rgba(10,20,32,0.58)",
+    }}>
+      <span style={{
+        fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
+        fontSize: 12,
+        fontWeight: 700,
+        letterSpacing: "0.18em",
+        textTransform: "uppercase",
+        color: C.gold,
+      }}>
+        Already a subscriber?
+      </span>
+      <p style={{ fontSize: 16, color: C.textMuted, margin: "8px 0 14px", lineHeight: 1.5 }}>
+        Sign in to restore your Pro access.
+      </p>
+      <Link href="/login">
+        <button
+          data-testid="button-pro-sign-in"
+          type="button"
+          style={{
+            padding: "9px 18px",
+            background: "rgba(248,250,252,0.08)",
+            border: "1px solid rgba(248,250,252,0.18)",
+            color: C.text,
+            cursor: "pointer",
+            fontFamily: "'Barlow Condensed',Arial,sans-serif",
+            fontSize: 12,
+            fontWeight: 700,
+            letterSpacing: "0.14em",
+            textTransform: "uppercase",
+            borderRadius: 3,
+          }}
+        >
+          Sign In
+        </button>
+      </Link>
+    </div>
+  );
+}
+
 /* ── Already-Pro panel ─────────────────────────────────────────── */
 function ProManagementPanel({ email }: { email: string }) {
   const [portalLoading, setPortalLoading] = useState(false);
@@ -358,6 +408,8 @@ export default function ProPage() {
           </>
         ) : (
           <>
+            <SubscriberSignInPanel />
+
             {/* Draft Week urgency banner */}
             <div className="pro-status-banner" style={{
               display: "flex", alignItems: "flex-start", gap: 10,
@@ -472,7 +524,7 @@ export default function ProPage() {
               <CheckoutForm initialEmail={authEmail ?? ""} />
             </div>
 
-            {/* Already Pro? */}
+            {/* Email verification fallback */}
             <div className="pro-subscriber-panel" style={{
               marginTop: 48, paddingTop: 32,
               borderTop: "1px solid rgba(255,255,255,0.06)",
@@ -482,7 +534,7 @@ export default function ProPage() {
                 fontSize: 12, fontWeight: 700, letterSpacing: "0.18em",
                 textTransform: "uppercase", color: C.textFaint,
               }}>
-                Already a subscriber?
+                Verify access by email
               </span>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                 <input

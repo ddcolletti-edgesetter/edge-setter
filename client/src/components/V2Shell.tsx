@@ -699,10 +699,10 @@ function Sidebar({
               textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px",
             }}
           >
-            {isPro ? "Pro Active" : "Sports Desk"}
+            {isPro ? "Pro Active" : "Already a subscriber?"}
           </div>
           <div style={{ fontSize: "0.68rem", color: "#CBD5E1", marginBottom: "8px", lineHeight: 1.35 }}>
-            {isPro ? (email ?? "Subscriber account") : "Lineups · Injuries · Alerts"}
+            {isPro ? (email ?? "Subscriber account") : "Sign in to restore access"}
           </div>
           {isPro ? (
             <div style={{ display: "grid", gap: 5 }}>
@@ -743,7 +743,7 @@ function Sidebar({
               <button
                 data-testid="sidebar-sign-in"
                 type="button"
-                onClick={() => setLocation("/pro")}
+                onClick={() => setLocation("/login")}
                 style={{
                   width: "100%", padding: "6px 10px", fontSize: "0.76rem",
                   borderRadius: "6px", border: "1px solid rgba(248,250,252,0.18)",
@@ -992,7 +992,9 @@ function TopTabBar({
         <button
           data-testid="topbar-sign-in"
           type="button"
-          onClick={() => setLocation("/pro")}
+          onClick={() => setLocation("/login")}
+          aria-label="Already a subscriber? Sign in to restore access"
+          title="Already a subscriber? Sign in to restore access"
           style={{
             display: "inline-flex",
             alignItems: "center",
