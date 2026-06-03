@@ -50,6 +50,8 @@ describe("subscriber-aware UI state", () => {
     expect(screen.getAllByText("Pro Active").length).toBeGreaterThan(0);
     expect(screen.getByTestId("sidebar-manage-billing")).toHaveTextContent("MANAGE BILLING");
     expect(screen.getByTestId("sidebar-sign-out")).toHaveTextContent("Sign Out");
+    expect(screen.getByTestId("topbar-manage-billing")).toHaveTextContent("Manage Billing");
+    expect(screen.getByTestId("topbar-sign-out")).toHaveTextContent("Sign Out");
     fireEvent.click(screen.getByTestId("sidebar-sign-out"));
     expect(logout).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Go Pro - $19/mo")).not.toBeInTheDocument();

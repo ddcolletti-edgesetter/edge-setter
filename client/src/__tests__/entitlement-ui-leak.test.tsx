@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import ToolsHub from "@/pages/ToolsHub";
@@ -6,9 +6,11 @@ import SignalsPage from "@/pages/SignalsPage";
 import MLBBoard from "@/pages/MLBBoard";
 import { useAuth } from "@/context/AuthContext";
 import { useSignalGate } from "@/context/SignalGate";
+import { openBillingPortal } from "@/lib/billingPortal";
 
 const mockUseAuth = vi.mocked(useAuth);
 const mockUseSignalGate = vi.mocked(useSignalGate);
+const mockOpenBillingPortal = vi.mocked(openBillingPortal);
 
 vi.mock("@/context/AuthContext", () => ({
   useAuth: vi.fn(),
@@ -17,6 +19,11 @@ vi.mock("@/context/AuthContext", () => ({
 vi.mock("@/context/SignalGate", () => ({
   FREE_LIMIT: 3,
   useSignalGate: vi.fn(),
+}));
+
+vi.mock("@/lib/billingPortal", () => ({
+  billingPortalUnavailableMessage: { title: "Billing portal unavailable", description: "Try again." },
+  openBillingPortal: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {
@@ -127,12 +134,20 @@ describe("entitlement UI leak coverage", () => {
 
   it("active Pro does not see GET PRO ACCESS on /tools and sees billing management", () => {
     setEntitlement(true);
+    mockOpenBillingPortal.mockResolvedValue(undefined);
 
     render(<ToolsHub />);
 
     expect(screen.queryByText(/Get Pro Access/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/\bLIMITED\b/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText(/\bINCLUDED\b/i).length).toBeGreaterThan(0);
+    expect(screen.getByText("Your Pro plan includes these workflows. Some tools may remain in watch mode while coverage, replay trails, and outcome tracking come online.")).toBeInTheDocument();
     expect(screen.getAllByText(/Manage Billing/i).length).toBeGreaterThan(0);
+    expect(screen.getByTestId("topbar-manage-billing")).toBeInTheDocument();
+    expect(screen.getByTestId("topbar-sign-out")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("tools-manage-billing"));
+    expect(mockOpenBillingPortal).toHaveBeenCalledWith("subscriber@example.com");
   });
 
   it("non-Pro still sees upgrade CTA on /tools", () => {
@@ -141,6 +156,7 @@ describe("entitlement UI leak coverage", () => {
     render(<ToolsHub />);
 
     expect(screen.getByText(/Get Pro Access/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/\bLIMITED\b/i).length).toBeGreaterThan(0);
   });
 
   it("active Pro does not see GO PRO, $19/MO, or Pro unlocks upsell on /signals", () => {

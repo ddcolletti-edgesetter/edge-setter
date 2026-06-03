@@ -767,8 +767,23 @@ function TopTabBar({
   const { theme, toggleTheme } = useTheme();
   const isDark = theme === "dark";
   const { handleUpgrade, loading: proLoading } = useProCheckout();
-  const { isPro } = useAuth();
+  const { email, user, isPro, logout } = useAuth();
+  const { toast } = useToast();
+  const [portalLoading, setPortalLoading] = useState(false);
   const activeSport = SPORT_TABS.find((t) => location.startsWith(t.path))?.key ?? null;
+  const accountEmail = user?.email ?? email;
+
+  const handleManageBilling = async () => {
+    if (!accountEmail || portalLoading) return;
+    setPortalLoading(true);
+    try {
+      await openBillingPortal(accountEmail);
+    } catch {
+      toast(billingPortalUnavailableMessage);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   return (
     <div
@@ -960,7 +975,7 @@ function TopTabBar({
 
       {/* PRO button — icon-only on mobile */}
       <button
-        onClick={isPro ? () => setLocation("/billing") : handleUpgrade}
+        onClick={isPro ? handleManageBilling : handleUpgrade}
         disabled={proLoading}
         aria-label={isPro ? "Open billing settings" : "Upgrade to Pro"}
         title={isPro ? "Pro active" : "Upgrade to Pro"}
@@ -989,6 +1004,63 @@ function TopTabBar({
         {/* FIX: hide text on mobile — icon-only PRO button */}
         {!isMobile && (isPro ? "PRO ACTIVE" : (proLoading ? "LOADING…" : "PRO - $19/MO"))}
       </button>
+
+      {isPro && !isMobile && (
+        <>
+          <button
+            data-testid="topbar-manage-billing"
+            type="button"
+            onClick={handleManageBilling}
+            disabled={portalLoading}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              padding: "6px 12px",
+              borderRadius: "6px",
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: "0.78rem",
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              background: "rgba(24,212,123,0.08)",
+              color: "#DFFBEA",
+              border: "1px solid rgba(24,212,123,0.24)",
+              opacity: portalLoading ? 0.7 : 1,
+              flexShrink: 0,
+            }}
+          >
+            <CreditCard size={12} />
+            {portalLoading ? "Opening" : "Manage Billing"}
+          </button>
+          <button
+            data-testid="topbar-sign-out"
+            type="button"
+            onClick={logout}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              padding: "6px 12px",
+              borderRadius: "6px",
+              fontFamily: "'Barlow Condensed', sans-serif",
+              fontSize: "0.78rem",
+              fontWeight: 800,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              background: "rgba(148,163,184,0.06)",
+              color: "#CBD5E1",
+              border: "1px solid rgba(148,163,184,0.18)",
+              flexShrink: 0,
+            }}
+          >
+            <LogOut size={12} />
+            Sign Out
+          </button>
+        </>
+      )}
 
       {/* Dark mode toggle — icon-only on mobile */}
       <button

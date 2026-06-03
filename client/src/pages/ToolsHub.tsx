@@ -6,6 +6,8 @@ import { ArrowRight, ExternalLink, Zap, TrendingUp, Activity, BarChart2, Search,
 import { T } from "../components/v2/SportVisuals";
 import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { billingPortalUnavailableMessage, openBillingPortal } from "@/lib/billingPortal";
 
 /* ── Sport badge config ── */
 const SPORT_ACCENT: Record<string, string> = {
@@ -544,10 +546,21 @@ function WorkflowRouteCards() {
 }
 
 export default function ToolsHub() {
-  const { isPro } = useAuth();
+  const { email, user, isPro } = useAuth();
+  const { toast } = useToast();
   const liveTools = TOOLS.filter(t => t.status === "Live");
   const betaTools = TOOLS.filter(t => t.status === "Beta");
   const visibleTools = [...liveTools, ...betaTools];
+  const accountEmail = user?.email ?? email;
+
+  const handleManageBilling = async () => {
+    if (!accountEmail) return;
+    try {
+      await openBillingPortal(accountEmail);
+    } catch {
+      toast(billingPortalUnavailableMessage);
+    }
+  };
 
   return (
     <V2Shell brandContext="SPORTS INTEL TOOLS">
@@ -682,11 +695,20 @@ export default function ToolsHub() {
             fontSize: 12, color: T.textMuted, lineHeight: 1.7, letterSpacing: "0.04em", marginBottom: 14,
           }}>
             {isPro
-              ? "This desk only shows workflows that support current sports intelligence decisions. Included watchlist tools are available in your plan while their signal coverage, replay trail, and outcome tracking come online for production use."
+              ? "Your Pro plan includes these workflows. Some tools may remain in watch mode while coverage, replay trails, and outcome tracking come online."
               : "This desk only shows workflows that support current sports intelligence decisions. Limited tools remain marked as limited or watchlist until their signal coverage, replay trail, and outcome tracking are reliable enough for production use."}
           </div>
-          <Link href={isPro ? "/billing" : "/pro"}>
-            <button style={{
+          <Link href={isPro ? "/tools" : "/pro"}>
+            <button
+              data-testid="tools-manage-billing"
+              type="button"
+              onClick={(event) => {
+                if (!isPro) return;
+                event.preventDefault();
+                event.stopPropagation();
+                void handleManageBilling();
+              }}
+              style={{
               background: isPro ? "rgba(24,212,123,0.12)" : T.gold,
               color: isPro ? T.green : T.bg,
               border: isPro ? "1px solid rgba(24,212,123,0.32)" : "none",
