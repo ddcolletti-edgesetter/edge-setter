@@ -1,5 +1,5 @@
 import AppShell from "@/components/V2Shell";
-import { CreditCard, Zap, CheckCircle, AlertCircle, Calendar, ExternalLink, ArrowRight } from "lucide-react";
+import { CreditCard, Zap, CheckCircle, Calendar, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
@@ -28,18 +28,41 @@ interface SubscriptionDetails {
 export default function Billing() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const { email, isPro, authLoading } = useAuth();
+  const { email, user: authUser, isPro, authLoading } = useAuth();
   const [portalLoading, setPortalLoading] = useState(false);
   const isLoading = authLoading;
   const subDetails = null as SubscriptionDetails | null;
-  const user = email ? { id: email } : null;
+  const accountEmail = authUser?.email ?? email;
+  const accessStatus = authUser?.access_status ?? (isPro ? "active" : null);
+  const billingStatus = authUser?.billing_status ?? accessStatus;
+  const hasStripeCustomer = Boolean(authUser?.stripe_customer_id);
+  const isCanceledOrInactive = !isPro && (accessStatus === "canceled" || billingStatus === "canceled");
+  const planStatusLabel = isPro ? "PRO - ACTIVE" : isCanceledOrInactive ? "PRO - CANCELED" : "FREE PLAN";
+  const planStatusDescription = isPro
+    ? "You have full access to all intelligence boards, real-time signals, and the complete archive."
+    : isCanceledOrInactive
+      ? "Your Pro access is not active. Resubscribe to restore subscriber features."
+      : "Upgrade to Pro to unlock all boards, real-time alerts, and the full signal archive.";
+  const detailsPlanName = isPro || isCanceledOrInactive ? "EdgeSetter Pro" : "Free";
+  const detailsAmount = subDetails
+    ? `${formatAmount(subDetails.amount, subDetails.currency)} / ${subDetails.interval}`
+    : isPro
+      ? "Managed in Stripe"
+      : "Not active";
+  const detailsStatus = isPro ? "Active" : isCanceledOrInactive ? "Canceled" : "Inactive";
+  const detailsPeriodLabel = subDetails?.cancelAtPeriodEnd ? "ACCESS ENDS" : "NEXT BILLING";
+  const detailsPeriod = subDetails?.currentPeriodEnd
+    ? formatDate(subDetails.currentPeriodEnd)
+    : isPro
+      ? "Managed in Stripe portal"
+      : "Not active";
   const portalMutation = {
     isPending: portalLoading,
     mutate: async (_args?: { origin?: string }) => {
-      if (!email || portalLoading) return;
+      if (!accountEmail || portalLoading) return;
       setPortalLoading(true);
       try {
-        const res = await apiRequest("POST", "/api/billing/portal", { email });
+        const res = await apiRequest("POST", "/api/billing/portal", { email: accountEmail });
         const data = await res.json();
         if (data.url) window.location.href = data.url;
       } catch {
@@ -75,11 +98,6 @@ export default function Billing() {
               <div key={i} style={{ height: "80px", borderRadius: "12px", background: "#1A1E2A", animation: "pulse 1.5s infinite" }} />
             ))}
           </div>
-        ) : !user ? (
-          <div className="es-card" style={{ padding: "32px", textAlign: "center" }}>
-            <AlertCircle size={32} style={{ color: "#F5B841", margin: "0 auto 12px" }} />
-            <p style={{ color: "var(--es-text-muted)" }}>Please log in to view your billing details.</p>
-          </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
 
@@ -102,13 +120,16 @@ export default function Billing() {
                       color: isPro ? "#00E676" : "#F5B841",
                       letterSpacing: "0.06em",
                     }}>
-                      {isPro ? "PRO — ACTIVE" : "FREE PLAN"}
+                      {planStatusLabel}
                     </span>
                   </div>
+                  {accountEmail && (
+                    <p style={{ color: "var(--es-text-muted)", fontSize: "0.78rem", margin: "0 0 6px", letterSpacing: "0.04em" }}>
+                      Account: {accountEmail}
+                    </p>
+                  )}
                   <p style={{ color: "var(--es-text-muted)", fontSize: "0.85rem", margin: 0 }}>
-                    {isPro
-                      ? "You have full access to all intelligence boards, real-time signals, and the complete archive."
-                      : "Upgrade to Pro to unlock all boards, real-time alerts, and the full signal archive."}
+                    {planStatusDescription}
                   </p>
                 </div>
                 {!isPro && (
@@ -135,8 +156,8 @@ export default function Billing() {
               </div>
             </div>
 
-            {/* Subscription Details (Pro only) */}
-            {isPro && (
+            {/* Subscription Details */}
+            {(isPro || isCanceledOrInactive) && (
               <div className="es-card" style={{ padding: "28px" }}>
                 <h2 style={{
                   fontFamily: "'Barlow Condensed', sans-serif",
@@ -148,26 +169,24 @@ export default function Billing() {
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: "20px" }}>
                   <div>
                     <div style={{ fontSize: "0.75rem", color: "var(--es-text-muted)", marginBottom: "4px", letterSpacing: "0.08em" }}>PLAN</div>
-                    <div style={{ fontWeight: 700, color: "var(--es-text-primary)", fontSize: "0.95rem" }}>{subDetails?.planName}</div>
+                    <div style={{ fontWeight: 700, color: "var(--es-text-primary)", fontSize: "0.95rem" }}>{subDetails?.planName ?? detailsPlanName}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: "0.75rem", color: "var(--es-text-muted)", marginBottom: "4px", letterSpacing: "0.08em" }}>AMOUNT</div>
-                    <div style={{ fontWeight: 700, color: "var(--es-text-primary)", fontSize: "0.95rem" }}>
-                      {formatAmount(subDetails?.amount ?? 0, subDetails?.currency ?? "usd")} / {subDetails?.interval ?? "month"}
-                    </div>
+                    <div style={{ fontWeight: 700, color: "var(--es-text-primary)", fontSize: "0.95rem" }}>{detailsAmount}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: "0.75rem", color: "var(--es-text-muted)", marginBottom: "4px", letterSpacing: "0.08em" }}>STATUS</div>
-                    <div style={{ fontWeight: 700, color: subDetails?.status === "active" ? "#00E676" : "#F5B841", fontSize: "0.95rem", textTransform: "capitalize" }}>
-                      {subDetails?.cancelAtPeriodEnd ? "Cancels at period end" : (subDetails?.status ?? "inactive")}
+                    <div style={{ fontWeight: 700, color: isPro ? "#00E676" : "#F5B841", fontSize: "0.95rem", textTransform: "capitalize" }}>
+                      {subDetails?.cancelAtPeriodEnd ? "Cancels at period end" : detailsStatus}
                     </div>
                   </div>
                   <div>
                     <div style={{ display: "flex", alignItems: "center", gap: "5px", fontSize: "0.75rem", color: "var(--es-text-muted)", marginBottom: "4px", letterSpacing: "0.08em" }}>
-                      <Calendar size={11} /> {subDetails?.cancelAtPeriodEnd ? "ACCESS ENDS" : "NEXT BILLING"}
+                      <Calendar size={11} /> {detailsPeriodLabel}
                     </div>
                     <div style={{ fontWeight: 700, color: "var(--es-text-primary)", fontSize: "0.95rem" }}>
-                      {formatDate(subDetails?.currentPeriodEnd)}
+                      {detailsPeriod}
                     </div>
                   </div>
                 </div>
@@ -184,8 +203,8 @@ export default function Billing() {
               </div>
             )}
 
-            {/* Manage Subscription (Pro only) */}
-            {isPro && (
+            {/* Manage Subscription (verified Stripe customer only) */}
+            {isPro && hasStripeCustomer && (
               <div className="es-card" style={{ padding: "24px 28px" }}>
                 <h2 style={{
                   fontFamily: "'Barlow Condensed', sans-serif",

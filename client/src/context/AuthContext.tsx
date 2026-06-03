@@ -2,8 +2,20 @@ import { createContext, useContext, useState, useEffect, useCallback, ReactNode 
 
 const LS_KEY = "es_user_email";
 
+export interface AuthUser {
+  email?: string | null;
+  plan?: string | null;
+  access_status?: string | null;
+  billing_status?: string | null;
+  stripe_customer_id?: string | null;
+  stripe_subscription_id?: string | null;
+  beta_until?: string | null;
+  is_pro?: boolean;
+}
+
 interface AuthState {
   email: string | null;
+  user?: AuthUser | null;
   isPro: boolean;
   authLoading: boolean;
   /** Returns null on success (Pro verified), or an error string. */
@@ -15,6 +27,7 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [email, setEmail] = useState<string | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isPro, setIsPro] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
 
@@ -28,15 +41,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .then(user => {
         if (user) {
           setEmail(saved);
+          setUser(user);
           setIsPro(user.is_pro ?? false);
         } else {
           // Email no longer in DB — clear stale session
+          setUser(null);
           localStorage.removeItem(LS_KEY);
         }
       })
       .catch(() => {
         // Network error on startup: keep email in state but don't grant Pro
         setEmail(saved);
+        setUser(null);
       })
       .finally(() => setAuthLoading(false));
   }, []);
@@ -53,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const pro = user.is_pro ?? false;
       setEmail(e);
+      setUser(user);
       setIsPro(pro);
 
       if (pro) {
@@ -68,12 +85,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     setEmail(null);
+    setUser(null);
     setIsPro(false);
     localStorage.removeItem(LS_KEY);
   }, []);
 
   return (
-    <AuthContext.Provider value={{ email, isPro, authLoading, login, logout }}>
+    <AuthContext.Provider value={{ email, user, isPro, authLoading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
