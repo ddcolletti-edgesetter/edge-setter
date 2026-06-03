@@ -27,6 +27,7 @@ import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations
 import { filterCanonicalSituations, useCanonicalSituations } from "@/lib/situationsApi";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "@/lib/signalBoardUx";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { useAuth } from "@/context/AuthContext";
 import type { SituationLaneType } from "@/components/board/SituationRow";
 
 type Signal = {
@@ -77,6 +78,7 @@ const TAB_SIGNAL_TYPE: Record<string, string | null> = {
 const PRO_THRESHOLD = 10;
 
 export default function MLBBoard() {
+  const { isPro } = useAuth();
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
   const [drawerSignal, setDrawerSignal] = useState<Signal | SignalDetailLike | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
@@ -225,6 +227,10 @@ export default function MLBBoard() {
     window.history.pushState({}, "", "/pro");
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
+  const openAlertSettings = () => {
+    window.history.pushState({}, "", "/alerts");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
 
   return (
     <AppShell>
@@ -246,11 +252,15 @@ export default function MLBBoard() {
           headlines={headlineItems}
           brandLine="Sports intelligence before the market catches up"
           conversion={{
-            title: "Get MLB alerts before first pitch",
-            body: "Follow lineups, pitching changes, bullpen availability, weather, roster moves, and market movement with source and timing context attached.",
-            bullets: ["Early lineup and scratch alerts", "Pitching, bullpen, and weather context", "Confidence and timing on developing stories"],
-            ctaLabel: "Get MLB alerts",
-            onClick: openProPage,
+            title: isPro ? "Manage MLB alerts before first pitch" : "Get MLB alerts before first pitch",
+            body: isPro
+              ? "Lineups, pitching changes, bullpen availability, weather, roster moves, and market movement alerts are available in your plan."
+              : "Follow lineups, pitching changes, bullpen availability, weather, roster moves, and market movement with source and timing context attached.",
+            bullets: isPro
+              ? ["Alert settings included in Pro", "Pitching, bullpen, and weather context", "Confidence and timing on developing stories"]
+              : ["Early lineup and scratch alerts", "Pitching, bullpen, and weather context", "Confidence and timing on developing stories"],
+            ctaLabel: isPro ? "Manage MLB alerts" : "Get MLB alerts",
+            onClick: isPro ? openAlertSettings : openProPage,
           }}
           lead={
             <EditorialLeadStory

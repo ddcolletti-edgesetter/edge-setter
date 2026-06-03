@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import { ArrowRight, ExternalLink, Zap, TrendingUp, Activity, BarChart2, Search, Database, ShieldCheck, History, Star, Bell } from "lucide-react";
 import { T } from "../components/v2/SportVisuals";
 import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
+import { useAuth } from "@/context/AuthContext";
 
 /* ── Sport badge config ── */
 const SPORT_ACCENT: Record<string, string> = {
@@ -539,6 +540,7 @@ function WorkflowRouteCards() {
 }
 
 export default function ToolsHub() {
+  const { isPro } = useAuth();
   const liveTools = TOOLS.filter(t => t.status === "Live");
   const betaTools = TOOLS.filter(t => t.status === "Beta");
   const visibleTools = [...liveTools, ...betaTools];
@@ -677,14 +679,17 @@ export default function ToolsHub() {
           }}>
             This desk only shows workflows that support current sports intelligence decisions. Limited tools remain marked as limited or watchlist until their signal coverage, replay trail, and outcome tracking are reliable enough for production use.
           </div>
-          <Link href="/pro">
+          <Link href={isPro ? "/billing" : "/pro"}>
             <button style={{
-              background: T.gold, color: T.bg, border: "none", borderRadius: 3,
+              background: isPro ? "rgba(24,212,123,0.12)" : T.gold,
+              color: isPro ? T.green : T.bg,
+              border: isPro ? "1px solid rgba(24,212,123,0.32)" : "none",
+              borderRadius: 3,
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
               padding: "8px 18px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
             }}>
-              Get Pro Access · $19/mo <ArrowRight size={11} />
+              {isPro ? "Manage Billing" : "Get Pro Access · $19/mo"} <ArrowRight size={11} />
             </button>
           </Link>
         </div>

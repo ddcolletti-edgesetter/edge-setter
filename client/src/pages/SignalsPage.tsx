@@ -174,6 +174,7 @@ function SignalVisualPreview() {
 }
 
 function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featured?: boolean; onOpenDetails: (signal: Signal) => void }) {
+  const { isPro } = useSignalGate();
   const openDetails = () => onOpenDetails(signal);
 
   return (
@@ -333,7 +334,7 @@ function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featu
         >
           View detail <ChevronRight size={10} />
         </button>
-        {featured && (
+        {featured && !isPro && (
           <Link href="/pro">
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -360,9 +361,8 @@ function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featu
  * The context tracks viewed IDs for dedup across nav events.
  */
 function GatedSignalCard({ signal, featured, globalIndex, onOpenDetails }: { signal: Signal; featured?: boolean; globalIndex: number; onOpenDetails: (signal: Signal) => void }) {
-  const { consumeSignal } = useSignalGate();
-  // Position-based: first FREE_LIMIT signals are always free
-  const isFree = globalIndex < FREE_LIMIT;
+  const { consumeSignal, rowIsFree } = useSignalGate();
+  const isFree = rowIsFree(globalIndex);
 
   // Register the view for free signals (for the meter display)
   useEffect(() => {
@@ -392,6 +392,7 @@ function SignalsPageInner() {
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [drawerSignal, setDrawerSignal] = useState<Signal | null>(null);
+  const { isPro } = useSignalGate();
 
   const { data: signals = [], isLoading, refetch } = useQuery<Signal[]>({
     queryKey: ["/api/signals"],
@@ -503,22 +504,24 @@ function SignalsPageInner() {
                 </button>
               </span>
             )}
-            <Link href="/pro">
+            <Link href={isPro ? "/billing" : "/pro"}>
               <button
                 data-testid="button-topbar-go-pro"
                 style={{
-                  background: T.gold, color: T.bg,
-                  border: "none", borderRadius: 3, cursor: "pointer",
+                  background: isPro ? "rgba(61,174,114,0.12)" : T.gold,
+                  color: isPro ? T.green : T.bg,
+                  border: isPro ? "1px solid rgba(61,174,114,0.32)" : "none",
+                  borderRadius: 3, cursor: "pointer",
                   fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                   fontSize: 11, fontWeight: 700, letterSpacing: "0.14em",
                   textTransform: "uppercase",
                   padding: "7px 16px", minHeight: 36,
                   transition: "background 0.15s",
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = T.goldBright; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = T.gold; }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(61,174,114,0.18)" : T.goldBright; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(61,174,114,0.12)" : T.gold; }}
               >
-                Go Pro · $19/mo
+                {isPro ? "Pro Active" : "Go Pro · $19/mo"}
               </button>
             </Link>
           </div>
@@ -557,15 +560,21 @@ function SignalsPageInner() {
               fontSize: 12, fontWeight: 700, letterSpacing: "0.14em",
               textTransform: "uppercase", color: T.gold, flexShrink: 0, marginTop: 1,
             }}>
-              Free access
+              {isPro ? "Pro active" : "Free access"}
             </span>
             <span style={{ fontSize: 15, color: T.textMuted, lineHeight: 1.5 }}>
-              You can fully read the {FREE_LIMIT} most recent signals.{" "}
-              <Link href="/pro">
-                <span style={{ color: T.gold, cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(245,184,65,0.40)" }}>
-                  Pro unlocks full signal detail, source context, and action windows.
-                </span>
-              </Link>
+              {isPro ? (
+                <>Full signal detail, source context, and action windows are available in your plan.</>
+              ) : (
+                <>
+                  You can fully read the {FREE_LIMIT} most recent signals.{" "}
+                  <Link href="/pro">
+                    <span style={{ color: T.gold, cursor: "pointer", textDecoration: "underline", textDecorationColor: "rgba(245,184,65,0.40)" }}>
+                      Pro unlocks full signal detail, source context, and action windows.
+                    </span>
+                  </Link>
+                </>
+              )}
             </span>
           </div>
           <div style={{ height: 1, background: "rgba(245,184,65,0.18)" }} />
@@ -612,7 +621,32 @@ function SignalsPageInner() {
                 position: "relative", overflow: "hidden",
               }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: T.gold, pointerEvents: "none" }} />
-                {!submitted ? (
+                {isPro ? (
+                  <>
+                    <div style={{
+                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                      fontSize: 10, fontWeight: 700, letterSpacing: "0.18em",
+                      textTransform: "uppercase", color: T.green, marginBottom: 10,
+                    }}>
+                      Included in Pro
+                    </div>
+                    <div style={{
+                      fontFamily: "'Playfair Display', Georgia, serif",
+                      fontSize: 18, fontWeight: 700, color: T.text,
+                      marginBottom: 8, lineHeight: 1.25,
+                    }}>
+                      Alert settings.
+                    </div>
+                    <p style={{ fontSize: 15, color: T.textMuted, margin: "0 0 18px", lineHeight: 1.6 }}>
+                      Manage delivery for confidence movement, official confirmation, and story resolution alerts.
+                    </p>
+                    <Link href="/alerts">
+                      <button className="btn-primary" style={{ width: "100%" }}>
+                        Manage Alerts
+                      </button>
+                    </Link>
+                  </>
+                ) : !submitted ? (
                   <>
                     <div style={{
                       fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",

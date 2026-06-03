@@ -28,7 +28,7 @@ const ITEMS = [
 ];
 
 export default function ProValueModule() {
-  const { freeCount, isGated } = useSignalGate();
+  const { freeCount, isGated, isPro } = useSignalGate();
   const remaining = Math.max(0, FREE_LIMIT - freeCount);
 
   return (
@@ -60,7 +60,7 @@ export default function ProValueModule() {
         display: "flex", alignItems: "center", gap: 6,
       }}>
         <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.gold, display: "inline-block" }} />
-        Live Workflow · Pro
+        {isPro ? "Pro Active" : "Live Workflow · Pro"}
       </div>
 
       {/* Headline */}
@@ -69,10 +69,12 @@ export default function ProValueModule() {
         fontSize: 18, fontWeight: 700,
         color: C.text, marginBottom: 4, lineHeight: 1.25,
       }}>
-        Full signal workflow
+        {isPro ? "Available in your plan" : "Full signal workflow"}
       </div>
       <p style={{ fontSize: 14, color: C.textMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
-        Move from limited board access into full signal detail, source context, accuracy context, and saved-signal monitoring.
+        {isPro
+          ? "Full signal detail, source context, accuracy context, and saved-signal monitoring are included in Pro."
+          : "Move from limited board access into full signal detail, source context, accuracy context, and saved-signal monitoring."}
       </p>
 
       {/* Free signal meter — only show if they've used some */}
@@ -132,7 +134,7 @@ export default function ProValueModule() {
       </div>
 
       {/* Price + CTA */}
-      <div style={{ marginBottom: 14 }}>
+      {!isPro && <div style={{ marginBottom: 14 }}>
         <span style={{
           fontFamily: "'Playfair Display',Georgia,serif",
           fontSize: 28, fontWeight: 700,
@@ -147,36 +149,38 @@ export default function ProValueModule() {
         }}>
           /month
         </span>
-      </div>
+      </div>}
 
-      <Link href="/pro">
+      <Link href={isPro ? "/alerts" : "/pro"}>
         <button
           data-testid="button-pro-value-cta"
           style={{
             width: "100%",
             padding: "11px 0",
-            background: C.gold, color: "#050505",
-            border: "none", borderRadius: 3, cursor: "pointer",
+            background: isPro ? "rgba(61,174,114,0.12)" : C.gold,
+            color: isPro ? C.green : "#050505",
+            border: isPro ? "1px solid rgba(61,174,114,0.32)" : "none",
+            borderRadius: 3, cursor: "pointer",
             fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
             fontSize: 11, fontWeight: 700,
             letterSpacing: "0.18em", textTransform: "uppercase",
             transition: "background 0.15s",
           }}
-          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = C.goldBright; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = C.gold; }}
+          onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(61,174,114,0.18)" : C.goldBright; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(61,174,114,0.12)" : C.gold; }}
         >
-          Go Pro · $19/mo
+          {isPro ? "Manage Alerts" : "Go Pro · $19/mo"}
         </button>
       </Link>
 
-      <p style={{
+      {!isPro && <p style={{
         fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
         fontSize: 9, fontWeight: 700, letterSpacing: "0.14em",
         textTransform: "uppercase",
         color: C.textFaint, marginTop: 10, textAlign: "center",
       }}>
         Early adopter pricing · Cancel any time
-      </p>
+      </p>}
     </div>
   );
 }

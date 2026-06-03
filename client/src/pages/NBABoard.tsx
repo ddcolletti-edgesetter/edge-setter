@@ -28,6 +28,7 @@ import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations
 import { filterCanonicalSituations, useCanonicalSituations } from "@/lib/situationsApi";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "@/lib/signalBoardUx";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { useAuth } from "@/context/AuthContext";
 import type { SituationLaneType } from "@/components/board/SituationRow";
 
 type Signal = {
@@ -78,6 +79,7 @@ const TAB_SIGNAL_TYPE: Record<string, string | null> = {
 const PRO_THRESHOLD = 10;
 
 export default function NBABoard() {
+  const { isPro } = useAuth();
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
   const [drawerSignal, setDrawerSignal] = useState<Signal | SignalDetailLike | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
@@ -227,6 +229,10 @@ export default function NBABoard() {
     window.history.pushState({}, "", "/pro");
     window.dispatchEvent(new PopStateEvent("popstate"));
   };
+  const openAlertSettings = () => {
+    window.history.pushState({}, "", "/alerts");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
 
   const handleToastView = useCallback(() => {
     flushPending();
@@ -253,11 +259,15 @@ export default function NBABoard() {
             headlines={headlineItems}
             brandLine="Sports intelligence before the market catches up"
             conversion={{
-              title: "Follow NBA availability alerts",
-              body: "Follow starters, injuries, rotations, late scratches, warmups, and pre-tip movement in one source-backed story view.",
-              bullets: ["Starter and late-scratch updates", "Injury and rotation context", "Confidence and timing on developing stories"],
-              ctaLabel: "Follow NBA board",
-              onClick: openProPage,
+              title: isPro ? "Manage NBA availability alerts" : "Follow NBA availability alerts",
+              body: isPro
+                ? "Starter, injury, rotation, late scratch, warmup, and pre-tip movement alerts are available in your plan."
+                : "Follow starters, injuries, rotations, late scratches, warmups, and pre-tip movement in one source-backed story view.",
+              bullets: isPro
+                ? ["Alert settings included in Pro", "Injury and rotation context", "Confidence and timing on developing stories"]
+                : ["Starter and late-scratch updates", "Injury and rotation context", "Confidence and timing on developing stories"],
+              ctaLabel: isPro ? "Manage NBA alerts" : "Follow NBA board",
+              onClick: isPro ? openAlertSettings : openProPage,
             }}
             lead={
               <EditorialLeadStory
