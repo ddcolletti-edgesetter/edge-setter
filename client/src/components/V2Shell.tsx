@@ -705,14 +705,14 @@ function Sidebar({
             {isPro ? (email ?? "Subscriber account") : "Lineups · Injuries · Alerts"}
           </div>
           {isPro ? (
-            <div style={{ display: "grid", gap: 6 }}>
+            <div style={{ display: "grid", gap: 5 }}>
               <button
                 data-testid="sidebar-manage-billing"
                 type="button"
                 onClick={handleManageBilling}
                 disabled={portalLoading}
                 style={{
-                  width: "100%", padding: "7px 12px", fontSize: "0.78rem",
+                  width: "100%", padding: "6px 10px", fontSize: "0.76rem",
                   borderRadius: "6px", border: "1px solid rgba(24,212,123,0.24)",
                   background: "rgba(24,212,123,0.08)", color: "#DFFBEA",
                   fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
@@ -727,16 +727,15 @@ function Sidebar({
                 type="button"
                 onClick={logout}
                 style={{
-                  width: "100%", padding: "7px 12px", fontSize: "0.74rem",
-                  borderRadius: "6px", border: "1px solid rgba(148,163,184,0.18)",
-                  background: "rgba(148,163,184,0.06)", color: "#CBD5E1",
+                  width: "100%", padding: "6px 10px", fontSize: "0.76rem",
+                  borderRadius: "6px", border: "1px solid rgba(248,250,252,0.18)",
+                  background: "rgba(248,250,252,0.08)", color: "#F8FAFC",
                   fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
                   letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
-                  display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
                 }}
               >
-                <LogOut size={12} />
-                Sign Out
+                SIGN OUT
               </button>
             </div>
           ) : (
