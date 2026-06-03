@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
+import { billingPortalUnavailableMessage, openBillingPortal } from "@/lib/billingPortal";
 const EDGESETTER_EMBLEM_SRC = "/brand/edgesetter-emblem.png";
 const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
 
@@ -135,16 +136,30 @@ function Sidebar({
   style?: React.CSSProperties;
 }) {
   const [location, setLocation] = useLocation();
-  const { email, isPro } = useAuth();
+  const { email, user, isPro } = useAuth();
+  const { toast } = useToast();
+  const [portalLoading, setPortalLoading] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ Boards: true });
   const expandedWidth = 204;
   const collapsedWidth = 50;
+  const accountEmail = user?.email ?? email;
 
   const toggleSection = (label: string) => {
     setOpenSections((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
   const isActive = (path?: string) => path && location === path;
+  const handleManageBilling = async () => {
+    if (!accountEmail || portalLoading) return;
+    setPortalLoading(true);
+    try {
+      await openBillingPortal(accountEmail);
+    } catch {
+      toast(billingPortalUnavailableMessage);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
   const sidebarNav = [
     { label: "Live Desk", path: "/", icon: <Home size={16} />, active: location === "/" },
     { label: "Tools", path: "/tools", icon: <Activity size={16} />, active: location.startsWith("/tools") },
@@ -691,17 +706,20 @@ function Sidebar({
           </div>
           {isPro ? (
             <button
+              data-testid="sidebar-manage-billing"
               type="button"
-              onClick={() => setLocation("/billing")}
+              onClick={handleManageBilling}
+              disabled={portalLoading}
               style={{
                 width: "100%", padding: "7px 12px", fontSize: "0.78rem",
                 borderRadius: "6px", border: "1px solid rgba(24,212,123,0.24)",
                 background: "rgba(24,212,123,0.08)", color: "#DFFBEA",
                 fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
                 letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
+                opacity: portalLoading ? 0.7 : 1,
               }}
             >
-              Manage Billing
+              {portalLoading ? "OPENING..." : "MANAGE BILLING"}
             </button>
           ) : (
             <ProUpgradeButton />

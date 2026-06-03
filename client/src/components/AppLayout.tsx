@@ -9,6 +9,8 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { NavLoginButton } from "./ProGate";
 import { useAuth } from "@/context/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { billingPortalUnavailableMessage, openBillingPortal } from "@/lib/billingPortal";
 
 /* ── Public nav (shown to all users) ── */
 const publicNavItems = [
@@ -64,7 +66,22 @@ interface Props {
 export default function AppLayout({ children, theme, toggleTheme, opsMode = false }: Props) {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { email, isPro } = useAuth();
+  const { email, user, isPro } = useAuth();
+  const { toast } = useToast();
+  const [portalLoading, setPortalLoading] = useState(false);
+  const accountEmail = user?.email ?? email;
+
+  const handleManageBilling = async () => {
+    if (!accountEmail || portalLoading) return;
+    setPortalLoading(true);
+    try {
+      await openBillingPortal(accountEmail);
+    } catch {
+      toast(billingPortalUnavailableMessage);
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   const { data: stats } = useQuery({
     queryKey: ["/api/stats"],
@@ -276,15 +293,18 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
               >
                 {isPro ? (email ?? "Subscriber account") : "Real-time alerts · Full archive"}
               </div>
-              <Link href={isPro ? "/billing" : "/pro"}>
+              {isPro ? (
                 <button
-                  data-testid={isPro ? "button-manage-billing" : "button-upgrade-pro"}
+                  data-testid="button-manage-billing"
+                  type="button"
+                  onClick={handleManageBilling}
+                  disabled={portalLoading}
                   style={{
                     width: "100%",
                     minHeight: 38,
-                    background: isPro ? "rgba(24,212,123,0.12)" : T.gold,
-                    color: isPro ? "#DFFBEA" : T.bg,
-                    border: isPro ? "1px solid rgba(24,212,123,0.28)" : "none",
+                    background: "rgba(24,212,123,0.12)",
+                    color: "#DFFBEA",
+                    border: "1px solid rgba(24,212,123,0.28)",
                     borderRadius: 3,
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 11, fontWeight: 700,
@@ -292,13 +312,39 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                     textTransform: "uppercase",
                     cursor: "pointer",
                     transition: "background 0.15s",
+                    opacity: portalLoading ? 0.7 : 1,
                   }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(24,212,123,0.18)" : T.goldBright; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(24,212,123,0.12)" : T.gold; }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(24,212,123,0.18)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(24,212,123,0.12)"; }}
                 >
-                  {isPro ? "Manage Billing" : "$19 / Month"}
+                  {portalLoading ? "OPENING..." : "MANAGE BILLING"}
                 </button>
-              </Link>
+              ) : (
+                <Link href="/pro">
+                  <button
+                    data-testid="button-upgrade-pro"
+                    type="button"
+                    style={{
+                      width: "100%",
+                      minHeight: 38,
+                      background: T.gold,
+                      color: T.bg,
+                      border: "none",
+                      borderRadius: 3,
+                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                      fontSize: 11, fontWeight: 700,
+                      letterSpacing: "0.16em",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                      transition: "background 0.15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = T.goldBright; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = T.gold; }}
+                  >
+                    $19 / Month
+                  </button>
+                </Link>
+              )}
             </div>
           </div>
         </div>

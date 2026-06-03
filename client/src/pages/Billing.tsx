@@ -2,7 +2,7 @@ import AppShell from "@/components/V2Shell";
 import { CreditCard, Zap, CheckCircle, Calendar, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
-import { apiRequest } from "@/lib/queryClient";
+import { billingPortalUnavailableMessage, openBillingPortal } from "@/lib/billingPortal";
 import { useState } from "react";
 import { useLocation } from "wouter";
 
@@ -62,19 +62,9 @@ export default function Billing() {
       if (!accountEmail || portalLoading) return;
       setPortalLoading(true);
       try {
-        let res: Response;
-        try {
-          res = await apiRequest("POST", "/api/billing/portal", { email: accountEmail });
-        } catch {
-          const refresh = await apiRequest("POST", "/api/billing/session", { email: accountEmail });
-          const refreshData = await refresh.json();
-          if (!refreshData.success) throw new Error("Billing session refresh failed");
-          res = await apiRequest("POST", "/api/billing/portal", { email: accountEmail });
-        }
-        const data = await res.json();
-        if (data.url) window.location.href = data.url;
+        await openBillingPortal(accountEmail);
       } catch {
-        toast({ title: "Billing portal unavailable", description: "Verify your Pro access or try again after checkout completes." });
+        toast(billingPortalUnavailableMessage);
       } finally {
         setPortalLoading(false);
       }
