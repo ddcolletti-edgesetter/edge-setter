@@ -18,6 +18,7 @@ export async function apiRequest(
 ): Promise<Response> {
   const res = await fetchWithTimeout(`${API_BASE}${url}`, {
     method,
+    credentials: "include",
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
   }, 4500);
@@ -32,7 +33,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetchWithTimeout(`${API_BASE}${queryKey.join("/")}`, {}, 4500);
+    const res = await fetchWithTimeout(`${API_BASE}${queryKey.join("/")}`, { credentials: "include" }, 4500);
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
