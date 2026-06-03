@@ -15,6 +15,20 @@ const C = {
   red: "#C04040",
 };
 
+export function safeLoginNext(search: string): string {
+  const rawNext = new URLSearchParams(search).get("next");
+  if (!rawNext) return "/";
+  if (!rawNext.startsWith("/") || rawNext.startsWith("//")) return "/";
+
+  try {
+    const parsed = new URL(rawNext, window.location.origin);
+    if (parsed.origin !== window.location.origin) return "/";
+    return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
+  } catch {
+    return "/";
+  }
+}
+
 export default function LoginPage() {
   const { email: authEmail, isPro, login, authLoading } = useAuth();
   const [, setLocation] = useLocation();
@@ -27,7 +41,7 @@ export default function LoginPage() {
   }, [authEmail]);
 
   useEffect(() => {
-    if (!authLoading && isPro) setLocation("/");
+    if (!authLoading && isPro) setLocation(safeLoginNext(window.location.search));
   }, [authLoading, isPro, setLocation]);
 
   async function handleSubmit(event: FormEvent) {
@@ -40,7 +54,7 @@ export default function LoginPage() {
       setError(result);
       return;
     }
-    setLocation("/");
+    setLocation(safeLoginNext(window.location.search));
   }
 
   return (

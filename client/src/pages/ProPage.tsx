@@ -164,7 +164,7 @@ function SubscriberSignInPanel() {
       <p style={{ fontSize: 16, color: C.textMuted, margin: "8px 0 14px", lineHeight: 1.5 }}>
         Sign in to restore your Pro access.
       </p>
-      <Link href="/login">
+      <Link href="/login?next=%2F">
         <button
           data-testid="button-pro-sign-in"
           type="button"

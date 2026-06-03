@@ -110,6 +110,10 @@ function useProCheckout() {
   return { handleUpgrade, loading: false };
 }
 
+function loginPathFor(currentPath: string) {
+  return `/login?next=${encodeURIComponent(currentPath || "/")}`;
+}
+
 function ProUpgradeButton() {
   const { handleUpgrade, loading } = useProCheckout();
   return (
@@ -743,7 +747,7 @@ function Sidebar({
               <button
                 data-testid="sidebar-sign-in"
                 type="button"
-                onClick={() => setLocation("/login")}
+                onClick={() => setLocation(loginPathFor(location))}
                 style={{
                   width: "100%", padding: "6px 10px", fontSize: "0.76rem",
                   borderRadius: "6px", border: "1px solid rgba(248,250,252,0.18)",
@@ -992,7 +996,7 @@ function TopTabBar({
         <button
           data-testid="topbar-sign-in"
           type="button"
-          onClick={() => setLocation("/login")}
+          onClick={() => setLocation(loginPathFor(location))}
           aria-label="Already a subscriber? Sign in to restore access"
           title="Already a subscriber? Sign in to restore access"
           style={{

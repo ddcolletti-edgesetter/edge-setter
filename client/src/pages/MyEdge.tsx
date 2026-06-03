@@ -305,7 +305,7 @@ export default function MyEdge() {
             </div>
             {!isPro && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 18 }}>
-                <Link href="/login">
+                <Link href="/login?next=%2Fmy-edge">
                   <button style={{
                     background: "rgba(248,250,252,0.08)", color: T.text,
                     border: "1px solid rgba(248,250,252,0.18)", borderRadius: 3,

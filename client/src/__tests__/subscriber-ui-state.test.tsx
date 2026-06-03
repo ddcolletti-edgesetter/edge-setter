@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import MyEdge from "@/pages/MyEdge";
 import ProPage from "@/pages/ProPage";
+import LoginPage from "@/pages/LoginPage";
 import { useAuth } from "@/context/AuthContext";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -26,6 +27,62 @@ function jsonResponse(body: unknown) {
   return { json: async () => body } as Response;
 }
 
+function signedOutAuth(login = vi.fn()) {
+  return {
+    email: null,
+    user: null,
+    isPro: false,
+    authLoading: false,
+    login,
+    logout: vi.fn(),
+  };
+}
+
+function signedInNonProAuth(login = vi.fn()) {
+  return {
+    email: "free@example.com",
+    user: {
+      email: "free@example.com",
+      plan: "free",
+      access_status: "free",
+      billing_status: null,
+      stripe_customer_id: null,
+      is_pro: false,
+    },
+    isPro: false,
+    authLoading: false,
+    login,
+    logout: vi.fn(),
+  };
+}
+
+function activeProAuth(logout = vi.fn()) {
+  return {
+    email: "subscriber@example.com",
+    user: {
+      email: "subscriber@example.com",
+      plan: "pro",
+      access_status: "active",
+      billing_status: "active",
+      stripe_customer_id: "cus_test",
+      is_pro: true,
+    },
+    isPro: true,
+    authLoading: false,
+    login: vi.fn(),
+    logout,
+  };
+}
+
+async function submitLogin(email = "subscriber@example.com") {
+  fireEvent.change(screen.getByTestId("input-login-email"), {
+    target: { value: email },
+  });
+  await act(async () => {
+    fireEvent.click(screen.getByTestId("button-login-submit"));
+  });
+}
+
 describe("subscriber-aware UI state", () => {
   beforeEach(() => {
     window.history.pushState({}, "", "/");
@@ -38,21 +95,7 @@ describe("subscriber-aware UI state", () => {
 
   it("shows active Pro subscriber state on My Edge without upgrade CTAs", () => {
     const logout = vi.fn();
-    mockUseAuth.mockReturnValue({
-      email: "subscriber@example.com",
-      user: {
-        email: "subscriber@example.com",
-        plan: "pro",
-        access_status: "active",
-        billing_status: "active",
-        stripe_customer_id: "cus_test",
-        is_pro: true,
-      },
-      isPro: true,
-      authLoading: false,
-      login: vi.fn(),
-      logout,
-    });
+    mockUseAuth.mockReturnValue(activeProAuth(logout));
 
     render(<MyEdge />);
 
@@ -71,21 +114,7 @@ describe("subscriber-aware UI state", () => {
   });
 
   it("opens the active Pro sidebar billing portal with session refresh retry", async () => {
-    mockUseAuth.mockReturnValue({
-      email: "subscriber@example.com",
-      user: {
-        email: "subscriber@example.com",
-        plan: "pro",
-        access_status: "active",
-        billing_status: "active",
-        stripe_customer_id: "cus_test",
-        is_pro: true,
-      },
-      isPro: true,
-      authLoading: false,
-      login: vi.fn(),
-      logout: vi.fn(),
-    });
+    mockUseAuth.mockReturnValue(activeProAuth());
     mockApiRequest
       .mockRejectedValueOnce(new Error("401"))
       .mockResolvedValueOnce(jsonResponse({ success: true }))
@@ -103,19 +132,13 @@ describe("subscriber-aware UI state", () => {
   });
 
   it("keeps upgrade CTAs visible for non-subscribers on My Edge", () => {
-    mockUseAuth.mockReturnValue({
-      email: null,
-      user: null,
-      isPro: false,
-      authLoading: false,
-      login: vi.fn(),
-      logout: vi.fn(),
-    });
+    mockUseAuth.mockReturnValue(signedOutAuth());
 
     render(<MyEdge />);
 
     expect(screen.getByText("Personal watchlist coming soon")).toBeInTheDocument();
-    expect(screen.getAllByText("Sign In").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("topbar-sign-in")).toHaveTextContent("Sign In");
+    expect(screen.getByTestId("sidebar-sign-in")).toHaveTextContent("SIGN IN");
     expect(screen.getAllByText(/Get Pro/i).length).toBeGreaterThan(0);
     expect(screen.getByText("Go Pro - $19/mo")).toBeInTheDocument();
     expect(screen.queryByText("PRO - $19/MO")).not.toBeInTheDocument();
@@ -126,15 +149,9 @@ describe("subscriber-aware UI state", () => {
     expect(screen.queryByText("Q4 2026")).not.toBeInTheDocument();
   });
 
-  it("routes signed-out shell Sign In to login instead of the Pro sales page", () => {
-    mockUseAuth.mockReturnValue({
-      email: null,
-      user: null,
-      isPro: false,
-      authLoading: false,
-      login: vi.fn(),
-      logout: vi.fn(),
-    });
+  it("routes signed-out topbar Sign In to login with next=currentPath instead of the Pro sales page", () => {
+    window.history.pushState({}, "", "/my-edge");
+    mockUseAuth.mockReturnValue(signedOutAuth());
 
     render(<MyEdge />);
 
@@ -143,18 +160,27 @@ describe("subscriber-aware UI state", () => {
     });
 
     expect(window.location.pathname).toBe("/login");
+    expect(window.location.search).toBe("?next=%2Fmy-edge");
     expect(window.location.pathname).not.toBe("/pro");
   });
 
-  it("routes signed-out shell Get Pro to the Pro sales page", () => {
-    mockUseAuth.mockReturnValue({
-      email: null,
-      user: null,
-      isPro: false,
-      authLoading: false,
-      login: vi.fn(),
-      logout: vi.fn(),
+  it("routes signed-out sidebar Sign In to login with next=currentPath", () => {
+    window.history.pushState({}, "", "/my-edge");
+    mockUseAuth.mockReturnValue(signedInNonProAuth());
+
+    render(<MyEdge />);
+
+    act(() => {
+      fireEvent.click(screen.getByTestId("sidebar-sign-in"));
     });
+
+    expect(window.location.pathname).toBe("/login");
+    expect(window.location.search).toBe("?next=%2Fmy-edge");
+  });
+
+  it("routes signed-out shell Get Pro to the Pro sales page", () => {
+    window.history.pushState({}, "", "/my-edge");
+    mockUseAuth.mockReturnValue(signedOutAuth());
 
     render(<MyEdge />);
 
@@ -165,15 +191,43 @@ describe("subscriber-aware UI state", () => {
     expect(window.location.pathname).toBe("/pro");
   });
 
-  it("/pro renders an existing-subscriber sign-in module that does not trigger checkout", () => {
-    mockUseAuth.mockReturnValue({
-      email: null,
-      user: null,
-      isPro: false,
-      authLoading: false,
-      login: vi.fn(),
-      logout: vi.fn(),
+  it("/login is a restore-access page, not a checkout sales page", () => {
+    mockUseAuth.mockReturnValue(signedOutAuth());
+
+    render(<LoginPage />);
+
+    expect(screen.getByText("Already a subscriber?")).toBeInTheDocument();
+    expect(screen.getByText("Sign in to restore access")).toBeInTheDocument();
+    expect(screen.getByTestId("button-login-submit")).toHaveTextContent("Sign In");
+    expect(screen.queryByTestId("button-checkout")).not.toBeInTheDocument();
+    expect(screen.queryByText("Edge Setter Pro")).not.toBeInTheDocument();
+    expect(mockApiRequest).not.toHaveBeenCalledWith("POST", "/api/checkout", expect.anything());
+  });
+
+  it.each([
+    ["/login?next=/my-edge", "/my-edge"],
+    ["/login?next=/tools", "/tools"],
+    ["/login", "/"],
+    ["/login?next=https://evil.com", "/"],
+    ["/login?next=/pro", "/pro"],
+  ])("successful login from %s navigates to %s", async (initialPath, expectedPath) => {
+    const login = vi.fn().mockResolvedValue(null);
+    window.history.pushState({}, "", initialPath);
+    mockUseAuth.mockReturnValue(signedOutAuth(login));
+
+    render(<LoginPage />);
+
+    await submitLogin();
+
+    await waitFor(() => {
+      expect(login).toHaveBeenCalledWith("subscriber@example.com");
+      expect(window.location.pathname).toBe(expectedPath);
     });
+    expect(mockApiRequest).not.toHaveBeenCalledWith("POST", "/api/checkout", expect.anything());
+  });
+
+  it("/pro renders an existing-subscriber sign-in module that routes to restore access without checkout", () => {
+    mockUseAuth.mockReturnValue(signedOutAuth());
 
     render(<ProPage />);
 
@@ -185,6 +239,7 @@ describe("subscriber-aware UI state", () => {
     });
 
     expect(window.location.pathname).toBe("/login");
+    expect(window.location.search).toBe("?next=%2F");
     expect(mockApiRequest).not.toHaveBeenCalledWith("POST", "/api/checkout", expect.anything());
   });
 
@@ -193,28 +248,7 @@ describe("subscriber-aware UI state", () => {
     const logout = vi.fn(() => {
       active = false;
     });
-    mockUseAuth.mockImplementation(() => active ? {
-      email: "subscriber@example.com",
-      user: {
-        email: "subscriber@example.com",
-        plan: "pro",
-        access_status: "active",
-        billing_status: "active",
-        stripe_customer_id: "cus_test",
-        is_pro: true,
-      },
-      isPro: true,
-      authLoading: false,
-      login: vi.fn(),
-      logout,
-    } : {
-      email: null,
-      user: null,
-      isPro: false,
-      authLoading: false,
-      login: vi.fn(),
-      logout,
-    });
+    mockUseAuth.mockImplementation(() => active ? activeProAuth(logout) : signedOutAuth());
 
     const { rerender } = render(<MyEdge />);
 
