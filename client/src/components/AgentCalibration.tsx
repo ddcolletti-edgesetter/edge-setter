@@ -137,6 +137,10 @@ function calibrationTone(input: AgentCalibrationInput): CalibrationTone {
 }
 
 function calibrationDetail(input: AgentCalibrationInput) {
+  if (input.storyType === "public-homepage") {
+    return "Source trail checked. Timing window reviewed. Impact still developing.";
+  }
+
   const pieces = [
     "Evidence review",
     input.sourceCount ? "Source check complete" : "Source check pending",

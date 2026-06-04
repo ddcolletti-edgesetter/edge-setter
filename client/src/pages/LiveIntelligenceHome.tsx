@@ -17,10 +17,10 @@ import { Link } from "wouter";
 const REFRESH_MS = 60_000;
 const LEAGUES = ["NBA", "MLB", "NFL", "CFB"] as const;
 const HERO_FALLBACK_TILES = [
-  { league: "MLB", title: "Awaiting lineup confirmations", note: "No major lineup shift yet" },
+  { league: "MLB", title: "Awaiting lineup confirmations", note: "Lineup impact still developing" },
   { league: "NBA", title: "Availability board quiet", note: "Warmup reports pending" },
-  { league: "NFL", title: "Depth charts quiet", note: "No major injury shift yet" },
-  { league: "CFB", title: "Roster board quiet", note: "No major transfer shift yet" },
+  { league: "NFL", title: "Depth charts quiet", note: "Injury impact still developing" },
+  { league: "CFB", title: "Roster board quiet", note: "Transfer impact still developing" },
 ] as const;
 
 const escalationOrder: EscalationState[] = ["Official", "Confirming", "Significant", "Escalating", "Emerging", "Monitoring"];
@@ -207,14 +207,14 @@ export default function LiveIntelligenceHome() {
                 <span className="es-live-dot es-live-pulse" />
                 Lead story
               </div>
-              <StoryCard story={homepageStories.lead} variant="lead" />
+              <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" />
             </div>
 
             {hasAssignmentRail && (
               <aside className="media-homepage-rail" aria-label="Headline stack">
                 <div className="media-section-label">Assignment desk</div>
                 {homepageStories.rail.map((story) => (
-                  <StoryCard key={story.id} story={story} variant="rail" />
+                  <StoryCard key={story.id} story={story} variant="rail" copyVariant="public" />
                 ))}
               </aside>
             )}
@@ -230,7 +230,7 @@ export default function LiveIntelligenceHome() {
             </div>
             <div className="media-game-grid">
               {homepageStories.games.length
-                ? homepageStories.games.map((story) => <StoryCard key={story.id} story={story} variant="compact" />)
+                ? homepageStories.games.map((story) => <StoryCard key={story.id} story={story} variant="compact" copyVariant="public" />)
                 : HERO_FALLBACK_TILES.map((tile) => <CoverageStatusCard key={tile.league} tile={tile} loading={loading} />)}
             </div>
           </section>
@@ -256,7 +256,7 @@ export default function LiveIntelligenceHome() {
                 </div>
                 <div className="media-league-story-grid">
                   {section.stories.map((story) => (
-                    <StoryCard key={story.id} story={story} variant="feature" />
+                    <StoryCard key={story.id} story={story} variant="feature" copyVariant="public" />
                   ))}
                 </div>
               </section>
@@ -278,7 +278,7 @@ type HomepageLeagueSection = {
   stories: StoryCardData[];
 };
 
-function buildHomepageStoryModel({
+export function buildHomepageStoryModel({
   activeLeague,
   editorialSituation,
   featured,
@@ -343,29 +343,33 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
   const matchupTeams = splitMatchup(situation.subject.matchup);
   const primaryTeam = matchupTeams.length === 2 ? matchupTeams[0] : situation.subject.team ?? matchupTeams[0] ?? undefined;
   const secondaryTeam = matchupTeams.length === 2 ? matchupTeams[1] : undefined;
-  const storyType = storyFrameLabel(situation);
+  const storyType = publicSituationType(situation);
+  const storyCopy = buildPublicSituationStory(situation);
   return {
     id: situation.id,
     league: situation.league,
-    headline: slot === "lead" ? sportsFirstHeadline(situation) : editorialHeadline(situation),
-    dek: slot === "rail" ? compactIntelPhrase(situation.currentRead) : overlayRead(situation),
-    label: slot === "lead" ? "Lead desk read" : storyFrameLabel(situation),
+    headline: slot === "lead" ? storyCopy.headline : storyCopy.shortHeadline,
+    dek: slot === "rail" ? storyCopy.shortDeck : storyCopy.deck,
+    label: slot === "lead" ? "Top story" : storyType,
     href: `/${situation.league.toLowerCase()}`,
     primaryTeam,
     secondaryTeam,
     player: situation.subject.player ?? undefined,
     storyType,
-    detail: latestChangeLabel(situation),
-    whatChanged: storyChangeLabel(situation),
-    whyItMatters: compactIntelPhrase(situation.whyItMatters),
-    watchNext: situation.actionWindow,
+    detail: storyCopy.detail,
+    whatChanged: storyCopy.whatHappened,
+    whyItMatters: storyCopy.whyItMatters,
+    watchNext: storyCopy.watchNext,
     overlay: {
       escalationState: situation.escalationState,
       confidence: situation.confidence,
-      sourceSummary: situation.sourceSummary,
+      sourceSummary: {
+        ...situation.sourceSummary,
+        convergence: publicSourceSummary(situation.sourceSummary.convergence),
+      },
       timing: situation.timing,
-      replay: replayLabelsForSituation(situation),
-      status: "Confidence support",
+      replay: ["Source trail checked", "Timing window reviewed", "Impact still developing"],
+      status: "Story support",
     },
     situation,
     imageAsset: resolveSportsImageAsset({
@@ -375,42 +379,47 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
       player: situation.subject.player,
       storyType,
       slot: slot === "lead" ? "hero" : slot === "rail" ? "matchup" : "featured",
+      preferLeagueAsset: true,
     }),
   };
 }
 
 function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituation): StoryCardData {
   const score = game.awayScore !== null || game.homeScore !== null ? `${game.awayScore ?? "-"}-${game.homeScore ?? "-"}` : gameTimeLabel(game);
+  const storyCopy = situation ? buildPublicSituationStory(situation) : null;
   const headline = situation
-    ? `${shortTeam(game.awayTeam)} @ ${shortTeam(game.homeTeam)}: ${storyChangeLabel(situation)}`
+    ? `${shortTeam(game.awayTeam)} @ ${shortTeam(game.homeTeam)}: ${storyCopy?.shortHeadline ?? "story watch active"}`
     : `${shortTeam(game.awayTeam)} @ ${shortTeam(game.homeTeam)} sits in ${game.status.toLowerCase()} watch`;
   return {
     id: `game-${game.league}-${game.id}`,
     league: game.league,
     headline,
-    dek: situation ? compactIntelPhrase(situation.currentRead) : `${game.status} / ${score}. EdgeSetter is monitoring lineup, injury, source, and game-state changes.`,
+    dek: situation ? storyCopy?.shortDeck : `${game.status} / ${score}. EdgeSetter is monitoring lineup, injury, source, and game-state changes.`,
     label: game.status === "In Progress" ? "Live game window" : "Matchup watch",
     href: `/${game.league.toLowerCase()}`,
     primaryTeam: game.awayTeam,
     secondaryTeam: game.homeTeam,
-    storyType: game.status === "In Progress" ? "Live game" : "Matchup watch",
+    storyType: situation ? publicSituationType(situation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
     detail: `${game.activeSituations} linked update${game.activeSituations === 1 ? "" : "s"}`,
-    whatChanged: situation ? storyChangeLabel(situation) : "No major evidence-backed change yet",
-    whyItMatters: situation ? compactIntelPhrase(situation.whyItMatters) : "Game context can change when lineup, availability, or source confirmation lands.",
-    watchNext: situation ? situation.actionWindow : "Watch for official team news and source convergence.",
+    whatChanged: situation ? storyCopy?.whatHappened : "No verified team-news change has attached to this game yet.",
+    whyItMatters: situation ? storyCopy?.whyItMatters : "Game context can change when lineup, availability, or source confirmation lands.",
+    watchNext: situation ? storyCopy?.watchNext : "Watch for official team news and source convergence.",
     overlay: situation ? {
       escalationState: situation.escalationState,
       confidence: situation.confidence,
-      sourceSummary: situation.sourceSummary,
+      sourceSummary: {
+        ...situation.sourceSummary,
+        convergence: publicSourceSummary(situation.sourceSummary.convergence),
+      },
       timing: situation.timing,
-      replay: replayLabelsForSituation(situation),
-      status: "Evidence posture",
+      replay: ["Source trail checked", "Timing window reviewed", "Impact still developing"],
+      status: "Story support",
     } : {
       escalationState: game.topEscalation,
       confidence: { current: null, delta: null, explanation: "No agent confidence score until a verified story attaches." },
       sourceSummary: { count: 0, convergence: "Awaiting confirmed source" },
       timing: { window: game.status, freshnessLabel: score },
-      replay: ["Game window", "Source watch", "No major shift"],
+      replay: ["Game window", "Source watch", "Impact still developing"],
       status: game.topEscalation ? "Story attached" : "Coverage watch",
     },
     situation,
@@ -418,8 +427,9 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
       league: game.league,
       team: game.awayTeam,
       opponent: game.homeTeam,
-      storyType: situation ? storyFrameLabel(situation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
+      storyType: situation ? publicSituationType(situation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
       slot: "matchup",
+      preferLeagueAsset: true,
     }),
   };
 }
@@ -444,8 +454,8 @@ function quietLeagueStory(league: typeof LEAGUES[number], title: string, note: s
     href: `/${league.toLowerCase()}`,
     primaryTeam: league,
     storyType: "Coverage watch",
-    detail: "No evidence-backed escalation yet",
-    whatChanged: "No major verified change",
+    detail: "Coverage remains steady",
+    whatChanged: "No verified team-news break has reached the lead-story threshold.",
     whyItMatters: "Quiet coverage is still useful because it confirms what has not changed across public reports and official channels.",
     watchNext: leagueQuietNote(league),
     overlay: {
@@ -453,7 +463,7 @@ function quietLeagueStory(league: typeof LEAGUES[number], title: string, note: s
       confidence: { current: null, delta: null, explanation: "Confidence pending until a verified story attaches." },
       sourceSummary: { count: 0, convergence: "Awaiting confirmed source" },
       timing: { window: loading ? "Checking" : "Monitoring", freshnessLabel: "Live scan" },
-      replay: ["Coverage scan", "No major shift", "Continue watch"],
+      replay: ["Coverage scan", "Impact still developing", "Continue watch"],
       status: "Quiet coverage",
     },
     imageAsset: resolveSportsImageAsset({
@@ -461,6 +471,7 @@ function quietLeagueStory(league: typeof LEAGUES[number], title: string, note: s
       team: league,
       storyType: "Coverage watch",
       slot: "quiet",
+      preferLeagueAsset: true,
     }),
   };
 }
@@ -819,16 +830,16 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
       heroHeadline: "Sports desk is coming online",
       heroBody: "EdgeSetter is checking lineups, injuries, weather, game status, and public reports. No major development is promoted until the sports evidence is clear.",
       timing: "Pre-slate",
-      market: "no major shift",
+      market: "impact still developing",
       source: "Awaiting reports",
-      changed: "No major lineup or injury shift detected",
+      changed: "No verified lineup or injury break has reached lead-story weight",
       whoReacts: "Lineup desks, fantasy players, and books are waiting for verified team news.",
       next: "A lineup confirmation, warmup note, weather update, or late movement may become relevant if verified.",
       sourceArcTitle: "Awaiting report support",
       sourceArcBody: "No lead story is promoted until reports, timing, or late movement reaches homepage weight.",
       escalationWatch: "No verified escalation",
       escalationStage: "Monitoring",
-      pressureWindows: ["Pre-slate desk", "No major shift", "Awaiting reports"],
+      pressureWindows: ["Pre-slate desk", "Impact still developing", "Awaiting reports"],
       convergenceSteps: [
         { label: "Coverage online", state: "complete" },
         { label: "Reports scanning", state: "active" },
@@ -854,12 +865,12 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
 
   return {
     heroLeague: league,
-    heroHeadline: marketCount ? "Team and player updates are shaping the slate" : "No major lineup or injury shifts detected yet",
+    heroHeadline: marketCount ? "Team and player updates are shaping the slate" : "No verified lineup or injury break has reached lead-story weight",
     heroBody: `${slateLine} ${weatherCount ? "Weather is part of the game read." : "EdgeSetter is waiting for a real team-news break before elevating a single story."}`,
     timing: timingLine,
-    market: marketCount ? `${marketCount} sports shift${marketCount === 1 ? "" : "s"}` : "no major shift",
+    market: marketCount ? `${marketCount} sports shift${marketCount === 1 ? "" : "s"}` : "impact still developing",
     source: sourceCount ? `${sourceCount} report${sourceCount === 1 ? "" : "s"} attached` : "Awaiting reports",
-    changed: marketCount ? "Team or player news moving before public consensus" : upcoming.length ? "Games entering confirmation window" : "No major shift detected",
+    changed: marketCount ? "Team or player news moving before public consensus" : upcoming.length ? "Games entering confirmation window" : "Impact still developing",
     whoReacts: mlbCount ? "Clubhouses, lineup desks, fantasy players, and books are waiting on the same confirmations." : "Teams, report desks, and books are holding for firmer confirmation.",
     next: weatherCount ? "Weather, lineup, and external context may converge before first pitch." : "A late scratch, lineup confirmation, warmup note, or external movement could become the lead.",
     sourceArcTitle: sourceCount ? "Reports active across the slate" : "Awaiting lineup or injury confirmation",
@@ -872,7 +883,7 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
     convergenceSteps: [
       { label: "Slate context", state: "complete" },
       { label: sourceCount ? "Reports attached" : "Reports scanning", state: sourceCount ? "complete" : "active" },
-      { label: marketCount ? "Market reacting" : "No major shift", state: marketCount ? "complete" : "active" },
+      { label: marketCount ? "Market reacting" : "Impact still developing", state: marketCount ? "complete" : "active" },
       { label: "Official confirmation", state: "waiting" },
     ],
   };
@@ -906,7 +917,7 @@ function buildFallbackPressureWindows(counts: { upcoming: number; live: number; 
   const windows = [
     counts.upcoming ? `${counts.upcoming} games entering confirmation window` : null,
     counts.live ? `${counts.live} live game${counts.live === 1 ? "" : "s"} with active desk read` : null,
-    counts.marketCount ? `${counts.marketCount} sports shift${counts.marketCount === 1 ? "" : "s"} detected` : "no major shift",
+    counts.marketCount ? `${counts.marketCount} sports shift${counts.marketCount === 1 ? "" : "s"} detected` : "impact still developing",
     counts.weatherCount ? "Weather pressure in the slate model" : null,
     counts.mlbCount ? "MLB lineup and pitcher checks active" : null,
     counts.nbaCount ? "NBA availability window staged" : null,
@@ -939,8 +950,16 @@ function marketReactionLabel(situation: IntelligenceSituation | null) {
 
 function confidenceMovementLabel(situation: IntelligenceSituation | null) {
   if (!situation) return "Awaiting confirmation";
-  if (situation.confidence.delta === null) return `${situation.confidence.current}% initial read`;
+  if (situation.confidence.delta === null) return `${situation.confidence.current}% early read`;
   return `${situation.confidence.current}% ${situation.confidence.delta > 0 ? "+" : ""}${situation.confidence.delta}`;
+}
+
+function publicConfidenceMovementLabel(situation: IntelligenceSituation | null) {
+  if (!situation) return "Awaiting confirmation";
+  if (situation.confidence.delta === null) return `${situation.confidence.current}% early read`;
+  if (situation.confidence.delta > 0) return `${situation.confidence.current}% rising support`;
+  if (situation.confidence.delta < 0) return `${situation.confidence.current}% support cooling`;
+  return `${situation.confidence.current}% holding steady`;
 }
 
 function latestChangeLabel(situation: IntelligenceSituation | null) {
@@ -955,19 +974,229 @@ function storyChangeLabel(situation: IntelligenceSituation) {
   return situation.timeline.at(-1)?.label ?? "Live read updated";
 }
 
+function buildPublicSituationStory(situation: IntelligenceSituation) {
+  const player = situation.subject.player?.trim();
+  const team = displayTeamName(situation.subject.team ?? splitMatchup(situation.subject.matchup)[0] ?? situation.league);
+  const teamContext = team ? `${team} ${teamContextNoun(situation)}` : `${situation.league} context`;
+  const type = publicSituationType(situation);
+  const status = publicAvailabilityStatus(situation.raw.injury_designation);
+  const hasPlayer = Boolean(player);
+  const sourcePhrase = publicSourceSummary(situation.sourceSummary.convergence).toLowerCase();
+  const marketPhrase = situation.marketReaction ? " Books, fantasy markets, and team context are already reacting." : "";
+
+  if (isAvailabilitySituation(situation)) {
+    const subject = hasPlayer ? `${player} availability` : `${team} availability`;
+    const headline = `${subject} keeps ${teamContext} on watch`;
+    return {
+      headline,
+      shortHeadline: headline,
+      deck: hasPlayer
+        ? `${player}'s status changes how ${teamPossessive(team)} usage, opponent prep, and fantasy exposure should be read. EdgeSetter is watching whether ${sourcePhrase}, roster movement, or market response creates a larger downstream shift.`
+        : `${team}'s availability picture can change roles, opponent prep, and fantasy exposure. EdgeSetter is watching whether source support, roster movement, or market response creates a larger downstream shift.`,
+      shortDeck: hasPlayer ? `${player}'s status keeps ${teamContext} under review.` : `${team}'s availability picture remains under review.`,
+      detail: status ? `Player status changed to ${status}` : "Availability status updated",
+      whatHappened: hasPlayer
+        ? `${player}'s availability status changed and ${team} ${teamVerb(team)} now the team context to monitor.`
+        : `${team}'s availability context changed and remains the team situation to monitor.`,
+      whyItMatters: `The ${teamContext}, target distribution, and opponent prep can shift if the status holds or changes again.${marketPhrase}`.trim(),
+      watchNext: `Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.`,
+    };
+  }
+
+  if (isRosterMoveSituation(situation)) {
+    const subject = player ?? team;
+    const headline = `${subject} roster move puts ${team} role picture on watch`;
+    return {
+      headline,
+      shortHeadline: headline,
+      deck: `${team}'s roster picture changed, which can alter depth, roles, and next-man usage. EdgeSetter is watching whether this turns into a larger team-context shift.`,
+      shortDeck: `${team}'s roster picture changed and the role impact is still developing.`,
+      detail: "Roster context changed",
+      whatHappened: `${subject} is tied to a roster update that changes the ${team} context.`,
+      whyItMatters: `Roster movement can change depth charts, usage, fantasy relevance, and how opponents prepare for ${team}.`,
+      watchNext: "Watch for official roster moves, practice roles, depth-chart updates, and follow-on reports.",
+    };
+  }
+
+  if (isLineupSituation(situation)) {
+    const subject = player ?? team;
+    const headline = `${subject} lineup watch shapes ${team} pregame plan`;
+    return {
+      headline,
+      shortHeadline: headline,
+      deck: `${team}'s lineup context is active, and one confirmed change can move roles, matchup plans, and market assumptions. EdgeSetter is watching for the next official card or report trail.`,
+      shortDeck: `${team}'s lineup context remains active before the next confirmation.`,
+      detail: "Lineup context updated",
+      whatHappened: `${team}'s lineup or pitcher context changed enough to keep the slate under review.`,
+      whyItMatters: "Lineup and pitcher changes can alter game environment, role expectations, fantasy exposure, and late pricing.",
+      watchNext: "Watch for official lineup cards, pitcher confirmations, scratches, weather updates, and market movement.",
+    };
+  }
+
+  if (isDepthChartSituation(situation)) {
+    const subject = player ?? team;
+    const headline = `${subject} depth-chart watch puts ${team} roles in focus`;
+    return {
+      headline,
+      shortHeadline: headline,
+      deck: `${team}'s role picture is still developing. EdgeSetter is watching whether reports, practice usage, or roster signals confirm a real depth-chart change.`,
+      shortDeck: `${team}'s role picture is still developing.`,
+      detail: "Depth chart context updated",
+      whatHappened: `${team}'s depth or role context changed enough to keep monitoring.`,
+      whyItMatters: "Role changes can alter usage, matchup plans, fantasy projections, and team preparation.",
+      watchNext: "Watch for practice reports, snap or rotation notes, roster updates, and official depth-chart confirmation.",
+    };
+  }
+
+  if (situation.marketReaction) {
+    const subject = player ?? situation.subject.matchup ?? team;
+    const headline = `${subject} movement puts ${team} market context on watch`;
+    return {
+      headline,
+      shortHeadline: headline,
+      deck: `Market context is reacting around ${subject}. EdgeSetter is watching whether the move is backed by team news, source support, or a broader downstream shift.`,
+      shortDeck: `Market context is reacting around ${subject}.`,
+      detail: "Books/fantasy/team context reacting",
+      whatHappened: `${subject} is tied to movement that changed the ${team} read.`,
+      whyItMatters: "Market movement can signal that team news, matchup context, or availability assumptions are changing before the public story is settled.",
+      watchNext: "Watch for the report trail behind the move, confirmation from trusted sources, and whether prices or projections continue to adjust.",
+    };
+  }
+
+  if (situation.raw.weather_note) {
+    const headline = `${team} game environment puts weather and matchup context on watch`;
+    return {
+      headline,
+      shortHeadline: headline,
+      deck: `Game environment is part of the current ${team} read. EdgeSetter is watching whether weather, field conditions, or timing changes alter projections.`,
+      shortDeck: `${team} game environment remains part of the live read.`,
+      detail: "Game environment updated",
+      whatHappened: `${team}'s game environment has a weather or conditions note attached.`,
+      whyItMatters: "Weather and conditions can alter pace, scoring, substitution patterns, and market assumptions.",
+      watchNext: "Watch for updated forecasts, official game notes, lineup changes, and total or prop movement.",
+    };
+  }
+
+  const subject = player ?? situation.subject.matchup ?? team;
+  const headline = `${subject} keeps ${situation.league} story context on watch`;
+  return {
+    headline,
+    shortHeadline: headline,
+    deck: `${situation.league} context is still developing around ${subject}. EdgeSetter is watching the source trail, timing window, and downstream impact before elevating the read further.`,
+    shortDeck: `${situation.league} context is still developing around ${subject}.`,
+    detail: "Story context updated",
+    whatHappened: `${subject} is attached to a developing ${situation.league} story read.`,
+    whyItMatters: compactIntelPhrase(situation.whyItMatters) ?? "The update can change team, fantasy, market, or matchup context if more support arrives.",
+    watchNext: publicWatchNext(situation),
+  };
+}
+
+function publicSituationType(situation: IntelligenceSituation) {
+  const type = situation.raw.signal_type.toLowerCase();
+  if (isAvailabilitySituation(situation)) return "Availability watch";
+  if (isRosterMoveSituation(situation)) return "Roster move";
+  if (isLineupSituation(situation)) return situation.league === "MLB" ? "Lineup/pitcher watch" : "Lineup watch";
+  if (isDepthChartSituation(situation)) return "Depth chart watch";
+  if (situation.marketReaction || type.includes("line") || type.includes("odds")) return "Market movement";
+  if (situation.raw.weather_note || type.includes("weather")) return "Weather/game environment";
+  if (type.includes("transaction")) return "Transaction watch";
+  return "Team news";
+}
+
+function isAvailabilitySituation(situation: IntelligenceSituation) {
+  const text = `${situation.raw.signal_type} ${situation.raw.injury_designation ?? ""} ${situation.headline} ${situation.currentRead}`.toLowerCase();
+  return Boolean(situation.raw.injury_designation) || /(injury|availability|questionable|doubtful|out|practice|limited|dnp|status)/i.test(text);
+}
+
+function isRosterMoveSituation(situation: IntelligenceSituation) {
+  const text = `${situation.raw.signal_type} ${situation.headline} ${situation.currentRead}`.toLowerCase();
+  return /(roster|waived|claimed|optioned|recalled|assigned|activated|injured list|practice squad)/i.test(text);
+}
+
+function isLineupSituation(situation: IntelligenceSituation) {
+  const text = `${situation.raw.signal_type} ${situation.raw.lineup_status ?? ""} ${situation.headline} ${situation.currentRead}`.toLowerCase();
+  return Boolean(situation.raw.lineup_status) || /(lineup|starter|starting|pitcher|bullpen|scratch|rotation)/i.test(text);
+}
+
+function isDepthChartSituation(situation: IntelligenceSituation) {
+  const text = `${situation.raw.signal_type} ${situation.headline} ${situation.currentRead}`.toLowerCase();
+  return /(depth|qb1|role|snap|practice rep|rotation)/i.test(text);
+}
+
+function publicAvailabilityStatus(value?: string | null) {
+  if (!value) return null;
+  const normalized = value.trim().toUpperCase();
+  if (normalized === "OUT") return "OUT";
+  if (normalized === "QUESTIONABLE") return "QUESTIONABLE";
+  if (normalized === "DOUBTFUL") return "DOUBTFUL";
+  return value.trim();
+}
+
+function publicSourceSummary(value?: string | null) {
+  const normalized = (value ?? "").toLowerCase();
+  if (normalized.includes("official")) return "Official trail checked";
+  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Supported by multiple signals/sources";
+  if (normalized.includes("single")) return "Single report under review";
+  if (normalized.includes("awaiting")) return "Source trail still developing";
+  return "Source trail checked";
+}
+
+function publicWatchNext(situation: IntelligenceSituation) {
+  if (isAvailabilitySituation(situation)) return "Watch for confirmed reports, practice participation, roster adjustments, and market or fantasy movement.";
+  if (isLineupSituation(situation)) return "Watch for official lineup cards, late scratches, pitcher confirmation, and market movement.";
+  if (isRosterMoveSituation(situation)) return "Watch for official transactions, depth-chart changes, practice roles, and follow-on reports.";
+  if (situation.marketReaction) return "Watch whether the move is confirmed by trusted reports and whether prices or projections keep adjusting.";
+  return situation.actionWindow || "Watch for confirmation, source support, and downstream impact.";
+}
+
+function displayTeamName(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  const normalized = raw.toLowerCase();
+  const known: Record<string, string> = {
+    sf: "49ers",
+    "san francisco 49ers": "49ers",
+    nyj: "Jets",
+    nyg: "Giants",
+    kc: "Chiefs",
+    buf: "Bills",
+    dal: "Cowboys",
+    phi: "Eagles",
+    tor: "Blue Jays",
+    "toronto blue jays": "Blue Jays",
+    mia: "Marlins",
+    "miami marlins": "Marlins",
+  };
+  return known[normalized] ?? raw;
+}
+
+function teamContextNoun(situation: IntelligenceSituation) {
+  if (situation.league === "NFL" || situation.league === "CFB") return "passing-game plan";
+  if (situation.league === "NBA") return "rotation plan";
+  if (situation.league === "MLB") return "lineup plan";
+  return "team plan";
+}
+
+function teamVerb(team: string) {
+  return /s$/i.test(team) ? "are" : "is";
+}
+
+function teamPossessive(team: string) {
+  return /s$/i.test(team) ? `${team}'` : `${team}'s`;
+}
+
 function storyTimingLabel(situation: IntelligenceSituation) {
   if (situation.timing.window === "Early") return "early signal";
   if (situation.timing.window === "Developing") return "developing window";
-  if (situation.timing.window === "Widely Known") return "widely known";
+  if (situation.timing.window === "Widely Known") return "public context";
   if (situation.timing.window === "Closing") return "fully priced";
   if (situation.timing.window === "Stale") return "stale signal";
-  return "no major shift";
+  return "impact still developing";
 }
 
 function editorialHeadline(situation: IntelligenceSituation) {
-  const subject = situation.subject.player ?? situation.subject.team ?? situation.subject.matchup;
+  const subject = situation.subject.player ?? displayTeamName(situation.subject.team) ?? situation.subject.matchup;
   if (situation.marketReaction && subject) return `${subject} confirmation window tightening`;
-  if (situation.raw.injury_designation && subject) return `${subject} availability is moving the slate`;
+  if (situation.raw.injury_designation && subject) return `${subject} availability remains on watch`;
   if (situation.raw.lineup_status && subject) return `${subject} lineup status is active`;
   return situation.headline;
 }
@@ -976,16 +1205,16 @@ function overlayRead(situation: IntelligenceSituation) {
   const parts = [
     storyChangeLabel(situation),
     storyTimingLabel(situation),
-    situation.marketReaction ? marketReactionLabel(situation) : "no major shift",
+    situation.marketReaction ? marketReactionLabel(situation) : "impact still developing",
     sourcePostureShortLabel(situation),
   ].filter(Boolean);
   return parts.join(" / ");
 }
 
 function sportsFirstHeadline(situation: IntelligenceSituation) {
-  const subject = situation.subject.matchup ?? situation.subject.team ?? situation.subject.player;
+  const subject = situation.subject.player ?? displayTeamName(situation.subject.team) ?? situation.subject.matchup;
   if (subject && situation.marketReaction) return `${subject} confirmation window tightening`;
-  if (subject && situation.raw.injury_designation) return `${subject} availability status is moving`;
+  if (subject && situation.raw.injury_designation) return `${subject} availability remains on watch`;
   if (subject && situation.raw.lineup_status) return `${subject} lineup status is active`;
   if (subject) return `${subject} is the active sports read`;
   return situation.league === "MLB" ? "Lineups and game status updating" : `${situation.league} board is active`;
@@ -1012,12 +1241,13 @@ function compactIntelPhrase(value?: string) {
 
 function PressureSection({ situation, pressure }: { situation: IntelligenceSituation | null; pressure: LivePressureContext }) {
   const windows = situation ? pressureWindowsForSituation(situation) : pressure.pressureWindows;
+  const story = situation ? buildPublicSituationStory(situation) : null;
 
   return (
     <section className="live-intel-pressure" aria-label="Next update window">
       <div className="live-intel-pressure-lead">
         <span>Next update window</span>
-        <h2>{situation ? situation.actionWindow : pressure.heroHeadline}</h2>
+        <h2>{story ? story.watchNext : pressure.heroHeadline}</h2>
         <div className="live-intel-pressure-window-list">
           {windows.map((window) => <small key={window}>{window}</small>)}
         </div>
@@ -1025,7 +1255,7 @@ function PressureSection({ situation, pressure }: { situation: IntelligenceSitua
       <div className="live-intel-pressure-lanes">
         <div>
           <strong>What changed</strong>
-          <p>{situation ? latestChangeLabel(situation) : pressure.changed}</p>
+          <p>{story ? story.whatHappened : pressure.changed}</p>
         </div>
         <div>
           <strong>Who reacts</strong>
@@ -1033,7 +1263,7 @@ function PressureSection({ situation, pressure }: { situation: IntelligenceSitua
         </div>
         <div>
           <strong>What could happen next</strong>
-          <p>{situation ? implicationLabel(situation) : pressure.next}</p>
+          <p>{story ? story.watchNext : pressure.next}</p>
         </div>
       </div>
     </section>
@@ -1044,8 +1274,8 @@ function pressureWindowsForSituation(situation: IntelligenceSituation) {
   const windows = [
     situation.timing.window === "Early" ? "early signal" : null,
     situation.raw.lineup_status ? "Lineup window active" : null,
-    situation.raw.injury_designation ? "Availability pressure" : null,
-    situation.marketReaction ? `Market reacting ${situation.marketReaction.delta ?? ""}`.trim() : "No major shift",
+    situation.raw.injury_designation ? "Availability impact watch" : null,
+    situation.marketReaction ? `Market reacting ${situation.marketReaction.delta ?? ""}`.trim() : "Impact still developing",
     situation.sourceSummary.count > 1 ? `${situation.sourceSummary.count} reports attached` : null,
   ].filter(Boolean) as string[];
   return windows.slice(0, 3);
@@ -1070,17 +1300,17 @@ function SourceArc({ situation, counts, pressure }: { situation: IntelligenceSit
     <section className="live-intel-source-arc" aria-label="Report convergence and trust">
       <div className="live-intel-source-arc-copy">
         <span>Report convergence</span>
-        <h2>{situation ? sourcePostureLabel(situation) : pressure.sourceArcTitle}</h2>
+        <h2>{situation ? publicSourceSummary(situation.sourceSummary.convergence) : pressure.sourceArcTitle}</h2>
         <p>
           {situation
-            ? `${situation.sourceSummary.count} reports tracked with ${situation.validators.agreement.toLowerCase()} and ${confidenceMovementLabel(situation)} confidence movement.`
+            ? `${situation.sourceSummary.count} reports tracked with ${publicSourceSummary(situation.sourceSummary.convergence).toLowerCase()} and ${publicConfidenceMovementLabel(situation)} confidence movement.`
             : pressure.sourceArcBody}
         </p>
       </div>
       <div className="live-intel-source-arc-meter">
         <div>
           <span>Confidence movement</span>
-          <strong>{situation ? confidenceMovementLabel(situation) : "Holding for signal quality"}</strong>
+          <strong>{situation ? publicConfidenceMovementLabel(situation) : "Holding for signal quality"}</strong>
         </div>
         <div>
           <span>Market reacting</span>
@@ -1106,15 +1336,15 @@ function SourceArc({ situation, counts, pressure }: { situation: IntelligenceSit
 function sourceStorySteps(situation: IntelligenceSituation): Array<{ label: string; state: "complete" | "active" | "waiting" }> {
   return [
     { label: `${situation.sourceSummary.count || 1} report${situation.sourceSummary.count === 1 ? "" : "s"}`, state: situation.sourceSummary.count > 1 ? "complete" : "active" },
-    { label: situation.validators.agreement.includes("strong") ? "Strong report quality" : situation.validators.label, state: situation.sourceSummary.count > 1 ? "complete" : "active" },
-    { label: situation.marketReaction ? "Market reacting" : "No major shift", state: situation.marketReaction ? "complete" : "waiting" },
+    { label: situation.validators.agreement.includes("strong") ? "Strong report quality" : publicSourceSummary(situation.sourceSummary.convergence), state: situation.sourceSummary.count > 1 ? "complete" : "active" },
+    { label: situation.marketReaction ? "Market reacting" : "Impact still developing", state: situation.marketReaction ? "complete" : "waiting" },
     { label: situation.escalationState === "Official" ? "Official confirmation" : "Official not final", state: situation.escalationState === "Official" ? "complete" : "waiting" },
   ];
 }
 
 function storyFrameLabel(situation: IntelligenceSituation) {
   if (situation.marketReaction) return "Market reacting";
-  if (situation.raw.injury_designation) return "Availability pressure";
+  if (situation.raw.injury_designation) return "Availability impact watch";
   if (situation.raw.lineup_status) return "Lineup volatility";
   if (situation.raw.weather_note) return "Weather pressure";
   return situation.subject.player ?? situation.subject.team ?? situation.subject.matchup ?? "Team news";
@@ -2059,8 +2289,8 @@ const liveIntelCss = `
   display: inline-grid;
   position: relative;
   width: fit-content;
-  gap: 3px;
-  padding: 12px 18px 11px 20px;
+  gap: 5px;
+  padding: 14px 22px 13px 22px;
   border: 1px solid rgba(217,164,65,0.24);
   border-left: 4px solid rgba(245,184,65,0.92);
   border-radius: 7px;
@@ -2079,25 +2309,25 @@ const liveIntelCss = `
   background: linear-gradient(90deg, rgba(245,184,65,0.74), rgba(24,212,123,0.28), transparent);
 }
 .live-intel-brand-logo-crop {
-  display: none;
-  width: min(250px, 54vw);
-  height: 42px;
+  display: block;
+  width: min(310px, 58vw);
+  height: 58px;
   overflow: hidden;
 }
 .live-intel-brand-anchor img {
   display: block;
-  width: 430px;
+  width: 520px;
   max-width: none;
-  height: 81px;
+  height: 98px;
   object-fit: contain;
   object-position: left center;
-  transform: translate(-44px, -20px);
+  transform: translate(-53px, -24px);
 }
 .live-intel-brand-anchor strong {
   display: block;
   color: #f8fafc;
   font-family: var(--font-cond);
-  font-size: 1.34rem;
+  font-size: 1.58rem;
   font-weight: 950;
   letter-spacing: 0.14em;
   line-height: 1;
@@ -2106,7 +2336,7 @@ const liveIntelCss = `
 .live-intel-brand-anchor span {
   color: #f5b841;
   font-family: var(--font-cond);
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   font-weight: 900;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -2470,16 +2700,16 @@ const liveIntelCss = `
   gap: 9px;
 }
 .live-intel-brand-anchor {
-  padding: 8px 13px 8px 14px;
+  padding: 10px 16px 10px 16px;
 }
 .live-intel-brand-logo-crop {
-  width: min(190px, 42vw);
-  height: 32px;
+  width: min(250px, 48vw);
+  height: 46px;
 }
 .live-intel-brand-anchor img {
-  width: 326px;
-  height: 62px;
-  transform: translate(-34px, -15px);
+  width: 420px;
+  height: 79px;
+  transform: translate(-43px, -19px);
 }
 .live-intel-brand-anchor span,
 .live-intel-status {
@@ -4782,19 +5012,19 @@ a + a .live-intel-league-node {
     letter-spacing: 0.05em;
   }
   .live-intel-brand-anchor {
-    padding: 7px 10px 7px 12px;
+    padding: 8px 12px 8px 12px;
   }
   .live-intel-brand-logo-crop {
-    width: min(150px, 52vw);
-    height: 28px;
+    width: min(210px, 58vw);
+    height: 38px;
   }
   .live-intel-brand-anchor img {
-    width: 258px;
-    height: 49px;
-    transform: translate(-27px, -12px);
+    width: 350px;
+    height: 66px;
+    transform: translate(-36px, -16px);
   }
   .live-intel-brand-anchor strong {
-    font-size: 1.08rem;
+    font-size: 1.22rem;
   }
   .live-intel-brand-anchor span {
     font-size: 0.56rem;

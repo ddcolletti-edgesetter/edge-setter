@@ -78,6 +78,7 @@ export function SportsStoryVisual({
           <img
             src={activeImageSrc}
             alt={imageAsset?.alt ?? `${leagueLabel} sports story image`}
+            data-testid="homepage-story-image"
             loading={size === "hero" || size === "feature" ? "eager" : "lazy"}
             decoding="async"
             onError={() => setImageIndex((current) => current + 1)}

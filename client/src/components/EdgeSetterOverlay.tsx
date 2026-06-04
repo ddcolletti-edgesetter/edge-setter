@@ -33,18 +33,24 @@ interface EdgeSetterOverlayProps {
 export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "legacy" }: EdgeSetterOverlayProps) {
   const confidence = data.confidence?.current;
   const delta = data.confidence?.delta;
-  const confidenceLabel = typeof confidence === "number" ? `${Math.round(confidence)}% support signal` : "Awaiting verification";
+  const publicCopy = copyVariant === "editorial";
+  const confidenceLabel = typeof confidence === "number"
+    ? publicCopy ? `${Math.round(confidence)}% support from tracked signals` : `${Math.round(confidence)}% support signal`
+    : "Awaiting verification";
   const deltaLabel = typeof delta === "number" && delta !== 0 ? `${delta > 0 ? "+" : ""}${Math.round(delta)}` : "Hold";
   const sourceCount = data.sourceSummary?.count ?? 0;
-  const sourceLabel = data.sourceSummary?.convergence ?? (sourceCount > 1 ? "Reports corroborating" : sourceCount === 1 ? "Single report" : "Report watch");
+  const sourceLabel = publicSourceLabel(data.sourceSummary?.convergence) ?? (sourceCount > 1 ? "Multiple reports supporting" : sourceCount === 1 ? "Single report under review" : "Report watch");
   const sourcePosture = sourcePostureLabel(sourceCount, sourceLabel);
-  const timingLabel = [data.timing?.window, data.timing?.freshnessLabel].filter(Boolean).join(" / ") || "Timing watch";
-  const replay = data.replay?.filter(Boolean).slice(0, compact ? 2 : 3) ?? [];
+  const timingWindow = publicCopy ? publicTimingLabel(data.timing?.window) : data.timing?.window;
+  const timingLabel = [timingWindow, data.timing?.freshnessLabel].filter(Boolean).join(" / ") || "Timing watch";
+  const replay = publicCopy
+    ? ["Source trail checked", "Timing window reviewed", "Impact still developing"].slice(0, compact ? 2 : 3)
+    : data.replay?.filter(Boolean).slice(0, compact ? 2 : 3) ?? [];
   const calibrationInput = {
     confidence,
     sourceCount,
     timingLabel,
-    storyType: data.status ?? situation?.signalType,
+    storyType: publicCopy ? "public-homepage" : data.status ?? situation?.signalType,
     marketReaction: situation?.marketReaction ? `${situation.marketReaction.open} to ${situation.marketReaction.current}` : null,
     sourceSummary: sourcePosture,
   };
@@ -52,11 +58,13 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
   return (
     <div className={compact ? "edge-overlay is-compact" : "edge-overlay"}>
       <div className="edge-overlay-top">
-        {data.escalationState ? <EscalationBadge state={data.escalationState} /> : <span className="edge-overlay-status">{data.status ?? "Monitoring"}</span>}
-        <span>{copyVariant === "editorial" ? "View evidence" : "EdgeSetter evidence"}</span>
+        {publicCopy
+          ? <span className="edge-overlay-status">{publicStatusLabel(data.escalationState, data.status)}</span>
+          : data.escalationState ? <EscalationBadge state={data.escalationState} /> : <span className="edge-overlay-status">{data.status ?? "Monitoring"}</span>}
+        <span>{publicCopy ? "EdgeSetter review" : "EdgeSetter evidence"}</span>
       </div>
 
-      {situation && !compact ? (
+      {situation && !compact && !publicCopy ? (
         <div className="edge-overlay-primitives">
           <ConfidenceMovement situation={situation} />
           <SourceChainMini situation={situation} />
@@ -100,4 +108,34 @@ function sourcePostureLabel(count: number, label: string) {
   if (normalized.includes("confirmed") || normalized.includes("corroborat")) return `${count} confirmed ${sourceWord}`;
   if (normalized.includes("single")) return "Single source";
   return `${count} ${sourceWord} / ${label}`;
+}
+
+function publicStatusLabel(state?: EscalationState | null, status?: string | null) {
+  if (status === "Quiet coverage") return "Coverage watch";
+  if (state === "Confirming") return "Being verified";
+  if (state === "Official") return "Official update";
+  if (state === "Significant" || state === "Escalating") return "Impact watch";
+  if (state === "Emerging") return "Developing story";
+  return "Monitoring";
+}
+
+function publicSourceLabel(value?: string | null) {
+  if (!value) return null;
+  const normalized = value.toLowerCase();
+  if (normalized.includes("official")) return "Official trail checked";
+  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Supported by multiple signals/sources";
+  if (normalized.includes("single")) return "Single report under review";
+  if (normalized.includes("awaiting")) return "Source trail still developing";
+  return value;
+}
+
+function publicTimingLabel(value?: string | null) {
+  if (!value) return value;
+  const normalized = value.toLowerCase();
+  if (normalized === "widely known") return "Public context";
+  if (normalized === "early") return "Early window";
+  if (normalized === "developing") return "Developing window";
+  if (normalized === "closing") return "Late window";
+  if (normalized === "stale") return "Old update";
+  return value;
 }

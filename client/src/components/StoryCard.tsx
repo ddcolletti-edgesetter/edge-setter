@@ -30,9 +30,11 @@ interface StoryCardProps {
   story: StoryCardData;
   variant?: "lead" | "feature" | "rail" | "compact";
   className?: string;
+  copyVariant?: "legacy" | "public";
 }
 
-export function StoryCard({ story, variant = "feature", className }: StoryCardProps) {
+export function StoryCard({ story, variant = "feature", className, copyVariant = "legacy" }: StoryCardProps) {
+  const publicCopy = copyVariant === "public";
   const card = (
     <article className={cn("story-card", `story-card-${variant}`, className)}>
       <div className="story-card-visual">
@@ -57,14 +59,14 @@ export function StoryCard({ story, variant = "feature", className }: StoryCardPr
         </div>
         <h2>{story.headline}</h2>
         <div className="story-card-context">
-          {[story.primaryTeam && story.secondaryTeam ? `${story.primaryTeam} @ ${story.secondaryTeam}` : story.primaryTeam, story.player, story.storyType].filter(Boolean).join(" / ") || "Sports context"}
+          {[story.league, story.primaryTeam && story.secondaryTeam ? `${story.primaryTeam} @ ${story.secondaryTeam}` : story.primaryTeam, story.player, story.storyType].filter(Boolean).join(" / ") || "Sports context"}
         </div>
         {story.dek && <p>{story.dek}</p>}
 
         <div className="story-card-reads">
           {story.whatChanged && (
             <div>
-              <span>What changed</span>
+              <span>{publicCopy ? "What happened" : "What changed"}</span>
               <strong>{story.whatChanged}</strong>
             </div>
           )}
@@ -83,7 +85,7 @@ export function StoryCard({ story, variant = "feature", className }: StoryCardPr
         </div>
       </div>
 
-      <EdgeSetterOverlay data={story.overlay} situation={story.situation} compact={variant === "rail" || variant === "compact"} />
+      <EdgeSetterOverlay data={story.overlay} situation={story.situation} compact={variant === "rail" || variant === "compact"} copyVariant={publicCopy ? "editorial" : "legacy"} />
     </article>
   );
 

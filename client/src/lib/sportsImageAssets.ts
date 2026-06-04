@@ -8,6 +8,7 @@ export interface SportsImageLookupInput {
   player?: string | null;
   storyType?: string | null;
   slot?: SportsImageSlotName;
+  preferLeagueAsset?: boolean;
 }
 
 export interface SportsImageAsset {
@@ -25,7 +26,12 @@ export function resolveSportsImageAsset(input: SportsImageLookupInput): SportsIm
   const storyType = normalizeAssetToken(input.storyType);
   const slot = input.slot ?? "featured";
 
-  const candidates = [
+  const candidates = (input.preferLeagueAsset ? [
+    league && `/sports/${league}/${slot}.jpg`,
+    league && `/sports/${league}/default.jpg`,
+    `/sports/${slot}.jpg`,
+    "/sports/default.jpg",
+  ] : [
     team && `/sports/teams/${team}.jpg`,
     opponent && `/sports/teams/${opponent}.jpg`,
     league && storyType && `/sports/${league}/${storyType}.jpg`,
@@ -33,7 +39,7 @@ export function resolveSportsImageAsset(input: SportsImageLookupInput): SportsIm
     league && `/sports/${league}/default.jpg`,
     `/sports/${slot}.jpg`,
     "/sports/default.jpg",
-  ].filter(Boolean) as string[];
+  ]).filter(Boolean) as string[];
 
   return {
     alt: buildSportsImageAlt(input, league, slot),

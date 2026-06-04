@@ -15,7 +15,7 @@ const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
 
 function BrandEmblem({ size = 38 }: { size?: number }) {
   return (
-    <span style={{ width: size, height: size, display: "grid", placeItems: "center", borderRadius: "7px", border: "1px solid rgba(245,184,65,0.30)", background: "linear-gradient(135deg, rgba(245,184,65,0.10), rgba(24,212,123,0.06))", boxShadow: "0 10px 26px rgba(0,0,0,0.30), inset 0 1px 0 rgba(248,250,252,0.08)", flexShrink: 0, overflow: "hidden", position: "relative" }}>
+    <span className="edgesetter-sidebar-emblem" style={{ width: size, height: size, display: "grid", placeItems: "center", borderRadius: "7px", border: "1px solid rgba(245,184,65,0.30)", background: "linear-gradient(135deg, rgba(245,184,65,0.10), rgba(24,212,123,0.06))", boxShadow: "0 10px 26px rgba(0,0,0,0.30), inset 0 1px 0 rgba(248,250,252,0.08)", flexShrink: 0, overflow: "hidden", position: "relative" }}>
       <img
         src={EDGESETTER_EMBLEM_SRC}
         alt="EdgeSetter live sports intelligence"
@@ -37,13 +37,13 @@ function BrandEmblem({ size = 38 }: { size?: number }) {
 
 function BrandWordmark() {
   return (
-    <div aria-label="EdgeSetter live sports desk" style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", lineHeight: 1 }}>
-      <span style={{ display: "block", width: 154, maxWidth: "100%", height: 56, overflow: "hidden" }}>
+    <div className="edgesetter-sidebar-wordmark" aria-label="EdgeSetter live sports desk" style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", lineHeight: 1 }}>
+      <span style={{ display: "block", width: 174, maxWidth: "100%", height: 64, overflow: "hidden" }}>
         <img
           src={EDGESETTER_LOGO_SRC}
           alt="EdgeSetter"
-          width={154}
-          height={56}
+          width={174}
+          height={64}
           style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", objectPosition: "left center" }}
           onError={(event) => {
             event.currentTarget.style.display = "none";
@@ -52,7 +52,7 @@ function BrandWordmark() {
           }}
         />
       </span>
-      <strong style={{ display: "none", color: "#F8FAFC", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "0.96rem", fontWeight: 950, letterSpacing: "0.055em", whiteSpace: "nowrap" }}>
+      <strong style={{ display: "none", color: "#F8FAFC", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.08rem", fontWeight: 950, letterSpacing: "0.055em", whiteSpace: "nowrap" }}>
         EDGESETTER
       </strong>
     </div>
@@ -199,7 +199,7 @@ function Sidebar({
       {/* Logo */}
       <div
         style={{
-          height: collapsed ? "50px" : "62px",
+          height: collapsed ? "56px" : "70px",
           display: "flex",
           alignItems: "center",
           padding: collapsed ? "0 7px" : "0 10px",
@@ -221,7 +221,7 @@ function Sidebar({
               width: "38px", height: "38px",
             }}
           >
-            <BrandEmblem size={32} />
+            <BrandEmblem size={38} />
           </button>
         ) : (
           <>
