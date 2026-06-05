@@ -345,7 +345,7 @@ function Sidebar({
         ))}
       </nav>
 
-      {/* Nav */}
+      {/* Nav — legacy dead code, hidden, not rendered */}
       <div style={{ display: "none" }}>
         {/* Home */}
         <Link href="/">

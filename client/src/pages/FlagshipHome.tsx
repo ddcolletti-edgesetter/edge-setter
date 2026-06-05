@@ -406,7 +406,7 @@ export default function FlagshipHome() {
         {!isMobile && (
           <div style={{ flexShrink: 0, padding: "0 14px", borderLeft: `1px solid ${T.border}`, display: "flex", alignItems: "center", gap: 5, height: "100%" }}>
             <span className="es-live-dot es-live-dot-subtle" style={{ width: 4, height: 4 }} />
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: T.green, textTransform: "uppercase" }}>Monitoring Desk - NBA · MLB · NFL · CFB</span>
+            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "1.5px", color: T.green, textTransform: "uppercase" }}>Live Coverage · NBA · MLB · NFL · CFB</span>
           </div>
         )}
         {isMobile && <div style={{ flexShrink: 0, width: 10 }} />}

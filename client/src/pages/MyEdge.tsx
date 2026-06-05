@@ -68,7 +68,7 @@ const FEATURES: FeatureCard[] = [
     detail: "Story history is planned as a clean research archive tied to your followed teams, players, and leagues.",
     statusLabel: "Planned",
     status: "planned",
-    accentColor: T.orange,
+    accentColor: T.textFaint,
   },
   {
     icon: <Lock size={18} />,
