@@ -65,7 +65,7 @@ const PUBLIC_BANNED_TEXT_PATTERNS = [
   ["My Edge ", "preview"],
   ["personalization is still a ", "preview"],
   ["preview", "-only"],
-  ["Pro Active - ", "Preview"],
+  ["Account Active - ", "Preview"],
   ["Pro Alert ", "Desk"],
   ["Watchlist ", "Alerts"],
   ["Delivery is paused during launch ", "QA"],
@@ -348,7 +348,7 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                   marginBottom: 3, lineHeight: 1.3,
                 }}
               >
-                {isPro ? "Pro Active" : "Pro Intelligence"}
+                {isPro ? "Account Active" : "Pro Intelligence"}
               </div>
               <div
                 style={{
@@ -384,7 +384,7 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
                   onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(24,212,123,0.18)"; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(24,212,123,0.12)"; }}
                 >
-                  {portalLoading ? "OPENING..." : "MANAGE BILLING"}
+                  {portalLoading ? "OPENING..." : "ACCOUNT"}
                 </button>
               ) : (
                 <Link href="/pro">

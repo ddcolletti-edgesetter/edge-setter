@@ -30,7 +30,7 @@ interface MobileNavProps {
 // ── Default nav items — adjust paths/icons to match your router ──────────────
 const DEFAULT_NAV: NavItem[] = [
   {
-    label: 'Live Desk',
+    label: 'Home',
     path: '/',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -106,17 +106,6 @@ const DEFAULT_NAV: NavItem[] = [
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <path d="M4 14l3-3 3 2 5-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         <path d="M4 17h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity=".55" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Billing',
-    path: '/billing',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <rect x="2" y="5" width="16" height="12" rx="2" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M2 9h16" stroke="currentColor" strokeWidth="1.5" />
-        <path d="M6 13h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
       </svg>
     ),
   },

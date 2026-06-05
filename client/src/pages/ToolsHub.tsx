@@ -717,7 +717,7 @@ export default function ToolsHub() {
               fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
               padding: "8px 18px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
             }}>
-              {isPro ? "Manage Billing" : "Get Pro Access · $19/mo"} <ArrowRight size={11} />
+              {isPro ? "Account" : "Get Pro Access · $19/mo"} <ArrowRight size={11} />
             </button>
           </Link>
         </div>

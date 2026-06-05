@@ -96,9 +96,15 @@ export default function LiveIntelligenceHome() {
       setError(null);
 
       const gameResponses = await Promise.allSettled(
-        LEAGUES.map((league) => fetchLiveGamesForSituations(league, nextSituations.filter((situation) => situation.league === league))),
+        LEAGUES.map(async (league) => ({
+          league,
+          games: await fetchLiveGamesForSituations(league, nextSituations.filter((situation) => situation.league === league)),
+        })),
       );
-      setGames(gameResponses.flatMap((result) => result.status === "fulfilled" ? result.value : []));
+      setGames(gameResponses.flatMap((result) => {
+        if (result.status !== "fulfilled") return [];
+        return result.value.games.filter((game) => game.league === result.value.league);
+      }));
     } catch {
       setError("Live feed unavailable. Showing the last loaded state.");
     } finally {
@@ -215,8 +221,8 @@ export default function LiveIntelligenceHome() {
             </div>
 
             {hasAssignmentRail && (
-              <aside className="media-homepage-rail" aria-label="Headline stack">
-                <div className="media-section-label">Assignment desk</div>
+              <aside className="media-homepage-rail" aria-label="Top watch stories">
+                <div className="media-section-label">Top Watch</div>
                 {homepageStories.rail.map((story) => (
                   <StoryCard key={story.id} story={story} variant="rail" copyVariant="public" />
                 ))}
@@ -420,35 +426,37 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
 
 function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituation): StoryCardData {
   const score = game.awayScore !== null || game.homeScore !== null ? `${game.awayScore ?? "-"}-${game.homeScore ?? "-"}` : gameTimeLabel(game);
-  const storyCopy = situation ? buildPublicSituationStory(situation) : null;
+  const sameLeagueSituation = situation?.league === game.league ? situation : undefined;
+  const storyCopy = sameLeagueSituation ? buildPublicSituationStory(sameLeagueSituation) : null;
   const away = cleanShortTeam(game.awayTeam);
   const home = cleanShortTeam(game.homeTeam);
-  const shortHeadline = hasCleanPublicText(storyCopy?.shortHeadline) ? storyCopy?.shortHeadline : "story watch active";
-  const headline = situation
+  const hasUnmatchedUpdates = game.activeSituations > 0 && !sameLeagueSituation;
+  const shortHeadline = hasCleanPublicText(storyCopy?.shortHeadline) ? storyCopy?.shortHeadline : "Developing watch item";
+  const headline = sameLeagueSituation
     ? `${away} @ ${home}: ${shortHeadline}`
     : `${away} @ ${home} sits in ${game.status.toLowerCase()} watch`;
   return {
     id: `game-${game.league}-${game.id}`,
     league: game.league,
     headline,
-    dek: situation && hasCleanPublicText(storyCopy?.shortDeck) ? storyCopy?.shortDeck : `${game.status} / ${score}. EdgeSetter is monitoring lineup, injury, source, and game-state changes.`,
-    label: game.status === "In Progress" ? "Live game window" : "Matchup watch",
+    dek: sameLeagueSituation && hasCleanPublicText(storyCopy?.shortDeck) ? storyCopy?.shortDeck : `${game.status} / ${score}. EdgeSetter is monitoring lineup, injury, source, and game-state changes.`,
+    label: hasUnmatchedUpdates ? "Developing watch item" : game.status === "In Progress" ? "Live game window" : "Matchup watch",
     href: `/${game.league.toLowerCase()}`,
     primaryTeam: hasCleanPublicTeamIdentity(game.awayTeam) ? game.awayTeam : undefined,
     secondaryTeam: hasCleanPublicTeamIdentity(game.homeTeam) ? game.homeTeam : undefined,
-    storyType: situation ? publicSituationType(situation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
+    storyType: hasUnmatchedUpdates ? "Developing watch item" : sameLeagueSituation ? publicSituationType(sameLeagueSituation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
     detail: `${game.activeSituations} linked update${game.activeSituations === 1 ? "" : "s"}`,
-    whatChanged: situation && hasCleanPublicText(storyCopy?.whatHappened) ? storyCopy?.whatHappened : "No verified team-news change has attached to this game yet.",
-    whyItMatters: situation && hasCleanPublicText(storyCopy?.whyItMatters) ? storyCopy?.whyItMatters : "Game context can change when lineup, availability, or source confirmation lands.",
-    watchNext: situation && hasCleanPublicText(storyCopy?.watchNext) ? storyCopy?.watchNext : "Watch for official team news and source convergence.",
-    overlay: situation ? {
-      escalationState: situation.escalationState,
-      confidence: situation.confidence,
+    whatChanged: sameLeagueSituation && hasCleanPublicText(storyCopy?.whatHappened) ? storyCopy?.whatHappened : "No verified team-news change has attached to this game yet.",
+    whyItMatters: sameLeagueSituation && hasCleanPublicText(storyCopy?.whyItMatters) ? storyCopy?.whyItMatters : "Game context can change when lineup, availability, or source confirmation lands.",
+    watchNext: sameLeagueSituation && hasCleanPublicText(storyCopy?.watchNext) ? storyCopy?.watchNext : "Watch for official team news and source convergence.",
+    overlay: sameLeagueSituation ? {
+      escalationState: sameLeagueSituation.escalationState,
+      confidence: sameLeagueSituation.confidence,
       sourceSummary: {
-        ...situation.sourceSummary,
-        convergence: publicSourceSummary(situation.sourceSummary.convergence),
+        ...sameLeagueSituation.sourceSummary,
+        convergence: publicSourceSummary(sameLeagueSituation.sourceSummary.convergence),
       },
-      timing: situation.timing,
+      timing: sameLeagueSituation.timing,
       replay: ["Source trail reviewed", "Timing reviewed", "Impact still developing"],
       status: "Story support",
     } : {
@@ -459,12 +467,12 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
       replay: ["Game window", "Source watch", "Impact still developing"],
       status: game.topEscalation ? "Story attached" : "Coverage watch",
     },
-    situation,
+    situation: sameLeagueSituation,
     imageAsset: resolveSportsImageAsset({
       league: game.league,
       team: hasCleanPublicTeamIdentity(game.awayTeam) ? game.awayTeam : undefined,
       opponent: hasCleanPublicTeamIdentity(game.homeTeam) ? game.homeTeam : undefined,
-      storyType: situation ? publicSituationType(situation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
+      storyType: sameLeagueSituation ? publicSituationType(sameLeagueSituation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
       slot: "matchup",
       preferLeagueAsset: true,
     }),
@@ -799,6 +807,7 @@ function editorialDepthBoost(situation: IntelligenceSituation) {
 }
 
 function gameMatchesSituation(game: LiveGameSituation, situation: IntelligenceSituation) {
+  if (game.league !== situation.league) return false;
   const situationText = normalizeMatchupText([
     situation.subject.team,
     situation.subject.matchup,
@@ -963,11 +972,11 @@ function buildTickerItems({ situations, games, pressure }: { situations: Intelli
   const market = situations
     .filter((situation) => situation.marketReaction)
     .slice(0, 2)
-    .map((situation) => `${situation.league}: ${cleanTickerSubject(situation.subject.matchup ?? situation.subject.team)} confirmation window tightening`);
+    .map((situation) => `${situation.league}: ${cleanTickerSubject(situation.subject.matchup ?? situation.subject.team)} watch tightening`);
   const lineup = situations
     .filter((situation) => situation.raw.lineup_status || situation.raw.injury_designation)
     .slice(0, 2)
-    .map((situation) => `${situation.league}: ${cleanTickerSubject(situation.subject.player ?? situation.subject.team ?? "availability")} confirmation window active`);
+    .map((situation) => `${situation.league}: ${cleanTickerSubject(situation.subject.player ?? situation.subject.team ?? "availability")} update active`);
   const source = situations
     .filter((situation) => situation.sourceSummary.count > 1)
     .slice(0, 2)
@@ -1063,18 +1072,18 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
   if (isAvailabilitySituation(situation)) {
     const subject = hasPlayer ? `${player} availability` : `${team} availability`;
     const headline = hasPlayer
-      ? `${player} availability could change ${team} ${teamContextNoun(situation)}`
-      : `${team} availability could change ${teamContextNoun(situation)}`;
+      ? `${player} availability puts ${team} ${teamContextNoun(situation)} in focus`
+      : `${team} availability puts ${teamContextNoun(situation)} in focus`;
     return {
       headline,
       shortHeadline: headline,
       deck: hasPlayer
         ? `${player}'s status changes how ${teamPossessive(team)} usage, opponent prep, and fantasy exposure should be read. EdgeSetter is watching whether ${sourcePhrase}, roster movement, or market response creates a larger downstream shift.`
         : `${team}'s availability picture can change roles, opponent prep, and fantasy exposure. EdgeSetter is watching whether source support, roster movement, or market response creates a larger downstream shift.`,
-      shortDeck: hasPlayer ? `${player}'s status could change ${teamContext}.` : `${team}'s availability picture remains under review.`,
+      shortDeck: hasPlayer ? `${player}'s status brings ${teamContext} into focus.` : `${team}'s availability picture remains under review.`,
       detail: status ? `Player status changed to ${status}` : "Availability status updated",
       whatHappened: hasPlayer
-        ? `${player}'s availability status changed and ${team} ${teamVerb(team)} now the team context to monitor.`
+        ? `${player}'s availability status changed, putting ${teamPossessive(team)} role and matchup plan back on the board.`
         : `${team}'s availability context changed and remains the team situation to monitor.`,
       whyItMatters: `The ${teamContext}, target distribution, and opponent prep can shift if the status holds or changes again.${marketPhrase}`.trim(),
       watchNext: `Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.`,
@@ -1252,10 +1261,6 @@ function teamContextNoun(situation: IntelligenceSituation) {
   if (situation.league === "NBA") return "rotation plan";
   if (situation.league === "MLB") return "lineup plan";
   return "team plan";
-}
-
-function teamVerb(team: string) {
-  return /s$/i.test(team) ? "are" : "is";
 }
 
 function teamPossessive(team: string) {
@@ -1536,7 +1541,7 @@ const liveIntelCss = `
   overflow: hidden;
 }
 .media-homepage-grid.has-assignment-rail {
-  grid-template-columns: minmax(0, 1fr) 360px;
+  grid-template-columns: minmax(0, 1fr);
 }
 .media-homepage-main,
 .media-homepage-rail,
@@ -1560,8 +1565,12 @@ const liveIntelCss = `
 }
 .media-homepage-rail {
   display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 9px;
   padding: 12px;
+}
+.media-homepage-rail .media-section-label {
+  grid-column: 1 / -1;
 }
 .media-section-label {
   display: flex;
@@ -2033,6 +2042,9 @@ const liveIntelCss = `
   }
   .media-homepage-support {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .media-homepage-rail {
+    grid-template-columns: 1fr;
   }
 }
 @media (max-width: 760px) {

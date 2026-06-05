@@ -22,7 +22,7 @@ const PUBLIC_BANNED_TEXT_PATTERNS = [
   ["My Edge ", "preview"],
   ["personalization is still a ", "preview"],
   ["preview", "-only"],
-  ["Pro Active - ", "Preview"],
+  ["Account Active - ", "Preview"],
   ["Pro Alert ", "Desk"],
   ["Watchlist ", "Alerts"],
   ["Delivery is paused during launch ", "QA"],
@@ -206,39 +206,25 @@ function Sidebar({
   style?: React.CSSProperties;
 }) {
   const [location, setLocation] = useLocation();
-  const { email, user, isPro, logout } = useAuth();
-  const { toast } = useToast();
-  const [portalLoading, setPortalLoading] = useState(false);
+  const { email, isPro } = useAuth();
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ Boards: true });
   const expandedWidth = 204;
   const collapsedWidth = 50;
-  const accountEmail = user?.email ?? email;
 
   const toggleSection = (label: string) => {
     setOpenSections((prev) => ({ ...prev, [label]: !prev[label] }));
   };
 
   const isActive = (path?: string) => path && location === path;
-  const handleManageBilling = async () => {
-    if (!accountEmail || portalLoading) return;
-    setPortalLoading(true);
-    try {
-      await openBillingPortal(accountEmail);
-    } catch {
-      toast(billingPortalUnavailableMessage);
-    } finally {
-      setPortalLoading(false);
-    }
-  };
   const sidebarNav = [
-    { label: "Live Desk", path: "/", icon: <Home size={16} />, active: location === "/" },
+    { label: "Home", path: "/", icon: <Home size={16} />, active: location === "/" },
     { label: "NBA", path: "/nba", icon: <Activity size={16} />, active: location.startsWith("/nba") },
     { label: "MLB", path: "/mlb", icon: <LayoutGrid size={16} />, active: location.startsWith("/mlb") },
     { label: "NFL", path: "/nfl", icon: <TrendingUp size={16} />, active: location.startsWith("/nfl") },
     { label: "CFB", path: "/cfb", icon: <BarChart2 size={16} />, active: location.startsWith("/cfb") },
     { label: "My Edge", path: "/my-edge", icon: <Star size={16} />, active: location.startsWith("/my-edge") },
     { label: "Alerts", path: "/alerts", icon: <Zap size={16} />, active: location.startsWith("/alerts") },
-    { label: isPro ? "Billing" : "Pro", path: isPro ? "/billing" : "/pro", icon: <CreditCard size={16} />, active: location.startsWith("/billing") || location.startsWith("/pro") },
+    { label: "Pro", path: "/pro", icon: <CreditCard size={16} />, active: location.startsWith("/pro") },
   ];
 
   return (
@@ -379,7 +365,7 @@ function Sidebar({
             }}
           >
             <Home size={15} style={{ flexShrink: 0, color: isActive("/") ? "#F5B841" : "#94A3B8" }} />
-            {!collapsed && <span>Live Desk</span>}
+            {!collapsed && <span>Home</span>}
           </div>
         </Link>
 
@@ -722,7 +708,7 @@ function Sidebar({
         {[
           { label: "My Edge", path: "/my-edge", icon: <Star size={15} /> },
           { label: "Alerts", path: "/alerts", icon: <Zap size={15} /> },
-          { label: "Billing", path: "/billing", icon: <CreditCard size={15} /> },
+          { label: "Pro", path: "/pro", icon: <CreditCard size={15} /> },
         ].map((item) => (
           <Link key={item.path} href={item.path}>
             <div
@@ -769,44 +755,15 @@ function Sidebar({
               textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px",
             }}
           >
-            {isPro ? "Pro Active" : "Already a subscriber?"}
+            {isPro ? "Account" : "Already a subscriber?"}
           </div>
           <div style={{ fontSize: "0.68rem", color: "#CBD5E1", marginBottom: "8px", lineHeight: 1.35 }}>
             {isPro ? (email ?? "Subscriber account") : "Sign in to restore access"}
           </div>
           {isPro ? (
-            <div style={{ display: "grid", gap: 5 }}>
-              <button
-                data-testid="sidebar-manage-billing"
-                type="button"
-                onClick={handleManageBilling}
-                disabled={portalLoading}
-                style={{
-                  width: "100%", padding: "6px 10px", fontSize: "0.76rem",
-                  borderRadius: "6px", border: "1px solid rgba(24,212,123,0.24)",
-                  background: "rgba(24,212,123,0.08)", color: "#DFFBEA",
-                  fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
-                  letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
-                  opacity: portalLoading ? 0.7 : 1,
-                }}
-              >
-                {portalLoading ? "OPENING..." : "MANAGE BILLING"}
-              </button>
-              <button
-                data-testid="sidebar-sign-out"
-                type="button"
-                onClick={logout}
-                style={{
-                  width: "100%", padding: "6px 10px", fontSize: "0.76rem",
-                  borderRadius: "6px", border: "1px solid rgba(248,250,252,0.18)",
-                  background: "rgba(248,250,252,0.08)", color: "#F8FAFC",
-                  fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
-                  letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                }}
-              >
-                SIGN OUT
-              </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#94A3B8", fontSize: "0.66rem", lineHeight: 1.25 }}>
+              <Star size={12} style={{ color: "#18D47B", flexShrink: 0 }} />
+              <span>Account actions live in the topbar menu.</span>
             </div>
           ) : (
             <div style={{ display: "grid", gap: 5 }}>
@@ -855,6 +812,7 @@ function TopTabBar({
   const { email, user, isPro, logout } = useAuth();
   const { toast } = useToast();
   const [portalLoading, setPortalLoading] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
   const activeSport = SPORT_TABS.find((t) => location.startsWith(t.path))?.key ?? null;
   const accountEmail = user?.email ?? email;
 
@@ -887,7 +845,7 @@ function TopTabBar({
         top: 0,
         zIndex: isMobile ? 820 : 180,
         minWidth: 0,
-        overflow: "hidden",
+        overflow: "visible",
         isolation: "isolate",
         pointerEvents: "auto",
         boxShadow: isMobile ? "0 8px 22px rgba(0,0,0,0.36)" : "none",
@@ -1087,12 +1045,13 @@ function TopTabBar({
         </button>
       )}
 
-      {/* PRO button — icon-only on mobile */}
+      {/* PRO button - icon-only on mobile */}
       <button
-        onClick={isPro ? handleManageBilling : handleUpgrade}
+        data-testid={isPro ? "topbar-account-menu" : "topbar-pro-button"}
+        onClick={isPro ? () => setAccountOpen((open) => !open) : handleUpgrade}
         disabled={proLoading}
-        aria-label={isPro ? "Open billing settings" : "Get Pro"}
-        title={isPro ? "Pro active" : "Get Pro"}
+        aria-label={isPro ? "Open account menu" : "Get Pro"}
+        title={isPro ? "Account" : "Get Pro"}
         style={{
           display: isMobile ? "none" : "inline-flex",
           alignItems: "center",
@@ -1115,12 +1074,30 @@ function TopTabBar({
         }}
       >
         <Zap size={12} />
-        {/* FIX: hide text on mobile — icon-only PRO button */}
-        {!isMobile && (isPro ? "PRO ACTIVE" : (proLoading ? "LOADING..." : "GET PRO"))}
+        {/* FIX: hide text on mobile - icon-only PRO button */}
+        {!isMobile && (isPro ? "ACCOUNT" : (proLoading ? "LOADING..." : "GET PRO"))}
       </button>
 
-      {isPro && !isMobile && (
-        <>
+      {isPro && !isMobile && accountOpen && (
+        <div
+          style={{
+            display: "grid",
+            position: "absolute",
+            right: 58,
+            top: "44px",
+            width: 190,
+            gap: 6,
+            padding: 8,
+            borderRadius: 8,
+            background: "rgba(5,10,15,0.98)",
+            border: "1px solid rgba(148,163,184,0.22)",
+            boxShadow: "0 18px 46px rgba(0,0,0,0.48)",
+            zIndex: 1000,
+          }}
+        >
+          <span style={{ padding: "3px 6px", color: "#94A3B8", fontSize: "0.68rem", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {accountEmail ?? "Subscriber account"}
+          </span>
           <button
             data-testid="topbar-manage-billing"
             type="button"
@@ -1146,7 +1123,7 @@ function TopTabBar({
             }}
           >
             <CreditCard size={12} />
-            {portalLoading ? "Opening" : "Manage Billing"}
+            {portalLoading ? "Opening" : "Billing"}
           </button>
           <button
             data-testid="topbar-sign-out"
@@ -1173,7 +1150,7 @@ function TopTabBar({
             <LogOut size={12} />
             Sign Out
           </button>
-        </>
+        </div>
       )}
 
       {/* Dark mode toggle — icon-only on mobile */}

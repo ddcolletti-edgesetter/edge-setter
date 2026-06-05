@@ -60,7 +60,7 @@ describe("Pro Verify Access", () => {
     });
     fireEvent.click(screen.getByTestId("button-check-access"));
 
-    await screen.findByText("Pro Active");
+    await screen.findByText("Account Active");
     expect(mockApiRequest).toHaveBeenCalledWith("GET", "/api/user?email=subscriber%40example.com");
     expect(mockApiRequest).toHaveBeenCalledWith("POST", "/api/billing/session", { email: "subscriber@example.com" });
     expect(login).toHaveBeenCalledWith("subscriber@example.com");

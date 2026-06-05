@@ -521,7 +521,7 @@ function SignalsPageInner() {
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(61,174,114,0.18)" : T.goldBright; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = isPro ? "rgba(61,174,114,0.12)" : T.gold; }}
               >
-                {isPro ? "Pro Active" : "Go Pro · $19/mo"}
+                {isPro ? "Account Active" : "Go Pro · $19/mo"}
               </button>
             </Link>
           </div>

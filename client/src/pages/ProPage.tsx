@@ -226,7 +226,7 @@ function ProManagementPanel({ email }: { email: string }) {
           fontSize: 12, fontWeight: 700, letterSpacing: "0.18em",
           textTransform: "uppercase", color: C.green,
         }}>
-          Pro Active
+          Account Active
         </span>
       </div>
       <p style={{
@@ -237,7 +237,7 @@ function ProManagementPanel({ email }: { email: string }) {
         You have full access.
       </p>
       <p style={{ fontSize: 16, color: C.textMuted, margin: "0 0 24px", lineHeight: 1.55 }}>
-        Head to the Live Desk to see the full intelligence feed.
+        Head to Home to see the full intelligence feed.
       </p>
       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
         <Link href="/">
@@ -248,7 +248,7 @@ function ProManagementPanel({ email }: { email: string }) {
             fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
             padding: "10px 22px", borderRadius: 3, cursor: "pointer",
           }}>
-            Open Live Desk <ChevronRight size={12} />
+            Open Home <ChevronRight size={12} />
           </div>
         </Link>
         <button
@@ -264,7 +264,7 @@ function ProManagementPanel({ email }: { email: string }) {
             padding: "10px 22px", borderRadius: 3, cursor: "pointer",
           }}
         >
-          {portalLoading ? "…" : "Manage Billing"}
+          {portalLoading ? "…" : "Billing portal"}
         </button>
       </div>
     </div>
@@ -360,7 +360,7 @@ export default function ProPage() {
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = C.gold; }}
             onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = C.textFaint; }}>
-              Live Desk
+              Home
             </div>
           </Link>
         </div>

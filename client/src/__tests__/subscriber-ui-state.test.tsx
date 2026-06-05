@@ -106,16 +106,17 @@ describe("subscriber-aware UI state", () => {
     expect(screen.getByText("Followed teams")).toBeInTheDocument();
     expect(screen.getByText("Watchlist")).toBeInTheDocument();
     expect(screen.getByText("Alert preferences")).toBeInTheDocument();
-    expect(screen.getAllByText("Manage Billing").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Manage Billing")).not.toBeInTheDocument();
     expect(screen.queryByText(/My Edge preview/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/personalization is still a preview/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/examples below remain preview-only/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Pro Active - Preview/i)).not.toBeInTheDocument();
-    expect(screen.getByTestId("sidebar-manage-billing")).toHaveTextContent("MANAGE BILLING");
-    expect(screen.getByTestId("sidebar-sign-out")).toHaveTextContent("SIGN OUT");
-    expect(screen.getByTestId("topbar-manage-billing")).toHaveTextContent("Manage Billing");
+    expect(screen.queryByText(/Pro Active/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("topbar-account-menu")).toHaveTextContent("ACCOUNT");
+    expect(screen.queryByTestId("topbar-manage-billing")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("topbar-account-menu"));
+    expect(screen.getByTestId("topbar-manage-billing")).toHaveTextContent("Billing");
     expect(screen.getByTestId("topbar-sign-out")).toHaveTextContent("Sign Out");
-    fireEvent.click(screen.getByTestId("sidebar-sign-out"));
+    fireEvent.click(screen.getByTestId("topbar-sign-out"));
     expect(logout).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Go Pro - $19/mo")).not.toBeInTheDocument();
     expect(screen.queryByText("PRO - $19/MO")).not.toBeInTheDocument();
@@ -138,7 +139,7 @@ describe("subscriber-aware UI state", () => {
     expect(screen.queryByText("Q4 2026")).not.toBeInTheDocument();
   });
 
-  it("opens the active Pro sidebar billing portal with session refresh retry", async () => {
+  it("opens billing from the active Pro account menu with session refresh retry", async () => {
     mockUseAuth.mockReturnValue(activeProAuth());
     mockApiRequest
       .mockRejectedValueOnce(new Error("401"))
@@ -147,7 +148,8 @@ describe("subscriber-aware UI state", () => {
 
     render(<MyEdge />);
 
-    fireEvent.click(screen.getByTestId("sidebar-manage-billing"));
+    fireEvent.click(screen.getByTestId("topbar-account-menu"));
+    fireEvent.click(screen.getByTestId("topbar-manage-billing"));
 
     await waitFor(() => {
       expect(mockApiRequest).toHaveBeenNthCalledWith(1, "POST", "/api/billing/portal", { email: "subscriber@example.com" });
@@ -281,7 +283,8 @@ describe("subscriber-aware UI state", () => {
 
     const { rerender } = render(<MyEdge />);
 
-    fireEvent.click(screen.getByTestId("sidebar-sign-out"));
+    fireEvent.click(screen.getByTestId("topbar-account-menu"));
+    fireEvent.click(screen.getByTestId("topbar-sign-out"));
     expect(logout).toHaveBeenCalledTimes(1);
 
     rerender(<MyEdge />);

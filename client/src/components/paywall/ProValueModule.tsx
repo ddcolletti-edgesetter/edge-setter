@@ -60,7 +60,7 @@ export default function ProValueModule() {
         display: "flex", alignItems: "center", gap: 6,
       }}>
         <span style={{ width: 5, height: 5, borderRadius: "50%", background: C.gold, display: "inline-block" }} />
-        {isPro ? "Pro Active" : "Live Workflow · Pro"}
+        {isPro ? "Account Active" : "Live Workflow · Pro"}
       </div>
 
       {/* Headline */}

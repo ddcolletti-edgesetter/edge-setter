@@ -377,8 +377,8 @@ export default function MyEdge() {
             <Link href="/alerts">
               <button style={{ padding: "11px 14px", minHeight: 48, border: "1px solid rgba(245,184,65,0.28)", background: "rgba(245,184,65,0.10)", color: T.gold, borderRadius: 4, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>Manage Alerts</button>
             </Link>
-            <Link href="/billing">
-              <button style={{ padding: "11px 14px", minHeight: 48, border: "1px solid rgba(24,212,123,0.28)", background: "rgba(24,212,123,0.10)", color: T.green, borderRadius: 4, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>Manage Billing</button>
+            <Link href="/pro">
+              <button style={{ padding: "11px 14px", minHeight: 48, border: "1px solid rgba(24,212,123,0.28)", background: "rgba(24,212,123,0.10)", color: T.green, borderRadius: 4, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>Account</button>
             </Link>
           </section>
         )}
@@ -404,7 +404,7 @@ export default function MyEdge() {
               fontSize: 12, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.04em",
             }}>
               {isPro
-                ? "Your followed leagues, team priorities, watchlist area, alert preferences, and account actions are ready to manage."
+                ? "Your followed leagues, team priorities, watchlist area, and alert preferences are ready to shape your watchlist."
                 : "Followed teams, followed players, watched stories, and alert routing are not active yet. The examples below show the planned shape without implying saved personalization is available today."}
             </div>
           </div>
@@ -519,7 +519,7 @@ export default function MyEdge() {
               { label: "NBA Board",          desc: "Developing stories and followed-team context.", href: "/nba",      color: T.gold,      dotColor: T.gold },
               { label: "MLB Board",          desc: "Active pitcher, lineup, and weather context.", href: "/mlb",   color: "#00B7FF",   dotColor: "#00B7FF" },
               { label: "Alerts",             desc: "Saved preference profile and thresholds.", href: "/alerts", color: T.gold, dotColor: T.green },
-              { label: "Pro / Billing",      desc: "Manage subscription and access.",           href: "/billing",    color: T.textMuted, dotColor: T.textFaint },
+              { label: "Pro",                desc: "Subscriber access and account details.",    href: "/pro",        color: T.textMuted, dotColor: T.textFaint },
             ].map(item => (
               <Link key={item.label} href={item.href}>
                 <div
@@ -573,17 +573,17 @@ export default function MyEdge() {
             marginBottom: 18, maxWidth: 500,
           }}>
             {isPro
-              ? "You have Pro access. Alerts, billing, and saved sports focus are available now; deeper watched-story history and followed-player routing remain roadmap items below."
+              ? "You have Pro access. Alerts and saved sports focus are available now; deeper watched-story history and followed-player routing remain roadmap items below."
               : "Pro subscribers get saved preferences, watched-story setup, daily brief routing, and story history as each layer ships."}
           </div>
-          <Link href={isPro ? "/billing" : "/pro"}>
+          <Link href="/pro">
             <button style={{
               background: isPro ? "rgba(24,212,123,0.12)" : T.gold, color: isPro ? T.green : T.bg, border: isPro ? "1px solid rgba(24,212,123,0.32)" : "none", borderRadius: 3,
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
               padding: "10px 24px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6,
             }}>
-              {isPro ? "Manage Billing" : "Go Pro - $19/mo"} <ArrowRight size={12} />
+              {isPro ? "Account" : "Go Pro - $19/mo"} <ArrowRight size={12} />
             </button>
           </Link>
         </div>

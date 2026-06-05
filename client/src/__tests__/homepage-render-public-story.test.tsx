@@ -5,6 +5,7 @@ import LiveIntelligenceHome from "@/pages/LiveIntelligenceHome";
 import { useAuth } from "@/context/AuthContext";
 import { fetchSignals, type LiveSignal } from "@/lib/signalsApi";
 import { fetchLiveGamesForSituations } from "@/lib/intelligenceSituationsApi";
+import type { LiveGameSituation } from "@/lib/intelligenceSituationsApi";
 
 vi.mock("@/context/AuthContext", () => ({
   useAuth: vi.fn(),
@@ -126,6 +127,11 @@ const bannedHomepagePhrases = [
   "source check complete",
   "timing check complete",
   "availability is moving the slate",
+  "availability could change",
+  "status could change",
+  "now the team context to monitor",
+  "Assignment Desk",
+  "Assignment desk",
   "story context active",
   "role picture",
   "lineup plan on watch",
@@ -147,7 +153,7 @@ describe("homepage public story render", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("heading", {
-        name: "Brandon Aiyuk availability could change 49ers passing-game plan",
+        name: "Brandon Aiyuk availability puts 49ers passing-game plan in focus",
       })).toBeInTheDocument();
     });
 
@@ -165,7 +171,7 @@ describe("homepage public story render", () => {
     expect(screen.getByText("Source Trail")).toBeInTheDocument();
     expect(screen.getByText("Quiet Board Context")).toBeInTheDocument();
     expect(screen.getByText("Latest Verified Notes")).toBeInTheDocument();
-    expect(domText).toContain("Brandon Aiyuk's availability status changed and 49ers are now the team context to monitor.");
+    expect(domText).toContain("Brandon Aiyuk's availability status changed, putting 49ers' role and matchup plan back on the board.");
     expect(domText).toContain("Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.");
     expect(domText).toContain("Source trail reviewed. Timing reviewed. Impact still developing.");
 
@@ -184,7 +190,7 @@ describe("homepage public story render", () => {
     expect(domText).not.toMatch(/\b[A-Z]{2,4} availability status is moving\b/);
 
     const leadStory = screen.getByRole("heading", {
-      name: "Brandon Aiyuk availability could change 49ers passing-game plan",
+      name: "Brandon Aiyuk availability puts 49ers passing-game plan in focus",
     }).closest("article");
     expect(leadStory).not.toBeNull();
     const leadImage = leadStory?.querySelector<HTMLImageElement>("[data-testid='homepage-story-image']");
@@ -195,7 +201,7 @@ describe("homepage public story render", () => {
     expect(document.querySelector(".live-intel-brand-logo-crop img")?.getAttribute("src")).toBe("/brand/edgesetter-logo.png");
   });
 
-  it("does not render UNK in homepage lead or assignment desk", async () => {
+  it("does not render UNK in homepage lead or top watch", async () => {
     mockUseAuth.mockReturnValue(signedOutAuth());
     mockFetchSignals.mockResolvedValue([unkMlbSignal(), aiyukSignal()]);
     mockFetchLiveGamesForSituations.mockResolvedValue([]);
@@ -211,5 +217,39 @@ describe("homepage public story render", () => {
     expect(domText).not.toMatch(/\bUNK\b/);
     expect(domText).not.toContain("Nick Sogard availability keeps UNK lineup plan");
     expect(domText).not.toContain("MLB / UNK / Nick Sogard");
+  });
+
+  it("does not attach NFL story context to MLB game-window cards", async () => {
+    mockUseAuth.mockReturnValue(signedOutAuth());
+    mockFetchSignals.mockResolvedValue([aiyukSignal()]);
+    const mlbGame: LiveGameSituation = {
+      id: "mlb-game-1",
+      league: "MLB",
+      awayTeam: "SEA",
+      homeTeam: "DET",
+      gameTime: now,
+      status: "Scheduled",
+      awayScore: null,
+      homeScore: null,
+      activeSituations: 1,
+      topEscalation: "Emerging",
+    };
+    mockFetchLiveGamesForSituations.mockImplementation(async (league) => league === "MLB" ? [mlbGame] : []);
+
+    render(<LiveIntelligenceHome />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Game windows")).toBeInTheDocument();
+    });
+
+    const domText = document.body.textContent ?? "";
+    expect(domText).toContain("SEA @ DET sits in scheduled watch");
+    expect(domText).toContain("Developing watch item");
+    expect(domText).not.toContain("SEA @ DET: Brandon Aiyuk");
+    expect(domText).not.toContain("SEA @ DET: Brandon Aiyuk availability");
+    expect(domText).not.toContain("SEA @ DET: Kendrick Law");
+    expect(domText).not.toContain("SEA @ DET: 49ers");
+    expect(domText).not.toContain("MLB / SEA @ DET / Brandon Aiyuk");
+    expect(domText).not.toContain("MLB / SEA @ DET / passing-game");
   });
 });
