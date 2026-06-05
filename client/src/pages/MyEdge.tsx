@@ -48,7 +48,7 @@ const FEATURES: FeatureCard[] = [
     title: "Watched Stories",
     description: "Track injury, lineup, pitcher, roster, market, or role-change stories.",
     detail: "Watched stories preserve what changed, why it matters, source agreement, and what to watch next.",
-    statusLabel: "Preview",
+    statusLabel: "Setup",
     status: "coming",
     accentColor: "#00B7FF",
   },
@@ -91,10 +91,10 @@ const PREVIEW_STORIES: StoryCardData[] = [
   {
     id: "my-edge-preview-1",
     league: "NBA",
-    label: "Preview story",
+    label: "Example story",
     storyType: "Availability watch",
     headline: "Followed-player availability would move fantasy and matchup context",
-    dek: "Preview only: this shows how a watched player story will appear once personalization is connected.",
+    dek: "Setup example: this shows how a watched player story will appear once personalization is connected.",
     primaryTeam: "LAL",
     secondaryTeam: "BOS",
     player: "Followed player",
@@ -103,20 +103,20 @@ const PREVIEW_STORIES: StoryCardData[] = [
     watchNext: "Official status, beat confirmation, and whether the market reacts.",
     overlay: {
       escalationState: "Emerging",
-      confidence: { current: 68, delta: 6, explanation: "Preview confidence movement" },
-      sourceSummary: { count: 2, convergence: "Source agreement preview" },
-      timing: { window: "Developing", freshnessLabel: "Setup preview" },
-      replay: ["Preview created", "Awaiting followed-player data"],
-      status: "Personalization preview",
+      confidence: { current: 68, delta: 6, explanation: "Example confidence movement" },
+      sourceSummary: { count: 2, convergence: "Report agreement example" },
+      timing: { window: "Developing", freshnessLabel: "Setup example" },
+      replay: ["Example created", "Awaiting followed-player data"],
+      status: "Personalization setup",
     },
   },
   {
     id: "my-edge-preview-2",
     league: "MLB",
-    label: "Preview story",
+    label: "Example story",
     storyType: "Lineup and market watch",
     headline: "Followed-team lineup change would trigger a watched-story alert",
-    dek: "Preview only: personalized alerts will prioritize teams, players, leagues, and story types you choose.",
+    dek: "Setup example: personalized alerts will prioritize teams, players, leagues, and story types you choose.",
     primaryTeam: "LAD",
     secondaryTeam: "NYY",
     whatChanged: "A lineup or pitcher-context change would enter your watchlist.",
@@ -124,11 +124,11 @@ const PREVIEW_STORIES: StoryCardData[] = [
     watchNext: "Confirmed lineup, odds movement, and role impact after lock.",
     overlay: {
       escalationState: "Confirming",
-      confidence: { current: 74, delta: 4, explanation: "Preview source agreement" },
+      confidence: { current: 74, delta: 4, explanation: "Example report agreement" },
       sourceSummary: { count: 3, convergence: "Reports corroborating" },
       timing: { window: "Early", freshnessLabel: "Not live personalization" },
-      replay: ["Preview setup", "Source agreement example", "Timing edge example"],
-      status: "Preview state",
+      replay: ["Setup example", "Report agreement example", "Timing edge example"],
+      status: "Setup state",
     },
   },
 ];
@@ -311,7 +311,7 @@ export default function MyEdge() {
             }}>
               {isPro
                 ? `Pro access active${email ? ` for ${email}` : ""}. Choose leagues, teams, and players to prioritize your EdgeSetter feed.`
-                : "My Edge will shape EdgeSetter around teams, players, leagues, and developing stories you follow. This page is a preview of the planned personal watchlist and alert workflow."}
+                : "My Edge will shape EdgeSetter around teams, players, leagues, and developing stories you follow. This page shows the planned personal watchlist and alert workflow."}
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 14 }}>
               <SetupPill icon={<Star size={13} />} label="Follow teams" />
@@ -350,7 +350,7 @@ export default function MyEdge() {
         {/* ── Personal feed stat row ── */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: 8, marginBottom: 24 }}>
           <PersonalStat label="Feed Layers" value="7" color={T.gold} />
-          <PersonalStat label={isPro ? "Pro Access" : "Setup Preview"} value={isPro ? "Active" : "On"} color={T.green} />
+          <PersonalStat label={isPro ? "Pro Access" : "Setup"} value={isPro ? "Active" : "On"} color={T.green} />
           <PersonalStat label="Saved Sports" value="NBA / MLB" color="#00B7FF" />
           <PersonalStat label="Alert Profile" value="Saved" color={T.gold} />
         </div>
@@ -395,7 +395,7 @@ export default function MyEdge() {
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
               color: T.gold, marginBottom: 5,
-            }}>{isPro ? "Pro access active" : "Coming Soon - Preview"}</div>
+            }}>{isPro ? "Pro access active" : "Coming Soon"}</div>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.04em",
@@ -416,7 +416,7 @@ export default function MyEdge() {
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint,
             marginBottom: 12,
-          }}>{isPro ? "Followed Leagues and Teams" : "Followed Intelligence Setup Preview"}</div>
+          }}>{isPro ? "Followed Leagues and Teams" : "Followed Intelligence Setup"}</div>
           <TeamSilhouettes />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 12 }}>
             <SetupPill icon={<ShieldCheck size={13} />} label="Injuries" />
@@ -433,7 +433,7 @@ export default function MyEdge() {
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold,
-            }}>{isPro ? "Watchlist Area" : "Personalized Story Preview"}</span>
+            }}>{isPro ? "Watchlist Area" : "Personalized Story Examples"}</span>
           </div>
           <p style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -442,7 +442,7 @@ export default function MyEdge() {
           }}>
             {isPro
               ? "Saved story slots will collect watched developments from your prioritized leagues and teams."
-              : "These are preview cards only. They show the intended My Edge shape for watched stories: what changed, why it matters, source agreement, confidence movement, timing, replay state, and what to watch next."}
+              : "These example cards show the intended My Edge shape for watched stories: what changed, why it matters, report agreement, confidence movement, timing, replay state, and what to watch next."}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 12 }}>
             {PREVIEW_STORIES.map((story) => (
@@ -461,7 +461,7 @@ export default function MyEdge() {
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green,
-            }}>{isPro ? "Alert Preference Summary" : "Alert Preferences Preview"}</span>
+            }}>{isPro ? "Alert Preference Summary" : "Alert Preferences Setup"}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10, marginBottom: 12 }}>
             {[
@@ -480,7 +480,7 @@ export default function MyEdge() {
             ))}
           </div>
           <WhatToWatchNext
-            confirm="A watched story strengthens when reliable sources agree, official status appears, or market/fantasy/team context follows."
+            confirm="A watched story strengthens when reliable reports agree, official status appears, or market/fantasy/team context follows."
             weaken="It weakens when reports conflict, the source trail goes stale, market reaction reverses, or official clarification changes the read."
             next="Personal alert routing will prioritize the teams, players, leagues, and story types you follow."
           />
