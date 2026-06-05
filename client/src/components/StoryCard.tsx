@@ -4,6 +4,7 @@ import { EdgeSetterOverlay, type EdgeSetterOverlayData } from "@/components/Edge
 import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
 import type { IntelligenceSituation } from "@/lib/intelligenceSituationsApi";
 import type { SportsImageAsset } from "@/lib/sportsImageAssets";
+import { hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
 import { cn } from "@/lib/utils";
 
 export interface StoryCardData {
@@ -35,60 +36,79 @@ interface StoryCardProps {
 
 export function StoryCard({ story, variant = "feature", className, copyVariant = "legacy" }: StoryCardProps) {
   const publicCopy = copyVariant === "public";
+  const displayStory = publicCopy ? sanitizePublicStory(story) : story;
   const card = (
     <article className={cn("story-card", `story-card-${variant}`, className)}>
       <div className="story-card-visual">
         <SportsStoryVisual
-          league={story.league}
-          sport={leagueToSport(story.league)}
-          primaryTeam={story.primaryTeam}
-          secondaryTeam={story.secondaryTeam}
-          player={story.player}
-          title={story.headline}
-          storyType={story.storyType ?? story.label ?? "Developing story"}
-          detail={story.detail ?? story.watchNext}
+          league={displayStory.league}
+          sport={leagueToSport(displayStory.league)}
+          primaryTeam={displayStory.primaryTeam}
+          secondaryTeam={displayStory.secondaryTeam}
+          player={displayStory.player}
+          title={displayStory.headline}
+          storyType={displayStory.storyType ?? displayStory.label ?? "Developing story"}
+          detail={displayStory.detail ?? displayStory.watchNext}
           size={variant === "lead" ? "hero" : variant === "compact" || variant === "rail" ? "compact" : "feature"}
-          imageAsset={story.imageAsset}
+          imageAsset={displayStory.imageAsset}
         />
       </div>
 
       <div className="story-card-copy">
         <div className="story-card-kicker">
-          <span>{story.league}</span>
-          <strong>{story.label ?? story.storyType ?? "Developing story"}</strong>
+          <span>{displayStory.league}</span>
+          <strong>{displayStory.label ?? displayStory.storyType ?? "Developing story"}</strong>
         </div>
-        <h2>{story.headline}</h2>
+        <h2>{displayStory.headline}</h2>
         <div className="story-card-context">
-          {[story.league, story.primaryTeam && story.secondaryTeam ? `${story.primaryTeam} @ ${story.secondaryTeam}` : story.primaryTeam, story.player, story.storyType].filter(Boolean).join(" / ") || "Sports context"}
+          {[displayStory.league, displayStory.primaryTeam && displayStory.secondaryTeam ? `${displayStory.primaryTeam} @ ${displayStory.secondaryTeam}` : displayStory.primaryTeam, displayStory.player, displayStory.storyType].filter(Boolean).join(" / ") || "Sports context"}
         </div>
-        {story.dek && <p>{story.dek}</p>}
+        {displayStory.dek && <p>{displayStory.dek}</p>}
 
         <div className="story-card-reads">
-          {story.whatChanged && (
+          {displayStory.whatChanged && (
             <div>
               <span>{publicCopy ? "What happened" : "What changed"}</span>
-              <strong>{story.whatChanged}</strong>
+              <strong>{displayStory.whatChanged}</strong>
             </div>
           )}
-          {story.whyItMatters && (
+          {displayStory.whyItMatters && (
             <div>
               <span>Why it matters</span>
-              <strong>{story.whyItMatters}</strong>
+              <strong>{displayStory.whyItMatters}</strong>
             </div>
           )}
-          {story.watchNext && (
+          {displayStory.watchNext && (
             <div>
               <span>Watch next</span>
-              <strong>{story.watchNext}</strong>
+              <strong>{displayStory.watchNext}</strong>
             </div>
           )}
         </div>
       </div>
 
-      <EdgeSetterOverlay data={story.overlay} situation={story.situation} compact={variant === "rail" || variant === "compact"} copyVariant={publicCopy ? "editorial" : "legacy"} />
+      <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={variant === "rail" || variant === "compact"} copyVariant={publicCopy ? "editorial" : "legacy"} />
     </article>
   );
 
-  if (!story.href) return card;
-  return <Link href={story.href}>{card}</Link>;
+  if (!displayStory.href) return card;
+  return <Link href={displayStory.href}>{card}</Link>;
+}
+
+function sanitizePublicStory(story: StoryCardData): StoryCardData {
+  const headlineFallback = publicFallbackLabel(`${story.headline} ${story.storyType}`, story.league);
+  return {
+    ...story,
+    headline: hasCleanPublicText(story.headline) ? story.headline : headlineFallback,
+    dek: hasCleanPublicText(story.dek) ? story.dek : "EdgeSetter is monitoring source support, timing, and sports context before elevating this item.",
+    label: hasCleanPublicText(story.label) ? story.label : headlineFallback,
+    primaryTeam: hasCleanPublicTeamIdentity(story.primaryTeam) ? story.primaryTeam : undefined,
+    secondaryTeam: hasCleanPublicTeamIdentity(story.secondaryTeam) ? story.secondaryTeam : undefined,
+    player: hasCleanPublicText(story.player) ? story.player : undefined,
+    storyType: hasCleanPublicText(story.storyType) ? story.storyType : headlineFallback,
+    detail: hasCleanPublicText(story.detail) ? story.detail : headlineFallback,
+    whatChanged: hasCleanPublicText(story.whatChanged) ? story.whatChanged : "A watch item changed enough to stay on the board.",
+    whyItMatters: hasCleanPublicText(story.whyItMatters) ? story.whyItMatters : "The sports impact is still developing.",
+    watchNext: hasCleanPublicText(story.watchNext) ? story.watchNext : "Watch for source support, official confirmation, and context movement.",
+  };
 }

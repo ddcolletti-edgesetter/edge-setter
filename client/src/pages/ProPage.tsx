@@ -1,7 +1,7 @@
 /**
  * /pro — Edge Setter Pro
  *
- * Sharp product page for fantasy/DFS/betting grinders.
+ * Sharp product page for live sports intelligence subscribers.
  * No brochure walls. One clear offer. One CTA.
  */
 import { useState, useEffect } from "react";
@@ -27,31 +27,31 @@ const C = {
   amber:      "#FF8A00",
 };
 
-const FEATURES = [
+const PRO_FEATURES = [
   {
     icon: Zap,
-    label: "Full live signal feed",
-    detail: "Every signal, no cap. Draft picks, free agency moves, injury flags, depth chart shuffles — all scored 0–100.",
+    label: "Full live intelligence feed",
+    detail: "Developing NBA, MLB, NFL, and CFB stories with source trail, timing window, confidence, and public-safe watch level.",
   },
   {
     icon: BarChart2,
-    label: "Full Draft Board",
-    detail: "2026 class with latest intel, movement tags, and team-fit signals updated in real time.",
+    label: "What changed and why it matters",
+    detail: "Every elevated story explains the change, downstream sports impact, and what to watch before acting.",
   },
   {
     icon: Filter,
-    label: "All 6 topic filters",
-    detail: "Slice by Draft Week, Free Agency, Injuries, Depth Chart, Trades, or Coaching — instantly.",
+    label: "League boards without the noise",
+    detail: "NBA and MLB lead the live desk, while NFL and CFB are clearly labeled when coverage is limited or offseason-only.",
   },
   {
     icon: BookOpen,
-    label: "Today's Top Signal history",
-    detail: "Every featured signal we've surfaced, with full rationale and source notes.",
+    label: "Source and confidence context",
+    detail: "Separate reliability from urgency so confirmed facts do not get confused with immediate action windows.",
   },
   {
     icon: CheckCircle2,
-    label: "Confidence scores + action takeaways",
-    detail: "Confirmed / likely / rumor / contradicted verdicts plus a single concrete action per signal.",
+    label: "Saved preferences",
+    detail: "Configure sports, story types, confidence thresholds, and delivery channels without fake launch promises.",
   },
 ];
 
@@ -237,10 +237,10 @@ function ProManagementPanel({ email }: { email: string }) {
         You have full access.
       </p>
       <p style={{ fontSize: 16, color: C.textMuted, margin: "0 0 24px", lineHeight: 1.55 }}>
-        Head to the Signal Board to see the full live feed.
+        Head to the Live Desk to see the full intelligence feed.
       </p>
       <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-        <Link href="/dashboard">
+        <Link href="/">
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             background: C.gold, color: C.bg,
@@ -248,7 +248,7 @@ function ProManagementPanel({ email }: { email: string }) {
             fontSize: 13, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase",
             padding: "10px 22px", borderRadius: 3, cursor: "pointer",
           }}>
-            Open Signal Board <ChevronRight size={12} />
+            Open Live Desk <ChevronRight size={12} />
           </div>
         </Link>
         <button
@@ -351,7 +351,7 @@ export default function ProPage() {
               }}>Edge Setter</span>
             </div>
           </Link>
-          <Link href="/signals">
+          <Link href="/">
             <div style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",
               fontSize: 13, fontWeight: 700, letterSpacing: "0.14em",
@@ -360,7 +360,7 @@ export default function ProPage() {
             }}
             onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.color = C.gold; }}
             onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.color = C.textFaint; }}>
-              ← Signal Board
+              Live Desk
             </div>
           </Link>
         </div>
@@ -410,7 +410,7 @@ export default function ProPage() {
           <>
             <SubscriberSignInPanel />
 
-            {/* Draft Week urgency banner */}
+            {/* Product readiness banner */}
             <div className="pro-status-banner" style={{
               display: "flex", alignItems: "flex-start", gap: 10,
               background: "rgba(245,184,65,0.07)",
@@ -424,10 +424,10 @@ export default function ProPage() {
                 fontSize: 12, fontWeight: 700, letterSpacing: "0.18em",
                 textTransform: "uppercase", color: C.gold,
                 marginTop: 1, flexShrink: 0,
-              }}>⚡ Live Now</span>
+              }}>Live Intelligence</span>
               <span style={{ fontSize: 15, color: C.textMuted, lineHeight: 1.5 }}>
-                <strong style={{ color: C.text }}>2026 NFL Draft is Apr 24–26.</strong>{" "}
-                Act on draft-week movement before your league or the market does.
+                <strong style={{ color: C.text }}>Built for source, timing, and impact context.</strong>{" "}
+                See developing sports stories with the evidence trail attached.
               </span>
             </div>
 
@@ -449,8 +449,8 @@ export default function ProPage() {
               margin: "0 0 16px",
               maxWidth: 700,
             }}>
-              Stop chasing tweets.<br />
-              <span style={{ color: C.gold }}>See the signals before your league does.</span>
+              Stop decoding raw feeds.<br />
+              <span style={{ color: C.gold }}>See what changed before the market fully catches up.</span>
             </h1>
 
             {/* Sub-headline */}
@@ -458,13 +458,13 @@ export default function ProPage() {
               fontSize: 18, color: C.textMuted, lineHeight: 1.65,
               maxWidth: 560, margin: "0 0 12px",
             }}>
-              Built for sharp fantasy, DFS, and betting players who already follow the news but want it condensed into edges.
+              Built for fans, fantasy players, bettors, analysts, and creators who need early story detection, source context, and downstream impact in one place.
             </p>
             <p className="pro-product-support" style={{
               fontSize: 16, color: C.textFaint, lineHeight: 1.6,
               maxWidth: 540, margin: "0 0 48px",
             }}>
-              Every signal is confidence-scored 0–100. Every signal includes one action. No recap threads. No noise.
+              EdgeSetter separates trust from urgency: source support tells you how reliable a story is, while watch level tells you whether to monitor or act now.
             </p>
 
             {/* 4 direct bullet proof points */}
@@ -474,7 +474,7 @@ export default function ProPage() {
               gap: 16,
               marginBottom: 52,
             }}>
-              {FEATURES.map(({ icon: Icon, label, detail }) => (
+              {PRO_FEATURES.map(({ icon: Icon, label, detail }) => (
                 <div key={label} className="pro-feature-card" style={{
                   background: C.surface1,
                   border: "1px solid rgba(245,184,65,0.12)",

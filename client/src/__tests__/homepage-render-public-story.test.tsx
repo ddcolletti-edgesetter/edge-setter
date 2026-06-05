@@ -92,6 +92,25 @@ function aiyukSignal(): LiveSignal {
   };
 }
 
+function unkMlbSignal(): LiveSignal {
+  return {
+    ...aiyukSignal(),
+    id: "unk-mlb",
+    league: "MLB",
+    game_id: null,
+    signal_type: "injury_update",
+    headline: "Nick Sogard availability keeps UNK lineup plan on watch",
+    body: "UNK lineup plan changed.",
+    action_note: "Watch UNK.",
+    why_it_matters: "UNK context should not render.",
+    team: "UNK",
+    player: "Nick Sogard",
+    matchup: null,
+    score: 99,
+    confidence: 95,
+  };
+}
+
 const bannedHomepagePhrases = [
   "LEAD DESK READ",
   "Lead Desk Read",
@@ -153,5 +172,23 @@ describe("homepage public story render", () => {
     expect(document.querySelector(".edgesetter-sidebar-wordmark img")?.getAttribute("width")).toBe("174");
     expect(document.querySelector(".edgesetter-sidebar-wordmark")).toBeInTheDocument();
     expect(document.querySelector(".live-intel-brand-logo-crop img")?.getAttribute("src")).toBe("/brand/edgesetter-logo.png");
+  });
+
+  it("does not render UNK in homepage lead or assignment desk", async () => {
+    mockUseAuth.mockReturnValue(signedOutAuth());
+    mockFetchSignals.mockResolvedValue([unkMlbSignal(), aiyukSignal()]);
+    mockFetchLiveGamesForSituations.mockResolvedValue([]);
+
+    render(<LiveIntelligenceHome />);
+
+    await waitFor(() => {
+      expect(mockFetchSignals).toHaveBeenCalled();
+      expect(mockFetchLiveGamesForSituations).toHaveBeenCalled();
+    });
+
+    const domText = document.body.textContent ?? "";
+    expect(domText).not.toMatch(/\bUNK\b/);
+    expect(domText).not.toContain("Nick Sogard availability keeps UNK lineup plan");
+    expect(domText).not.toContain("MLB / UNK / Nick Sogard");
   });
 });

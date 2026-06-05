@@ -30,7 +30,7 @@ interface MobileNavProps {
 // ── Default nav items — adjust paths/icons to match your router ──────────────
 const DEFAULT_NAV: NavItem[] = [
   {
-    label: 'Home',
+    label: 'Live Desk',
     path: '/',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -42,7 +42,7 @@ const DEFAULT_NAV: NavItem[] = [
     ),
   },
   {
-    label: 'NBA Board',
+    label: 'NBA',
     path: '/nba',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -52,7 +52,7 @@ const DEFAULT_NAV: NavItem[] = [
     ),
   },
   {
-    label: 'MLB Board',
+    label: 'MLB',
     path: '/mlb',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -62,7 +62,7 @@ const DEFAULT_NAV: NavItem[] = [
     ),
   },
   {
-    label: 'NFL Board',
+    label: 'NFL',
     path: '/nfl',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -72,31 +72,12 @@ const DEFAULT_NAV: NavItem[] = [
     ),
   },
   {
-    label: 'CFB Board',
+    label: 'CFB',
     path: '/cfb',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <ellipse cx="10" cy="10" rx="7" ry="5" stroke="currentColor" strokeWidth="1.5" />
         <path d="M3 10h14M10 5v10M6 7l-1-2M14 7l1-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Player Signals',
-    path: '/tools/player-signals',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M3 13l4-4 3 3 4-5 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        <circle cx="16" cy="10" r="2" fill="currentColor" opacity=".5" />
-      </svg>
-    ),
-  },
-  {
-    label: 'Context Movement',
-    path: '/tools/market-movement',
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-        <path d="M3 15l4-6 3 4 3-7 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
@@ -110,8 +91,8 @@ const DEFAULT_NAV: NavItem[] = [
     ),
   },
   {
-    label: 'Sources',
-    path: '/sources',
+    label: 'Alerts',
+    path: '/alerts',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <path d="M4 5h12M4 10h12M4 15h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -119,8 +100,8 @@ const DEFAULT_NAV: NavItem[] = [
     ),
   },
   {
-    label: 'Accuracy Ledger',
-    path: '/accuracy',
+    label: 'Pro',
+    path: '/pro',
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
         <path d="M4 14l3-3 3 2 5-7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

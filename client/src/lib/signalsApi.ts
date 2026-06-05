@@ -25,6 +25,7 @@ import type { NFLSignal, NFLSignalType } from "../data/nflMockData";
 import type { CFBSignal, CFBSignalType } from "../data/cfbMockData";
 import type { SignalScore, ScoreBand, UrgencyLabel } from "./signalScorer";
 import { SCORE_BANDS } from "./signalScorer";
+import { filterPublicSignals, sanitizeSignalForPublic } from "./publicDisplayHygiene";
 
 /* ── Raw LiveSignal shape from /api/v2/signals ───────────── */
 export interface LiveSignal {
@@ -111,13 +112,13 @@ export async function fetchSignals(league?: string): Promise<LiveSignal[]> {
   const url = league ? `/api/v2/signals?league=${league}&limit=100` : `/api/v2/signals?limit=200`;
   const res = await apiRequest("GET", url);
   const data: SignalsResponse = await res.json();
-  return data.signals ?? [];
+  return filterPublicSignals(data.signals ?? []);
 }
 
 export async function fetchSignalById(id: string): Promise<LiveSignal | null> {
   try {
     const res = await apiRequest("GET", `/api/v2/signals/${id}`);
-    return await res.json();
+    return sanitizeSignalForPublic(await res.json());
   } catch {
     return null;
   }

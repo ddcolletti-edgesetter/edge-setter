@@ -5,6 +5,7 @@ import { ArrowUpRight, Bell, CheckCircle2, Eye, Clock3 } from "lucide-react";
 import { AgentCalibrationBadge } from "@/components/AgentCalibration";
 import { Button } from "@/components/ui/button";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
+import { hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
 import { cn } from "@/lib/utils";
 import type { SituationStoryCardData } from "./boardAdapters";
 
@@ -98,7 +99,9 @@ export function LeagueEditorialPageFrame({ league, quickLinks, headlines, lead, 
           <span className="text-[0.68rem] font-bold uppercase tracking-widest text-muted-foreground">{headlines.length}</span>
         </div>
         <div className="mt-2 divide-y divide-border/70">
-          {headlines.map((item) => (
+          {headlines.map((rawItem) => {
+            const item = sanitizeHeadlineItem(rawItem, league);
+            return (
             <button
               key={item.id}
               type="button"
@@ -108,7 +111,7 @@ export function LeagueEditorialPageFrame({ league, quickLinks, headlines, lead, 
               <strong className="block break-words text-sm font-bold leading-snug text-foreground">{item.headline}</strong>
               {item.meta && <span className="mt-1 block truncate text-[0.72rem] font-semibold text-muted-foreground">{item.meta}</span>}
             </button>
-          ))}
+          );})}
         </div>
         {conversion && (
           <div className="mt-3 rounded-md border border-primary/25 bg-primary/5 p-3">
@@ -136,6 +139,7 @@ export function LeagueEditorialPageFrame({ league, quickLinks, headlines, lead, 
 }
 
 export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: EditorialLeadStoryProps) {
+  story = sanitizeEditorialStory(story);
   const identity = story.row.sportsIdentity;
   const imageAsset = resolveSportsImageAsset({
     league: story.league,
@@ -236,6 +240,33 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
       </div>
     </article>
   );
+}
+
+function sanitizeHeadlineItem(item: EditorialHeadlineItem, league: string): EditorialHeadlineItem {
+  return {
+    ...item,
+    headline: hasCleanPublicText(item.headline) ? item.headline : publicFallbackLabel(item.headline, league),
+    meta: hasCleanPublicText(item.meta) ? item.meta : "Watch item",
+  };
+}
+
+function sanitizeEditorialStory(story: SituationStoryCardData): SituationStoryCardData {
+  const headlineFallback = publicFallbackLabel(`${story.headline} ${story.storyType}`, story.league ?? "Sports");
+  return {
+    ...story,
+    headline: hasCleanPublicText(story.headline) ? story.headline : headlineFallback,
+    dek: hasCleanPublicText(story.dek) ? story.dek : "EdgeSetter is monitoring source support, timing, and sports context before elevating this item.",
+    matchup: hasCleanPublicText(story.matchup) ? story.matchup : undefined,
+    primaryTeam: hasCleanPublicTeamIdentity(story.primaryTeam) ? story.primaryTeam : undefined,
+    secondaryTeam: hasCleanPublicTeamIdentity(story.secondaryTeam) ? story.secondaryTeam : undefined,
+    player: hasCleanPublicText(story.player) ? story.player : undefined,
+    storyType: hasCleanPublicText(story.storyType) ? story.storyType : headlineFallback,
+    whatHappened: hasCleanPublicText(story.whatHappened) ? story.whatHappened : "A watch item changed enough to stay on the board.",
+    whyItMatters: hasCleanPublicText(story.whyItMatters) ? story.whyItMatters : "The sports impact is still developing.",
+    edgeSetterKnows: hasCleanPublicText(story.edgeSetterKnows) ? story.edgeSetterKnows : "Source support and timing remain under watch.",
+    watchNext: hasCleanPublicText(story.watchNext) ? story.watchNext : "Watch for source support, official confirmation, and context movement.",
+    relatedItems: story.relatedItems?.filter((item) => hasCleanPublicText(item)),
+  };
 }
 
 function EditorialImage({ candidateSrcs, alt, league, className }: { candidateSrcs: string[]; alt: string; league?: string; className?: string }) {

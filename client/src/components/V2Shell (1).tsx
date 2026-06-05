@@ -1,7 +1,7 @@
 import { Link, useLocation } from "wouter";
 import { useState, createContext, useContext } from "react";
 import {
-  Home, LayoutGrid, Wrench, Star, List,
+  Home, LayoutGrid, Zap, CreditCard, Star,
   ChevronDown, ChevronRight, Menu, X, Moon, Sun,
 } from "lucide-react";
 import { ProNavButton, NavLoginButton } from "./ProGate";
@@ -118,11 +118,11 @@ function SportPill({ sport, status, href, disabled = false, isCurrent = false }:
 }
 
 const TOP_NAV = [
-  { href: "/",         label: "Home",    icon: Home       },
-  { href: "/nba",     label: "Boards",  icon: LayoutGrid },
-  { href: "/tools",   label: "Tools",   icon: Wrench     },
-  { href: "/my-edge", label: "My Edge", icon: Star       },
-  { href: "/sources", label: "Sources", icon: List       },
+  { href: "/",         label: "Live Desk",   icon: Home       },
+  { href: "/nba",      label: "Boards",      icon: LayoutGrid },
+  { href: "/my-edge",  label: "My Edge",     icon: Star       },
+  { href: "/alerts",   label: "Alerts",      icon: Zap        },
+  { href: "/billing",  label: "Pro/Billing", icon: CreditCard },
 ];
 
 export const BOARDS_NAV = [

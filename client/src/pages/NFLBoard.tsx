@@ -18,14 +18,14 @@ import { BoardCommandBar } from "../components/board/BoardCommandBar";
 import { BoardPriorityControls } from "../components/board/BoardPriorityControls";
 import { FeaturedSituation } from "../components/board/FeaturedSituation";
 import { LiveGameStrip } from "../components/board/LiveGameStrip";
-import { SituationLane } from "../components/board/SituationLane";
-import { TopDevelopments } from "../components/board/TopDevelopments";
+import { SituationStoryCard } from "../components/board/SituationStoryCard";
 import {
   featuredCopy,
   situationMatchesPriority,
   sortModeFromPriority,
   toLiveGamePillData,
   toSituationRowData,
+  toSituationStoryCardData,
   type AnyBoardGame,
 } from "../components/board/boardAdapters";
 import type { SituationLaneType } from "../components/board/SituationRow";
@@ -111,8 +111,10 @@ function NFLBoardInner() {
   const featuredDetails = featuredCopy(featured, "NFL");
   const livePills = NFL_SLATE.map((game) => toLiveGamePillData(game, game.signals));
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
-  const confirmed = rankedNFL.filter((signal) => signal.verdict === "confirmed").length;
-  const topUrgentSituations = situations.filter((situation) => situation.lane === "escalating").slice(0, 2);
+  const storyItems = situations.map((situation) => {
+    const row = toSituationRowData(situation);
+    return { situation, row, story: toSituationStoryCardData(row) };
+  });
 
   const openSituation = (situation: BoardSituation) => {
     if (situation.kind !== "signal" && situation.kind !== "canonical") return;
@@ -134,7 +136,7 @@ function NFLBoardInner() {
         <BoardCommandBar
           kicker="NFL Story Board"
           title={profile.boardLabel}
-          statusLabel={`${canonicalSituations.length ? "Verified sources" : isLive ? "Live coverage" : "Offseason coverage"} / ${rankedNFL.length} updates`}
+          statusLabel={`${canonicalSituations.length ? "Verified source watch" : isLive ? "Live coverage" : "Offseason watch"} / ${rankedNFL.length} updates`}
           liveCount={situations.filter((situation) => situation.lane === "escalating" || situation.lane === "live").length}
           tabs={NFL_FILTERS.map((filter) => ({ id: filter.id, label: filter.label }))}
           activeTabId={activeFilter}
@@ -146,7 +148,7 @@ function NFLBoardInner() {
 
         <LiveGameStrip
           title={profile.liveStripLabel}
-          summary="Offseason schedule context. Games stay quiet unless verified source-backed story pressure attaches."
+          summary="Offseason context only. Games stay quiet unless verified source-backed story pressure attaches to a real game window."
           games={livePills}
           density="compact"
           activeGameId={activeGameId}
@@ -161,12 +163,12 @@ function NFLBoardInner() {
           primaryRead={featuredDetails.primaryRead}
           secondaryRead={featuredDetails.secondaryRead}
           metrics={featuredDetails.metrics}
+          presentation="story"
+          league="NFL"
           mobileDensity="compact"
           className="sm:mb-1"
           actions={featured?.kind === "signal" ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
         />
-
-        <TopDevelopments league="NFL" situations={situations} onSelect={openSituation} />
 
         <BoardPriorityControls
           className="sm:-mt-1"
@@ -182,63 +184,44 @@ function NFLBoardInner() {
           onShowConfirmedChange={setShowConfirmed}
         />
 
-        {topUrgentSituations.length > 0 && (
-          <div className="-mt-1 sm:-mt-0.5">
-            <SituationLane
-              lane="escalating"
-              title="Urgent Developing Stories"
-              summary="Immediate game-week changes before the broader lane board."
-              situations={topUrgentSituations.map(toSituationRowData)}
-              compact
-              cadence="entry"
-              onSituationSelect={(row) => {
-                const situation = topUrgentSituations.find((item) => item.id === row.id);
-                if (situation) openSituation(situation);
-              }}
-            />
-          </div>
-        )}
-
         <div className="board-control-feedback rounded border border-border bg-muted/10">
           {boardSortFeedback(sortMode)} {boardFilterFeedback({ filter: NFL_FILTERS.find((filter) => filter.id === activeFilter)?.label, liveOnly, actionableOnly })}
           {error ? ` ${error}` : ""}
           {canonicalError ? ` ${canonicalError}` : ""}
         </div>
 
-        <div className="board-premium-stat-grid grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {[
-            ["Stories", rankedNFL.length],
-            ["Confirmed", confirmed],
-            ["Urgent stories", situations.filter((situation) => situation.lane === "escalating").length],
-            ["Free stories", FREE_LIMIT],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded border border-border bg-card/80 px-3 py-2">
-              <strong className="stat-num-display block text-lg text-primary tabular-nums">{value}</strong>
-              <span className="data-label text-[0.65rem]">{label}</span>
-            </div>
-          ))}
-        </div>
-
         <ProBoardBanner freeCount={FREE_LIMIT} totalCount={visibleSignals.length} sport="NFL" darkMode={darkMode} />
 
-        <div className="grid gap-3 xl:grid-cols-2">
+        <div className="grid gap-3">
           {visibleLanes.map((lane, index) => {
-            const laneSituations = situations.filter((situation) => situation.lane === lane);
+            const laneItems = storyItems.filter((item) => item.situation.lane === lane);
             return (
-              <SituationLane
+              <section
                 key={lane}
-                lane={lane}
-                title={profile.laneLabels[lane]}
-                summary={laneSummary(lane)}
-                situations={laneSituations.map(toSituationRowData)}
-                compact={compact}
-                cadence={index === 0 ? "entry" : lane === "background" ? "quiet" : "default"}
-                emptyLabel={profile.emptyState}
-                onSituationSelect={(row) => {
-                  const situation = laneSituations.find((item) => item.id === row.id);
-                  if (situation) openSituation(situation);
-                }}
-              />
+                className={`situation-lane situation-lane-${lane} max-w-full overflow-hidden rounded-md border border-border bg-card/80 ${index === 0 ? "bg-card/85" : lane === "background" ? "bg-card/70" : ""}`}
+              >
+                <header className="flex flex-wrap items-center gap-2 border-b border-border/70 bg-muted/10 px-3 py-2.5">
+                  <span className="data-label text-primary">{profile.laneLabels[lane]}</span>
+                  <strong className="min-w-0 flex-1 truncate text-sm text-foreground">{laneSummary(lane)}</strong>
+                  <span className="rounded border border-border bg-muted/20 px-2 py-1 text-[0.66rem] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
+                    {laneItems.length} stories
+                  </span>
+                </header>
+                <div className="grid gap-3 p-3">
+                  {laneItems.length ? laneItems.map(({ situation, story }) => (
+                    <SituationStoryCard
+                      key={situation.id}
+                      story={story}
+                      compact={compact && lane === "background"}
+                      onOpen={situation.kind === "signal" ? () => openSituation(situation) : undefined}
+                    />
+                  )) : (
+                    <div className="rounded border border-border bg-muted/10 px-3 py-4 text-sm font-medium text-muted-foreground">
+                      {profile.emptyState}
+                    </div>
+                  )}
+                </div>
+              </section>
             );
           })}
         </div>
@@ -280,7 +263,7 @@ function canonicalTypeForFilter(filter: string) {
 function laneSummary(lane: SituationLaneType) {
   const copy: Record<SituationLaneType, string> = {
     escalating: "Injury, practice, weather, and line stories where source agreement or market reaction is accelerating.",
-    live: "Game-week watch states that stay elevated while verification, timing, or market reaction is unresolved.",
+    live: "Game-window watch states that stay elevated only when verification, timing, or market reaction is attached.",
     decision: "Participation, depth chart, role, weather, and line windows that still need a timing call.",
     confirmed: "Verified context from official reports, local beats, markets, and source agreement.",
     background: "Lower-priority monitoring across matchups, fantasy impact, team/fan impact, camp notes, and cooling/resolved stories.",

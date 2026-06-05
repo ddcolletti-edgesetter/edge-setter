@@ -28,6 +28,7 @@ import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations
 import { filterCanonicalSituations, useCanonicalSituations } from "@/lib/situationsApi";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "@/lib/signalBoardUx";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { publicGamesForLeague } from "@/lib/publicDisplayHygiene";
 import { useAuth } from "@/context/AuthContext";
 import type { SituationLaneType } from "@/components/board/SituationRow";
 
@@ -46,7 +47,7 @@ type Signal = {
 };
 
 type LiveGame = {
-  id: number;
+  id: number | string;
   sport: "nba";
   espnEventId: string;
   homeTeam: string | null;
@@ -112,7 +113,6 @@ export default function NBABoard() {
   const allSignals = (data ?? []) as Signal[];
 
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
     fetchWithTimeout("/api/v2/games?league=NBA", {}, 4500)
       .then((response) => response.json())
       .then((payload) => {
@@ -122,8 +122,7 @@ export default function NBABoard() {
           scheduled: "Scheduled",
           postponed: "Postponed",
         };
-        const adapted: LiveGame[] = (payload.games ?? [])
-          .filter((game: any) => game.game_time?.slice(0, 10) === today)
+        const adapted: LiveGame[] = publicGamesForLeague(payload.games ?? [], "NBA")
           .map((game: any) => ({
             id: game.id,
             sport: "nba" as const,

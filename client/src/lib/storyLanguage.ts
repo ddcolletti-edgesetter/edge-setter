@@ -76,9 +76,10 @@ export function publicLifecycleLabel(value?: string | null) {
   const normalized = String(value ?? "").trim();
   if (!normalized) return "Developing";
   if (/context moving|market-reacting/i.test(normalized)) return "Market reacting";
-  if (/verified/i.test(normalized)) return "Verified by sources";
-  if (/confirmed|consensus/i.test(normalized)) return "Confirmed update";
-  if (/official/i.test(normalized)) return "Official update";
+  if (/urgent|breaking|live/i.test(normalized)) return "Urgent";
+  if (/verified|confirmed|consensus|official/i.test(normalized)) return "Confirmed";
+  if (/watch|review|likely/i.test(normalized)) return "Watch";
+  if (/developing|emerging|escalating|elevated/i.test(normalized)) return "Developing";
   if (/resolved|stale|cooling/i.test(normalized)) return "Cooling";
   if (/detected/i.test(normalized)) return "New watch";
   return publicStoryText(normalized);
@@ -109,10 +110,10 @@ export function publicTimingLabel(value?: string | null, league?: string) {
 
 export function publicUrgencyLabel(score?: number | null) {
   if (score == null) return "Watch";
-  if (score >= 95) return "Major movement";
-  if (score >= 78) return "High movement";
+  if (score >= 95) return "Urgent";
+  if (score >= 78) return "Watch";
   if (score >= 58) return "Watch";
-  return "Monitoring";
+  return "Developing";
 }
 
 export function marketFocusHeadline(identity: string, league?: string) {

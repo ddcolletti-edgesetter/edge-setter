@@ -99,8 +99,18 @@ describe("subscriber-aware UI state", () => {
 
     render(<MyEdge />);
 
-    expect(screen.getByText("Pro access active - My Edge preview")).toBeInTheDocument();
-    expect(screen.getAllByText("Pro Active").length).toBeGreaterThan(0);
+    expect(screen.getByRole("heading", { name: "My Edge" })).toBeInTheDocument();
+    expect(screen.getAllByText("Pro access active").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Choose leagues, teams, and players to prioritize your EdgeSetter feed/i)).toBeInTheDocument();
+    expect(screen.getByText("Followed leagues")).toBeInTheDocument();
+    expect(screen.getByText("Followed teams")).toBeInTheDocument();
+    expect(screen.getByText("Watchlist")).toBeInTheDocument();
+    expect(screen.getByText("Alert preferences")).toBeInTheDocument();
+    expect(screen.getAllByText("Manage Billing").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/My Edge preview/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/personalization is still a preview/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/examples below remain preview-only/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pro Active - Preview/i)).not.toBeInTheDocument();
     expect(screen.getByTestId("sidebar-manage-billing")).toHaveTextContent("MANAGE BILLING");
     expect(screen.getByTestId("sidebar-sign-out")).toHaveTextContent("SIGN OUT");
     expect(screen.getByTestId("topbar-manage-billing")).toHaveTextContent("Manage Billing");
@@ -109,6 +119,8 @@ describe("subscriber-aware UI state", () => {
     expect(logout).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Go Pro - $19/mo")).not.toBeInTheDocument();
     expect(screen.queryByText("PRO - $19/MO")).not.toBeInTheDocument();
+    expect(screen.queryByText(/preview-only/i)).not.toBeInTheDocument();
+    expect(document.body.textContent ?? "").not.toMatch(/\bpreview\b/i);
     expect(screen.queryByText("Q3 2026")).not.toBeInTheDocument();
     expect(screen.queryByText("Q4 2026")).not.toBeInTheDocument();
   });
@@ -233,6 +245,10 @@ describe("subscriber-aware UI state", () => {
 
     expect(screen.getByText("Already a subscriber?")).toBeInTheDocument();
     expect(screen.getByText("Sign in to restore your Pro access.")).toBeInTheDocument();
+    expect(screen.getByText(/Stop decoding raw feeds/i)).toBeInTheDocument();
+    expect(screen.getByText(/See what changed before the market fully catches up/i)).toBeInTheDocument();
+    expect(screen.queryByText(/2026 NFL Draft/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Full Draft Board/i)).not.toBeInTheDocument();
 
     act(() => {
       fireEvent.click(screen.getByTestId("button-pro-sign-in"));

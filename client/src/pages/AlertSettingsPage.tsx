@@ -213,21 +213,21 @@ export default function AlertSettingsPage() {
         {/* Header */}
         <div style={{ marginBottom: 32 }}>
           <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold }}>
-            Pro Alert Desk - Pro Active
+            Pro access active
           </p>
           <h1 style={{ margin: 0, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 800, color: T.text, lineHeight: 1.15 }}>
-            Watchlist Alerts
+            Saved Alert Preferences
           </h1>
           <p style={{ margin: "8px 0 0", fontSize: 13, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.04em", maxWidth: 560 }}>
-            Configure saved alert preferences for followed leagues, saved teams, signal types, and confidence threshold. Delivery is paused during launch QA.
+            Alert delivery is not active yet. You can save preferences now.
           </p>
         </div>
 
-        {/* Delivery status */}
+        {/* Preference status */}
         <div style={{ background: "rgba(245,184,65,0.06)", border: "1px solid rgba(245,184,65,0.24)", borderRadius: 5, padding: "14px 18px", marginBottom: 16 }}>
-          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.gold, letterSpacing: "0.14em", textTransform: "uppercase" }}>Alert delivery paused</p>
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.gold, letterSpacing: "0.14em", textTransform: "uppercase" }}>Delivery not active</p>
           <p style={{ margin: "4px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.5 }}>
-            Email delivery is currently disabled during launch QA. Your preferences can be configured and saved, but delivery is not active yet.
+            These settings are saved preferences only until production alert delivery is enabled.
           </p>
         </div>
 
@@ -236,7 +236,7 @@ export default function AlertSettingsPage() {
           <div>
             <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.text, letterSpacing: "0.1em", textTransform: "uppercase" }}>Saved preference profile</p>
             <p style={{ margin: "3px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.4 }}>
-              Keep your alert preferences ready. Delivery remains paused until launch QA enables it.
+              Keep your alert preferences ready for your saved sports and story thresholds.
             </p>
           </div>
           <button
@@ -298,11 +298,11 @@ export default function AlertSettingsPage() {
         </Section>
 
         {/* Channels */}
-        <Section title="Delivery Channels" subtitle="Paused during launch QA. These preferences are saved but not live delivery settings yet.">
+        <Section title="Delivery Channels" subtitle="Choose where EdgeSetter should use your saved alert preferences.">
           {/* Email */}
           <ChannelRow
             label="Email"
-            description={`Email delivery is currently disabled during launch QA. Saved email: ${email}`}
+            description={`Saved email: ${email}`}
             active={prefs.channels.includes("email")}
             onClick={() => toggleChannel("email")}
             paused={ALERT_DELIVERY_PAUSED}

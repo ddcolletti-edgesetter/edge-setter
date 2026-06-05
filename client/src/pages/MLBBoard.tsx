@@ -27,6 +27,7 @@ import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations
 import { filterCanonicalSituations, useCanonicalSituations } from "@/lib/situationsApi";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "@/lib/signalBoardUx";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { containsPublicInvalidToken, hasCleanPublicTeamIdentity, hasCleanPublicText, publicGamesForLeague } from "@/lib/publicDisplayHygiene";
 import { useAuth } from "@/context/AuthContext";
 import type { SituationLaneType } from "@/components/board/SituationRow";
 
@@ -45,7 +46,7 @@ type Signal = {
 };
 
 type LiveGame = {
-  id: number;
+  id: number | string;
   sport: "mlb";
   espnEventId: string;
   homeTeam: string | null;
@@ -110,7 +111,6 @@ export default function MLBBoard() {
   const allSignals = (data ?? []) as Signal[];
 
   useEffect(() => {
-    const today = new Date().toISOString().slice(0, 10);
     fetchWithTimeout("/api/v2/games?league=MLB", {}, 4500)
       .then((response) => response.json())
       .then((payload) => {
@@ -120,8 +120,7 @@ export default function MLBBoard() {
           scheduled: "Scheduled",
           postponed: "Postponed",
         };
-        const adapted: LiveGame[] = (payload.games ?? [])
-          .filter((game: any) => game.game_time?.slice(0, 10) === today)
+        const adapted: LiveGame[] = publicGamesForLeague(payload.games ?? [], "MLB")
           .map((game: any) => ({
             id: game.id,
             sport: "mlb" as const,
@@ -167,22 +166,37 @@ export default function MLBBoard() {
       .filter((situation) => situationMatchesPriority(situation, urgencyFilter));
   }, [activeTab, canonicalSituations, filteredSignals, liveGames, showConfirmed, urgencyFilter]);
 
-  const featured = selectFeaturedSituation(situations);
+  const cleanSituations = useMemo(() => situations.filter(isCleanMlbSituation), [situations]);
+  const featured = selectFeaturedSituation(cleanSituations.filter(isHighQualityMlbLeadSituation));
   const hasElevatedLeadStory = Boolean(featured && featured.escalation !== "Quiet" && featured.lane !== "background");
   const leadSituation = hasElevatedLeadStory ? featured : null;
   const featuredRow = useMemo(() => leadSituation ? toSituationRowData(leadSituation) : undefined, [leadSituation]);
-  const leadStory = useMemo(() => featuredRow ? toSituationStoryCardData(featuredRow) : toQuietLeagueLeadStory("MLB"), [featuredRow]);
-  const storyItems = useMemo(() => situations.map((situation) => {
+  const leadStory = useMemo(() => {
+    if (featuredRow) return toSituationStoryCardData(featuredRow);
+    const quiet = toQuietLeagueLeadStory("MLB");
+    if (cleanSituations.length > 0) {
+      return {
+        ...quiet,
+        headline: "No clean high-impact MLB developments right now.",
+        dek: "The board is holding lower-quality or repetitive watch items below the lead-story threshold.",
+        whatHappened: "No clean MLB story has enough team identity, source support, and downstream impact to lead the board.",
+        whyItMatters: "Holding the lead quiet avoids turning routine or opening-line-only context into false urgency.",
+        watchNext: "Watch for confirmed lineups, pitcher changes, weather cells, late scratches, and source-backed movement.",
+      };
+    }
+    return quiet;
+  }, [cleanSituations.length, featuredRow]);
+  const storyItems = useMemo(() => cleanSituations.map((situation) => {
     const row = toSituationRowData(situation);
     return {
       situation,
       row,
       story: toSituationStoryCardData(row),
     };
-  }), [situations]);
+  }).filter(isRenderableMlbStoryItem), [cleanSituations]);
   const livePills = useMemo(() => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, allSignals))), [allSignals, liveGames]);
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
-  const hasSituations = situations.length > 0;
+  const hasSituations = cleanSituations.length > 0;
   const isInitialBoardLoading = !hasSituations && (isLoading || canonicalLoading || gamesLoading);
   const topUrgentItems = storyItems.filter((item) => item.situation.lane === "escalating").slice(0, 2);
   const quickLinks: EditorialQuickLink[] = [
@@ -195,7 +209,7 @@ export default function MLBBoard() {
     { id: "line_moves", label: "Market", detail: "Movement", active: activeTab === "line_moves", onClick: () => setActiveTab("line_moves") },
   ];
   const headlineItems: EditorialHeadlineItem[] = storyItems.length
-    ? storyItems.slice(0, 6).map((item) => ({
+    ? dedupeStoryItems(storyItems).slice(0, 6).map((item) => ({
         id: item.row.id,
         headline: item.story.headline,
         meta: [item.story.storyType, item.story.timing ?? item.row.timestamp].filter(Boolean).join(" / "),
@@ -207,8 +221,8 @@ export default function MLBBoard() {
         meta: index === 0 ? "Before first pitch" : "Watch item",
       }));
   const fallbackWatchCount = leadStory.relatedItems?.length || headlineItems.length || quickLinks.length;
-  const monitoredCount = situations.length || fallbackWatchCount;
-  const monitoredLabel = situations.length ? `${situations.length} stories monitored` : `${monitoredCount} watch items monitored`;
+  const monitoredCount = cleanSituations.length || fallbackWatchCount;
+  const monitoredLabel = cleanSituations.length ? `${cleanSituations.length} stories monitored` : `${monitoredCount} watch items monitored`;
 
   const openSituation = (situation: BoardSituation) => {
     if (situation.kind !== "signal" && situation.kind !== "canonical") return;
@@ -291,7 +305,7 @@ export default function MLBBoard() {
               <span className="data-label text-primary">Detailed Signal View</span>
               <span className="text-[0.72rem] font-semibold text-muted-foreground">Source, timing, and lane detail below the editorial lead.</span>
             </div>
-            <TopDevelopments league="MLB" situations={situations} copyVariant="editorial" onSelect={openSituation} />
+            <TopDevelopments league="MLB" situations={dedupeStoryItems(storyItems).map((item) => item.situation)} copyVariant="editorial" onSelect={openSituation} />
           </section>
         )}
 
@@ -414,6 +428,83 @@ function relatedSignalCount(game: LiveGame, signals: Signal[]) {
     const opponent = signal.opponent?.toLowerCase() ?? "";
     return team === away || team === home || opponent === away || opponent === home;
   }).length;
+}
+
+function isCleanMlbSituation(situation: BoardSituation) {
+  return hasCleanPublicTeamIdentity(situation.team, situation.opponent, situation.awayTeam, situation.homeTeam)
+    && hasCleanPublicText(
+      situation.title,
+      situation.detail,
+      situation.player,
+      situation.statusLabel,
+      situation.movementLabel,
+      situation.sourceSummary,
+      situation.marketReaction,
+      situation.replayChain?.join(" "),
+    );
+}
+
+function isCleanMlbStory(story: ReturnType<typeof toSituationStoryCardData>) {
+  return hasCleanPublicTeamIdentity(story.primaryTeam, story.secondaryTeam)
+    && hasCleanPublicText(
+      story.headline,
+      story.dek,
+      story.matchup,
+      story.player,
+      story.storyType,
+      story.whatHappened,
+      story.whyItMatters,
+      story.watchNext,
+      story.relatedItems?.join(" "),
+    );
+}
+
+function isRenderableMlbStoryItem(item: {
+  situation: BoardSituation;
+  story: ReturnType<typeof toSituationStoryCardData>;
+}) {
+  return isCleanMlbStory(item.story) && !isLowQualityMlbMarketItem(item);
+}
+
+function isHighQualityMlbLeadSituation(situation: BoardSituation) {
+  if (!isCleanMlbSituation(situation)) return false;
+  if (situation.kind === "game" && situation.escalation === "Quiet") return false;
+  const text = `${situation.title} ${situation.detail ?? ""} ${situation.signalType ?? ""} ${situation.movementLabel ?? ""} ${situation.marketReaction ?? ""}`.toLowerCase();
+  const hasTeamSpecificContext = Boolean(situation.player || situation.team || situation.awayTeam || situation.homeTeam);
+  const hasSportsDriver = /\b(lineup|scratch|pitcher|starter|bullpen|weather|injury|availability|roster|source|confirmed|late)\b/i.test(text);
+  const isMarketOnly = /\b(market|line move|movement|spread|total|odds)\b/i.test(text) && !hasSportsDriver;
+  return hasTeamSpecificContext && !isMarketOnly && (hasSportsDriver || situation.sourceCount >= 2 || situation.score >= 72);
+}
+
+function isLowQualityMlbMarketItem(item: {
+  situation: BoardSituation;
+  story: ReturnType<typeof toSituationStoryCardData>;
+}) {
+  const text = [
+    item.situation.title,
+    item.situation.detail,
+    item.situation.signalType,
+    item.situation.movementLabel,
+    item.situation.marketReaction,
+    item.story.headline,
+    item.story.whatHappened,
+    item.story.whyItMatters,
+  ].filter(Boolean).join(" ");
+  const hasMarketOnlyText = /\b(opening line|market|line move|movement|spread|total|odds)\b/i.test(text);
+  const hasSportsDriver = /\b(lineup|scratch|pitcher|starter|bullpen|weather|injury|availability|roster|confirmed|late|source-backed|source backed)\b/i.test(text);
+  return hasMarketOnlyText && !hasSportsDriver;
+}
+
+function dedupeStoryItems<T extends { story: { headline: string } }>(items: T[]) {
+  const seen = new Set<string>();
+  const deduped: T[] = [];
+  for (const item of items) {
+    const key = item.story.headline.toLowerCase().replace(/\s+/g, " ").trim();
+    if (!key || containsPublicInvalidToken(key) || seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(item);
+  }
+  return deduped;
 }
 
 function sortIdForMode(mode: BoardSortMode) {

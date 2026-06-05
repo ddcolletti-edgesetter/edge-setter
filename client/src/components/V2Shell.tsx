@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import MobileTabBar from "./MobileTabBar";
 import { NBA_LOGOS, MLB_LOGOS } from "@/lib/espnAssets";
@@ -12,6 +12,98 @@ import { useAuth } from "@/context/AuthContext";
 import { billingPortalUnavailableMessage, openBillingPortal } from "@/lib/billingPortal";
 const EDGESETTER_EMBLEM_SRC = "/brand/edgesetter-emblem.png";
 const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
+const BUILD_RENDER_CHECK = "BUILD_RENDER_CHECK_2026_06_04";
+const PUBLIC_QUIET_STATE = "No clean high-impact developments right now.";
+const PUBLIC_BANNED_TEXT_PATTERNS = [
+  /\bUNK\b/gi,
+  /UNK market move leads MLB watch/gi,
+  /keeps UNK lineup plan/gi,
+  /ARI-LAD-ARI/gi,
+  /My Edge preview/gi,
+  /personalization is still a preview/gi,
+  /preview-only/gi,
+  /Pro Active - Preview/gi,
+  /Pro Alert Desk/gi,
+  /Watchlist Alerts/gi,
+  /Delivery is paused during launch QA/gi,
+  /Alert Delivery Paused/gi,
+];
+
+function containsBannedPublicText(value: string) {
+  return PUBLIC_BANNED_TEXT_PATTERNS.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(value);
+  });
+}
+
+function scrubPublicTextNode(node: Node) {
+  if (node.nodeType !== Node.TEXT_NODE || !node.textContent) return;
+  if (containsBannedPublicText(node.textContent)) {
+    node.textContent = PUBLIC_QUIET_STATE;
+  }
+}
+
+function scrubPublicTextTree(root: HTMLElement | null) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) scrubPublicTextNode(walker.currentNode);
+}
+
+function PublicTextRenderGuard({ children }: { children: React.ReactNode }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    scrubPublicTextTree(root);
+    if (!root) return;
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            scrubPublicTextNode(node);
+          } else if (node instanceof HTMLElement) {
+            scrubPublicTextTree(node);
+          }
+        });
+        if (mutation.type === "characterData") scrubPublicTextNode(mutation.target);
+      }
+    });
+    observer.observe(root, { childList: true, characterData: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={rootRef} data-public-text-guard="true" style={{ display: "contents" }}>
+      {children}
+    </div>
+  );
+}
+
+function BuildRenderCheckMarker() {
+  return (
+    <div
+      aria-label="Build render check"
+      style={{
+        position: "fixed",
+        right: 8,
+        bottom: "calc(82px + env(safe-area-inset-bottom, 0px))",
+        zIndex: 1200,
+        padding: "4px 7px",
+        border: "1px solid rgba(245,184,65,0.45)",
+        borderRadius: 4,
+        background: "rgba(5,7,10,0.92)",
+        color: "#F5B841",
+        fontFamily: "monospace",
+        fontSize: 10,
+        lineHeight: 1.1,
+        letterSpacing: 0,
+        pointerEvents: "none",
+      }}
+    >
+      {BUILD_RENDER_CHECK}
+    </div>
+  );
+}
 
 function BrandEmblem({ size = 38 }: { size?: number }) {
   return (
@@ -166,13 +258,13 @@ function Sidebar({
   };
   const sidebarNav = [
     { label: "Live Desk", path: "/", icon: <Home size={16} />, active: location === "/" },
-    { label: "Tools", path: "/tools", icon: <Activity size={16} />, active: location.startsWith("/tools") },
-    { label: "Boards", path: "/mlb", icon: <LayoutGrid size={16} />, active: ["/nba", "/mlb", "/nfl", "/cfb"].some((path) => location.startsWith(path)) },
-    { label: "Developments", path: "/signals", icon: <TrendingUp size={16} />, active: location.startsWith("/signals") },
-    { label: "Sources", path: "/sources", icon: <BarChart2 size={16} />, active: location.startsWith("/sources") || location.startsWith("/accuracy") },
+    { label: "NBA", path: "/nba", icon: <Activity size={16} />, active: location.startsWith("/nba") },
+    { label: "MLB", path: "/mlb", icon: <LayoutGrid size={16} />, active: location.startsWith("/mlb") },
+    { label: "NFL", path: "/nfl", icon: <TrendingUp size={16} />, active: location.startsWith("/nfl") },
+    { label: "CFB", path: "/cfb", icon: <BarChart2 size={16} />, active: location.startsWith("/cfb") },
     { label: "My Edge", path: "/my-edge", icon: <Star size={16} />, active: location.startsWith("/my-edge") },
     { label: "Alerts", path: "/alerts", icon: <Zap size={16} />, active: location.startsWith("/alerts") },
-    { label: "Settings", path: "/billing", icon: <Wrench size={16} />, active: location.startsWith("/billing") },
+    { label: isPro ? "Billing" : "Pro", path: isPro ? "/billing" : "/pro", icon: <CreditCard size={16} />, active: location.startsWith("/billing") || location.startsWith("/pro") },
   ];
 
   return (
@@ -1215,7 +1307,8 @@ export default function AppShell({
           fontFamily: "'Barlow Condensed', sans-serif",
         }}
       >
-        {children}
+        <PublicTextRenderGuard>{children}</PublicTextRenderGuard>
+        <BuildRenderCheckMarker />
         <MobileTabBar />
       </div>
     );
@@ -1289,6 +1382,8 @@ export default function AppShell({
           flexDirection: "column",
           overflow: isLeagueBoardRoute ? "visible" : "hidden",
           minWidth: 0,
+          height: isMobile ? "calc(100vh - 76px - env(safe-area-inset-bottom, 0px))" : undefined,
+          maxHeight: isMobile ? "calc(100vh - 76px - env(safe-area-inset-bottom, 0px))" : undefined,
           width: isMobile ? "100vw" : undefined,
           maxWidth: isMobile ? "100vw" : undefined,
         }}
@@ -1300,8 +1395,11 @@ export default function AppShell({
           isMobile={isMobile}
           brandContext={brandContext}
         />
-        <div style={{ flex: 1, overflowY: isLeagueBoardRoute ? "visible" : "auto", overflowX: "hidden", minWidth: 0, maxWidth: "100%", paddingBottom: isMobile ? "84px" : 0 }}>{children}</div>
+        <div style={{ flex: 1, overflowY: isLeagueBoardRoute ? "visible" : "auto", overflowX: "hidden", minWidth: 0, maxWidth: "100%", paddingBottom: isMobile ? "calc(96px + env(safe-area-inset-bottom, 0px))" : 0 }}>
+          <PublicTextRenderGuard>{children}</PublicTextRenderGuard>
+        </div>
       </div>
+      <BuildRenderCheckMarker />
       <MobileTabBar />
     </div>
   );

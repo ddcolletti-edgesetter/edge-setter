@@ -9,6 +9,7 @@ import {
 } from "./boardEscalation";
 import { getLeagueBoardProfile } from "./leagueBoardProfiles";
 import type { Sport } from "./leagueModifiers";
+import { hasValidPublicSignalIdentity } from "./publicDisplayHygiene";
 import {
   signalAgeMinutes,
   signalConfidence,
@@ -75,6 +76,7 @@ export type BoardSignalInput = BoardEscalationInput & {
   player?: string | null;
   team?: string | null;
   opponent?: string | null;
+  matchup?: string | null;
 };
 
 export type BoardGameInput = {
@@ -208,12 +210,25 @@ export function buildBoardSituations({
   games?: BoardGameInput[];
   signals?: BoardSignalInput[];
 }): BoardSituation[] {
-  const signalSituations = signals.map(signal => toBoardSignalSituation(signal, league));
+  const publicSignals = signals.filter((signal) => hasValidPublicSignalIdentity(signal) && !isOpeningLineOnlyBoardSignal(signal));
+  const signalSituations = publicSignals.map(signal => toBoardSignalSituation(signal, league));
   const gameSituations = games.map(game => {
-    const related = signals.filter(signal => signalMatchesGame(signal, game));
+    const related = publicSignals.filter(signal => signalMatchesGame(signal, game));
     return toBoardGameSituation(game, league, related);
   });
   return rankBoardSituations([...gameSituations, ...signalSituations]);
+}
+
+function isOpeningLineOnlyBoardSignal(signal: BoardSignalInput) {
+  const type = String(signal.type ?? "").toLowerCase();
+  const text = `${signal.headline ?? ""} ${signal.detail ?? ""} ${(signal as { action_takeaway?: string | null }).action_takeaway ?? ""}`;
+  if (type !== "line_move" || !/\bopening line|market baseline|opened at\b/i.test(text)) return false;
+  const movement = (signal as { lineMovement?: { open?: string | number | null; current?: string | number | null; note?: string | null } | null }).lineMovement;
+  if (!movement) return true;
+  const open = Number(movement.open);
+  const current = Number(movement.current);
+  const sameNumber = Number.isFinite(open) && Number.isFinite(current) && Math.abs(open - current) < 0.05;
+  return sameNumber || /moved\s+\+?0(?:\.0+)?\s+pts?/i.test(movement.note ?? "");
 }
 
 export function rankBoardSituations(situations: BoardSituation[]): BoardSituation[] {

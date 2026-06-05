@@ -17,7 +17,7 @@ describe("AlertSettingsPage delivery truthfulness", () => {
     vi.unstubAllGlobals();
   });
 
-  it("shows Pro state while making paused email delivery explicit", async () => {
+  it("shows paused saved-preference state without claiming delivery is active", async () => {
     mockUseAuth.mockReturnValue({
       email: "subscriber@example.com",
       isPro: true,
@@ -40,11 +40,13 @@ describe("AlertSettingsPage delivery truthfulness", () => {
 
     render(<AlertSettingsPage />);
 
-    expect(await screen.findByText("Pro Alert Desk - Pro Active")).toBeInTheDocument();
-    expect(screen.getByText("Alert delivery paused")).toBeInTheDocument();
-    expect(screen.getAllByText(/Email delivery is currently disabled during launch QA/i).length).toBeGreaterThan(0);
+    expect(await screen.findByText("Pro access active")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Saved Alert Preferences" })).toBeInTheDocument();
+    expect(screen.getByText("Alert delivery is not active yet. You can save preferences now.")).toBeInTheDocument();
+    expect(screen.getByText(/These settings are saved preferences only/i)).toBeInTheDocument();
+    expect(screen.getByText(/Saved email: subscriber@example.com/i)).toBeInTheDocument();
     expect(screen.getByLabelText("Email delivery paused")).toBeDisabled();
-    expect(screen.queryByText("Alerts enabled")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Send alerts to/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pro Alert Desk - Pro Active/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Watchlist Alerts$/i)).not.toBeInTheDocument();
   });
 });

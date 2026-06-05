@@ -16,7 +16,7 @@ import { billingPortalUnavailableMessage, openBillingPortal } from "@/lib/billin
 const publicNavItems = [
   { href: "/dashboard",   label: "Signal Board", icon: LayoutDashboard },
   { href: "/draft",       label: "Draft Board",  icon: Star            },
-  { href: "/leaderboard", label: "Sources",      icon: ListChecks      },
+  { href: "/leaderboard", label: "Accuracy",     icon: ListChecks      },
 ];
 
 const publicNavGroups = [

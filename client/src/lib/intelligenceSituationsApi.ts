@@ -1,5 +1,6 @@
 import { apiRequest } from "./queryClient";
 import { fetchSignals, type LiveSignal } from "./signalsApi";
+import { publicGamesForLeague } from "./publicDisplayHygiene";
 
 export type EscalationState =
   | "Monitoring"
@@ -117,7 +118,7 @@ export async function fetchLiveGamesForSituations(
 ): Promise<LiveGameSituation[]> {
   const res = await apiRequest("GET", `/api/v2/games?league=${league}`);
   const data = (await res.json()) as GamesResponse;
-  const games = data.games ?? [];
+  const games = publicGamesForLeague(data.games ?? [], league);
 
   return games.slice(0, 12).map((game) => {
     const id = String(game.id ?? game.source_game_id ?? "");

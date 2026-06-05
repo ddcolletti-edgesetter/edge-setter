@@ -256,6 +256,22 @@ function TeamSilhouettes() {
   );
 }
 
+function activeProStory(story: StoryCardData): StoryCardData {
+  return {
+    ...story,
+    label: "Watchlist slot",
+    dek: story.dek?.replace(/^Preview only:\s*/i, "Saved story area: "),
+    overlay: {
+      ...story.overlay,
+      confidence: story.overlay?.confidence ? { ...story.overlay.confidence, explanation: "Watchlist confidence movement" } : undefined,
+      sourceSummary: story.overlay?.sourceSummary ? { ...story.overlay.sourceSummary, convergence: "Source agreement ready" } : undefined,
+      timing: story.overlay?.timing ? { ...story.overlay.timing, freshnessLabel: "Watchlist setup" } : undefined,
+      status: "Watchlist ready",
+      replay: ["Watchlist slot ready", "Awaiting saved story"],
+    },
+  };
+}
+
 export default function MyEdge() {
   const { email, isPro } = useAuth();
 
@@ -283,10 +299,10 @@ export default function MyEdge() {
               <span style={{
                 fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                 fontSize: 12, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint,
-              }}>My Edge - Personal Intelligence</span>
+              }}>{isPro ? "My Edge" : "My Edge - Personal Intelligence"}</span>
             </div>
             <h1 style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 22, fontWeight: 700, color: T.text, margin: "0 0 10px" }}>
-              {isPro ? "Pro access active - My Edge preview" : "Personal watchlist coming soon"}
+              {isPro ? "My Edge" : "Personal watchlist coming soon"}
             </h1>
             <p style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -294,7 +310,7 @@ export default function MyEdge() {
               maxWidth: "min(540px, 100%)", letterSpacing: "0.04em", overflowWrap: "anywhere",
             }}>
               {isPro
-                ? `Your Pro account${email ? ` (${email})` : ""} is active. My Edge personalization is still a preview of the planned watchlist and alert workflow.`
+                ? `Pro access active${email ? ` for ${email}` : ""}. Choose leagues, teams, and players to prioritize your EdgeSetter feed.`
                 : "My Edge will shape EdgeSetter around teams, players, leagues, and developing stories you follow. This page is a preview of the planned personal watchlist and alert workflow."}
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 14 }}>
@@ -335,9 +351,34 @@ export default function MyEdge() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: 8, marginBottom: 24 }}>
           <PersonalStat label="Feed Layers" value="7" color={T.gold} />
           <PersonalStat label={isPro ? "Pro Access" : "Setup Preview"} value={isPro ? "Active" : "On"} color={T.green} />
-          <PersonalStat label="Followed Leagues" value="4" color="#00B7FF" />
-          <PersonalStat label="Alert Logic" value="Preview" color={T.gold} />
+          <PersonalStat label="Saved Sports" value="NBA / MLB" color="#00B7FF" />
+          <PersonalStat label="Alert Profile" value="Saved" color={T.gold} />
         </div>
+
+        {isPro && (
+          <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10, marginBottom: 24 }}>
+            {[
+              { label: "Followed leagues", value: "NBA and MLB prioritized", icon: <Star size={14} /> },
+              { label: "Followed teams", value: "Team priorities ready to manage", icon: <Users size={14} /> },
+              { label: "Watchlist", value: "Watchlist area ready for story saves", icon: <Bookmark size={14} /> },
+              { label: "Alert preferences", value: "Confidence threshold profile saved in Alerts", icon: <Bell size={14} /> },
+            ].map((item) => (
+              <div key={item.label} style={{ padding: "14px 16px", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 5, background: T.surface1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, color: T.gold }}>
+                  {item.icon}
+                  <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase" }}>{item.label}</span>
+                </div>
+                <p style={{ margin: 0, color: T.textMuted, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, lineHeight: 1.5, letterSpacing: "0.04em" }}>{item.value}</p>
+              </div>
+            ))}
+            <Link href="/alerts">
+              <button style={{ padding: "11px 14px", minHeight: 48, border: "1px solid rgba(245,184,65,0.28)", background: "rgba(245,184,65,0.10)", color: T.gold, borderRadius: 4, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>Manage Alerts</button>
+            </Link>
+            <Link href="/billing">
+              <button style={{ padding: "11px 14px", minHeight: 48, border: "1px solid rgba(24,212,123,0.28)", background: "rgba(24,212,123,0.10)", color: T.green, borderRadius: 4, fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 800, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>Manage Billing</button>
+            </Link>
+          </section>
+        )}
 
         {/* ── Status development banner ── */}
         <div style={{
@@ -354,13 +395,13 @@ export default function MyEdge() {
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase",
               color: T.gold, marginBottom: 5,
-            }}>{isPro ? "Pro Active - Preview" : "Coming Soon - Preview"}</div>
+            }}>{isPro ? "Pro access active" : "Coming Soon - Preview"}</div>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.04em",
             }}>
               {isPro
-                ? "Your Pro access is active now. Followed teams, followed players, watched stories, and alert routing are not active yet, so the examples below remain preview-only."
+                ? "Your followed leagues, team priorities, watchlist area, alert preferences, and account actions are ready to manage."
                 : "Followed teams, followed players, watched stories, and alert routing are not active yet. The examples below show the planned shape without implying saved personalization is available today."}
             </div>
           </div>
@@ -375,7 +416,7 @@ export default function MyEdge() {
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.textFaint,
             marginBottom: 12,
-          }}>Followed Intelligence Setup Preview</div>
+          }}>{isPro ? "Followed Leagues and Teams" : "Followed Intelligence Setup Preview"}</div>
           <TeamSilhouettes />
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 12 }}>
             <SetupPill icon={<ShieldCheck size={13} />} label="Injuries" />
@@ -392,18 +433,24 @@ export default function MyEdge() {
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.gold,
-            }}>Personalized Story Preview</span>
+            }}>{isPro ? "Watchlist Area" : "Personalized Story Preview"}</span>
           </div>
           <p style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 12, color: T.textMuted, lineHeight: 1.6, letterSpacing: "0.04em",
             margin: "0 0 12px", maxWidth: 700,
           }}>
-            These are preview cards only. They show the intended My Edge shape for watched stories: what changed, why it matters, source agreement, confidence movement, timing, replay state, and what to watch next.
+            {isPro
+              ? "Saved story slots will collect watched developments from your prioritized leagues and teams."
+              : "These are preview cards only. They show the intended My Edge shape for watched stories: what changed, why it matters, source agreement, confidence movement, timing, replay state, and what to watch next."}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 300px), 1fr))", gap: 12 }}>
             {PREVIEW_STORIES.map((story) => (
-              <StoryCard key={story.id} story={story} variant="compact" />
+              <StoryCard
+                key={story.id}
+                story={isPro ? activeProStory(story) : story}
+                variant="compact"
+              />
             ))}
           </div>
         </section>
@@ -414,7 +461,7 @@ export default function MyEdge() {
             <span style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 13, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green,
-            }}>Alert Preferences Preview</span>
+            }}>{isPro ? "Alert Preference Summary" : "Alert Preferences Preview"}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))", gap: 10, marginBottom: 12 }}>
             {[
@@ -440,7 +487,7 @@ export default function MyEdge() {
         </section>
 
         {/* ── Feature grid ── */}
-        <div style={{ marginBottom: 14 }}>
+        {!isPro && <div style={{ marginBottom: 14 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
             <div style={{ width: 3, height: 16, borderRadius: 2, background: T.gold }} />
             <span style={{
@@ -453,7 +500,7 @@ export default function MyEdge() {
               <FeatureCardItem key={feature.title} feature={feature} />
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* ── Available now section ── */}
         <section style={{ marginBottom: 36 }}>
@@ -468,8 +515,8 @@ export default function MyEdge() {
             {[
               { label: "NBA Board",          desc: "Developing stories and followed-team context.", href: "/nba",      color: T.gold,      dotColor: T.gold },
               { label: "MLB Board",          desc: "Active pitcher, lineup, and weather context.", href: "/mlb",   color: "#00B7FF",   dotColor: "#00B7FF" },
-              { label: "Tool Desk",          desc: "Live, active, and limited workflows clearly labeled.", href: "/tools", color: T.gold, dotColor: T.green },
-              { label: "Source Intelligence", desc: "Track source reliability and agreement.",           href: "/sources",    color: T.textMuted, dotColor: T.textFaint },
+              { label: "Alerts",             desc: "Saved preference profile and thresholds.", href: "/alerts", color: T.gold, dotColor: T.green },
+              { label: "Pro / Billing",      desc: "Manage subscription and access.",           href: "/billing",    color: T.textMuted, dotColor: T.textFaint },
             ].map(item => (
               <Link key={item.label} href={item.href}>
                 <div
@@ -511,7 +558,7 @@ export default function MyEdge() {
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <Zap size={13} style={{ color: isPro ? T.green : T.gold }} />
             <span style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: isPro ? T.green : T.gold }}>
-              {isPro ? "Pro Active - My Edge Preview" : "Pro - Early Access to My Edge"}
+              {isPro ? "Pro access active" : "Pro - Early Access to My Edge"}
             </span>
           </div>
           <div style={{ fontFamily: "'Playfair Display', Georgia, serif", fontSize: 16, fontWeight: 700, color: T.text, marginBottom: 8 }}>
@@ -523,8 +570,8 @@ export default function MyEdge() {
             marginBottom: 18, maxWidth: 500,
           }}>
             {isPro
-              ? "You have Pro access. This page will become your personal watchlist surface as followed teams, watched stories, alerts, daily brief routing, and story history ship."
-              : "Pro subscribers get first access to every My Edge feature as it ships, plus real-time alerts, watched stories, daily brief routing, and story history as each layer ships."}
+              ? "You have Pro access. Alerts, billing, and saved sports focus are available now; deeper watched-story history and followed-player routing remain roadmap items below."
+              : "Pro subscribers get saved preferences, watched-story setup, daily brief routing, and story history as each layer ships."}
           </div>
           <Link href={isPro ? "/billing" : "/pro"}>
             <button style={{

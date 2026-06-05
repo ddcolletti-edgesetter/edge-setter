@@ -110,13 +110,13 @@ export function LiveGamePill({ game, selected, compact, copyVariant = "legacy", 
           {!!game.escalationCount && (
             <Badge variant="outline" className="h-5 gap-1 border-destructive/40 bg-destructive/10 px-1.5 text-[0.62rem] text-destructive">
               <AlertTriangle className="h-3 w-3" />
-              {copyVariant === "editorial" ? `${game.escalationCount >= 4 ? "High movement" : "Watch"} ${game.escalationCount}` : `Alert ${game.escalationCount}`}
+              {copyVariant === "editorial" ? `Watch items ${game.escalationCount}` : `Watch items ${game.escalationCount}`}
             </Badge>
           )}
           {!!game.confirmedCount && (
             <Badge variant="outline" className="h-5 gap-1 border-[rgba(24,212,123,0.34)] bg-[rgba(24,212,123,0.1)] px-1.5 text-[0.62rem] text-[var(--es-green)]">
               {game.status === "live" ? <Radio className="h-3 w-3" /> : <ShieldCheck className="h-3 w-3" />}
-              {copyVariant === "editorial" ? `Confirmed update ${game.confirmedCount}` : `Confirmed ${game.confirmedCount}`}
+              {copyVariant === "editorial" ? `Source-backed ${game.confirmedCount}` : `Source-backed ${game.confirmedCount}`}
             </Badge>
           )}
         </span>

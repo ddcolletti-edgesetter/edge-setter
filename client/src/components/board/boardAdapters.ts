@@ -3,6 +3,7 @@ import type { BoardEscalation, SituationLane } from "@/lib/boardEscalation";
 import type { BoardSortMode } from "@/lib/signalBoardUx";
 import type { Sport } from "@/lib/leagueModifiers";
 import type { CanonicalSituation } from "@/lib/situationsApi";
+import { hasCleanPublicTeamIdentity, hasCleanPublicText, hasMalformedPublicMatchup, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
 import { evidenceCountText, humanizeSignalType, marketFocusHeadline, publicConfidenceLabel, publicLifecycleLabel, publicStoryText, publicTimingLabel, publicUrgencyLabel, sourceCountText } from "@/lib/storyLanguage";
 import { toTeamAbbr } from "@/components/v2/SportVisuals";
 import type { LiveGamePillData, LiveGameStatus, BoardUrgency } from "./LiveGamePill";
@@ -305,6 +306,9 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
 
   const signal = situation.signal as AnyBoardSignal | undefined;
   const canonical = situation.canonicalSituation as CanonicalSituation | undefined;
+  if (league === "NFL") {
+    return nflFeaturedCopy(situation, signal, canonical);
+  }
   const editorialCopy = league === "MLB" || league === "NBA";
   const confidenceDelta = canonical?.confidenceHistoryPreview?.[0]?.delta;
   const confidenceDeltaMetric = typeof confidenceDelta === "number" && confidenceDelta !== 0
@@ -324,6 +328,42 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
       { label: "Timing", value: editorialCopy ? publicTimingLabel(situation.timingAdvantage, situation.league) : timingMetricLabel(situation.timingAdvantage), tone: situation.isActionable ? "positive" : "warning" },
     ].filter(Boolean) as SituationMetric[],
   };
+}
+
+function nflFeaturedCopy(situation: BoardSituation, signal?: AnyBoardSignal, canonical?: CanonicalSituation) {
+  const identity = fanIdentityLabel(situation, canonical);
+  const change = nflChangeLabel(situation, signal);
+  const source = canonical ? evidenceCountText(canonical.evidenceCount) : sourceCountText(situation.sourceCount);
+  const offseason = "Offseason context: this stays in monitoring unless it connects to practice role, depth chart, or a real game-week window.";
+  return {
+    title: `${identity} ${change} stays on NFL watch`,
+    summary: `${changeSentence(change, identity)} ${offseason}`,
+    primaryRead: `${changeSentence(change, identity)} Source support is ${source.toLowerCase()}, so the board is watching what changed before attaching game-week impact.`,
+    secondaryRead: `Why it matters: role, depth chart, practice availability, and team preparation can shift. Watch next: official updates, local reports, participation notes, and whether a real game-week context appears.`,
+    metrics: [
+      { label: "Story priority", value: publicUrgencyLabel(situation.score), tone: situation.score >= 82 ? "danger" : situation.score >= 65 ? "warning" : "default" },
+      { label: "Confidence", value: publicConfidenceLabel(`${Math.round(situation.confidence)}%`), tone: situation.confidence >= 80 ? "positive" : "default" },
+      { label: "Offseason", value: "Context only", tone: "default" },
+      { label: "Watch next", value: "Official/source update", tone: "default" },
+    ] as SituationMetric[],
+  };
+}
+
+function nflChangeLabel(situation: BoardSituation, signal?: AnyBoardSignal) {
+  const text = `${situation.title} ${situation.detail ?? ""} ${signal?.injuryDesignation ?? ""} ${situation.signalType ?? ""}`.toLowerCase();
+  if (text.includes("injury") || text.includes("out") || text.includes("questionable") || text.includes("practice")) return "availability update";
+  if (text.includes("depth") || text.includes("role")) return "role update";
+  if (text.includes("roster") || text.includes("transaction")) return "roster update";
+  if (text.includes("market") || text.includes("line move")) return "context movement";
+  return "story update";
+}
+
+function changeSentence(change: string, identity: string) {
+  if (change === "availability update") return `${identity} has an availability change under review.`;
+  if (change === "role update") return `${identity} has a role or depth-chart change under review.`;
+  if (change === "roster update") return `${identity} has a roster change under review.`;
+  if (change === "context movement") return `${identity} has context movement under review.`;
+  return `${identity} has a story update under review.`;
 }
 
 export function situationMatchesPriority(situation: BoardSituation, urgencyFilter: string) {
@@ -589,10 +629,10 @@ function editorialHeadline(row: SituationRowData, matchup?: string) {
 
   if (isMarketDominantTitle(row.title) || context.includes("market")) {
     if (row.league === "MLB") {
-      const label = matchup ? matchup.replace(" @ ", "-").replace(" vs ", "-") : [team, opponent].filter(Boolean).join("-");
-      return `${label || "MLB"} market move leads MLB watch`;
+      const label = cleanPublicMatchupLabel(matchup, team, opponent);
+      return label ? `${label} market context stays under review` : publicFallbackLabel(context, "MLB");
     }
-    const label = matchup ? matchup.replace(" @ ", "-").replace(" vs ", "-") : [team, opponent].filter(Boolean).join("-");
+    const label = cleanPublicMatchupLabel(matchup, team, opponent);
     return `${label || "NBA"} market move leads pre-tip watch`;
   }
 
@@ -718,6 +758,18 @@ function tightenSentence(value: string) {
     .replace(/\s+/g, " ")
     .replace(/\s+\./g, ".")
     .trim();
+}
+
+function cleanPublicMatchupLabel(matchup?: string, team?: string, opponent?: string) {
+  const raw = matchup ? matchup.replace(/\s+@\s+|\s+vs\.?\s+/gi, "-") : [team, opponent].filter(Boolean).join("-");
+  const parts = raw
+    .split(/[-/@]/)
+    .map((part) => part.trim().toUpperCase())
+    .filter(Boolean);
+  const unique = Array.from(new Set(parts));
+  const label = unique.length >= 2 ? unique.slice(0, 2).join("-") : "";
+  if (!label || !hasCleanPublicTeamIdentity(...unique) || !hasCleanPublicText(label) || hasMalformedPublicMatchup(raw)) return "";
+  return label;
 }
 
 function fanFirstTitle(situation: BoardSituation, canonical?: CanonicalSituation) {
