@@ -219,7 +219,7 @@ export default function AlertSettingsPage() {
             Saved Alert Preferences
           </h1>
           <p style={{ margin: "8px 0 0", fontSize: 13, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.04em", maxWidth: 560 }}>
-            Alert delivery is not active yet. You can save preferences now.
+            Email delivery is not active yet. Push notifications are not active yet. Your preferences can be saved now.
           </p>
         </div>
 
@@ -227,7 +227,7 @@ export default function AlertSettingsPage() {
         <div style={{ background: "rgba(245,184,65,0.06)", border: "1px solid rgba(245,184,65,0.24)", borderRadius: 5, padding: "14px 18px", marginBottom: 16 }}>
           <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.gold, letterSpacing: "0.14em", textTransform: "uppercase" }}>Delivery not active</p>
           <p style={{ margin: "4px 0 0", fontSize: 12, color: T.textMuted, lineHeight: 1.5 }}>
-            These settings are saved preferences only until production alert delivery is enabled.
+            Your preferences can be saved now.
           </p>
         </div>
 
@@ -302,7 +302,7 @@ export default function AlertSettingsPage() {
           {/* Email */}
           <ChannelRow
             label="Email"
-            description={`Saved email: ${email}`}
+            description="Email delivery is not active yet."
             active={prefs.channels.includes("email")}
             onClick={() => toggleChannel("email")}
             paused={ALERT_DELIVERY_PAUSED}
@@ -313,9 +313,9 @@ export default function AlertSettingsPage() {
             <ChannelRow
               label="Push Notifications"
               description={
-                pushStatus === "subscribed" ? "Browser push active on this device" :
-                pushStatus === "denied"     ? "Permission denied — check browser settings" :
-                                              "Enable browser notifications for this device"
+                pushStatus === "subscribed" ? "Push notifications are not active yet." :
+                pushStatus === "denied"     ? "Permission denied - check browser settings" :
+                                              "Push notifications are not active yet."
               }
               active={prefs.channels.includes("push") && pushStatus === "subscribed"}
               onClick={() => {

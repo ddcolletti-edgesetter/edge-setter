@@ -12,7 +12,6 @@ import { useAuth } from "@/context/AuthContext";
 import { billingPortalUnavailableMessage, openBillingPortal } from "@/lib/billingPortal";
 const EDGESETTER_EMBLEM_SRC = "/brand/edgesetter-emblem.png";
 const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
-const BUILD_RENDER_CHECK = "BUILD_RENDER_CHECK_2026_06_04";
 const PUBLIC_QUIET_STATE = "No clean high-impact stories right now.";
 const bannedTextPattern = (parts: string[]) => parts.join("");
 const PUBLIC_BANNED_TEXT_PATTERNS = [
@@ -76,32 +75,6 @@ function PublicTextRenderGuard({ children }: { children: React.ReactNode }) {
   return (
     <div ref={rootRef} data-public-text-guard="true" style={{ display: "contents" }}>
       {children}
-    </div>
-  );
-}
-
-function BuildRenderCheckMarker() {
-  return (
-    <div
-      aria-label="Build render check"
-      style={{
-        position: "fixed",
-        right: 8,
-        bottom: "calc(82px + env(safe-area-inset-bottom, 0px))",
-        zIndex: 1200,
-        padding: "4px 7px",
-        border: "1px solid rgba(245,184,65,0.45)",
-        borderRadius: 4,
-        background: "rgba(5,7,10,0.92)",
-        color: "#F5B841",
-        fontFamily: "monospace",
-        fontSize: 10,
-        lineHeight: 1.1,
-        letterSpacing: 0,
-        pointerEvents: "none",
-      }}
-    >
-      {BUILD_RENDER_CHECK}
     </div>
   );
 }
@@ -1309,7 +1282,6 @@ export default function AppShell({
         }}
       >
         <PublicTextRenderGuard>{children}</PublicTextRenderGuard>
-        <BuildRenderCheckMarker />
         <MobileTabBar />
       </div>
     );
@@ -1400,7 +1372,6 @@ export default function AppShell({
           <PublicTextRenderGuard>{children}</PublicTextRenderGuard>
         </div>
       </div>
-      <BuildRenderCheckMarker />
       <MobileTabBar />
     </div>
   );

@@ -42,9 +42,10 @@ describe("AlertSettingsPage delivery truthfulness", () => {
 
     expect(await screen.findByText("Pro access active")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Saved Alert Preferences" })).toBeInTheDocument();
-    expect(screen.getByText("Alert delivery is not active yet. You can save preferences now.")).toBeInTheDocument();
-    expect(screen.getByText(/These settings are saved preferences only/i)).toBeInTheDocument();
-    expect(screen.getByText(/Saved email: subscriber@example.com/i)).toBeInTheDocument();
+    expect(screen.getByText("Email delivery is not active yet. Push notifications are not active yet. Your preferences can be saved now.")).toBeInTheDocument();
+    expect(screen.getByText("Email delivery is not active yet.")).toBeInTheDocument();
+    expect(screen.getAllByText("Push notifications are not active yet.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Your preferences can be saved now.").length).toBeGreaterThan(0);
     expect(screen.getByLabelText("Email delivery paused")).toBeDisabled();
     expect(screen.queryByText(/Pro Alert Desk - Pro Active/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Watchlist Alerts$/i)).not.toBeInTheDocument();
