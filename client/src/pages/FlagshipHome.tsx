@@ -15,8 +15,8 @@ import {
   T as _T, VERDICT_COLORS, getTeamColors,
 } from "../components/v2/SportVisuals";
 import { HeadlineStoryRail, SportsStoryVisual, leagueToSport, type HeadlineStoryItem } from "../components/SportsMedia";
-import { NBA_SIGNALS, NBA_TONIGHT, type V2Signal } from "../data/v2MockData";
-import { Zap, ArrowRight, TrendingUp, Shield, BarChart3, ChevronRight, ChevronDown, Activity } from "lucide-react";
+import { NBA_SIGNALS } from "../data/v2MockData";
+import { Zap, ArrowRight, Shield, BarChart3, ChevronRight, ChevronDown } from "lucide-react";
 import { SignalDetailDrawer } from "../components/SignalDetailDrawer";
 import { canonicalConfidenceSummary, canonicalEvidenceSummary, fetchCanonicalSituations, type CanonicalSituation } from "../lib/situationsApi";
 import { canonicalSituationToDrawerSignal } from "../lib/situationAdapters";
@@ -42,46 +42,6 @@ const SPORT_CONFIG = [
 const HERO_SIGNAL  = NBA_SIGNALS.find(s => s.confidence >= 84) ?? NBA_SIGNALS[0];
 const TOP_SIGNALS  = NBA_SIGNALS.slice(0, 5);
 
-const HOW_TO_USE = [
-  ["Detect", "Catch injuries, lineup changes, and context movement as they hit the board."],
-  ["Verify", "Check confidence, source coverage, and context movement in one place."],
-  ["Act", "Use the playable range, timing, and edge notes before the window closes."],
-];
-
-const TRUST_FACTORS = [
-  "source reliability",
-  "source coverage",
-  "timing freshness",
-  "context movement",
-  "settled history when available",
-];
-
-const SIGNAL_WORKFLOW = [
-  ["Timing Edge", "Shows whether a signal is early, developing, widely known, or losing edge."],
-  ["Source Coverage", "Separates single-source notes from signals with broader source support."],
-  ["Confidence Drivers", "Breaks confidence into source quality, context movement, timing, and settled context."],
-  ["Action Window", "Clarifies playable range, edge decay, and when a signal should move to watch-only."],
-];
-
-const MLB_GAMES = [
-  { id: "m1", away: "HOU", home: "NYY", time: "1:05 PM ET",  spread: "NYY -115", total: "8"   },
-  { id: "m2", away: "LAD", home: "ATL", time: "4:10 PM ET",  spread: "ATL -108", total: "8.5" },
-  { id: "m3", away: "CHC", home: "NYM", time: "7:10 PM ET",  spread: "NYM -112", total: "8"   },
-];
-
-const LIVE_PRESSURE_BOARD = [
-  { league: "MLB", matchup: "SEA @ ATH", state: "Lineup pressure", movement: "+3 checks", time: "6m", color: "#00E676" },
-  { league: "NBA", matchup: "LAL @ BOS", state: "Warmup window", movement: "Q tag active", time: "12m", color: "#00B7FF" },
-  { league: "NFL", matchup: "SF @ DAL", state: "Practice delta", movement: "role watch", time: "22m", color: "#FF8A00" },
-  { league: "CFB", matchup: "UGA @ BAMA", state: "Roster watch", movement: "source split", time: "31m", color: "#B06EFF" },
-];
-
-const LIVE_MOVEMENT_TAPE = [
-  ["Escalating", "3", "#F5B841"],
-  ["Source checks", "64", "#00E676"],
-  ["Watch windows", "11", "#00B7FF"],
-  ["Quiet boards", "2", "#94A3B8"],
-] as const;
 
 function firstSignalValue<T>(...values: Array<T | null | undefined>) {
   return values.find(value => value !== null && value !== undefined && value !== "") ?? null;
@@ -293,6 +253,36 @@ export default function FlagshipHome() {
     };
   });
 
+  const pressureBoardItems = liveSituations.length > 0
+    ? liveSituations.slice(0, 4).map((s) => ({
+        league: s.league,
+        matchup: (s as any).teams?.length >= 2 ? `${(s as any).teams[0]} @ ${(s as any).teams[1]}` : (s.title ?? "").slice(0, 18),
+        state: s.lifecycleState.replace(/_/g, " "),
+        movement: (s as any).timingPressure && (s as any).timingPressure !== "inactive" ? `${(s as any).timingPressure} timing` : `${s.sourceCount} checks`,
+        time: displayFreshness(s.lastUpdatedAt),
+        color: s.league === "NBA" ? "#00B7FF" : s.league === "NFL" ? "#FF5252" : s.league === "CFB" ? "#B06EFF" : "#00E676",
+      }))
+    : [
+        { league: "MLB", matchup: "Monitoring pitchers", state: "Injury watch", movement: "Tracking", time: "Live", color: "#00E676" },
+        { league: "NBA", matchup: "Monitoring lineups", state: "Availability", movement: "Tracking", time: "Live", color: "#00B7FF" },
+        { league: "NFL", matchup: "Depth chart watch", state: "Offseason", movement: "Tracking", time: "Live", color: "#FF8A00" },
+        { league: "CFB", matchup: "Transfer intel", state: "Roster watch", movement: "Tracking", time: "Live", color: "#B06EFF" },
+      ];
+
+  const liveStats: [string, string, string][] = liveSituations.length > 0
+    ? [
+        ["Situations", String(liveSituations.length), "#F5B841"],
+        ["Source checks", String(liveSituations.reduce((n, s) => n + s.sourceCount, 0)), "#00E676"],
+        ["Escalating", String(liveSituations.filter(s => s.lifecycleState === "escalating").length), "#00B7FF"],
+        ["Leagues", "4", "#94A3B8"],
+      ]
+    : [
+        ["Coverage", "Multi-sport", "#F5B841"],
+        ["Leagues", "4 active", "#00E676"],
+        ["Detection", "Continuous", "#00B7FF"],
+        ["Updates", "Live", "#94A3B8"],
+      ];
+
   return (
     <div style={{ minHeight: "100vh", background: T.bg, color: T.text, fontFamily: "'Barlow', sans-serif", position: "relative", overflowX: "hidden" }}>
       <SignalDetailDrawer
@@ -446,7 +436,7 @@ export default function FlagshipHome() {
             </p>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))", gap: isMobile ? 6 : 8, marginBottom: isMobile ? 8 : 12, maxWidth: 760 }}>
-              {LIVE_PRESSURE_BOARD.map((item) => (
+              {pressureBoardItems.map((item) => (
                 <div key={item.matchup} style={{ minWidth: 0, padding: isMobile ? "8px 9px" : "10px 11px", border: `1px solid ${item.color}34`, borderRadius: 5, background: `linear-gradient(180deg, ${item.color}12, rgba(16,24,39,0.72))` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
                     <span className="es-live-dot es-live-dot-subtle" style={{ width: 5, height: 5, background: item.color }} />
@@ -463,7 +453,7 @@ export default function FlagshipHome() {
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, minmax(0, 1fr))", gap: isMobile ? 6 : 8, marginBottom: isMobile ? 10 : 14, maxWidth: 760 }}>
-              {LIVE_MOVEMENT_TAPE.map(([label, value, color]) => (
+              {liveStats.map(([label, value, color]) => (
                 <div key={label} style={{ padding: isMobile ? "8px 9px" : "10px 11px", border: `1px solid ${color}38`, borderRadius: 5, background: `linear-gradient(180deg, ${color}14, rgba(16,24,39,0.72))` }}>
                   <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: isMobile ? 9 : 10, fontWeight: 900, letterSpacing: isMobile ? "0.1em" : "0.14em", color, textTransform: "uppercase", marginBottom: 2 }}>{label}</div>
                   <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? 21 : 25, fontWeight: 400, color: "#F8FAFC", lineHeight: 0.95 }}>{value}</div>
@@ -476,8 +466,8 @@ export default function FlagshipHome() {
               <button className="cta-primary" onClick={() => navigate("/nba")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: isMobile ? "9px 8px" : "11px 24px", borderRadius: 2, background: `linear-gradient(135deg, ${T.gold} 0%, #F5B841 50%, ${T.gold} 100%)`, border: "none", color: T.bg, fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? 13 : 17, letterSpacing: isMobile ? "1px" : "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s", minHeight: isMobile ? 38 : undefined, minWidth: 0, whiteSpace: "normal" }}>
                 <Zap size={14} /> View Live Signals
               </button>
-              <button className="cta-btn" onClick={() => document.getElementById("confidence-explainer")?.scrollIntoView({ behavior: "smooth", block: "start" })} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: isMobile ? "9px 8px" : "11px 22px", borderRadius: 2, background: "rgba(0,183,255,0.1)", border: "1px solid rgba(0,183,255,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? 12 : 17, letterSpacing: isMobile ? "0.6px" : "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s", minHeight: isMobile ? 38 : undefined, minWidth: 0, whiteSpace: "normal", lineHeight: 1.05 }}>
-                {isMobile ? "Confidence Notes" : "See How Confidence Works"}
+              <button className="cta-btn" onClick={() => navigate("/pro")} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, padding: isMobile ? "9px 8px" : "11px 22px", borderRadius: 2, background: "rgba(0,183,255,0.1)", border: "1px solid rgba(0,183,255,0.3)", color: T.cyan, fontFamily: "'Bebas Neue', sans-serif", fontSize: isMobile ? 12 : 17, letterSpacing: isMobile ? "0.6px" : "2.5px", cursor: "pointer", transition: "filter 0.15s, transform 0.15s", minHeight: isMobile ? 38 : undefined, minWidth: 0, whiteSpace: "normal", lineHeight: 1.05 }}>
+                {isMobile ? "Pro Access" : "View Pro Access"}
               </button>
             </div>
 
@@ -547,7 +537,7 @@ export default function FlagshipHome() {
                           <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "2px", color: T.text }}>
                             {livePreviewSport} Situation Monitor
                           </div>
-                          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: "#94A3B8", letterSpacing: "0.06em" }}>Source watch / live board context</div>
+                          <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: "#94A3B8", letterSpacing: "0.06em" }}>EdgeSetter Intelligence · {liveStatusLabel}</div>
                         </div>
                         <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 2, background: "rgba(0,230,118,0.14)", border: "1px solid rgba(0,230,118,0.3)" }}>
                           <span className={liveSignalState === "ready" ? "es-live-dot es-live-pulse" : "es-live-dot es-live-dot-subtle"} style={{ width: 4, height: 4 }} />
@@ -621,7 +611,7 @@ export default function FlagshipHome() {
                     <div style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 16, letterSpacing: "2px", color: T.text }}>
                       {livePreviewSport} Situation Monitor
                     </div>
-                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: "#94A3B8", letterSpacing: "0.06em" }}>Source watch / live board context</div>
+                    <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: "#94A3B8", letterSpacing: "0.06em" }}>EdgeSetter Intelligence · {liveStatusLabel}</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 2, background: "rgba(0,230,118,0.14)", border: "1px solid rgba(0,230,118,0.3)" }}>
                     <span className="es-live-dot es-live-pulse" style={{ width: 4, height: 4 }} />
@@ -675,7 +665,7 @@ export default function FlagshipHome() {
                     ["Freshness", livePreviewFreshness, T.cyan],
                     ["Timing", livePreviewFreshness === "Monitoring" ? "Monitoring" : "Active window", T.green],
                     ["Movement", livePreviewMovement, T.gold],
-                    ["Ledger", "Awaiting settlement", "#94A3B8"],
+                    ["Status", isCanonicalSituation(livePreview) ? livePreview.lifecycleState : "Monitoring", "#94A3B8"],
                   ].map(([label, value, color]) => (
                     <div key={label} style={{ padding: "9px 10px", background: "#050505", border: `1px solid ${color}30`, borderRadius: 4 }}>
                       <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 900, letterSpacing: "0.16em", color, textTransform: "uppercase", marginBottom: 3 }}>{label}</div>
@@ -711,62 +701,6 @@ export default function FlagshipHome() {
                   <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: isMobile ? 12 : 14, fontWeight: 900, letterSpacing: "0.08em", color: T.text, textTransform: "uppercase", lineHeight: 1.05 }}>{title}</div>
                 </div>
                 <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: isMobile ? 11 : 12, color: "#CBD5E1", fontWeight: 750, lineHeight: 1.2 }}>{copy}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="confidence-explainer" style={{ display: "none", position: "relative", zIndex: 2, borderBottom: `1px solid ${T.border}`, background: "#050505" }}>
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "16px 14px" : "28px 40px", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "0.9fr 1.1fr", gap: isMobile ? 10 : 18, alignItems: "center" }}>
-          <div>
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: T.cyan, marginBottom: 8 }}>Why the confidence score matters</div>
-            <p style={{ margin: 0, fontFamily: "'Barlow', sans-serif", fontSize: isMobile ? 13 : 15, color: "#CBD5E1", lineHeight: isMobile ? 1.45 : 1.6 }}>Confidence combines multi-source consensus, source reliability, timing advantage, and context movement so a signal is easier to trust and act on.</p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 8 }}>
-            {TRUST_FACTORS.map((factor) => (
-              <div key={factor} style={{ display: "flex", alignItems: "center", gap: 8, padding: isMobile ? "7px 9px" : "9px 10px", background: "#101827", border: "1px solid #1F2937", borderRadius: 4 }}>
-                <Shield size={13} style={{ color: T.green, flexShrink: 0 }} />
-                <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: isMobile ? 12 : 13, color: "#CBD5E1", fontWeight: 700, textTransform: "capitalize" }}>{factor}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section style={{ display: "none", position: "relative", zIndex: 2, borderBottom: `1px solid ${T.border}`, background: "#0A0F1A" }}>
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "16px 14px" : "28px 40px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: isMobile ? 8 : 12 }}>
-            <Activity size={14} style={{ color: T.green }} />
-            <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: T.green }}>What makes a signal usable</div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, minmax(0, 1fr))" : "repeat(4, 1fr)", gap: isMobile ? 8 : 10 }}>
-            {SIGNAL_WORKFLOW.map(([title, copy]) => (
-              <div key={title} style={{ padding: isMobile ? "10px" : "14px", background: "#101827", border: "1px solid #1F2937", borderRadius: 5 }}>
-                <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: isMobile ? 11 : 13, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: T.text, marginBottom: isMobile ? 4 : 6, lineHeight: 1.15 }}>{title}</div>
-                <div style={{ fontFamily: "'Barlow', sans-serif", fontSize: isMobile ? 11 : 13, color: "#CBD5E1", lineHeight: isMobile ? 1.35 : 1.55 }}>{copy}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section style={{ borderBottom: `1px solid ${T.border}`, background: T.surface1, position: "relative", zIndex: 2 }}>
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "12px 14px" : "20px 40px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint }}>Tonight's NBA Slate</span>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(0,230,118,0.08)", border: "1px solid rgba(0,230,118,0.22)" }}>
-              <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.green, display: "inline-block" }} />
-              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.green }}>Playoffs</span>
-            </div>
-            <button onClick={() => navigate("/nba")} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: T.gold, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
-              All Signals <ChevronRight size={11} />
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: isMobile ? 10 : 14, overflowX: "auto", paddingBottom: 4 }}>
-            {NBA_TONIGHT.map(game => (
-              <div key={game.id} style={{ width: isMobile ? 205 : 240, flexShrink: 0 }}>
-                <GameCard away={game.away} home={game.home} time={game.time} series={game.seriesRecord} spread={game.spread} total={game.total} compact onClick={() => navigate("/nba")} />
               </div>
             ))}
           </div>
@@ -838,29 +772,6 @@ export default function FlagshipHome() {
             ))}
           </div>
         </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════ MLB STRIP ══════════════════════ */}
-      <section style={{ borderBottom: `1px solid ${T.border}`, background: T.surface1, position: "relative", zIndex: 2 }}>
-        <div style={{ maxWidth: 1300, margin: "0 auto", padding: isMobile ? "12px 14px" : "20px 40px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-            <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: T.textFaint }}>MLB Today</span>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 2, background: "rgba(0,183,255,0.08)", border: "1px solid rgba(0,183,255,0.2)" }}>
-              <span style={{ width: 4, height: 4, borderRadius: "50%", background: T.cyan, display: "inline-block" }} />
-              <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 9, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: T.cyan }}>Active</span>
-            </div>
-            <button onClick={() => navigate("/mlb")} style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: T.cyan, fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", cursor: "pointer" }}>
-              MLB Board <ChevronRight size={11} />
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: isMobile ? 10 : 14, overflowX: "auto", paddingBottom: 4 }}>
-            {MLB_GAMES.map(game => (
-              <div key={game.id} style={{ width: isMobile ? 198 : 220, flexShrink: 0 }}>
-                <GameCard away={game.away} home={game.home} time={game.time} spread={game.spread} total={game.total} compact onClick={() => navigate("/mlb")} />
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
