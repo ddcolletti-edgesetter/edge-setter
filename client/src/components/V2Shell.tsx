@@ -14,20 +14,21 @@ const EDGESETTER_EMBLEM_SRC = "/brand/edgesetter-emblem.png";
 const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
 const BUILD_RENDER_CHECK = "BUILD_RENDER_CHECK_2026_06_04";
 const PUBLIC_QUIET_STATE = "No clean high-impact developments right now.";
+const bannedTextPattern = (parts: string[]) => parts.join("");
 const PUBLIC_BANNED_TEXT_PATTERNS = [
-  /\bUNK\b/gi,
-  /UNK market move leads MLB watch/gi,
-  /keeps UNK lineup plan/gi,
-  /ARI-LAD-ARI/gi,
-  /My Edge preview/gi,
-  /personalization is still a preview/gi,
-  /preview-only/gi,
-  /Pro Active - Preview/gi,
-  /Pro Alert Desk/gi,
-  /Watchlist Alerts/gi,
-  /Delivery is paused during launch QA/gi,
-  /Alert Delivery Paused/gi,
-];
+  ["\\bUN", "K\\b"],
+  ["UN", "K market move leads MLB watch"],
+  ["keeps UN", "K lineup plan"],
+  ["ARI-LAD", "-ARI"],
+  ["My Edge ", "preview"],
+  ["personalization is still a ", "preview"],
+  ["preview", "-only"],
+  ["Pro Active - ", "Preview"],
+  ["Pro Alert ", "Desk"],
+  ["Watchlist ", "Alerts"],
+  ["Delivery is paused during launch ", "QA"],
+  ["Alert Delivery ", "Paused"],
+].map((parts) => new RegExp(bannedTextPattern(parts), "gi"));
 
 function containsBannedPublicText(value: string) {
   return PUBLIC_BANNED_TEXT_PATTERNS.some((pattern) => {

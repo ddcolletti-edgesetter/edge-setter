@@ -74,7 +74,7 @@ const FEATURES: FeatureCard[] = [
     icon: <Lock size={18} />,
     title: "Personal Brief",
     description: "A daily brief built from followed leagues, teams, players, and watched stories.",
-    detail: "The brief is planned after watchlist alerts so it can summarize your actual saved context.",
+    detail: "The brief is planned after saved preferences so it can summarize your actual saved context.",
     statusLabel: "Planned",
     status: "planned",
     accentColor: T.gold,
