@@ -201,7 +201,7 @@ export function signalConfidenceNarrative(signal: BoardSignalLike) {
   const sourceCount = signalSourceCount(signal);
   const lifecycle = signalLifecycle(signal);
   const drivers = [
-    sourceCount > 1 ? `${sourceCount} sources aligned` : sourceCount === 1 ? "single-source read" : null,
+    sourceCount > 1 ? `${sourceCount} reports aligned` : sourceCount === 1 ? "single-report read" : null,
     officialSourcePresent(signal) ? "official report attached" : null,
     signalHasMovement(signal) ? "market reaction" : null,
     lifecycle === "Early" ? "early development" : lifecycle === "Confirmed" ? "public confirmation" : null,

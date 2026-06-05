@@ -43,7 +43,7 @@ export function publicStoryText(value?: string | number | null, league?: string)
     .replace(/\bsports moving\b/gi, "Market is reacting")
     .replace(/\bsingle-source\b/gi, "Single source")
     .replace(/\bsource agreement\b/gi, "Reports aligned")
-    .replace(/\bcorroborated\b/gi, "Multiple sources")
+    .replace(/\bcorroborated\b/gi, "Multiple reports")
     .replace(/\bbefore full confirmed update\b/gi, "before public confirmation")
     .replace(/\bbefore full public confirmation\b/gi, "before public confirmation")
     .replace(/\bbefore a Confirmed update\b/g, "before a confirmed update")
@@ -64,7 +64,7 @@ export function publicStoryText(value?: string | number | null, league?: string)
 
 export function sourceCountText(count?: number | null) {
   if (!count) return "Source check pending";
-  return `${count} source${count === 1 ? "" : "s"}`;
+  return `${count} report check${count === 1 ? "" : "s"}`;
 }
 
 export function evidenceCountText(count?: number | null) {

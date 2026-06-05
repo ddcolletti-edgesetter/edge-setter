@@ -239,7 +239,7 @@ function verificationState(signal: SignalDetailLike, confidence: number, sources
     return "Verification state pending";
   }
   if (status.includes("confirmed") || status.includes("verified")) return "Verified by sources";
-  if (sources >= 3 && confidence >= 72) return "Sources aligned";
+  if (sources >= 3 && confidence >= 72) return "Reports aligned";
   if (sources >= 2) return "Corroborated, still developing";
   if (sources === 1) return "Needs more confirmation";
   return "Confirmation pending";

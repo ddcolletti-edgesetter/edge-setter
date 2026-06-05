@@ -470,7 +470,7 @@ function plainStatusLabel(status?: string) {
 
 function plainSupportLabel(situation?: SituationRowData) {
   if (situation?.sourceProgressLabel) return situation.sourceProgressLabel;
-  if (situation?.sourceCount) return situation.sourceCount === 1 ? "Single confirmed source" : `${situation.sourceCount} confirmed sources`;
+  if (situation?.sourceCount) return situation.sourceCount === 1 ? "Single confirmed report" : `${situation.sourceCount} confirmed reports`;
   return "Awaiting stronger report support";
 }
 

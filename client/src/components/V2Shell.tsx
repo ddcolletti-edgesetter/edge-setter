@@ -13,7 +13,7 @@ import { billingPortalUnavailableMessage, openBillingPortal } from "@/lib/billin
 const EDGESETTER_EMBLEM_SRC = "/brand/edgesetter-emblem.png";
 const EDGESETTER_LOGO_SRC = "/brand/edgesetter-logo.png";
 const BUILD_RENDER_CHECK = "BUILD_RENDER_CHECK_2026_06_04";
-const PUBLIC_QUIET_STATE = "No clean high-impact developments right now.";
+const PUBLIC_QUIET_STATE = "No clean high-impact stories right now.";
 const bannedTextPattern = (parts: string[]) => parts.join("");
 const PUBLIC_BANNED_TEXT_PATTERNS = [
   ["\\bUN", "K\\b"],

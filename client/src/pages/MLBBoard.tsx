@@ -177,7 +177,7 @@ export default function MLBBoard() {
     if (cleanSituations.length > 0) {
       return {
         ...quiet,
-        headline: "No clean high-impact MLB developments right now.",
+        headline: "No clean high-impact MLB stories right now.",
         dek: "The board is holding lower-quality or repetitive watch items below the lead-story threshold.",
         whatHappened: "No clean MLB story has enough team identity, source support, and downstream impact to lead the board.",
         whyItMatters: "Holding the lead quiet avoids turning routine or opening-line-only context into false urgency.",

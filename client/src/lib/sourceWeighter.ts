@@ -162,7 +162,7 @@ export function computeSourceQuality(opts: {
   else parts.push("single-source — not yet corroborated");
 
   if (sources >= 10) parts.push(`${sources} total sources`);
-  else if (sources >= 5) parts.push(`${sources} sources`);
+  else if (sources >= 5) parts.push(`${sources} reports`);
 
   if (verdict === "contradicted") parts.push("PENALTY: contradicted verdict");
   else if (verdict === "rumor") parts.push("rumor status reduces trust");

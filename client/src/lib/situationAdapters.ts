@@ -152,11 +152,11 @@ function confidenceMovementLabel(situation: CanonicalSituation) {
 function sourceConvergenceLabel(situation: CanonicalSituation) {
   const agreement = situation.latestEvidence.find((event) => event.validatorAgreement)?.validatorAgreement;
   if (situation.lifecycleState === "cooling" || situation.lifecycleState === "resolved") {
-    return `${situation.sourceCount} sources / pressure receding`;
+    return `${situation.sourceCount} reports / pressure receding`;
   }
-  if (agreement) return `${situation.sourceCount} sources / ${agreement}`;
-  if (situation.sourceCount >= 3) return `${situation.sourceCount} sources / convergence forming`;
-  if (situation.sourceCount >= 2) return `${situation.sourceCount} sources / corroborating`;
+  if (agreement) return `${situation.sourceCount} reports / ${agreement}`;
+  if (situation.sourceCount >= 3) return `${situation.sourceCount} reports / convergence forming`;
+  if (situation.sourceCount >= 2) return `${situation.sourceCount} reports / corroborating`;
   return `${situation.sourceCount} source / verification still thin`;
 }
 

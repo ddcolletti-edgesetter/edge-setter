@@ -196,7 +196,7 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
             </Badge>
           )}
           {situation.sourceCount != null && (
-            <span className="text-[0.7rem] font-semibold text-muted-foreground tabular-nums">{copyVariant === "editorial" ? sourceCountText(situation.sourceCount) : `${situation.sourceCount} sources`}</span>
+            <span className="text-[0.7rem] font-semibold text-muted-foreground tabular-nums">{copyVariant === "editorial" ? sourceCountText(situation.sourceCount) : `${situation.sourceCount} reports`}</span>
           )}
           {typeof confidenceDelta === "number" && confidenceDelta !== 0 && (
             <span className={cn("max-w-full truncate text-[0.7rem] font-bold tabular-nums", confidenceDelta > 0 ? "text-[var(--es-green)]" : "text-[var(--es-amber)]")}>

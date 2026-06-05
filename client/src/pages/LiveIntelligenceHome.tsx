@@ -1177,7 +1177,7 @@ function publicAvailabilityStatus(value?: string | null) {
 function publicSourceSummary(value?: string | null) {
   const normalized = (value ?? "").toLowerCase();
   if (normalized.includes("official")) return "Official trail checked";
-  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Supported by multiple signals/sources";
+  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Supported by multiple signals and reports";
   if (normalized.includes("single")) return "Single report under review";
   if (normalized.includes("awaiting")) return "Source trail still developing";
   return "Source trail checked";

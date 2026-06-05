@@ -104,10 +104,10 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
 function sourcePostureLabel(count: number, label: string) {
   const normalized = label.toLowerCase();
   if (!count) return label;
-  const sourceWord = count === 1 ? "source" : "sources";
-  if (normalized.includes("confirmed") || normalized.includes("corroborat")) return `${count} confirmed ${sourceWord}`;
-  if (normalized.includes("single")) return "Single source";
-  return `${count} ${sourceWord} / ${label}`;
+  const reportWord = count === 1 ? "report" : "reports";
+  if (normalized.includes("confirmed") || normalized.includes("corroborat")) return `${count} confirmed ${reportWord}`;
+  if (normalized.includes("single")) return "Single report";
+  return `${count} ${reportWord} / ${label}`;
 }
 
 function publicStatusLabel(state?: EscalationState | null, status?: string | null) {
@@ -123,7 +123,7 @@ function publicSourceLabel(value?: string | null) {
   if (!value) return null;
   const normalized = value.toLowerCase();
   if (normalized.includes("official")) return "Official trail checked";
-  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Supported by multiple signals/sources";
+  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Supported by multiple signals and reports";
   if (normalized.includes("single")) return "Single report under review";
   if (normalized.includes("awaiting")) return "Source trail still developing";
   return value;
