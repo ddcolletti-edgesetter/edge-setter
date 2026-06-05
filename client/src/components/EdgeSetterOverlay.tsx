@@ -44,7 +44,7 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
   const timingWindow = publicCopy ? publicTimingLabel(data.timing?.window) : data.timing?.window;
   const timingLabel = [timingWindow, data.timing?.freshnessLabel].filter(Boolean).join(" / ") || "Timing watch";
   const replay = publicCopy
-    ? ["Source trail checked", "Timing window reviewed", "Impact still developing"].slice(0, compact ? 2 : 3)
+    ? ["Source trail reviewed", "Timing reviewed", "Impact still developing"].slice(0, compact ? 2 : 3)
     : data.replay?.filter(Boolean).slice(0, compact ? 2 : 3) ?? [];
   const calibrationInput = {
     confidence,
@@ -78,12 +78,12 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
           </div>
           <div>
             <ShieldCheck size={13} />
-            <span>Source posture</span>
+            <span>Source support</span>
             <strong>{sourcePosture}</strong>
           </div>
           <div>
             <Clock3 size={13} />
-            <span>Timing window</span>
+            <span>Timing</span>
             <strong>{timingLabel}</strong>
           </div>
         </div>

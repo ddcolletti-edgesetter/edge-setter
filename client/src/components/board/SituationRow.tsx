@@ -210,7 +210,9 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
           )}
           {metrics.map((metric) => (
             <span key={`${metric.label}-${metric.value}`} className={cn("max-w-full truncate text-[0.7rem] font-bold tabular-nums", metricTone(metric.tone))}>
-              {metric.label}: {copyVariant === "editorial" ? publicStoryText(metric.value) : metric.value}
+              {copyVariant === "editorial"
+                ? `${metric.label.toLowerCase().includes("confidence") ? "Evidence strength" : metric.label} ${publicStoryText(metric.value)}`
+                : `${metric.label}: ${metric.value}`}
             </span>
           ))}
           {situation.tags?.slice(0, 2).map((tag) => (
@@ -236,10 +238,10 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
 
         {(situation.confidenceNote || situation.sourceSummary || situation.timingAdvantage || situation.marketReaction) && (
           <span className="mt-1.5 grid min-w-0 gap-1 text-[0.68rem] font-semibold leading-snug text-muted-foreground sm:grid-cols-2">
-            {situation.confidenceNote && <IntelLine label="Confidence read" value={storyText(situation.confidenceNote, copyVariant)} />}
-            {(situation.sourceProgressLabel || situation.sourceSummary) && <IntelLine icon={<Link2 className="h-3 w-3" />} label="Report posture" value={storyText(situation.sourceProgressLabel ?? situation.sourceSummary ?? "", copyVariant)} />}
-            {situation.timingAdvantage && <IntelLine label="Timing window" value={storyText(situation.timingAdvantage, copyVariant)} />}
-            {!compact && situation.marketReaction && <IntelLine icon={<TrendingUp className="h-3 w-3" />} label="Market reaction" value={storyText(situation.marketReaction, copyVariant)} />}
+            {situation.confidenceNote && <IntelLine label="Evidence strength" value={storyText(situation.confidenceNote, copyVariant)} />}
+            {(situation.sourceProgressLabel || situation.sourceSummary) && <IntelLine icon={<Link2 className="h-3 w-3" />} label="Source support" value={storyText(situation.sourceProgressLabel ?? situation.sourceSummary ?? "", copyVariant)} />}
+            {situation.timingAdvantage && <IntelLine label="Watch next" value={storyText(situation.timingAdvantage, copyVariant)} />}
+            {!compact && situation.marketReaction && <IntelLine icon={<TrendingUp className="h-3 w-3" />} label="Market note" value={storyText(situation.marketReaction, copyVariant)} />}
             {!compact && situation.uncertaintyLabel && <IntelLine label="Watch next" value={storyText(situation.uncertaintyLabel, copyVariant)} />}
           </span>
         )}

@@ -64,6 +64,7 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
       <div className="story-card-copy">
         <div className="story-card-kicker">
           <span>{displayStory.league}</span>
+          {" "}
           <strong>{displayStory.label ?? displayStory.storyType ?? "Developing story"}</strong>
         </div>
         <h2>{displayStory.headline}</h2>
@@ -75,19 +76,19 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
         <div className="story-card-reads">
           {displayStory.whatChanged && (
             <div>
-              <span>{publicCopy ? "What happened" : "What changed"}</span>
+              <span>{publicCopy ? "What happened: " : "What changed: "}</span>
               <strong>{displayStory.whatChanged}</strong>
             </div>
           )}
           {displayStory.whyItMatters && (
             <div>
-              <span>Why it matters</span>
+              <span>Why it matters: </span>
               <strong>{displayStory.whyItMatters}</strong>
             </div>
           )}
           {displayStory.watchNext && (
             <div>
-              <span>Watch next</span>
+              <span>Watch next: </span>
               <strong>{displayStory.watchNext}</strong>
             </div>
           )}

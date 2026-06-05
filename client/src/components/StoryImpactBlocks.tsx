@@ -25,7 +25,7 @@ export function storyImpactSections(input: StoryImpactInput) {
   return [
     hasFantasy ? {
       label: "Fantasy impact",
-      value: cleanImpactText(input.fantasyDetail) || "Role, usage, availability, or lineup context can change projections once the sports update is confirmed.",
+      value: cleanImpactText(input.fantasyDetail) || "Role, usage, availability, or lineup context can change projections once the team or player update is confirmed.",
     } : null,
     hasBetting ? {
       label: "Betting/market impact",

@@ -93,13 +93,13 @@ const PREVIEW_STORIES: StoryCardData[] = [
     league: "NBA",
     label: "Example story",
     storyType: "Availability watch",
-    headline: "Followed-player availability would move fantasy and matchup context",
-    dek: "Setup example: this shows how a watched player story will appear once personalization is connected.",
+    headline: "Followed player availability will surface here first",
+    dek: "Your saved teams and players will prioritize these story types as the source trail develops.",
     primaryTeam: "LAL",
     secondaryTeam: "BOS",
     player: "Followed player",
     whatChanged: "Limited participation would move the story into watchlist review.",
-    whyItMatters: "Fantasy projections, team rotation, and market reaction can all shift together.",
+    whyItMatters: "Team rotation, matchup prep, and player availability can shift before fantasy and market context follows.",
     watchNext: "Official status, beat confirmation, and whether the market reacts.",
     overlay: {
       escalationState: "Emerging",
@@ -115,12 +115,12 @@ const PREVIEW_STORIES: StoryCardData[] = [
     league: "MLB",
     label: "Example story",
     storyType: "Lineup and market watch",
-    headline: "Followed-team lineup change would trigger a watched-story alert",
-    dek: "Setup example: personalized alerts will prioritize teams, players, leagues, and story types you choose.",
+    headline: "Followed-team lineup changes will appear in your watchlist",
+    dek: "Your saved teams and players will prioritize these story types as lineup, pitcher, and timing evidence changes.",
     primaryTeam: "LAD",
     secondaryTeam: "NYY",
     whatChanged: "A lineup or pitcher-context change would enter your watchlist.",
-    whyItMatters: "Market, fantasy, and fan/team impact can update before public consensus settles.",
+    whyItMatters: "Team plans, player roles, and game context can update before fantasy and market impact settles.",
     watchNext: "Confirmed lineup, odds movement, and role impact after lock.",
     overlay: {
       escalationState: "Confirming",
@@ -260,6 +260,9 @@ function activeProStory(story: StoryCardData): StoryCardData {
   return {
     ...story,
     label: "Watchlist slot",
+    headline: story.id === "my-edge-preview-1"
+      ? "Followed player availability will surface here first"
+      : "Followed-team lineup changes will appear in your watchlist",
     dek: story.dek?.replace(/^Preview only:\s*/i, "Saved story area: "),
     overlay: {
       ...story.overlay,

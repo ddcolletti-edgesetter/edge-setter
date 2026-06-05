@@ -212,11 +212,12 @@ function CFBBoardInner() {
           <div className="-mt-1 sm:-mt-0.5">
             <SituationLane
               lane="escalating"
-              title="Urgent Developing Stories"
-              summary="Immediate conference and slate changes before the broader lane board."
+              title="Stories to Watch"
+              summary="Conference and slate changes with enough source support to sit above the broader board."
               situations={topUrgentSituations.map(toSituationRowData)}
               compact
               cadence="entry"
+              copyVariant="editorial"
               onSituationSelect={(row) => {
                 const situation = topUrgentSituations.find((item) => item.id === row.id);
                 if (situation) openSituation(situation);
@@ -260,6 +261,7 @@ function CFBBoardInner() {
                 compact={compact}
                 cadence={index === 0 ? "entry" : lane === "background" ? "quiet" : "default"}
                 emptyLabel={profile.emptyState}
+                copyVariant="editorial"
                 onSituationSelect={(row) => {
                   const situation = laneSituations.find((item) => item.id === row.id);
                   if (situation) openSituation(situation);

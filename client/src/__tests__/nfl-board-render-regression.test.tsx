@@ -93,8 +93,11 @@ describe("NFL board render regressions", () => {
     expect(text).toContain("Why it matters");
     expect(text).toContain("Watch next");
     expect(text).toContain("Offseason context");
-    expect(text).toContain("Watch items 4");
-    expect(text).toContain("Source-backed 4");
+    expect(text).toContain("Story watch 4");
+    expect(text).toContain("Verified notes 4");
+    expect(text).not.toContain("Evidence review");
+    expect(text).not.toContain("source check complete");
+    expect(text).not.toContain("timing check complete");
     expect(text).not.toContain("Alert 4");
     expect(text).not.toContain("Confirmed 4");
     expect(text).not.toContain("ConfidenceEvidenceTimingMarket ReactionOpen Story");

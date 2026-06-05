@@ -14,10 +14,10 @@ export type LeagueBoardProfile = {
 };
 
 const LEGACY_LANE_LABELS: Record<SituationLane, string> = {
-  escalating: "Escalating Stories",
+  escalating: "Stories to Watch",
   live: "Live Game Watch",
-  decision: "Decision Windows",
-  confirmed: "Verified Stories",
+  decision: "Watch Next",
+  confirmed: "Verified Notes",
   background: "Background Watch",
 };
 
@@ -42,7 +42,7 @@ export const LEAGUE_BOARD_PROFILES: Record<Sport, LeagueBoardProfile> = {
     league: "NBA",
     boardLabel: "NBA Developing Stories Board",
     liveStripLabel: "Tonight's Games",
-    featuredLabel: "Top Developing Story",
+    featuredLabel: "Top Story Watch",
     primarySignalTypes: ["injury", "rotation", "lineup", "line_move", "sharp_money"],
     livePrioritySignalTypes: ["injury", "rotation", "lineup"],
     laneOrder: DEFAULT_LANE_ORDER,
@@ -53,7 +53,7 @@ export const LEAGUE_BOARD_PROFILES: Record<Sport, LeagueBoardProfile> = {
     league: "MLB",
     boardLabel: "MLB Developing Stories Board",
     liveStripLabel: "Today's Games",
-    featuredLabel: "Top Developing Story",
+    featuredLabel: "Stories to Watch",
     primarySignalTypes: ["lineup", "transaction", "weather", "injury", "line_move"],
     livePrioritySignalTypes: ["lineup", "transaction", "weather"],
     laneOrder: DEFAULT_LANE_ORDER,

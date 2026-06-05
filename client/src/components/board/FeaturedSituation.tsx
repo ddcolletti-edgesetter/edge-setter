@@ -151,7 +151,7 @@ export function FeaturedSituation({
       <div className="mt-2 grid min-w-0 gap-1.5 sm:grid-cols-3">
         <PlainRead label="Evidence strength" value={plainConfidenceLabel(confidenceMetric, situation)} />
         <PlainRead label="Verification state" value={plainStatusLabel(situation?.statusLabel ?? escalation)} />
-        <PlainRead label="Report posture" value={plainSupportLabel(situation)} />
+        <PlainRead label="Source support" value={plainSupportLabel(situation)} />
       </div>
 
       {situation && (

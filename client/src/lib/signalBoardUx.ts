@@ -207,10 +207,10 @@ export function signalConfidenceNarrative(signal: BoardSignalLike) {
     lifecycle === "Early" ? "early development" : lifecycle === "Confirmed" ? "public confirmation" : null,
   ].filter(Boolean);
 
-  if (confidence >= 85) return `Agent-calibrated confidence: ${drivers.join(" / ") || "verification is mature"}`;
-  if (confidence >= 70) return `Confidence building: ${drivers.join(" / ") || "waiting on next validator"}`;
-  if (confidence >= 55) return `Early confidence: ${drivers.join(" / ") || "verification still thin"}`;
-  return `Low-confidence watch: ${drivers.join(" / ") || "needs stronger confirmation"}`;
+  if (confidence >= 85) return `Strong evidence support: ${drivers.join(" / ") || "verification is mature"}`;
+  if (confidence >= 70) return `Evidence support building: ${drivers.join(" / ") || "waiting on next validator"}`;
+  if (confidence >= 55) return `Early evidence support: ${drivers.join(" / ") || "verification still thin"}`;
+  return `Thin evidence watch: ${drivers.join(" / ") || "needs stronger confirmation"}`;
 }
 
 export function signalSourceSummary(signal: BoardSignalLike) {

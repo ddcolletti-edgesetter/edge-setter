@@ -54,8 +54,8 @@ describe("subscriber readiness render regressions", () => {
     );
 
     const text = document.body.textContent ?? "";
-    expect(text).toContain("Watch items 4");
-    expect(text).toContain("Source-backed 4");
+    expect(text).toContain("Story watch 4");
+    expect(text).toContain("Verified notes 4");
     expect(text).not.toContain("Alert 4");
     expect(text).not.toContain("Confirmed 4");
   });

@@ -401,7 +401,7 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
         convergence: publicSourceSummary(situation.sourceSummary.convergence),
       },
       timing: situation.timing,
-      replay: ["Source trail checked", "Timing window reviewed", "Impact still developing"],
+      replay: ["Source trail reviewed", "Timing reviewed", "Impact still developing"],
       status: "Story support",
     },
     situation,
@@ -448,7 +448,7 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
         convergence: publicSourceSummary(situation.sourceSummary.convergence),
       },
       timing: situation.timing,
-      replay: ["Source trail checked", "Timing window reviewed", "Impact still developing"],
+      replay: ["Source trail reviewed", "Timing reviewed", "Impact still developing"],
       status: "Story support",
     } : {
       escalationState: game.topEscalation,
@@ -1049,7 +1049,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (isRosterMoveSituation(situation)) {
     const subject = player ?? team;
-    const headline = `${subject} roster move could change ${team} role picture`;
+    const headline = `${subject} roster move could change ${team} depth-chart plan`;
     return {
       headline,
       shortHeadline: headline,
@@ -1083,8 +1083,8 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     return {
       headline,
       shortHeadline: headline,
-      deck: `${team}'s role picture is still developing. EdgeSetter is watching whether reports, practice usage, or roster signals confirm a real depth-chart change.`,
-      shortDeck: `${team}'s role picture is still developing.`,
+      deck: `${team}'s depth chart is still developing. EdgeSetter is watching whether reports, practice usage, or roster signals confirm a real role change.`,
+      shortDeck: `${team}'s depth chart is still developing.`,
       detail: "Depth chart context updated",
       whatHappened: `${team}'s depth or role context changed enough to keep monitoring.`,
       whyItMatters: "Role changes can alter usage, matchup plans, fantasy projections, and team preparation.",
@@ -1122,11 +1122,11 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
   }
 
   const subject = player ?? situation.subject.matchup ?? team;
-  const headline = `${subject} update keeps ${situation.league} story context active`;
+  const headline = `${subject} update remains on the ${situation.league} watch`;
   return {
     headline,
     shortHeadline: headline,
-    deck: `${situation.league} context is still developing around ${subject}. EdgeSetter is watching the source trail, timing window, and downstream impact before elevating the read further.`,
+    deck: `${situation.league} context is still developing around ${subject}. EdgeSetter is watching the source trail, timing, and downstream impact before elevating the read further.`,
     shortDeck: `${situation.league} context is still developing around ${subject}.`,
     detail: "Story context updated",
     whatHappened: `${subject} is attached to a developing ${situation.league} story read.`,

@@ -126,6 +126,10 @@ const bannedHomepagePhrases = [
   "source check complete",
   "timing check complete",
   "availability is moving the slate",
+  "story context active",
+  "role picture",
+  "lineup plan on watch",
+  "sports update is confirmed",
 ];
 
 describe("homepage public story render", () => {
@@ -152,12 +156,12 @@ describe("homepage public story render", () => {
       expect(domText).not.toContain(phrase);
     }
 
-    expect(screen.getByText("What happened")).toBeInTheDocument();
-    expect(screen.getAllByText("Why it matters").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Watch next").length).toBeGreaterThan(0);
+    expect(screen.getByText("What happened:")).toBeInTheDocument();
+    expect(screen.getAllByText("Why it matters:").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Watch next:").length).toBeGreaterThan(0);
     expect(domText).toContain("Brandon Aiyuk's availability status changed and 49ers are now the team context to monitor.");
     expect(domText).toContain("Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.");
-    expect(domText).toContain("Source trail checked. Timing window reviewed. Impact still developing.");
+    expect(domText).toContain("Source trail reviewed. Timing reviewed. Impact still developing.");
 
     expect(screen.queryByRole("heading", { name: "SF availability status is moving" })).not.toBeInTheDocument();
     expect(domText).not.toMatch(/\b[A-Z]{2,4} availability status is moving\b/);

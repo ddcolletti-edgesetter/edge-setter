@@ -250,7 +250,7 @@ function whatChanged(signal: SignalDetailLike, timing: ReturnType<typeof timingP
   const movement = signal.lineMovement ?? signal.line_movement;
   const parts = [
     signal.detail ?? signal.summary ?? signalTitle(signal),
-    `Timing window: ${editorial ? publicTimingLabel(timing.label).toLowerCase() : timing.label.toLowerCase()}`,
+    `Watch timing: ${editorial ? publicTimingLabel(timing.label).toLowerCase() : timing.label.toLowerCase()}`,
     movement?.note ?? movement?.direction ?? (movement?.open && movement.current ? `Market reaction moved from ${movement.open} to ${movement.current}` : null),
   ].filter(Boolean);
   const text = parts.join(" ");
@@ -309,7 +309,7 @@ function confidenceDrivers(signal: SignalDetailLike, ageMinutes: number | null, 
   const sourceQuality = clamp((signal.sourceTypes?.length ?? 0) * 18 + (sources ? 42 : 24));
 
   return [
-    { label: "Report posture", value: sources ? sourceScore : Math.max(28, confidence - 35), detail: editorial ? (sources ? sourceCountText(sources) : "Source check pending") : (sources ? `${sources} source checks attached` : "No source checks attached") },
+    { label: "Source support", value: sources ? sourceScore : Math.max(28, confidence - 35), detail: editorial ? (sources ? sourceCountText(sources) : "Source support pending") : (sources ? `${sources} source checks attached` : "No source checks attached") },
     { label: editorial ? "Source check" : "Source quality", value: sourceQuality, detail: editorial ? publicStoryText(signal.confirmationStrength ?? "Source check pending") : signal.confirmationStrength ?? "Source quality not yet scored" },
     { label: "Market reaction", value: hasMovement ? 78 : 36, detail: hasMovement ? "Market movement attached" : "No movement attached yet" },
     { label: "Timing freshness", value: timingScore, detail: freshnessLabel(ageMinutes, signalTimestamp(signal)) },
@@ -670,12 +670,12 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             <div className="signal-detail-stat-grid">
               <StatCard label="Evidence strength" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence, editorialCopy)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
               <StatCard label="Verification state" value={storyVerificationState} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />
-              <StatCard label="Timing window" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
+              <StatCard label="Watch timing" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
               <StatCard label="Replay freshness" value={freshnessLabel(model.ageMinutes, signalTimestamp(signal))} detail="Detection age" tone={model.ageMinutes !== null && model.ageMinutes <= 45 ? "green" : "gray"} />
             </div>
             <div className="signal-source-summary">
               <strong>{editorialCopy ? (model.sources ? sourceCountText(model.sources) : "Source check pending") : model.sources ? `${model.sources} source checks attached` : "No source checks attached"}</strong>
-              <span>{editorialCopy ? publicStoryText(signal.confirmationStrength ?? "Report posture is not available for this story view.") : signal.confirmationStrength ?? "Report posture is not available for this story view."}</span>
+              <span>{editorialCopy ? publicStoryText(signal.confirmationStrength ?? "Source support is not available for this story view.") : signal.confirmationStrength ?? "Source support is not available for this story view."}</span>
             </div>
             <div className="signal-trust-stack">
               {model.trust.map((reason) => (
@@ -726,7 +726,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             </Section>
           ))}
 
-          <Section title={editorialCopy ? "Evidence review" : "EdgeSetter evidence layer"} icon={<LineChart size={14} />}>
+          <Section title={editorialCopy ? "Source trail" : "EdgeSetter evidence layer"} icon={<LineChart size={14} />}>
             <div className="mb-2 grid min-w-0 gap-1.5 sm:grid-cols-2">
               <HistoricalPatternMatch input={calibrationInput} />
               <ChainReactionPreview input={calibrationInput} />
