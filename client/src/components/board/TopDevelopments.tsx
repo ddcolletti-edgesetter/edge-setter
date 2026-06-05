@@ -26,7 +26,7 @@ export function TopDevelopments({ league, situations, copyVariant = "legacy", on
     <section className="top-developments-module rounded-md border border-border bg-card/85">
       <header className="flex min-w-0 items-center justify-between gap-3 border-b border-border/70 px-3 py-2.5">
         <div className="min-w-0">
-          <span className="data-label block text-[0.62rem] text-primary">{league} Developing Stories</span>
+          <span className="data-label block text-[0.62rem] text-primary">{league} Watch Stories</span>
           <strong className="block truncate text-sm text-foreground">What changed across lineup, injury, roster, and market context</strong>
         </div>
         <span className="rounded border border-border bg-muted/20 px-2 py-1 text-[0.66rem] font-bold uppercase tracking-widest text-muted-foreground">

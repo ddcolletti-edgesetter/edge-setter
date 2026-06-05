@@ -28,7 +28,7 @@ const legacyLaneLabels: Record<SituationLaneType, string> = {
 };
 
 const editorialLaneLabels: Record<SituationLaneType, string> = {
-  escalating: "Lead Developments",
+  escalating: "Lead Stories",
   live: "Game Windows",
   decision: "Watch Before Lock",
   confirmed: "Confirmed Updates",

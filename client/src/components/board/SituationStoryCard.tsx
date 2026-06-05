@@ -67,7 +67,7 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
 
         <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5 border-t border-border/65 pt-2">
           <ProofPill label="Confidence" value={story.confidence ?? "Still forming"} />
-          <ProofPill label="Sources" value={sourceCountText(story.sourceCount)} />
+          <ProofPill label="Reports" value={sourceCountText(story.sourceCount)} />
           <ProofPill label="Timing" value={story.timing ?? story.lifecycle ?? story.row.statusLabel ?? "Developing"} />
           <ProofPill label="Evidence" value={story.evidence ?? evidenceCountText(story.row.evidenceCount)} />
           {!compact && (

@@ -260,7 +260,7 @@ export function signalMarketReaction(signal: BoardSignalLike) {
 export function signalReplayChain(signal: BoardSignalLike): string[] {
   const chain = ["Story detected"];
   const sourceCount = signalSourceCount(signal);
-  if (sourceCount > 0) chain.push(sourceCount > 1 ? "Sources aligned" : "Source attached");
+  if (sourceCount > 0) chain.push(sourceCount > 1 ? "Reports aligned" : "Source attached");
   if (signalHasMovement(signal)) chain.push("Market reacted");
   const lifecycle = signalLifecycle(signal);
   const confirmation = (signal.confirmationStrength ?? "").toLowerCase();

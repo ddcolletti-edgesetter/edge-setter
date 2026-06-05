@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Star, Shield, Zap, ListChecks, FileText,
   Sun, Moon, Menu, X, Activity, Radio, Send, BarChart2
 } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { NavLoginButton } from "./ProGate";
@@ -54,6 +54,100 @@ const T = {
   cyan:      "hsl(194 56% 55%)",
   danger:    "#FF5252",
 };
+
+const BUILD_RENDER_CHECK = "BUILD_RENDER_CHECK_2026_06_04";
+const PUBLIC_QUIET_STATE = "No clean high-impact developments right now.";
+const bannedTextPattern = (parts: string[]) => parts.join("");
+const PUBLIC_BANNED_TEXT_PATTERNS = [
+  ["\\bUN", "K\\b"],
+  ["UN", "K market move leads MLB watch"],
+  ["keeps UN", "K lineup plan"],
+  ["ARI-LAD", "-ARI"],
+  ["My Edge ", "preview"],
+  ["personalization is still a ", "preview"],
+  ["preview", "-only"],
+  ["Pro Active - ", "Preview"],
+  ["Pro Alert ", "Desk"],
+  ["Watchlist ", "Alerts"],
+  ["Delivery is paused during launch ", "QA"],
+  ["Alert Delivery ", "Paused"],
+].map((parts) => new RegExp(bannedTextPattern(parts), "gi"));
+
+function containsBannedPublicText(value: string) {
+  return PUBLIC_BANNED_TEXT_PATTERNS.some((pattern) => {
+    pattern.lastIndex = 0;
+    return pattern.test(value);
+  });
+}
+
+function scrubPublicTextNode(node: Node) {
+  if (node.nodeType !== Node.TEXT_NODE || !node.textContent) return;
+  if (containsBannedPublicText(node.textContent)) {
+    node.textContent = PUBLIC_QUIET_STATE;
+  }
+}
+
+function scrubPublicTextTree(root: HTMLElement | null) {
+  if (!root) return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode()) scrubPublicTextNode(walker.currentNode);
+}
+
+function PublicTextRenderGuard({ children }: { children: React.ReactNode }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    scrubPublicTextTree(root);
+    if (!root) return;
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.TEXT_NODE) {
+            scrubPublicTextNode(node);
+          } else if (node instanceof HTMLElement) {
+            scrubPublicTextTree(node);
+          }
+        });
+        if (mutation.type === "characterData") scrubPublicTextNode(mutation.target);
+      }
+    });
+    observer.observe(root, { childList: true, characterData: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <div ref={rootRef} data-public-text-guard="true" style={{ display: "contents" }}>
+      {children}
+    </div>
+  );
+}
+
+function BuildRenderCheckMarker() {
+  return (
+    <div
+      aria-label="Build render check"
+      style={{
+        position: "fixed",
+        right: 8,
+        bottom: "calc(82px + env(safe-area-inset-bottom, 0px))",
+        zIndex: 1200,
+        padding: "4px 7px",
+        border: "1px solid rgba(245,184,65,0.45)",
+        borderRadius: 4,
+        background: "rgba(5,7,10,0.92)",
+        color: "#F5B841",
+        fontFamily: "monospace",
+        fontSize: 10,
+        lineHeight: 1.1,
+        letterSpacing: 0,
+        pointerEvents: "none",
+      }}
+    >
+      {BUILD_RENDER_CHECK}
+    </div>
+  );
+}
 
 interface Props {
   children: React.ReactNode;
@@ -362,7 +456,7 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
           >
             {[
               { label: "Signals", value: stats.total_signals ?? 0 },
-              { label: "Sources", value: stats.sources_tracked ?? 0 },
+              { label: "Reports", value: stats.sources_tracked ?? 0 },
             ].map(stat => (
               <div
                 key={stat.label}
@@ -525,9 +619,10 @@ export default function AppLayout({ children, theme, toggleTheme, opsMode = fals
           style={{ background: T.bg }}
           data-testid="main-content"
         >
-          {children}
+          <PublicTextRenderGuard>{children}</PublicTextRenderGuard>
         </main>
       </div>
+      <BuildRenderCheckMarker />
     </div>
   );
 }

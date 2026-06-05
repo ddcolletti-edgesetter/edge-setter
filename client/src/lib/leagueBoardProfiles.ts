@@ -22,7 +22,7 @@ const LEGACY_LANE_LABELS: Record<SituationLane, string> = {
 };
 
 const EDITORIAL_LANE_LABELS: Record<SituationLane, string> = {
-  escalating: "Lead Developments",
+  escalating: "Lead Stories",
   live: "Game Windows",
   decision: "Watch Before Lock",
   confirmed: "Confirmed Updates",

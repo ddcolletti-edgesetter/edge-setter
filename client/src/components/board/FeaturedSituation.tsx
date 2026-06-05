@@ -257,7 +257,7 @@ function EditorialLeadBlock({ story, onOpen }: { story: SituationStoryCardData; 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="data-label mr-1 text-primary">EdgeSetter Intelligence</span>
           <ProofPill label="Confidence" value={story.confidence ?? "Monitoring"} />
-          <ProofPill label="Sources" value={story.sourceCount ? `${story.sourceCount} report${story.sourceCount === 1 ? "" : "s"}` : story.verification ?? "Check pending"} />
+          <ProofPill label="Reports" value={story.sourceCount ? `${story.sourceCount} report${story.sourceCount === 1 ? "" : "s"}` : story.verification ?? "Check pending"} />
           <ProofPill label="Timing" value={story.timing ?? "Monitoring"} />
           <ProofPill label="Evidence" value={story.evidence ?? "No elevated story yet"} />
           <AgentCalibrationBadge

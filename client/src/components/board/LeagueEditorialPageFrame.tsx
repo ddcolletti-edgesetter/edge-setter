@@ -207,7 +207,7 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="data-label mr-1 text-primary">EdgeSetter Intelligence</span>
           <ProofPill label="Confidence" value={story.confidence ?? (quiet ? "Monitoring" : "Still forming")} />
-          <ProofPill label="Sources" value={story.sourceCount ? `${story.sourceCount} reports` : story.verification ?? "Check pending"} />
+          <ProofPill label="Reports" value={story.sourceCount ? `${story.sourceCount} reports` : story.verification ?? "Check pending"} />
           <ProofPill label="Timing" value={story.timing ?? "Monitoring"} />
           <ProofPill label="Evidence" value={story.evidence ?? (quiet ? "No elevated story yet" : "Review attached")} />
           <AgentCalibrationBadge

@@ -449,7 +449,7 @@ function evidenceChain(canonical: CanonicalSituation): SituationEvidenceStep[] {
     : canonical.timingPressure === "inactive" ? "quiet" : "complete";
 
   return [
-    { label: "Sources", value: sourceConvergenceStage(canonical), state: sourceState },
+    { label: "Reports", value: sourceConvergenceStage(canonical), state: sourceState },
     { label: "Evidence", value: `${canonical.evidenceCount} event${canonical.evidenceCount === 1 ? "" : "s"}`, state: canonical.evidenceCount >= 3 ? "complete" : "active" },
     { label: "Confidence", value: confidenceMovementSummary(canonical), state: confidenceState },
     { label: "Timing", value: timingStageLabel(canonical), state: timingState },
@@ -465,7 +465,7 @@ function fallbackEvidenceChain(situation: BoardSituation): SituationEvidenceStep
   const sourceCount = Math.max(0, situation.sourceCount ?? 0);
   const hasMarket = Boolean(situation.movementLabel);
   return [
-    { label: "Sources", value: fallbackSourceStage(situation), state: sourceCount > 1 ? "active" : "caution" },
+    { label: "Reports", value: fallbackSourceStage(situation), state: sourceCount > 1 ? "active" : "caution" },
     { label: "Evidence", value: sourceCount > 1 ? `${sourceCount} reports` : "1 report", state: sourceCount > 1 ? "active" : "caution" },
     { label: "Confidence", value: fallbackConfidenceStage(situation), state: situation.confidence >= 75 ? "complete" : situation.confidence >= 55 ? "active" : "caution" },
     { label: "Timing", value: fallbackTimingStage(situation), state: situation.isActionable ? "active" : "quiet" },
