@@ -308,7 +308,7 @@ export default function MLBBoard() {
               <span className="data-label text-primary">Detailed Signal View</span>
               <span className="text-[0.72rem] font-semibold text-muted-foreground">Source, timing, and lane detail below the editorial lead.</span>
             </div>
-            <TopDevelopments league="MLB" situations={dedupeStoryItems(storyItems).filter((item) => item.situation.kind === "signal" || item.situation.kind === "canonical").map((item) => item.situation)} copyVariant="editorial" onSelect={openSituation} />
+            <TopDevelopments league="MLB" situations={dedupeStoryItems(storyItems).map((item) => item.situation)} copyVariant="editorial" onSelect={openSituation} />
           </section>
         )}
 

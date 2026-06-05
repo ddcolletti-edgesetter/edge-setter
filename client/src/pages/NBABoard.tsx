@@ -297,7 +297,7 @@ export default function NBABoard() {
                 <span className="data-label text-primary">Detailed Signal View</span>
                 <span className="text-[0.72rem] font-semibold text-muted-foreground">Source, timing, and lane detail below the editorial lead.</span>
               </div>
-              <TopDevelopments league="NBA" situations={situations.filter((s) => s.kind === "signal" || s.kind === "canonical")} copyVariant="editorial" onSelect={openSituation} />
+              <TopDevelopments league="NBA" situations={situations} copyVariant="editorial" onSelect={openSituation} />
             </section>
           )}
 

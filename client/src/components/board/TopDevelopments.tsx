@@ -42,12 +42,13 @@ export function TopDevelopments({ league, situations, copyVariant = "legacy", on
           const opponent = cleanTeamAbbr(identity?.opponent ?? identity?.homeTeam);
           const logo = team || opponent || league;
           const subject = identity?.player && !isUnknownTeamAbbr(identity.player) ? identity.player : team || row.matchup || league;
+          const isClickable = situation.kind === "signal" || situation.kind === "canonical";
           return (
             <button
               key={situation.id}
               type="button"
-              onClick={() => onSelect?.(situation)}
-              className="top-developments-row flex min-w-0 items-center gap-2 border-b border-border/60 px-3 py-2.5 text-left last:border-b-0 lg:[&:nth-last-child(2)]:border-b-0"
+              onClick={isClickable ? () => onSelect?.(situation) : undefined}
+              className={`top-developments-row flex min-w-0 items-center gap-2 border-b border-border/60 px-3 py-2.5 text-left last:border-b-0 lg:[&:nth-last-child(2)]:border-b-0${isClickable ? "" : " cursor-default"}`}
             >
               <TeamLogoLockup
                 league={league}

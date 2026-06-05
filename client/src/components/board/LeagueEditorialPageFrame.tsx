@@ -67,7 +67,7 @@ export function LeagueEditorialPageFrame({ league, quickLinks, headlines, lead, 
         </div>
       </header>
 
-      <aside className="order-2 min-w-0 rounded-md border border-border/70 bg-card/65 p-3 xl:order-1 xl:sticky xl:top-4 xl:self-start">
+      <aside className="order-2 min-w-0 rounded-md border border-border/70 bg-card/65 p-3 xl:order-1 xl:sticky xl:top-[52px] xl:self-start">
         <span className="data-label text-primary">{league} Watch</span>
         <div className="mt-2 grid gap-1.5">
           {quickLinks.map((link) => (
@@ -94,7 +94,7 @@ export function LeagueEditorialPageFrame({ league, quickLinks, headlines, lead, 
         {children}
       </div>
 
-      <aside className="order-3 min-w-0 rounded-md border border-border/70 bg-card/65 p-3 xl:sticky xl:top-4 xl:self-start">
+      <aside className="order-3 min-w-0 rounded-md border border-border/70 bg-card/65 p-3 xl:sticky xl:top-[52px] xl:self-start">
         <div className="flex items-center justify-between gap-2">
           <span className="data-label text-primary">Top Watch Items</span>
           <span className="text-[0.68rem] font-bold uppercase tracking-widest text-muted-foreground">{headlines.length}</span>
