@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Bell, Bookmark, CheckCircle2, Clock3, History, LineChart, ShieldCheck, TrendingUp, X } from "lucide-react";
 
 import { AgentCalibrationBadge, ChainReactionPreview, HistoricalPatternMatch, WhatToWatchNext } from "@/components/AgentCalibration";
+import { ConfidenceGauge } from "@/components/ConfidenceGauge";
 import { SportsStoryVisual } from "@/components/SportsMedia";
 import { storyImpactSections } from "@/components/StoryImpactBlocks";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
@@ -413,6 +414,14 @@ function calibrationModel(signal: SignalDetailLike, editorial = false): {
   return { label, support, summary, rows, basis, confirmationSignals, weakeningSignals, limitations, comparableHistory };
 }
 
+function agentsFromConfidenceAndSources(confidence: number, sources: number): number {
+  if (confidence >= 85 && sources >= 2) return 4;
+  if (confidence >= 72 && sources >= 2) return 3;
+  if (confidence >= 58 || sources >= 2) return 2;
+  if (confidence > 0 || sources >= 1) return 1;
+  return 0;
+}
+
 function calibrationDriverValue(value: string) {
   const normalized = value.toLowerCase();
   if (normalized.includes("stronger") || normalized.includes("strong")) return 78;
@@ -667,6 +676,15 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
           </Section>
 
           <Section title="Source trail / timing / evidence" icon={<ShieldCheck size={14} />}>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, paddingTop: 4 }}>
+              <ConfidenceGauge
+                value={model.confidence}
+                agentsAgree={agentsFromConfidenceAndSources(model.confidence, model.sources)}
+                agentsTotal={4}
+                size="md"
+                showAgents
+              />
+            </div>
             <div className="signal-detail-stat-grid">
               <StatCard label="Evidence strength" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence, editorialCopy)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
               <StatCard label="Verification state" value={storyVerificationState} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />

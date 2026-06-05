@@ -1,6 +1,7 @@
 import { ArrowUpRight, Clock3 } from "lucide-react";
 
 import { AgentCalibrationBadge } from "@/components/AgentCalibration";
+import { ConfidenceGauge } from "@/components/ConfidenceGauge";
 import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
 import { StoryImpactBlocks } from "@/components/StoryImpactBlocks";
 import { Button } from "@/components/ui/button";
@@ -67,6 +68,14 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
         </div>
 
         <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5 border-t border-border/65 pt-2">
+          {!compact && featured && parseConfidence(story.confidence) !== null && (
+            <ConfidenceGauge
+              value={parseConfidence(story.confidence)!}
+              size="sm"
+              showAgents={false}
+              style={{ marginRight: 8 }}
+            />
+          )}
           <ProofPill label="Source trail" value={sourceCountText(story.sourceCount)} />
           <ProofPill label="Timing" value={story.timing ?? story.lifecycle ?? story.row.statusLabel ?? "Developing"} />
           <ProofPill label="Evidence" value={story.evidence ?? evidenceCountText(story.row.evidenceCount)} />
