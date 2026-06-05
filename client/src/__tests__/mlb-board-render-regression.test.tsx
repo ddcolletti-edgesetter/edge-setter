@@ -35,7 +35,7 @@ const mockFetchWithTimeout = vi.mocked(fetchWithTimeout);
 function signal(overrides: Record<string, unknown>) {
   return {
     id: overrides.id ?? "sig-1",
-    headline: "LAD lineup watch moves before first pitch",
+    headline: "Late LAD lineup update could change first-pitch plans",
     detail: "Lineup card and scratch context changed before first pitch.",
     player: "Freddie Freeman",
     team: "LAD",
@@ -100,7 +100,7 @@ describe("MLB board render regressions", () => {
     expect(document.body.textContent ?? "").not.toContain("ARI-LAD-ARI");
     expect(document.body.textContent ?? "").not.toContain("market move leads MLB watch");
 
-    const headlineMatches = within(rail as HTMLElement).getAllByText(/LAD lineup watch moves before first pitch/i);
+    const headlineMatches = within(rail as HTMLElement).getAllByText(/Late LAD lineup update could change first-pitch plans/i);
     expect(headlineMatches).toHaveLength(1);
   });
 });

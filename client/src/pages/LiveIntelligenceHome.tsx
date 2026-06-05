@@ -1028,14 +1028,16 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (isAvailabilitySituation(situation)) {
     const subject = hasPlayer ? `${player} availability` : `${team} availability`;
-    const headline = `${subject} keeps ${teamContext} on watch`;
+    const headline = hasPlayer
+      ? `${player} availability could change ${team} ${teamContextNoun(situation)}`
+      : `${team} availability could change ${teamContextNoun(situation)}`;
     return {
       headline,
       shortHeadline: headline,
       deck: hasPlayer
         ? `${player}'s status changes how ${teamPossessive(team)} usage, opponent prep, and fantasy exposure should be read. EdgeSetter is watching whether ${sourcePhrase}, roster movement, or market response creates a larger downstream shift.`
         : `${team}'s availability picture can change roles, opponent prep, and fantasy exposure. EdgeSetter is watching whether source support, roster movement, or market response creates a larger downstream shift.`,
-      shortDeck: hasPlayer ? `${player}'s status keeps ${teamContext} under review.` : `${team}'s availability picture remains under review.`,
+      shortDeck: hasPlayer ? `${player}'s status could change ${teamContext}.` : `${team}'s availability picture remains under review.`,
       detail: status ? `Player status changed to ${status}` : "Availability status updated",
       whatHappened: hasPlayer
         ? `${player}'s availability status changed and ${team} ${teamVerb(team)} now the team context to monitor.`
@@ -1047,7 +1049,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (isRosterMoveSituation(situation)) {
     const subject = player ?? team;
-    const headline = `${subject} roster move puts ${team} role picture on watch`;
+    const headline = `${subject} roster move could change ${team} role picture`;
     return {
       headline,
       shortHeadline: headline,
@@ -1062,7 +1064,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (isLineupSituation(situation)) {
     const subject = player ?? team;
-    const headline = `${subject} lineup watch shapes ${team} pregame plan`;
+    const headline = `${subject} lineup update could shape ${team} pregame plan`;
     return {
       headline,
       shortHeadline: headline,
@@ -1077,7 +1079,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (isDepthChartSituation(situation)) {
     const subject = player ?? team;
-    const headline = `${subject} depth-chart watch puts ${team} roles in focus`;
+    const headline = `${subject} depth-chart update puts ${team} roles in focus`;
     return {
       headline,
       shortHeadline: headline,
@@ -1092,12 +1094,12 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (situation.marketReaction) {
     const subject = player ?? situation.subject.matchup ?? team;
-    const headline = `${subject} movement puts ${team} market context on watch`;
+    const headline = `${subject} line movement follows late ${team} context`;
     return {
       headline,
       shortHeadline: headline,
       deck: `Market context is reacting around ${subject}. EdgeSetter is watching whether the move is backed by team news, source support, or a broader downstream shift.`,
-      shortDeck: `Market context is reacting around ${subject}.`,
+      shortDeck: `Market reaction is moving around ${subject}.`,
       detail: "Books/fantasy/team context reacting",
       whatHappened: `${subject} is tied to movement that changed the ${team} read.`,
       whyItMatters: "Market movement can signal that team news, matchup context, or availability assumptions are changing before the public story is settled.",
@@ -1106,7 +1108,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
   }
 
   if (situation.raw.weather_note) {
-    const headline = `${team} game environment puts weather and matchup context on watch`;
+    const headline = `${team} game environment could shift weather and matchup plans`;
     return {
       headline,
       shortHeadline: headline,
@@ -1120,7 +1122,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
   }
 
   const subject = player ?? situation.subject.matchup ?? team;
-  const headline = `${subject} keeps ${situation.league} story context on watch`;
+  const headline = `${subject} update keeps ${situation.league} story context active`;
   return {
     headline,
     shortHeadline: headline,

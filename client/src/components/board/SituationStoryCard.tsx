@@ -2,6 +2,7 @@ import { ArrowUpRight, Clock3 } from "lucide-react";
 
 import { AgentCalibrationBadge } from "@/components/AgentCalibration";
 import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
+import { StoryImpactBlocks } from "@/components/StoryImpactBlocks";
 import { Button } from "@/components/ui/button";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { evidenceCountText, publicStoryText, sourceCountText } from "@/lib/storyLanguage";
@@ -66,7 +67,7 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
         </div>
 
         <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5 border-t border-border/65 pt-2">
-          <ProofPill label="Confidence" value={story.confidence ?? "Still forming"} />
+          <ProofPill label="Evidence strength" value={story.confidence ?? "Still forming"} />
           <ProofPill label="Reports" value={sourceCountText(story.sourceCount)} />
           <ProofPill label="Timing" value={story.timing ?? story.lifecycle ?? story.row.statusLabel ?? "Developing"} />
           <ProofPill label="Evidence" value={story.evidence ?? evidenceCountText(story.row.evidenceCount)} />
@@ -92,6 +93,17 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
             </Button>
           )}
         </div>
+
+        <StoryImpactBlocks
+          compact={compact}
+          input={{
+            text: [story.headline, story.dek, story.whatHappened, story.whyItMatters, story.watchNext, story.storyType, story.row.title, story.row.subtitle].filter(Boolean).join(" "),
+            market: story.market ?? story.row.marketReaction ?? story.row.market,
+            bettingDetail: story.market ?? story.row.marketReaction,
+            fantasyDetail: fantasyDetail(story),
+          }}
+          className="mt-3"
+        />
       </div>
 
       <div className={cn("min-w-0 border-t border-border/70 lg:border-l lg:border-t-0", compact && "hidden sm:block")}>
@@ -111,6 +123,14 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
       </div>
     </article>
   );
+}
+
+function fantasyDetail(story: SituationStoryCardData) {
+  const text = `${story.storyType ?? ""} ${story.row.title} ${story.row.subtitle ?? ""}`.toLowerCase();
+  if (text.includes("lineup") || text.includes("scratch")) return "Lineup changes can move role, plate-appearance, minutes, or usage expectations after confirmation.";
+  if (text.includes("injury") || text.includes("availability") || text.includes("questionable")) return "Availability updates can change role, usage, and projection context after the team status is clearer.";
+  if (text.includes("starter") || text.includes("rotation")) return "Starter and rotation updates can shift fantasy workload expectations.";
+  return undefined;
 }
 
 function StoryRead({ label, value }: { label: string; value: string }) {

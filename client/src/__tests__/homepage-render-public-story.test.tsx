@@ -143,7 +143,7 @@ describe("homepage public story render", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("heading", {
-        name: "Brandon Aiyuk availability keeps 49ers passing-game plan on watch",
+        name: "Brandon Aiyuk availability could change 49ers passing-game plan",
       })).toBeInTheDocument();
     });
 
@@ -163,7 +163,7 @@ describe("homepage public story render", () => {
     expect(domText).not.toMatch(/\b[A-Z]{2,4} availability status is moving\b/);
 
     const leadStory = screen.getByRole("heading", {
-      name: "Brandon Aiyuk availability keeps 49ers passing-game plan on watch",
+      name: "Brandon Aiyuk availability could change 49ers passing-game plan",
     }).closest("article");
     expect(leadStory).not.toBeNull();
     const leadImage = leadStory?.querySelector<HTMLImageElement>("[data-testid='homepage-story-image']");

@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 
 import { EdgeSetterOverlay, type EdgeSetterOverlayData } from "@/components/EdgeSetterOverlay";
+import { StoryImpactBlocks } from "@/components/StoryImpactBlocks";
 import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
 import type { IntelligenceSituation } from "@/lib/intelligenceSituationsApi";
 import type { SportsImageAsset } from "@/lib/sportsImageAssets";
@@ -22,6 +23,12 @@ export interface StoryCardData {
   whatChanged?: string;
   whyItMatters?: string;
   watchNext?: string;
+  fantasyRelevance?: boolean | null;
+  bettingRelevance?: boolean | null;
+  dfsRelevance?: boolean | null;
+  fantasyDetail?: string | null;
+  bettingDetail?: string | null;
+  dfsDetail?: string | null;
   overlay: EdgeSetterOverlayData;
   situation?: IntelligenceSituation | null;
   imageAsset?: SportsImageAsset | null;
@@ -88,6 +95,18 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
       </div>
 
       <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={variant === "rail" || variant === "compact"} copyVariant={publicCopy ? "editorial" : "legacy"} />
+      <StoryImpactBlocks
+        compact={variant === "rail" || variant === "compact"}
+        input={{
+          text: [displayStory.headline, displayStory.dek, displayStory.whatChanged, displayStory.whyItMatters, displayStory.watchNext, displayStory.storyType].filter(Boolean).join(" "),
+          fantasyRelevance: displayStory.fantasyRelevance,
+          bettingRelevance: displayStory.bettingRelevance,
+          dfsRelevance: displayStory.dfsRelevance,
+          fantasyDetail: displayStory.fantasyDetail,
+          bettingDetail: displayStory.bettingDetail,
+          dfsDetail: displayStory.dfsDetail,
+        }}
+      />
     </article>
   );
 

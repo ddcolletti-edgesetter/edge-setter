@@ -52,7 +52,7 @@ describe("Editorial league lead block", () => {
     );
 
     expect(screen.getByText("Top Developing Story")).toBeInTheDocument();
-    expect(screen.getAllByText("New York Knicks starter watch moves before tip").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Late New York Knicks starter update could change rotation plans").length).toBeGreaterThan(0);
     expect(screen.getByText("EdgeSetter Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Open Story")).toBeInTheDocument();
   });

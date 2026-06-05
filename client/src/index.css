@@ -722,6 +722,44 @@
     overflow-wrap: anywhere;
   }
 
+  .story-impact-blocks {
+    display: grid;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+    border-top: 1px solid rgba(82, 101, 122, 0.28);
+    padding-top: 10px;
+  }
+
+  .story-impact-blocks:not(.is-compact) {
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  }
+
+  .story-impact-block {
+    min-width: 0;
+    border-left: 1px solid rgba(82, 101, 122, 0.55);
+    background: rgba(15, 23, 42, 0.24);
+    padding: 7px 10px;
+  }
+
+  .story-impact-block span {
+    display: block;
+    color: #94A3B8;
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .story-impact-block p {
+    margin: 4px 0 0;
+    color: #CBD5E1;
+    font-size: 0.78rem;
+    font-weight: 650;
+    line-height: 1.35;
+    overflow-wrap: anywhere;
+  }
+
   .signal-movement-card,
   .signal-timing-card,
   .signal-action-window {

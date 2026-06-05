@@ -336,7 +336,7 @@ function nflFeaturedCopy(situation: BoardSituation, signal?: AnyBoardSignal, can
   const source = canonical ? evidenceCountText(canonical.evidenceCount) : sourceCountText(situation.sourceCount);
   const offseason = "Offseason context: this stays in monitoring unless it connects to practice role, depth chart, or a real game-week window.";
   return {
-    title: `${identity} ${change} stays on NFL watch`,
+    title: `${identity} ${change} could shift NFL depth-chart context`,
     summary: `${changeSentence(change, identity)} ${offseason}`,
     primaryRead: `${changeSentence(change, identity)} Source support is ${source.toLowerCase()}, so the board is watching what changed before attaching game-week impact.`,
     secondaryRead: `Why it matters: role, depth chart, practice availability, and team preparation can shift. Watch next: official updates, local reports, participation notes, and whether a real game-week context appears.`,
@@ -630,16 +630,16 @@ function editorialHeadline(row: SituationRowData, matchup?: string) {
   if (isMarketDominantTitle(row.title) || context.includes("market")) {
     if (row.league === "MLB") {
       const label = cleanPublicMatchupLabel(matchup, team, opponent);
-      return label ? `${label} market context stays under review` : publicFallbackLabel(context, "MLB");
+      return label ? `${label} line movement follows late roster context` : publicFallbackLabel(context, "MLB");
     }
     const label = cleanPublicMatchupLabel(matchup, team, opponent);
-    return `${label || "NBA"} market move leads pre-tip watch`;
+    return `${label || "NBA"} line movement follows late availability context`;
   }
 
   if (context.includes("lineup") || context.includes("scratch") || context.includes("starter")) {
     return row.league === "MLB"
-      ? `${team || matchup || "MLB"} lineup watch moves before first pitch`
-      : `${team || matchup || "NBA"} starter watch moves before tip`;
+      ? `Late ${team || matchup || "MLB"} lineup update could change first-pitch plans`
+      : `Late ${team || matchup || "NBA"} starter update could change rotation plans`;
   }
 
   if (row.league === "MLB" && context.includes("pitcher")) {
@@ -786,7 +786,7 @@ function fanFirstTitle(situation: BoardSituation, canonical?: CanonicalSituation
       ? marketFocusHeadline(identity, situation.league)
       : `${identity} ${context} is moving`;
   }
-  return `${identity} ${context} under monitoring`;
+  return `${identity} ${context} under review`;
 }
 
 function fanFirstSummary(situation: BoardSituation, signal?: AnyBoardSignal, canonical?: CanonicalSituation) {
@@ -794,14 +794,14 @@ function fanFirstSummary(situation: BoardSituation, signal?: AnyBoardSignal, can
   if (base && !isMarketDominantTitle(base)) return fanSafeContext(base);
   const identity = fanIdentityLabel(situation, canonical);
   const change = fanContextLabel(situation);
-  return `${identity} ${change} is the lead sports context. Market reaction is treated as supporting evidence, not the whole story.`;
+  return `${identity} ${change} is the lead sports context. Betting and market reaction are supporting evidence, not the whole story.`;
 }
 
 function fanFirstPrimaryRead(situation: BoardSituation, signal?: AnyBoardSignal, canonical?: CanonicalSituation) {
   const evidence = canonical?.confidenceFactors.evidenceThatMattersMost[0] ?? signal?.why_it_matters;
   if (evidence && !isMarketDominantTitle(evidence)) return fanSafeContext(evidence);
   const identity = fanIdentityLabel(situation, canonical);
-  return `${identity} is being monitored for team, player, lineup, availability, fantasy, fan, and game-context impact before market context is considered.`;
+  return `${identity} is being reviewed for team, player, lineup, availability, fantasy, fan, and game-context impact before betting or market context is considered.`;
 }
 
 function fanSafeContext(value?: string | null) {

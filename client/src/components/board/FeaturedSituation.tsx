@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { ArrowUpRight, Clock3 } from "lucide-react";
 
 import { AgentCalibrationBadge } from "@/components/AgentCalibration";
+import { StoryImpactBlocks } from "@/components/StoryImpactBlocks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -148,7 +149,7 @@ export function FeaturedSituation({
       )}
 
       <div className="mt-2 grid min-w-0 gap-1.5 sm:grid-cols-3">
-        <PlainRead label="Confidence support" value={plainConfidenceLabel(confidenceMetric, situation)} />
+        <PlainRead label="Evidence strength" value={plainConfidenceLabel(confidenceMetric, situation)} />
         <PlainRead label="Verification state" value={plainStatusLabel(situation?.statusLabel ?? escalation)} />
         <PlainRead label="Report posture" value={plainSupportLabel(situation)} />
       </div>
@@ -256,7 +257,7 @@ function EditorialLeadBlock({ story, onOpen }: { story: SituationStoryCardData; 
       <div className="border-t border-border/70 bg-muted/10 px-4 py-3 sm:px-5">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="data-label mr-1 text-primary">EdgeSetter Intelligence</span>
-          <ProofPill label="Confidence" value={story.confidence ?? "Monitoring"} />
+          <ProofPill label="Evidence strength" value={story.confidence ?? "Monitoring"} />
           <ProofPill label="Reports" value={story.sourceCount ? `${story.sourceCount} report${story.sourceCount === 1 ? "" : "s"}` : story.verification ?? "Check pending"} />
           <ProofPill label="Timing" value={story.timing ?? "Monitoring"} />
           <ProofPill label="Evidence" value={story.evidence ?? "No elevated story yet"} />
@@ -280,9 +281,26 @@ function EditorialLeadBlock({ story, onOpen }: { story: SituationStoryCardData; 
             </Button>
           )}
         </div>
+        <StoryImpactBlocks
+          input={{
+            text: [story.headline, story.dek, story.whatHappened, story.whyItMatters, story.watchNext, story.storyType].filter(Boolean).join(" "),
+            market: story.market,
+            bettingDetail: story.market,
+            fantasyDetail: editorialFantasyDetail(story),
+          }}
+          className="mt-3"
+        />
       </div>
     </article>
   );
+}
+
+function editorialFantasyDetail(story: SituationStoryCardData) {
+  const text = `${story.headline} ${story.storyType ?? ""} ${story.whatHappened} ${story.whyItMatters}`.toLowerCase();
+  if (text.includes("lineup") || text.includes("scratch")) return "Lineup context can shift role, usage, and fantasy projections once confirmed.";
+  if (text.includes("injury") || text.includes("availability")) return "Availability context can change role and projection expectations after the team update is clearer.";
+  if (text.includes("starter") || text.includes("rotation")) return "Starter and rotation context can shift usage expectations.";
+  return undefined;
 }
 
 function ProofPill({ label, value }: { label: string; value: string }) {

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ArrowUpRight, Bell, CheckCircle2, Eye, Clock3 } from "lucide-react";
 
 import { AgentCalibrationBadge } from "@/components/AgentCalibration";
+import { StoryImpactBlocks } from "@/components/StoryImpactBlocks";
 import { Button } from "@/components/ui/button";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
@@ -206,7 +207,7 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
       <div className="border-t border-border/70 bg-muted/10 px-4 py-3 sm:px-5">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="data-label mr-1 text-primary">EdgeSetter Intelligence</span>
-          <ProofPill label="Confidence" value={story.confidence ?? (quiet ? "Monitoring" : "Still forming")} />
+          <ProofPill label="Evidence strength" value={story.confidence ?? (quiet ? "Monitoring" : "Still forming")} />
           <ProofPill label="Reports" value={story.sourceCount ? `${story.sourceCount} reports` : story.verification ?? "Check pending"} />
           <ProofPill label="Timing" value={story.timing ?? "Monitoring"} />
           <ProofPill label="Evidence" value={story.evidence ?? (quiet ? "No elevated story yet" : "Review attached")} />
@@ -237,9 +238,26 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
             )}
           </div>
         </div>
+        <StoryImpactBlocks
+          input={{
+            text: [story.headline, story.dek, story.whatHappened, story.whyItMatters, story.watchNext, story.storyType].filter(Boolean).join(" "),
+            market: story.market,
+            bettingDetail: story.market,
+            fantasyDetail: storyFantasyDetail(story),
+          }}
+          className="mt-3"
+        />
       </div>
     </article>
   );
+}
+
+function storyFantasyDetail(story: SituationStoryCardData) {
+  const text = `${story.headline} ${story.storyType ?? ""} ${story.whatHappened} ${story.whyItMatters}`.toLowerCase();
+  if (text.includes("lineup") || text.includes("scratch")) return "Lineup context can shift role, usage, and fantasy projections once confirmed.";
+  if (text.includes("injury") || text.includes("availability")) return "Availability context can change role and projection expectations after the team update is clearer.";
+  if (text.includes("starter") || text.includes("rotation")) return "Starter and rotation context can shift usage expectations.";
+  return undefined;
 }
 
 function sanitizeHeadlineItem(item: EditorialHeadlineItem, league: string): EditorialHeadlineItem {

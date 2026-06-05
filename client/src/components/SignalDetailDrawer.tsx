@@ -4,6 +4,7 @@ import { Bell, Bookmark, CheckCircle2, Clock3, History, LineChart, ShieldCheck, 
 
 import { AgentCalibrationBadge, ChainReactionPreview, HistoricalPatternMatch, WhatToWatchNext } from "@/components/AgentCalibration";
 import { SportsStoryVisual } from "@/components/SportsMedia";
+import { storyImpactSections } from "@/components/StoryImpactBlocks";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { humanizeSignalType, publicConfidenceLabel, publicStoryText, publicTimingLabel, sourceCountText } from "@/lib/storyLanguage";
 
@@ -211,7 +212,7 @@ function whyItMatters(signal: SignalDetailLike) {
     signal.matchupEdge ??
     signal.rotationNote ??
     signal.lineupStatus ??
-    "This developing story can affect betting markets, fantasy projections, team context, fan expectations, or timing before the market fully adjusts."
+    "This developing story can affect team context, player role, game planning, fan expectations, or timing before the full public picture adjusts."
   );
 }
 
@@ -257,21 +258,25 @@ function whatChanged(signal: SignalDetailLike, timing: ReturnType<typeof timingP
 }
 
 function impactRows(signal: SignalDetailLike) {
-  const movement = signal.lineMovement ?? signal.line_movement;
   return [
     {
-      label: "Betting impact",
-      value: signal.bettingRelevance === false ? "No direct betting impact flagged" : movement?.open && movement.current ? `Market reaction: ${movement.open} to ${movement.current}` : "Watch pricing, props, totals, and derivative markets for reaction.",
-    },
-    {
-      label: "Fantasy impact",
-      value: signal.fantasyRelevance === false ? "No direct fantasy impact flagged" : signal.rotationNote ?? signal.lineupStatus ?? "Watch role, minutes, usage, lineup, and availability changes.",
-    },
-    {
-      label: "Team/fan impact",
+      label: "Team/game impact",
       value: signal.matchupEdge ?? signal.lineupStatus ?? signal.rotationNote ?? "Watch team availability, matchup context, and how public expectations shift.",
     },
   ];
+}
+
+function downstreamImpactInput(signal: SignalDetailLike, movement: LineMovementLike | null | undefined) {
+  const movementDetail = movement?.open && movement.current ? `Market reaction: ${movement.open} to ${movement.current}` : movement?.note ?? movement?.direction;
+  return {
+    text: [signalTitle(signal), signal.detail, signal.summary, signal.why_it_matters, signal.whyItMatters, signal.lineupStatus, signal.rotationNote, signal.matchupEdge, signal.type, signal.signal_type].filter(Boolean).join(" "),
+    market: movementDetail,
+    fantasyRelevance: signal.fantasyRelevance,
+    bettingRelevance: signal.bettingRelevance,
+    dfsRelevance: /\bdfs\b/i.test([signal.detail, signal.summary, signal.action_takeaway].filter(Boolean).join(" ")),
+    fantasyDetail: signal.fantasyRelevance === false ? "No direct fantasy impact flagged." : signal.rotationNote ?? signal.lineupStatus,
+    bettingDetail: signal.bettingRelevance === false ? "No direct betting impact flagged." : movementDetail,
+  };
 }
 
 function confirmWeakenRows(signal: SignalDetailLike, timing: ReturnType<typeof timingProfile>) {
@@ -575,6 +580,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   const storyContextLabel = storyContext(signal, sport, editorialCopy);
   const storyVerificationState = verificationState(signal, model.confidence, model.sources, editorialCopy);
   const storyImpactRows = impactRows(signal);
+  const downstreamImpacts = storyImpactSections(downstreamImpactInput(signal, movement));
   const nextRows = confirmWeakenRows(signal, model.timing);
   const calibrationInput = {
     confidence: model.confidence,
@@ -625,13 +631,6 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             imageAsset={drawerImageAsset}
           />
 
-          <div className="signal-detail-stat-grid">
-            <StatCard label="Confidence support" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence, editorialCopy)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
-            <StatCard label="Verification state" value={storyVerificationState} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />
-            <StatCard label="Timing window" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
-            <StatCard label="Replay freshness" value={freshnessLabel(model.ageMinutes, signalTimestamp(signal))} detail="Detection age" tone={model.ageMinutes !== null && model.ageMinutes <= 45 ? "green" : "gray"} />
-          </div>
-
           <Section title="Developing story" icon={<CheckCircle2 size={14} />}>
             <div className="signal-source-summary">
               <strong>{storyContextLabel}</strong>
@@ -659,35 +658,21 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             </div>
           </Section>
 
-          <Section title="Market reaction" icon={<LineChart size={14} />}>
-            {hasMovementContext ? (
-              <div className="signal-movement-card">
-                {hasLineMovement && (
-                  <>
-                    <div className="signal-movement-row">
-                      <span>Opening</span>
-                      <strong>{movement?.open ?? "Unavailable"}</strong>
-                    </div>
-                    <div className="signal-movement-track" role="img" aria-label="Market reaction from opening line to current line">
-                      <i />
-                    </div>
-                    <div className="signal-movement-row">
-                      <span>Current</span>
-                      <strong>{movement?.current ?? "Unavailable"}</strong>
-                    </div>
-                  </>
-                )}
-                <div className="signal-movement-note">
-                  <TrendingUp size={14} />
-                  {editorialCopy ? publicStoryText(movement?.note ?? movement?.direction ?? "Movement direction attached.", sport) : movement?.note ?? movement?.direction ?? "Movement direction attached."}
-                </div>
-              </div>
-            ) : (
-              <div className="signal-empty-inline">No market reaction is attached yet. Treat this as a watch item until supporting context is visible.</div>
-            )}
+          <Section title="What to watch next" icon={<Clock3 size={14} />}>
+            <div className={`signal-action-window is-${model.timing.tone}`}>
+              <strong>{model.timing.label === "Late" ? "Cooling story" : model.timing.label === "Widely Known" ? "Diminishing timing advantage" : "Window open"}</strong>
+              <p>{actionWindow(signal, model.timing)}</p>
+            </div>
+            <WhatToWatchNext confirm={nextRows[0].value} weaken={nextRows[1].value} next={nextRows[2].value} />
           </Section>
 
-          <Section title="Evidence" icon={<ShieldCheck size={14} />}>
+          <Section title="Source trail / timing / evidence" icon={<ShieldCheck size={14} />}>
+            <div className="signal-detail-stat-grid">
+              <StatCard label="Evidence strength" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence, editorialCopy)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
+              <StatCard label="Verification state" value={storyVerificationState} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />
+              <StatCard label="Timing window" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
+              <StatCard label="Replay freshness" value={freshnessLabel(model.ageMinutes, signalTimestamp(signal))} detail="Detection age" tone={model.ageMinutes !== null && model.ageMinutes <= 45 ? "green" : "gray"} />
+            </div>
             <div className="signal-source-summary">
               <strong>{editorialCopy ? (model.sources ? sourceCountText(model.sources) : "Source check pending") : model.sources ? `${model.sources} source checks attached` : "No source checks attached"}</strong>
               <span>{editorialCopy ? publicStoryText(signal.confirmationStrength ?? "Report posture is not available for this story view.") : signal.confirmationStrength ?? "Report posture is not available for this story view."}</span>
@@ -710,6 +695,36 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
               ))}
             </div>
           </Section>
+
+          {downstreamImpacts.map((impact) => (
+            <Section key={impact.label} title={impact.label} icon={<TrendingUp size={14} />}>
+              {impact.label === "Betting/market impact" && hasMovementContext ? (
+                <div className="signal-movement-card">
+                  {hasLineMovement && (
+                    <>
+                      <div className="signal-movement-row">
+                        <span>Opening</span>
+                        <strong>{movement?.open ?? "Unavailable"}</strong>
+                      </div>
+                      <div className="signal-movement-track" role="img" aria-label="Market reaction from opening line to current line">
+                        <i />
+                      </div>
+                      <div className="signal-movement-row">
+                        <span>Current</span>
+                        <strong>{movement?.current ?? "Unavailable"}</strong>
+                      </div>
+                    </>
+                  )}
+                  <div className="signal-movement-note">
+                    <TrendingUp size={14} />
+                    {impact.value}
+                  </div>
+                </div>
+              ) : (
+                <p>{impact.value}</p>
+              )}
+            </Section>
+          ))}
 
           <Section title={editorialCopy ? "Evidence review" : "EdgeSetter evidence layer"} icon={<LineChart size={14} />}>
             <div className="mb-2 grid min-w-0 gap-1.5 sm:grid-cols-2">
@@ -771,14 +786,6 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
               </div>
             </div>
             <div className="signal-empty-inline">{model.calibration.limitations.join(" ")}</div>
-          </Section>
-
-          <Section title="What to watch next" icon={<Clock3 size={14} />}>
-            <div className={`signal-action-window is-${model.timing.tone}`}>
-              <strong>{model.timing.label === "Late" ? "Cooling story" : model.timing.label === "Widely Known" ? "Diminishing timing advantage" : "Window open"}</strong>
-              <p>{actionWindow(signal, model.timing)}</p>
-            </div>
-            <WhatToWatchNext confirm={nextRows[0].value} weaken={nextRows[1].value} next={nextRows[2].value} />
           </Section>
 
           <Section title="Comparable story history" icon={<LineChart size={14} />}>
