@@ -183,7 +183,7 @@ function relativeTime(iso: string) {
   return `${Math.round(hours / 24)}d ago`;
 }
 
-function canonicalSituationToDrawerSignal(situation: CanonicalSituation) {
+export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) {
   const marketImpact = situation.latestEvidence.find((event) => event.marketImpact)?.marketImpact ?? null;
   return {
     id: `canonical-${situation.id}`,

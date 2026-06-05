@@ -216,7 +216,7 @@ export default function MLBBoard() {
         id: item.row.id,
         headline: item.story.headline,
         meta: [item.story.storyType, item.story.timing ?? item.row.timestamp].filter(Boolean).join(" / "),
-        onClick: item.situation.kind === "signal" ? () => openSituation(item.situation) : undefined,
+        onClick: (item.situation.kind === "signal" || item.situation.kind === "canonical") ? () => openSituation(item.situation) : undefined,
       }))
     : (leadStory.relatedItems ?? []).map((headline, index) => ({
         id: `quiet-mlb-${index}`,
@@ -380,7 +380,7 @@ export default function MLBBoard() {
                               key={situation.id}
                               story={story}
                               compact={compact && lane === "background"}
-                              onOpen={situation.kind === "signal" ? () => openSituation(situation) : undefined}
+                              onOpen={(situation.kind === "signal" || situation.kind === "canonical") ? () => openSituation(situation) : undefined}
                             />
                           );
                         })

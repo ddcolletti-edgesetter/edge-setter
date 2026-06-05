@@ -31,6 +31,7 @@ export interface HeadlineStoryItem {
   storyType?: string;
   status?: string;
   time?: string;
+  rawSignal?: unknown;
 }
 
 const SPORT_FALLBACKS: Record<Sport, { label: string; texture: string }> = {
@@ -171,10 +172,12 @@ export function HeadlineStoryRail({
   title,
   items,
   className,
+  onSelect,
 }: {
   title: string;
   items: HeadlineStoryItem[];
   className?: string;
+  onSelect?: (signal: unknown) => void;
 }) {
   return (
     <section className={cn("headline-story-rail", className)}>
@@ -184,7 +187,12 @@ export function HeadlineStoryRail({
       </header>
       <div className="headline-story-rail-list">
         {items.map((item) => (
-          <article key={item.id} className="headline-story-rail-item">
+          <article
+            key={item.id}
+            className="headline-story-rail-item"
+            onClick={onSelect && item.rawSignal ? () => onSelect(item.rawSignal) : undefined}
+            style={onSelect && item.rawSignal ? { cursor: "pointer" } : undefined}
+          >
             <TeamLogoLockup
               league={item.league}
               sport={item.sport ?? leagueToSport(item.league)}

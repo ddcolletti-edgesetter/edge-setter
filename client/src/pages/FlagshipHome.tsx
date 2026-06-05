@@ -19,6 +19,7 @@ import { NBA_SIGNALS, NBA_TONIGHT, type V2Signal } from "../data/v2MockData";
 import { Zap, ArrowRight, TrendingUp, Shield, BarChart3, ChevronRight, ChevronDown, Activity } from "lucide-react";
 import { SignalDetailDrawer } from "../components/SignalDetailDrawer";
 import { canonicalConfidenceSummary, canonicalEvidenceSummary, fetchCanonicalSituations, type CanonicalSituation } from "../lib/situationsApi";
+import { canonicalSituationToDrawerSignal } from "../lib/situationAdapters";
 
 // Local token override — warm LFL values
 const T = {
@@ -288,6 +289,7 @@ export default function FlagshipHome() {
       storyType: String(sig.type ?? sig.signal_type ?? sig.situationType ?? "source watch").replace(/_/g, " "),
       status: isCanonicalSituation(sig) ? canonicalEvidenceSummary(sig) : `${displaySignalCount(firstSignalValue(sig.source_count, sig.sources)) ?? "multi"} checks`,
       time: displayFreshness(firstSignalValue(sig.timestamp, sig.signal_time, sig.updated_at, sig.created_at)),
+      rawSignal: sig,
     };
   });
 
@@ -586,7 +588,11 @@ export default function FlagshipHome() {
 
             {/* Live signal list */}
             <div>
-              <HeadlineStoryRail title="Headline Developments" items={heroStoryRailItems} />
+              <HeadlineStoryRail
+                title="Headline Developments"
+                items={heroStoryRailItems}
+                onSelect={(sig: any) => setSelectedSignal(isCanonicalSituation(sig) ? canonicalSituationToDrawerSignal(sig) : sig)}
+              />
             </div>
           </div>
 
