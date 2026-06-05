@@ -174,18 +174,21 @@ export default function MLBBoard() {
   const leadStory = useMemo(() => {
     if (featuredRow) return toSituationStoryCardData(featuredRow);
     const quiet = toQuietLeagueLeadStory("MLB");
-    if (cleanSituations.length > 0) {
-      return {
-        ...quiet,
-        headline: "No clean high-impact MLB stories right now.",
-        dek: "The board is holding lower-quality or repetitive watch items below the lead-story threshold.",
-        whatHappened: "No clean MLB story has enough team identity, source support, and downstream impact to lead the board.",
-        whyItMatters: "Holding the lead quiet avoids turning routine or opening-line-only context into false urgency.",
-        watchNext: "Watch for confirmed lineups, pitcher changes, weather cells, late scratches, and source-backed movement.",
-      };
-    }
-    return quiet;
-  }, [cleanSituations.length, featuredRow]);
+    return {
+      ...quiet,
+      headline: "No clean high-impact MLB stories right now.",
+      dek: "The slate is in watch-board mode while lineup cards, starters, weather, bullpen use, and late scratches settle.",
+      whatHappened: "No MLB item has enough team identity, source support, and sports impact to lead the board.",
+      whyItMatters: "Keeping the lead compact avoids turning routine slate monitoring or opening-line-only context into false urgency.",
+      watchNext: "Watch confirmed lineups, pitcher changes, weather cells, late scratches, and source-backed market movement.",
+      relatedItems: [
+        "Lineup cards posting before first pitch",
+        "Probable and confirmed pitcher changes",
+        "Weather cells affecting parks or totals",
+        "Late scratches, bullpen load, and roster moves",
+      ],
+    };
+  }, [featuredRow]);
   const storyItems = useMemo(() => cleanSituations.map((situation) => {
     const row = toSituationRowData(situation);
     return {
@@ -313,7 +316,7 @@ export default function MLBBoard() {
           <div className="sm:hidden">
             <SituationLane
               lane="escalating"
-              title="Urgent Developing Stories"
+              title="Stories to Watch"
               summary="Highest-priority changes before the broader board."
               situations={topUrgentItems.map((item) => item.row)}
               compact
@@ -400,8 +403,8 @@ export default function MLBBoard() {
           />
         ) : (
           <SparseOperationalState
-            title="Today's MLB watch checklist"
-            detail="Lineup cards, probable and confirmed pitchers, weather cells, bullpen availability, late scratches, source agreement, and market reaction stay on watch."
+            title="Watch next"
+            detail="Lineup cards, probable and confirmed pitchers, weather cells, bullpen availability, late scratches, and source-backed market movement stay on the board."
             checks={["Lineup cards", "Pitcher status", "Weather cells", "Bullpen load"]}
           />
         )}

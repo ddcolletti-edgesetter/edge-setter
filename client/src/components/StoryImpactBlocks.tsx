@@ -43,14 +43,17 @@ export function StoryImpactBlocks({ input, compact, className }: { input: StoryI
   if (!sections.length) return null;
 
   return (
-    <div className={cn("story-impact-blocks", compact && "is-compact", className)}>
-      {sections.map((section) => (
-        <div className="story-impact-block" key={section.label}>
-          <span>{section.label}</span>
-          <p>{section.value}</p>
-        </div>
-      ))}
-    </div>
+    <details className={cn("story-impact-details", compact && "is-compact", className)}>
+      <summary>More impact context</summary>
+      <div className="story-impact-blocks">
+        {sections.map((section) => (
+          <div className="story-impact-block" key={section.label}>
+            <span>{section.label}</span>
+            <p>{section.value}</p>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 

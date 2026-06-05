@@ -211,6 +211,7 @@ export default function LiveIntelligenceHome() {
                 Lead story
               </div>
               <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" />
+              <HomepageSupportStack stories={homepageStories} pressure={livePressure} loading={loading} />
             </div>
 
             {hasAssignmentRail && (
@@ -510,6 +511,39 @@ function quietLeagueStory(league: typeof LEAGUES[number], title: string, note: s
       preferLeagueAsset: true,
     }),
   };
+}
+
+function HomepageSupportStack({
+  stories,
+  pressure,
+  loading,
+}: {
+  stories: ReturnType<typeof buildHomepageStoryModel>;
+  pressure: LivePressureContext;
+  loading: boolean;
+}) {
+  const gameWindow = stories.games[0]?.headline ?? (loading ? "Checking live game windows" : pressure.timing);
+  const storyWatch = stories.rail[0]?.headline ?? stories.leagues[0]?.stories[0]?.headline ?? "No verified lead change behind the top story";
+  const sourceTrail = stories.rail[0]?.overlay.sourceSummary?.convergence ?? pressure.source;
+  const latestNote = stories.leagues[0]?.summary ?? "Quiet board context remains useful while source support develops.";
+  const modules = [
+    { label: "Game Windows", value: gameWindow },
+    { label: "Stories to Watch", value: storyWatch },
+    { label: "Source Trail", value: sourceTrail },
+    { label: "Quiet Board Context", value: pressure.changed },
+    { label: "Latest Verified Notes", value: latestNote },
+  ];
+
+  return (
+    <div className="media-homepage-support" data-testid="homepage-lead-support-stack">
+      {modules.map((module) => (
+        <div key={module.label}>
+          <span>{module.label}</span>
+          <strong>{module.value}</strong>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 function QuietCoverageCard({ pressure, loading }: { pressure: LivePressureContext; loading: boolean }) {
@@ -1519,6 +1553,9 @@ const liveIntelCss = `
   box-shadow: 0 18px 44px rgba(0,0,0,0.18);
 }
 .media-homepage-main {
+  display: grid;
+  align-content: start;
+  gap: 10px;
   padding: 12px;
 }
 .media-homepage-rail {
@@ -1630,16 +1667,20 @@ const liveIntelCss = `
   background: linear-gradient(180deg, rgba(14,24,36,0.94), rgba(7,12,18,0.84));
 }
 .story-card-lead {
-  grid-template-columns: minmax(360px, 0.82fr) minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 0.64fr) minmax(0, 1fr);
   grid-template-areas:
     "visual copy"
     "visual evidence";
   align-items: start;
-  padding: 14px;
+  min-height: 0;
+  padding: 12px;
 }
 .story-card-lead .story-card-visual {
   grid-area: visual;
-  height: 100%;
+  height: auto;
+}
+.story-card-lead .story-card-visual .sports-story-visual {
+  min-height: 286px;
 }
 .story-card-lead .story-card-copy {
   grid-area: copy;
@@ -1754,7 +1795,7 @@ const liveIntelCss = `
 }
 .story-card-lead h2 {
   font-family: var(--font-serif);
-  font-size: clamp(2rem, 3.35vw, 3.35rem);
+  font-size: clamp(1.72rem, 2.55vw, 2.72rem);
   line-height: 1.03;
   -webkit-line-clamp: 3;
 }
@@ -1809,6 +1850,48 @@ const liveIntelCss = `
   color: #dbe7f4;
   font-size: 0.76rem;
   line-height: 1.28;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.story-impact-details {
+  align-self: start;
+}
+.story-card-lead .story-impact-details {
+  grid-column: 1 / -1;
+}
+.story-card-rail .story-impact-details,
+.story-card-compact .story-impact-details {
+  margin-top: 2px;
+}
+.media-homepage-support {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+.media-homepage-support div {
+  min-width: 0;
+  border: 1px solid rgba(82,101,122,0.18);
+  border-left: 2px solid rgba(245,184,65,0.5);
+  border-radius: 6px;
+  background: rgba(8,14,22,0.55);
+  padding: 8px 9px;
+}
+.media-homepage-support span {
+  display: block;
+  color: #f5b841;
+  font-family: var(--font-cond);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.media-homepage-support strong {
+  display: -webkit-box;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #dbe7f4;
+  font-size: 0.76rem;
+  line-height: 1.24;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
 }
@@ -1948,6 +2031,9 @@ const liveIntelCss = `
   .media-league-story-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .media-homepage-support {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (max-width: 760px) {
   .live-intel-home {
@@ -2021,6 +2107,7 @@ const liveIntelCss = `
     padding: 9px;
     grid-template-areas:
       "copy"
+      "impact"
       "evidence";
     gap: 8px;
   }
@@ -2083,6 +2170,19 @@ const liveIntelCss = `
   }
   .story-card-lead .story-card-reads,
   .story-card-lead .edge-overlay {
+    display: none;
+  }
+  .story-card-lead .story-impact-details {
+    grid-area: impact;
+  }
+  .story-card-lead .story-impact-details summary {
+    font-size: 0.58rem;
+  }
+  .media-homepage-support {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .media-homepage-support div:nth-child(n+3) {
     display: none;
   }
   .story-card p {

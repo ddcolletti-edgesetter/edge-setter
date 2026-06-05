@@ -157,15 +157,15 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
     : [story.whatHappened, story.whyItMatters, story.watchNext].filter(Boolean);
 
   return (
-    <article className="editorial-lead-story overflow-hidden rounded-md border border-border bg-card/90 shadow-[0_18px_46px_rgba(0,0,0,0.22)]">
+    <article className={cn("editorial-lead-story overflow-hidden rounded-md border border-border bg-card/90 shadow-[0_18px_46px_rgba(0,0,0,0.22)]", quiet && "editorial-lead-story-quiet")}>
       <EditorialImage
         candidateSrcs={leadImageCandidates}
         alt={imageAsset.alt}
         league={story.league}
-        className="h-[210px] sm:h-[280px] lg:h-[320px]"
+        className={quiet ? "h-[118px] sm:h-[148px] lg:h-[168px]" : "h-[210px] sm:h-[280px] lg:h-[320px]"}
       />
 
-      <div className="min-w-0 p-4 sm:p-5 lg:p-6">
+      <div className={cn("min-w-0", quiet ? "p-3 sm:p-4" : "p-4 sm:p-5 lg:p-6")}>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="section-kicker text-primary">{story.sectionTitle ?? story.league ?? "Lead Story"}</span>
           {story.matchup && <span className="truncate text-[0.76rem] font-bold text-muted-foreground">{story.matchup}</span>}
@@ -177,11 +177,11 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
           )}
         </div>
 
-        <h1 className="mt-2 max-w-4xl break-words font-sans text-3xl font-black leading-[0.98] text-foreground sm:text-4xl">
+        <h1 className={cn("mt-2 max-w-4xl break-words font-sans font-black text-foreground", quiet ? "text-xl leading-tight sm:text-2xl" : "text-3xl leading-[0.98] sm:text-4xl")}>
           {story.headline}
         </h1>
         {story.dek && (
-          <p className="mt-2.5 max-w-3xl break-words text-base font-medium leading-relaxed text-muted-foreground">
+          <p className={cn("max-w-3xl break-words font-medium text-muted-foreground", quiet ? "mt-2 text-sm leading-snug" : "mt-2.5 text-base leading-relaxed")}>
             {story.dek}
           </p>
         )}
@@ -192,7 +192,7 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
           <StoryPoint label="Watch next" value={story.watchNext} />
         </div>
 
-        <div className="mt-3 border-t border-border/70 pt-3">
+        <div className={cn("border-t border-border/70", quiet ? "mt-2.5 pt-2.5" : "mt-3 pt-3")}>
           <span className="data-label text-primary">Related Watch Items</span>
           <div className="mt-2 grid gap-2 sm:grid-cols-2">
             {relatedItems.slice(0, 4).map((item) => (
@@ -207,22 +207,23 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
       <div className="border-t border-border/70 bg-muted/10 px-4 py-3 sm:px-5">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="data-label mr-1 text-primary">EdgeSetter Intelligence</span>
-          <ProofPill label="Evidence strength" value={story.confidence ?? (quiet ? "Monitoring" : "Still forming")} />
-          <ProofPill label="Reports" value={story.sourceCount ? `${story.sourceCount} reports` : story.verification ?? "Check pending"} />
+          <ProofPill label="Source trail" value={story.sourceCount ? `${story.sourceCount} reports` : story.verification ?? "Monitoring"} />
           <ProofPill label="Timing" value={story.timing ?? "Monitoring"} />
           <ProofPill label="Evidence" value={story.evidence ?? (quiet ? "No elevated story yet" : "Review attached")} />
-          <AgentCalibrationBadge
-            compact
-            copyVariant="editorial"
-            input={{
-              confidence: parseConfidence(story.confidence),
-              sourceCount: story.sourceCount,
-              timingLabel: story.timing,
-              storyType: story.storyType,
-              marketReaction: story.market,
-              sourceSummary: story.verification,
-            }}
-          />
+          {!quiet && (
+            <AgentCalibrationBadge
+              compact
+              copyVariant="editorial"
+              input={{
+                confidence: parseConfidence(story.confidence),
+                sourceCount: story.sourceCount,
+                timingLabel: story.timing,
+                storyType: story.storyType,
+                marketReaction: story.market,
+                sourceSummary: story.verification,
+              }}
+            />
+          )}
           <div className="ml-auto flex min-w-0 flex-wrap gap-1.5">
             {onEvidence && (
               <Button type="button" size="sm" variant="ghost" onClick={onEvidence}>

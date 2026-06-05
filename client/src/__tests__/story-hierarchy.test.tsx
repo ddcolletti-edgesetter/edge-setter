@@ -36,17 +36,62 @@ describe("sports story hierarchy", () => {
     const text = document.body.textContent ?? "";
     expect(story.headline).not.toMatch(/market context on watch|role picture on watch|keeps .* on watch/i);
     expect(story.headline).toContain("line movement follows late roster context");
+    expect(screen.getByText("More impact context")).toBeInTheDocument();
     expect(screen.getByText("Fantasy impact")).toBeInTheDocument();
     expect(screen.getByText("Betting/market impact")).toBeInTheDocument();
 
     const whatChanged = text.indexOf("What happened");
     const whyItMatters = text.indexOf("Why it matters");
+    const watchNext = text.indexOf("Watch next");
+    const moreContext = text.indexOf("More impact context");
     const fantasy = text.indexOf("Fantasy impact");
     const betting = text.indexOf("Betting/market impact");
 
     expect(whatChanged).toBeGreaterThanOrEqual(0);
     expect(whyItMatters).toBeGreaterThan(whatChanged);
-    expect(fantasy).toBeGreaterThan(whyItMatters);
+    expect(watchNext).toBeGreaterThan(whyItMatters);
+    expect(moreContext).toBeGreaterThan(watchNext);
+    expect(fantasy).toBeGreaterThan(moreContext);
+    expect(betting).toBeGreaterThan(fantasy);
+  });
+
+  it("keeps board-card proof language compact before lower impact context", () => {
+    const story = toSituationStoryCardData({
+      ...baseRow,
+      id: "cfb-card-1",
+      title: "Ohio State availability update changes second-half rotation read",
+      subtitle: "Beat and team context changed the Buckeyes rotation picture.",
+      league: "CFB",
+      matchup: "Ohio State vs Michigan",
+      market: "Number moved after the availability update.",
+      marketReaction: "Number moved after the availability update.",
+      statusLabel: "Developing",
+      timingStageLabel: "Late-week update",
+      sportsIdentity: {
+        sport: "cfb",
+        team: "Ohio State",
+        opponent: "Michigan",
+      },
+    });
+
+    render(<SituationStoryCard story={story} featured />);
+
+    const text = document.body.textContent ?? "";
+    expect(text).toContain("Source trail");
+    expect(text).toContain("Timing");
+    expect(text).toContain("Evidence");
+    expect(text).not.toContain("Evidence review");
+    expect(text).not.toContain("source check complete");
+    expect(text).not.toContain("timing check complete");
+
+    const whyItMatters = text.indexOf("Why it matters");
+    const sourceTrail = text.indexOf("Source trail");
+    const moreContext = text.indexOf("More impact context");
+    const fantasy = text.indexOf("Fantasy impact");
+    const betting = text.indexOf("Betting/market impact");
+    expect(sourceTrail).toBeGreaterThan(whyItMatters);
+    expect(moreContext).toBeGreaterThan(sourceTrail);
+    expect(fantasy).toBeGreaterThan(moreContext);
     expect(betting).toBeGreaterThan(fantasy);
   });
 

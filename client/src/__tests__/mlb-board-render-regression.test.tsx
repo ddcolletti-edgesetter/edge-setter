@@ -103,4 +103,42 @@ describe("MLB board render regressions", () => {
     const headlineMatches = within(rail as HTMLElement).getAllByText(/Late LAD lineup update could change first-pitch plans/i);
     expect(headlineMatches).toHaveLength(1);
   });
+
+  it("renders the no-story MLB state as a compact editorial watch board", async () => {
+    mockUseAuth.mockReturnValue({
+      email: null,
+      user: null,
+      isPro: false,
+      authLoading: false,
+      login: vi.fn(),
+      logout: vi.fn(),
+    });
+    mockUseMLBSignals.mockReturnValue({
+      signals: [],
+      loading: false,
+      isLive: true,
+      error: null,
+      refresh: vi.fn(),
+    } as any);
+    mockUseCanonicalSituations.mockReturnValue({
+      situations: [],
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+    } as any);
+    mockFetchWithTimeout.mockResolvedValue({
+      json: async () => ({ games: [] }),
+    } as Response);
+
+    render(<MLBBoard />);
+
+    expect(await screen.findByRole("heading", { name: "No clean high-impact MLB stories right now." })).toBeInTheDocument();
+    expect(screen.getByText("The slate is in watch-board mode while lineup cards, starters, weather, bullpen use, and late scratches settle.")).toBeInTheDocument();
+    expect(screen.getAllByText("Lineup cards posting before first pitch").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Probable and confirmed pitcher changes").length).toBeGreaterThan(0);
+    expect(screen.getByText("Watch confirmed lineups, pitcher changes, weather cells, late scratches, and source-backed market movement.")).toBeInTheDocument();
+    expect(screen.getByRole("article")).toHaveClass("editorial-lead-story-quiet");
+    expect(document.body.textContent ?? "").not.toContain("Today's MLB watch checklist");
+    expect(document.body.textContent ?? "").not.toContain("Urgent Developing Stories");
+  });
 });

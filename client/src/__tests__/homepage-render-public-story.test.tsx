@@ -159,9 +159,26 @@ describe("homepage public story render", () => {
     expect(screen.getByText("What happened:")).toBeInTheDocument();
     expect(screen.getAllByText("Why it matters:").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Watch next:").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("homepage-lead-support-stack")).toBeInTheDocument();
+    expect(screen.getByText("Game Windows")).toBeInTheDocument();
+    expect(screen.getByText("Stories to Watch")).toBeInTheDocument();
+    expect(screen.getByText("Source Trail")).toBeInTheDocument();
+    expect(screen.getByText("Quiet Board Context")).toBeInTheDocument();
+    expect(screen.getByText("Latest Verified Notes")).toBeInTheDocument();
     expect(domText).toContain("Brandon Aiyuk's availability status changed and 49ers are now the team context to monitor.");
     expect(domText).toContain("Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.");
     expect(domText).toContain("Source trail reviewed. Timing reviewed. Impact still developing.");
+
+    const watchNextIndex = domText.indexOf("Watch next:");
+    const supportIndex = domText.indexOf("Source trail reviewed. Timing reviewed. Impact still developing.");
+    const moreContextIndex = domText.indexOf("More impact context");
+    const fantasyIndex = domText.indexOf("Fantasy impact");
+    const bettingIndex = domText.indexOf("Betting/market impact");
+    expect(watchNextIndex).toBeGreaterThanOrEqual(0);
+    expect(supportIndex).toBeGreaterThan(watchNextIndex);
+    expect(moreContextIndex).toBeGreaterThan(supportIndex);
+    expect(fantasyIndex).toBeGreaterThan(moreContextIndex);
+    expect(bettingIndex).toBeGreaterThan(fantasyIndex);
 
     expect(screen.queryByRole("heading", { name: "SF availability status is moving" })).not.toBeInTheDocument();
     expect(domText).not.toMatch(/\b[A-Z]{2,4} availability status is moving\b/);

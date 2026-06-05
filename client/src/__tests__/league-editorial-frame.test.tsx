@@ -6,7 +6,20 @@ import { toQuietLeagueLeadStory, toSituationStoryCardData } from "@/components/b
 
 describe("LeagueEditorialPageFrame", () => {
   it("renders a sports-media-first quiet MLB page structure", () => {
-    const leadStory = toQuietLeagueLeadStory("MLB");
+    const leadStory = {
+      ...toQuietLeagueLeadStory("MLB"),
+      headline: "No clean high-impact MLB stories right now.",
+      dek: "The slate is in watch-board mode while lineup cards, starters, weather, bullpen use, and late scratches settle.",
+      whatHappened: "No MLB item has enough team identity, source support, and sports impact to lead the board.",
+      whyItMatters: "Keeping the lead compact avoids turning routine slate monitoring or opening-line-only context into false urgency.",
+      watchNext: "Watch confirmed lineups, pitcher changes, weather cells, late scratches, and source-backed market movement.",
+      relatedItems: [
+        "Lineup cards posting before first pitch",
+        "Probable and confirmed pitcher changes",
+        "Weather cells affecting parks or totals",
+        "Late scratches, bullpen load, and roster moves",
+      ],
+    };
 
     render(
       <LeagueEditorialPageFrame
@@ -38,13 +51,16 @@ describe("LeagueEditorialPageFrame", () => {
     expect(screen.getByText("Top Watch Items")).toBeInTheDocument();
     expect(screen.getByText("Get MLB alerts before first pitch")).toBeInTheDocument();
     expect(screen.getByText("Get MLB alerts")).toBeInTheDocument();
-    expect(screen.getAllByText("Today's MLB watch: lineups, pitchers, weather, and late scratches").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("No clean high-impact MLB stories right now.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Lineup cards posting before first pitch").length).toBeGreaterThan(0);
     expect(screen.getByText("What happened")).toBeInTheDocument();
     expect(screen.getByText("Why it matters")).toBeInTheDocument();
     expect(screen.getByText("Watch next")).toBeInTheDocument();
     expect(screen.getByText("EdgeSetter Intelligence")).toBeInTheDocument();
+    expect(screen.getByText("Source trail")).toBeInTheDocument();
     expect(screen.getByText("No elevated story yet")).toBeInTheDocument();
     expect(screen.queryByText("Top Developing Story")).not.toBeInTheDocument();
+    expect(screen.getByRole("article")).toHaveClass("editorial-lead-story-quiet");
   });
 
   it("tightens raw report headlines for editorial lead use", () => {
