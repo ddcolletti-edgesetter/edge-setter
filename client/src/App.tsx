@@ -21,6 +21,7 @@ import SiteWatchLogs from "./pages/SiteWatchLogs";
 import DistributionDrafts from "./pages/DistributionDrafts";
 import DailyOps from "./pages/DailyOps";
 import LiveIntelligenceHome from "./pages/LiveIntelligenceHome";
+import FlagshipHome from "./pages/FlagshipHome";
 import NBABoard from "./pages/NBABoard";
 import MLBBoard from "./pages/MLBBoard";
 import NFLBoard from "./pages/NFLBoard";
@@ -68,7 +69,7 @@ function App() {
       <Router>
         <Switch>
           {/* ── Main routes ── */}
-          <Route path="/" component={LiveIntelligenceHome} />
+          <Route path="/" component={FlagshipHome} />
           <Route path="/nba" component={NBABoard} />
           <Route path="/mlb" component={MLBBoard} />
           <Route path="/nfl" component={NFLBoard} />
