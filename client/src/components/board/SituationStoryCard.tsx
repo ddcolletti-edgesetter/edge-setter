@@ -36,8 +36,10 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
         "situation-story-card grid min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-card/90 shadow-[0_16px_38px_rgba(0,0,0,0.18)]",
         featured ? "lg:grid-cols-[minmax(0,1fr)_330px]" : "lg:grid-cols-[minmax(0,1fr)_250px]",
         compact && "situation-story-card-compact",
+        onOpen && "cursor-pointer",
         className,
       )}
+      onClick={onOpen}
     >
       <div className={cn("min-w-0 max-w-[calc(100vw-48px)] overflow-hidden sm:max-w-full", compact ? "p-3" : "p-4")}>
         <div className="flex min-w-0 flex-wrap items-center gap-2">

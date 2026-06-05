@@ -2704,6 +2704,15 @@
   background: rgba(16, 24, 39, 0.72);
 }
 
+.situation-story-card.cursor-pointer {
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.situation-story-card.cursor-pointer:hover {
+  border-color: hsl(var(--primary) / 0.38);
+  box-shadow: 0 16px 38px rgba(0,0,0,0.22), 0 0 0 1px hsl(var(--primary) / 0.14);
+}
+
 .situation-timing-early {
   animation: operational-row-breathe 9s ease-in-out infinite;
 }
