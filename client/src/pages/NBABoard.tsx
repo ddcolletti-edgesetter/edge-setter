@@ -186,7 +186,7 @@ export default function NBABoard() {
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const hasSituations = situations.length > 0;
   const isInitialBoardLoading = !hasSituations && (isLoading || canonicalLoading || gamesLoading);
-  const topUrgentItems = storyItems.filter((item) => item.situation.lane === "escalating").slice(0, 2);
+  const topUrgentItems = storyItems.filter((item) => item.situation.lane === "escalating" && (item.situation.kind === "signal" || item.situation.kind === "canonical")).slice(0, 2);
   const quickLinks: EditorialQuickLink[] = [
     { id: "today", label: "Today", detail: "Full slate", active: activeTab === "today", onClick: () => setActiveTab("today") },
     { id: "lineup", label: "Starters", detail: "Lineups", active: activeTab === "lineup", onClick: () => setActiveTab("lineup") },
@@ -297,7 +297,7 @@ export default function NBABoard() {
                 <span className="data-label text-primary">Detailed Signal View</span>
                 <span className="text-[0.72rem] font-semibold text-muted-foreground">Source, timing, and lane detail below the editorial lead.</span>
               </div>
-              <TopDevelopments league="NBA" situations={situations} copyVariant="editorial" onSelect={openSituation} />
+              <TopDevelopments league="NBA" situations={situations.filter((s) => s.kind === "signal" || s.kind === "canonical")} copyVariant="editorial" onSelect={openSituation} />
             </section>
           )}
 
