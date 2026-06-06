@@ -26,9 +26,9 @@ export interface ConfidenceGaugeProps {
 }
 
 const SIZES = {
-  sm: { w: 96,  r: 34, sw: 5, numSz: 17, labSz: 8,  dotSz: 5 },
-  md: { w: 120, r: 44, sw: 6, numSz: 22, labSz: 9,  dotSz: 6 },
-  lg: { w: 154, r: 56, sw: 7, numSz: 28, labSz: 11, dotSz: 7 },
+  sm: { w: 96,  r: 34, sw: 5, numSz: 18, labSz: 9,  dotSz: 5 },
+  md: { w: 134, r: 48, sw: 6, numSz: 28, labSz: 10, dotSz: 6 },
+  lg: { w: 162, r: 60, sw: 7, numSz: 34, labSz: 12, dotSz: 7 },
 };
 
 // ── Palette ──────────────────────────────────────────────────────────────────
@@ -226,7 +226,7 @@ export function ConfidenceGauge({
               fontFamily: "'Barlow Condensed', sans-serif",
               fontSize: cfg.labSz,
               fontWeight: 700,
-              fill: 'rgba(248,250,252,0.38)',
+              fill: 'rgba(248,250,252,0.62)',
               letterSpacing: '0.14em',
             }}
           >
