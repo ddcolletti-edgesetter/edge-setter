@@ -56,6 +56,11 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
         <h3 className={cn("mt-2 max-w-3xl break-words font-sans font-bold leading-tight text-foreground", featured ? "text-xl sm:text-2xl" : "text-base sm:text-lg")}>
           {story.headline}
         </h3>
+        {story.row.detectionLeadTime && (
+          <div className="mt-1.5 inline-flex items-center gap-1 rounded border border-[rgba(24,212,123,0.3)] bg-[rgba(24,212,123,0.06)] px-2 py-0.5 text-[0.64rem] font-bold text-[var(--es-green)]">
+            ⚡ Flagged {story.row.detectionLeadTime} before confirmation
+          </div>
+        )}
         <SituationProgressBar state={story.row.lifecycleVisualState} />
         {story.dek && !compact && (
           <p className="mt-2 max-w-3xl break-words text-sm font-medium leading-snug text-muted-foreground">
@@ -82,7 +87,9 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           <ProofPill label="Source trail" value={sourceCountText(story.sourceCount)} />
           <ProofPill label="Timing" value={story.timing ?? story.lifecycle ?? story.row.statusLabel ?? "Developing"} />
           <ProofPill label="Evidence" value={story.evidence ?? evidenceCountText(story.row.evidenceCount)} />
-          {story.confidence && <ProofPill label="Confidence" value={story.confidence} />}
+          {(story.row.escalationState === "verified" || story.row.escalationState === "official")
+            ? <ProofPill label="Verified" value="VERIFIED" />
+            : story.confidence && <ProofPill label="Confidence" value={story.confidence} />}
           {featured && (
             <AgentCalibrationBadge
               compact

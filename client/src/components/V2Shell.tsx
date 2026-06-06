@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import MobileTabBar from "./MobileTabBar";
 import { NBA_LOGOS, MLB_LOGOS } from "@/lib/espnAssets";
 import {
-  Activity, BarChart2, ChevronDown, ChevronRight,
+  Activity, BarChart2, Bell, ChevronDown, ChevronRight,
   Database, Home, LayoutGrid, List, Menu, Moon, Sun,
   Star, TrendingUp, Wrench, Zap, CreditCard, LogOut,
 } from "lucide-react";
@@ -194,6 +194,32 @@ function ProUpgradeButton() {
   );
 }
 
+function SportIcon({ sport, size = 16 }: { sport: "basketball" | "baseball" | "football"; size?: number }) {
+  if (sport === "basketball") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M1 8h14M8 1a9 9 0 0 1 0 14M8 1a9 9 0 0 0 0 14" stroke="currentColor" strokeWidth="1.2" />
+      </svg>
+    );
+  }
+  if (sport === "baseball") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M3.5 3.5C5 5 5.5 7 5.5 8s-.5 3-2 4.5M12.5 3.5C11 5 10.5 7 10.5 8s.5 3 2 4.5" stroke="currentColor" strokeWidth="1.2" />
+        <path d="M5.5 8h5" stroke="currentColor" strokeWidth="1" />
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <ellipse cx="8" cy="8" rx="7" ry="4.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M1 8h14M3 5.5C4.5 6.5 6 7.2 8 7.2s3.5-.7 5-1.7M3 10.5C4.5 9.5 6 8.8 8 8.8s3.5.7 5 1.7" stroke="currentColor" strokeWidth="1" />
+    </svg>
+  );
+}
+
 // ── Sidebar ──────────────────────────────────────────────────────────────────
 // FIX: Added `style` prop so AppShell can inject position:fixed for mobile drawer
 function Sidebar({
@@ -218,14 +244,14 @@ function Sidebar({
   const isActive = (path?: string) => path && location === path;
   const leaguesNav = [
     { label: "Home", path: "/", icon: <Home size={16} />, active: location === "/" },
-    { label: "NBA", path: "/nba", icon: <Activity size={16} />, active: location.startsWith("/nba") },
-    { label: "MLB", path: "/mlb", icon: <LayoutGrid size={16} />, active: location.startsWith("/mlb") },
-    { label: "NFL", path: "/nfl", icon: <TrendingUp size={16} />, active: location.startsWith("/nfl") },
-    { label: "CFB", path: "/cfb", icon: <BarChart2 size={16} />, active: location.startsWith("/cfb") },
+    { label: "NBA", path: "/nba", icon: <SportIcon sport="basketball" size={16} />, active: location.startsWith("/nba") },
+    { label: "MLB", path: "/mlb", icon: <SportIcon sport="baseball" size={16} />, active: location.startsWith("/mlb") },
+    { label: "NFL", path: "/nfl", icon: <SportIcon sport="football" size={16} />, active: location.startsWith("/nfl") },
+    { label: "CFB", path: "/cfb", icon: <SportIcon sport="football" size={16} />, active: location.startsWith("/cfb") },
   ];
   const intelligenceNav = [
     { label: "My Edge", path: "/my-edge", icon: <Star size={16} />, active: location.startsWith("/my-edge") },
-    { label: "Alerts", path: "/alerts", icon: <Zap size={16} />, active: location.startsWith("/alerts") },
+    { label: "Alerts", path: "/alerts", icon: <Bell size={16} />, active: location.startsWith("/alerts") },
     { label: "Sources", path: "/sources", icon: <Database size={16} />, active: location.startsWith("/sources") },
     { label: "Pro", path: "/pro", icon: <CreditCard size={16} />, active: location.startsWith("/pro") },
   ];
@@ -255,7 +281,7 @@ function Sidebar({
       {/* Logo */}
       <div
         style={{
-          height: collapsed ? "56px" : "70px",
+          height: collapsed ? "56px" : "82px",
           display: "flex",
           alignItems: "center",
           padding: collapsed ? "0 7px" : "0 10px",
@@ -263,7 +289,7 @@ function Sidebar({
           flexShrink: 0,
           gap: collapsed ? "0" : "8px",
           background: "linear-gradient(180deg, rgba(7,16,25,1), rgba(5,10,15,0.98))",
-          overflow: "hidden",
+          overflow: "visible",
         }}
       >
         {collapsed ? (
@@ -725,7 +751,7 @@ function Sidebar({
         </div>
         {[
           { label: "My Edge", path: "/my-edge", icon: <Star size={15} /> },
-          { label: "Alerts", path: "/alerts", icon: <Zap size={15} /> },
+          { label: "Alerts", path: "/alerts", icon: <Bell size={15} /> },
           { label: "Pro", path: "/pro", icon: <CreditCard size={15} /> },
         ].map((item) => (
           <Link key={item.path} href={item.path}>
@@ -1222,7 +1248,7 @@ export default function AppShell({
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
       if (!mobile) setMobileDrawerOpen(false);
-      if (mobile && !mobileDrawerOpen) setDesktopCollapsed(false);
+      if (mobile && !mobileDrawerOpen) setDesktopCollapsedRaw(false);
     };
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);

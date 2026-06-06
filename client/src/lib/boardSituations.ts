@@ -59,6 +59,7 @@ export type BoardSituation = {
   confidenceNote?: string;
   sourceSummary?: string;
   timingAdvantage?: string;
+  detectionLeadTime?: string;
   marketReaction?: string;
   replayChain?: string[];
   isLive: boolean;

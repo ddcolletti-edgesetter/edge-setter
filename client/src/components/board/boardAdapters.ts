@@ -160,6 +160,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     confidenceNote: situation.confidenceNote,
     sourceSummary: situation.sourceSummary,
     timingAdvantage: situation.timingAdvantage,
+    detectionLeadTime: situation.detectionLeadTime,
     marketReaction: situation.marketReaction,
     replayChain: situation.replayChain,
   };

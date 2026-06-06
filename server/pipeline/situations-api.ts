@@ -150,8 +150,14 @@ export function mapCanonicalSituationToApiResponse(
   const events = listSituationEvents(record.situation_id);
   const stateHistory = listSituationStateHistory(record.situation_id);
   const confidenceHistory = listSituationConfidenceHistory(record.situation_id);
-  const confidence = snapshot?.confidence.score ?? 0;
+  const rawConfidence = snapshot?.confidence.score ?? 0;
   const lifecycleState = snapshot?.lifecycle_state ?? "watching";
+  const hasOfficialConfirmation = (snapshot?.confidence.factors?.official_confirmation ?? 0) > 0;
+  const hasContradiction = (snapshot?.confidence.factors?.contradiction_penalty ?? 0) < 0;
+  const confidence = lifecycleState === "official" ||
+    (lifecycleState === "confirmed" && hasOfficialConfirmation && !hasContradiction)
+    ? 100
+    : rawConfidence;
   const escalationScore = snapshot?.escalation_score ?? 0;
   const latestEvidence = mapLatestEvidence(events, confidenceHistory);
   const sourceCount = new Set(events.map((event) => event.source_id).filter(Boolean)).size;

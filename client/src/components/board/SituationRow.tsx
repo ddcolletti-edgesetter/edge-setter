@@ -76,6 +76,7 @@ export interface SituationRowData {
   confidenceNote?: string;
   sourceSummary?: string;
   timingAdvantage?: string;
+  detectionLeadTime?: string;
   marketReaction?: string;
   replayChain?: string[];
 }

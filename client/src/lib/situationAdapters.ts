@@ -58,6 +58,7 @@ export function canonicalSituationToBoardSituation(situation: CanonicalSituation
       : canonicalConfidenceSummary(situation),
     sourceSummary: convergence,
     timingAdvantage: cooling ? quietTimingCopy(situation.lifecycleState) : timingPressureCopy(situation.timingPressure),
+    detectionLeadTime: computeDetectionLeadTime(situation),
     marketReaction: situation.latestEvidence.find((event) => event.marketImpact)?.marketImpact ?? canonicalUncertaintySummary(situation) ?? latestEvidence,
     replayChain: [
       "First seen",
@@ -217,4 +218,20 @@ export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) 
     calibrationSummary: situation.calibrationSummary,
     calibrationLimitations: situation.calibrationLimitations,
   };
+}
+
+function computeDetectionLeadTime(situation: CanonicalSituation): string | undefined {
+  if (situation.lifecycleState !== "official" && situation.lifecycleState !== "confirmed") return undefined;
+  const confirmEntry = situation.stateHistoryPreview.find(
+    (entry) => entry.newState === "official" || entry.newState === "confirmed",
+  );
+  if (!confirmEntry || !situation.firstSeenAt) return undefined;
+  const detectedMs = new Date(situation.firstSeenAt).getTime();
+  const confirmedMs = new Date(confirmEntry.timestamp).getTime();
+  const gapMinutes = Math.round((confirmedMs - detectedMs) / 60_000);
+  if (gapMinutes < 15) return undefined;
+  if (gapMinutes < 60) return `${gapMinutes}m`;
+  const h = Math.floor(gapMinutes / 60);
+  const m = gapMinutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }

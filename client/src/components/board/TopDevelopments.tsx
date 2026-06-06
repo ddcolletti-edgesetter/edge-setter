@@ -21,6 +21,7 @@ const sportForLeague = {
 
 export function TopDevelopments({ league, situations, copyVariant = "legacy", onSelect }: TopDevelopmentsProps) {
   const rows = situations.slice(0, 5);
+  if (!rows.length) return null;
 
   return (
     <section className="top-developments-module rounded-md border border-border bg-card/85">
