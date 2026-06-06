@@ -4,7 +4,7 @@ import MobileTabBar from "./MobileTabBar";
 import { NBA_LOGOS, MLB_LOGOS } from "@/lib/espnAssets";
 import {
   Activity, BarChart2, ChevronDown, ChevronRight,
-  Home, LayoutGrid, List, Menu, Moon, Sun,
+  Database, Home, LayoutGrid, List, Menu, Moon, Sun,
   Star, TrendingUp, Wrench, Zap, CreditCard, LogOut,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -216,16 +216,20 @@ function Sidebar({
   };
 
   const isActive = (path?: string) => path && location === path;
-  const sidebarNav = [
+  const leaguesNav = [
     { label: "Home", path: "/", icon: <Home size={16} />, active: location === "/" },
     { label: "NBA", path: "/nba", icon: <Activity size={16} />, active: location.startsWith("/nba") },
     { label: "MLB", path: "/mlb", icon: <LayoutGrid size={16} />, active: location.startsWith("/mlb") },
     { label: "NFL", path: "/nfl", icon: <TrendingUp size={16} />, active: location.startsWith("/nfl") },
     { label: "CFB", path: "/cfb", icon: <BarChart2 size={16} />, active: location.startsWith("/cfb") },
+  ];
+  const intelligenceNav = [
     { label: "My Edge", path: "/my-edge", icon: <Star size={16} />, active: location.startsWith("/my-edge") },
     { label: "Alerts", path: "/alerts", icon: <Zap size={16} />, active: location.startsWith("/alerts") },
+    { label: "Sources", path: "/sources", icon: <Database size={16} />, active: location.startsWith("/sources") },
     { label: "Pro", path: "/pro", icon: <CreditCard size={16} />, active: location.startsWith("/pro") },
   ];
+  const sidebarNav = [...leaguesNav, ...intelligenceNav];
 
   return (
     <aside
@@ -295,7 +299,19 @@ function Sidebar({
       </div>
 
       <nav aria-label="Primary navigation" style={{ flex: 1, overflowY: "auto", padding: collapsed ? "5px 5px" : "6px 6px" }}>
-        {sidebarNav.map((item) => (
+        {!collapsed && (
+          <div style={{ padding: "8px 8px 3px", fontSize: "0.58rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#728198" }}>
+            Leagues
+          </div>
+        )}
+        {collapsed && <div style={{ height: 6 }} />}
+        {[...leaguesNav, { label: "__divider__", path: "", icon: null, active: false }, ...intelligenceNav].map((item) => {
+          if (item.label === "__divider__") {
+            return collapsed
+              ? <div key="div" style={{ height: 4, margin: "2px 0", borderTop: "1px solid rgba(148,163,184,0.12)" }} />
+              : <div key="div" style={{ padding: "8px 8px 3px", fontSize: "0.58rem", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.1em", color: "#728198", marginTop: 2 }}>Intelligence</div>;
+          }
+          return (
           <button
             key={item.label}
             type="button"
@@ -342,7 +358,8 @@ function Sidebar({
             </span>
             {!collapsed && <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>}
           </button>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Nav — legacy dead code, hidden, not rendered */}
@@ -666,6 +683,7 @@ function Sidebar({
           Intelligence
         </div>
         {[
+          { label: "Sources", path: "/sources", icon: <Database size={15} /> },
           { label: "Source Accuracy", path: "/accuracy", icon: <TrendingUp size={15} /> },
           { label: "Context Movement", path: "/tools/market-movement", icon: <BarChart2 size={15} /> },
           { label: "Team Trends",     path: "/nba?tab=trends", icon: <Activity size={15} /> },
@@ -737,53 +755,41 @@ function Sidebar({
         ))}
       </div>
 
-      {/* Account / Pro CTA */}
-      {!collapsed && (
-        <div
-          style={{
-            margin: "5px 8px 8px",
-            padding: "8px 10px",
-            background: isPro ? "linear-gradient(135deg, rgba(24,212,123,0.09), rgba(245,184,65,0.035))" : "linear-gradient(135deg, rgba(245,184,65,0.09), rgba(24,212,123,0.035))",
-            border: `1px solid ${isPro ? "rgba(24,212,123,0.18)" : "rgba(245,184,65,0.18)"}`,
-            borderRadius: "8px",
-            flexShrink: 0,
-          }}
-        >
-          <div
+      {/* Account identity strip (no box, no background) */}
+      {!collapsed && !isPro && (
+        <div style={{ margin: "4px 8px 8px", display: "grid", gap: 4, flexShrink: 0 }}>
+          <button
+            data-testid="sidebar-sign-in"
+            type="button"
+            onClick={() => setLocation(loginPathFor(location))}
             style={{
-              fontSize: "0.68rem", fontWeight: 700, color: isPro ? "#18D47B" : "#F5B841",
-              textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: "3px",
+              width: "100%", padding: "6px 10px", fontSize: "0.76rem",
+              borderRadius: "6px", border: "1px solid rgba(248,250,252,0.18)",
+              background: "rgba(248,250,252,0.08)", color: "#F8FAFC",
+              fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
+              letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
             }}
           >
-            {isPro ? "Account" : "Already a subscriber?"}
+            SIGN IN
+          </button>
+          <ProUpgradeButton />
+        </div>
+      )}
+      {!collapsed && isPro && (
+        <div style={{ margin: "4px 8px 8px", display: "flex", alignItems: "center", gap: 8, padding: "5px 8px", flexShrink: 0 }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: "50%",
+            background: "rgba(24,212,123,0.12)", border: "1px solid rgba(24,212,123,0.25)",
+            display: "grid", placeItems: "center", flexShrink: 0,
+          }}>
+            <span style={{ fontSize: "0.6rem", fontWeight: 800, color: "#18D47B" }}>
+              {email ? email[0].toUpperCase() : "P"}
+            </span>
           </div>
-          <div style={{ fontSize: "0.68rem", color: "#CBD5E1", marginBottom: "8px", lineHeight: 1.35 }}>
-            {isPro ? (email ?? "Subscriber account") : "Sign in to restore access"}
-          </div>
-          {isPro ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, color: "#94A3B8", fontSize: "0.66rem", lineHeight: 1.25 }}>
-              <Star size={12} style={{ color: "#18D47B", flexShrink: 0 }} />
-              <span>Account actions live in the topbar menu.</span>
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 5 }}>
-              <button
-                data-testid="sidebar-sign-in"
-                type="button"
-                onClick={() => setLocation(loginPathFor(location))}
-                style={{
-                  width: "100%", padding: "6px 10px", fontSize: "0.76rem",
-                  borderRadius: "6px", border: "1px solid rgba(248,250,252,0.18)",
-                  background: "rgba(248,250,252,0.08)", color: "#F8FAFC",
-                  fontFamily: "'Barlow Condensed', sans-serif", fontWeight: 800,
-                  letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer",
-                }}
-              >
-                SIGN IN
-              </button>
-              <ProUpgradeButton />
-            </div>
-          )}
+          <span style={{ fontSize: "0.7rem", color: "#94A3B8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+            {email ? email.split("@")[0] : "Pro"}
+          </span>
+          <Star size={11} style={{ color: "#18D47B", flexShrink: 0 }} />
         </div>
       )}
     </aside>
@@ -1201,7 +1207,13 @@ export default function AppShell({
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURN (React rules of hooks)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [desktopCollapsed, setDesktopCollapsed] = useState(false);
+  const [desktopCollapsed, setDesktopCollapsedRaw] = useState(() => {
+    try { return localStorage.getItem("es-sidebar-collapsed") === "true"; } catch { return false; }
+  });
+  const setDesktopCollapsed = (v: boolean) => {
+    try { localStorage.setItem("es-sidebar-collapsed", String(v)); } catch {}
+    setDesktopCollapsedRaw(v);
+  };
   const { theme } = useTheme();
   const isLight = (theme as "dark" | "light") === "light";
 
@@ -1238,7 +1250,7 @@ export default function AppShell({
     if (isMobile) {
       setMobileDrawerOpen((o) => !o);
     } else {
-      setDesktopCollapsed((c) => !c);
+      setDesktopCollapsed(!desktopCollapsed);
     }
   };
 
@@ -1320,7 +1332,7 @@ export default function AppShell({
       ) : (
         <Sidebar
           collapsed={desktopCollapsed}
-          onToggle={() => setDesktopCollapsed((c) => !c)}
+          onToggle={() => setDesktopCollapsed(!desktopCollapsed)}
         />
       )}
 

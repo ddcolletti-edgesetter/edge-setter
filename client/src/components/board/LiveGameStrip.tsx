@@ -58,7 +58,15 @@ export function LiveGameStrip({
       </div>
 
       {games.length > 0 ? (
-        <div className={cn("flex max-w-full gap-2 overflow-x-auto overscroll-x-contain px-3 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden", compactMonitoring ? "py-1.5" : "py-2")}>
+        <div className={cn(
+          "max-w-full px-3 sm:px-4",
+          compactMonitoring ? "py-1.5" : "py-2",
+          sortedGames.length <= 3
+            ? "grid gap-2"
+            : "flex gap-2 overflow-x-auto overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        )}
+          style={sortedGames.length <= 3 ? { gridTemplateColumns: `repeat(${sortedGames.length}, minmax(0, 1fr))` } : undefined}
+        >
           {sortedGames.map((game, index) => (
             <LiveGamePill
               key={game.id}
@@ -66,7 +74,7 @@ export function LiveGameStrip({
               compact={compactMonitoring && index > 0}
               copyVariant={copyVariant}
               selected={game.id === activeGameId}
-              className={index === 0 ? "board-live-pill-featured" : undefined}
+              className={cn(index === 0 ? "board-live-pill-featured" : undefined, sortedGames.length <= 3 && "w-full")}
               onSelect={onGameSelect}
             />
           ))}

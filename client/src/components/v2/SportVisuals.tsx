@@ -69,7 +69,7 @@ export const TEAM_COLORS: Record<string, { primary: string; secondary: string }>
   ND:  { primary: "#0C2340", secondary: "#C99700" },
   FSU: { primary: "#782F40", secondary: "#CEB888" },
   CLEM:{ primary: "#F56600", secondary: "#522D80" },
-  DEFAULT: { primary: "#101827", secondary: "#F5B841" },
+  DEFAULT: { primary: "#101827", secondary: "#94A3B8" },
 };
 
 export function getTeamColors(abbr: string) {

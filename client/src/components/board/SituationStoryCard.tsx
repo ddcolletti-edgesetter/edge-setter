@@ -56,6 +56,7 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
         <h3 className={cn("mt-2 max-w-3xl break-words font-sans font-bold leading-tight text-foreground", featured ? "text-xl sm:text-2xl" : "text-base sm:text-lg")}>
           {story.headline}
         </h3>
+        <SituationProgressBar state={story.row.lifecycleVisualState} />
         {story.dek && !compact && (
           <p className="mt-2 max-w-3xl break-words text-sm font-medium leading-snug text-muted-foreground">
             {story.dek}
@@ -64,8 +65,8 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
 
         <div className={cn("mt-3 grid min-w-0 gap-2", featured ? "md:grid-cols-2" : "md:grid-cols-3")}>
           <StoryRead label="What happened" value={story.whatHappened} />
-          <StoryRead label="Why it matters" value={story.whyItMatters} />
-          <StoryRead label="Watch next" value={story.watchNext} />
+          {story.whyItMatters && <StoryRead label="Why it matters" value={story.whyItMatters} />}
+          {story.watchNext && <StoryRead label="Watch next" value={story.watchNext} />}
           {featured && <StoryRead label="What EdgeSetter knows" value={story.edgeSetterKnows} />}
         </div>
 
@@ -81,7 +82,8 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           <ProofPill label="Source trail" value={sourceCountText(story.sourceCount)} />
           <ProofPill label="Timing" value={story.timing ?? story.lifecycle ?? story.row.statusLabel ?? "Developing"} />
           <ProofPill label="Evidence" value={story.evidence ?? evidenceCountText(story.row.evidenceCount)} />
-          {!compact && featured && (
+          {story.confidence && <ProofPill label="Confidence" value={story.confidence} />}
+          {featured && (
             <AgentCalibrationBadge
               compact
               copyVariant="editorial"
@@ -165,4 +167,33 @@ function parseConfidence(value?: string) {
   if (!value) return null;
   const parsed = Number.parseFloat(value.replace("%", ""));
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+const PROGRESS_STAGES = ["Detected", "Signals aligning", "Consensus forming", "Verified"] as const;
+
+function stageIndex(state?: string): number {
+  if (!state) return 0;
+  if (state === "resolved" || state === "archived" || state === "consensus-forming" || state === "cooling") return 3;
+  if (state === "confirming" || state === "market-reacting") return 2;
+  if (state === "developing") return 1;
+  return 0;
+}
+
+function SituationProgressBar({ state }: { state?: string }) {
+  const active = stageIndex(state);
+  return (
+    <div className="mt-1.5 flex min-w-0 items-center gap-1">
+      {PROGRESS_STAGES.map((label, i) => (
+        <div key={label} className="flex min-w-0 flex-1 flex-col gap-0.5">
+          <div className={cn(
+            "h-0.5 w-full rounded-full transition-colors",
+            i <= active ? "bg-primary" : "bg-border/60",
+          )} />
+          {i === active && (
+            <span className="truncate text-[0.58rem] font-bold uppercase tracking-widest text-primary">{label}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }

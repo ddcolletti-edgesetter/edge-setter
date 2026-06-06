@@ -2474,8 +2474,8 @@ const liveIntelCss = `
   display: inline-grid;
   position: relative;
   width: fit-content;
-  gap: 5px;
-  padding: 14px 22px 13px 22px;
+  gap: 3px;
+  padding: 7px 18px 6px 18px;
   border: 1px solid rgba(217,164,65,0.24);
   border-left: 4px solid rgba(245,184,65,0.92);
   border-radius: 7px;
@@ -2489,30 +2489,30 @@ const liveIntelCss = `
   position: absolute;
   left: 18px;
   right: 18px;
-  bottom: 5px;
+  bottom: 4px;
   height: 1px;
   background: linear-gradient(90deg, rgba(245,184,65,0.74), rgba(24,212,123,0.28), transparent);
 }
 .live-intel-brand-logo-crop {
   display: block;
-  width: min(310px, 58vw);
-  height: 58px;
+  width: min(260px, 48vw);
+  height: 30px;
   overflow: hidden;
 }
 .live-intel-brand-anchor img {
   display: block;
-  width: 520px;
+  width: 420px;
   max-width: none;
-  height: 98px;
+  height: 54px;
   object-fit: contain;
   object-position: left center;
-  transform: translate(-53px, -24px);
+  transform: translate(-38px, -14px);
 }
 .live-intel-brand-anchor strong {
   display: block;
   color: #f8fafc;
   font-family: var(--font-cond);
-  font-size: 1.58rem;
+  font-size: 1.2rem;
   font-weight: 950;
   letter-spacing: 0.14em;
   line-height: 1;
@@ -2521,7 +2521,7 @@ const liveIntelCss = `
 .live-intel-brand-anchor span {
   color: #f5b841;
   font-family: var(--font-cond);
-  font-size: 0.76rem;
+  font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.16em;
   text-transform: uppercase;

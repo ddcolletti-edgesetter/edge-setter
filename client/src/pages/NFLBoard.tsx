@@ -195,6 +195,7 @@ function NFLBoardInner() {
         <div className="grid gap-3">
           {visibleLanes.map((lane, index) => {
             const laneItems = storyItems.filter((item) => item.situation.lane === lane);
+            if (!laneItems.length) return null;
             return (
               <section
                 key={lane}
@@ -225,6 +226,13 @@ function NFLBoardInner() {
             );
           })}
         </div>
+
+        {storyItems.length > 0 && (
+          <div className="flex items-center justify-between rounded border border-border/50 bg-muted/5 px-3 py-2 text-[0.7rem] font-semibold text-muted-foreground/70">
+            <span>{storyItems.length} NFL stories shown</span>
+            <span>Board updated {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+        )}
 
         {(loading || canonicalLoading) && <div className="es-skeleton h-20 rounded border border-border" />}
       </main>

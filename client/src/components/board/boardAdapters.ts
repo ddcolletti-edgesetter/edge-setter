@@ -16,9 +16,9 @@ export type SituationStoryCardData = {
   dek?: string;
   sectionTitle?: string;
   whatHappened: string;
-  whyItMatters: string;
+  whyItMatters?: string;
   edgeSetterKnows: string;
-  watchNext: string;
+  watchNext?: string;
   relatedItems?: string[];
   ctaLabel?: string;
   matchup?: string;
@@ -193,7 +193,7 @@ export function toSituationStoryCardData(row: SituationRowData): SituationStoryC
     whyItMatters,
     edgeSetterKnows,
     watchNext,
-    relatedItems: relatedWatchItems(row, { headline, whatHappened, whyItMatters, watchNext }),
+    relatedItems: relatedWatchItems(row, { headline, whatHappened, whyItMatters: whyItMatters ?? "", watchNext: watchNext ?? "" }),
     ctaLabel: "Open Story",
     matchup,
     primaryTeam: identity?.awayTeam ?? identity?.team,
@@ -679,7 +679,7 @@ function storyWhatHappened(row: SituationRowData) {
   return factualEvent(cleanRawReport(row.title), row);
 }
 
-function storyWhyItMatters(row: SituationRowData) {
+function storyWhyItMatters(row: SituationRowData): string | undefined {
   const text = `${row.title} ${row.subtitle ?? ""} ${row.market ?? ""}`.toLowerCase();
   if (text.includes("market") || text.includes("line move")) {
     return row.league === "NBA"
@@ -691,23 +691,14 @@ function storyWhyItMatters(row: SituationRowData) {
       ? "Availability changes can shift starters, rotations, usage, and pre-tip pricing."
       : "Availability changes can shift lineups, defensive alignment, bullpen planning, and pricing.";
   }
-  if (text.includes("lineup") || text.includes("scratch")) return "Lineup changes can alter role, matchup, fantasy, fan, and market context quickly.";
-  if (text.includes("pitcher") || text.includes("starter")) return "Pitching changes can reshape totals, bullpen usage, and game context before first pitch.";
-  return "This story can affect lineup, role, game, fantasy, fan, or market context.";
+  if (row.evidenceGrowthLabel) return cleanStoryLine(row.evidenceGrowthLabel);
+  return undefined;
 }
 
-function storyWatchNext(row: SituationRowData) {
-  const text = `${row.title} ${row.subtitle ?? ""} ${row.market ?? ""}`.toLowerCase();
+function storyWatchNext(row: SituationRowData): string | undefined {
   if (row.uncertaintyLabel) return cleanStoryLine(row.uncertaintyLabel);
-  if (text.includes("market") || text.includes("line move")) {
-    return row.league === "NBA"
-      ? "Watch for starters, warmup reports, late scratches, injury context, and whether the number keeps moving before tip."
-      : "Watch for lineup, pitching, injury, weather, bullpen, or late-scratch context that explains the move.";
-  }
-  if (text.includes("injury") || text.includes("out") || text.includes("questionable")) return "Watch for the next official status update, warmup/report confirmation, and role impact.";
-  if (text.includes("lineup") || text.includes("scratch")) return "Watch the next lineup card, late scratch note, and any follow-on market reaction.";
-  if (text.includes("pitcher") || text.includes("starter")) return "Watch pitcher confirmation, bullpen availability, weather, and any totals movement.";
-  return "Watch for the next official update, source agreement, and any game-context reaction.";
+  if (row.timingStageLabel) return cleanStoryLine(row.timingStageLabel);
+  return undefined;
 }
 
 function cleanRawReport(value?: string | null) {

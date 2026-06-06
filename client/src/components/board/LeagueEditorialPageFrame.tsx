@@ -22,6 +22,7 @@ export type EditorialHeadlineItem = {
   id: string;
   headline: string;
   meta?: string;
+  confidence?: string;
   onClick?: () => void;
 };
 
@@ -109,13 +110,19 @@ export function LeagueEditorialPageFrame({ league, quickLinks, headlines, lead, 
               onClick={item.onClick}
               className="block w-full min-w-0 py-2.5 text-left hover:text-primary"
             >
-              <strong className="block break-words text-sm font-bold leading-snug text-foreground">{item.headline}</strong>
+              <div className="flex min-w-0 items-start justify-between gap-2">
+                <strong className="block break-words text-sm font-bold leading-snug text-foreground">{item.headline}</strong>
+                {item.confidence && (
+                  <span className="shrink-0 rounded border border-border bg-muted/20 px-1.5 py-0.5 text-[0.62rem] font-bold tabular-nums text-primary">{item.confidence}</span>
+                )}
+              </div>
               {item.meta && <span className="mt-1 block truncate text-[0.72rem] font-semibold text-muted-foreground">{item.meta}</span>}
             </button>
           );})}
         </div>
         {conversion && (
-          <div className="mt-3 rounded-md border border-primary/25 bg-primary/5 p-3">
+          <div className="mt-4 border-t border-primary/20 pt-3">
+          <div className="rounded-md border border-primary/25 bg-primary/5 p-3">
             <div className="flex items-center gap-2">
               <Bell className="h-4 w-4 text-primary" />
               <strong className="min-w-0 text-sm font-bold text-foreground">{conversion.title}</strong>
@@ -132,6 +139,7 @@ export function LeagueEditorialPageFrame({ league, quickLinks, headlines, lead, 
             <Button type="button" size="sm" className="mt-3 w-full" onClick={conversion.onClick}>
               {conversion.ctaLabel}
             </Button>
+          </div>
           </div>
         )}
       </aside>
@@ -188,8 +196,8 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
 
         <div className="mt-3 grid gap-2 md:grid-cols-3">
           <StoryPoint label="What happened" value={story.whatHappened} />
-          <StoryPoint label="Why it matters" value={story.whyItMatters} />
-          <StoryPoint label="Watch next" value={story.watchNext} />
+          {story.whyItMatters && <StoryPoint label="Why it matters" value={story.whyItMatters} />}
+          {story.watchNext && <StoryPoint label="Watch next" value={story.watchNext} />}
         </div>
 
         <div className={cn("border-t border-border/70", quiet ? "mt-2.5 pt-2.5" : "mt-3 pt-3")}>

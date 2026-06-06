@@ -151,22 +151,24 @@ function CFBBoardInner() {
           onTabChange={(value) => setSidebarFilter(value as CFBFilterKey)}
           density="compact"
           actions={[{ label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { refresh(); refreshCanonical(); }, variant: "outline" }]}
-        >
-          <div className="flex max-w-full gap-1.5 overflow-x-auto overscroll-x-contain border-border/70 pl-0 [scrollbar-width:none] sm:border-l sm:pl-3 [&::-webkit-scrollbar]:hidden">
-            {TAB_FILTERS.map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setTabFilter(tab)}
-                className={`ux-tab-interactive h-6 shrink-0 rounded border px-2 text-[0.62rem] font-bold uppercase tracking-widest sm:h-7 sm:px-2.5 sm:text-[0.66rem] ${
-                  tabFilter === tab ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/20 text-muted-foreground"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </BoardCommandBar>
+        />
+
+        <div className="flex max-w-full gap-1.5 overflow-x-auto overscroll-x-contain rounded border border-border/60 bg-muted/5 px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <span className="shrink-0 self-center text-[0.6rem] font-bold uppercase tracking-widest text-muted-foreground/70">Conference</span>
+          <div className="mx-1.5 w-px self-stretch bg-border/60" />
+          {TAB_FILTERS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setTabFilter(tab)}
+              className={`ux-tab-interactive h-6 shrink-0 rounded border px-2 text-[0.62rem] font-bold uppercase tracking-widest sm:h-7 sm:px-2.5 sm:text-[0.66rem] ${
+                tabFilter === tab ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/20 text-muted-foreground"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
 
         <TrackRecordStrip league="CFB" darkMode={darkMode} />
 
@@ -270,6 +272,13 @@ function CFBBoardInner() {
             );
           })}
         </div>
+
+        {situations.length > 0 && (
+          <div className="flex items-center justify-between rounded border border-border/50 bg-muted/5 px-3 py-2 text-[0.7rem] font-semibold text-muted-foreground/70">
+            <span>{situations.length} CFB stories shown</span>
+            <span>Board updated {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+          </div>
+        )}
 
         {(loading || canonicalLoading) && <div className="es-skeleton h-20 rounded border border-border" />}
 

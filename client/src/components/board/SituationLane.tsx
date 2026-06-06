@@ -77,6 +77,8 @@ export function SituationLane({
   const visibleSituations = typeof limit === "number" ? situations.slice(0, limit) : situations;
   const hiddenCount = Math.max(0, situations.length - visibleSituations.length);
 
+  if (!situations.length) return null;
+
   return (
     <section
       className={cn(

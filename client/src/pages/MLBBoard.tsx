@@ -216,6 +216,7 @@ export default function MLBBoard() {
         id: item.row.id,
         headline: item.story.headline,
         meta: [item.story.storyType, item.story.timing ?? item.row.timestamp].filter(Boolean).join(" / "),
+        confidence: item.story.confidence,
         onClick: (item.situation.kind === "signal" || item.situation.kind === "canonical") ? () => openSituation(item.situation) : undefined,
       }))
     : (leadStory.relatedItems ?? []).map((headline, index) => ({
@@ -257,9 +258,6 @@ export default function MLBBoard() {
           title="MLB Today"
           statusLabel={`${monitoredLabel} / Lineups, pitchers, weather, and market movement`}
           liveCount={liveGames.filter((game) => game.statusDescription?.toLowerCase().includes("in progress")).length}
-          tabs={FEED_TABS.map((tab) => ({ id: tab.key, label: tab.label }))}
-          activeTabId={activeTab}
-          onTabChange={setActiveTab}
           actions={[{ label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { refresh(); refreshCanonical(); }, variant: "outline" }]}
         />
 
@@ -360,6 +358,7 @@ export default function MLBBoard() {
             <div className="grid gap-3">
               {visibleLanes.map((lane, index) => {
                 const laneItems = storyItems.filter((item) => item.situation.lane === lane);
+                if (!laneItems.length) return null;
                 return (
                   <section
                     key={lane}
@@ -394,6 +393,12 @@ export default function MLBBoard() {
                 );
               })}
             </div>
+            {storyItems.length > 0 && (
+              <div className="mt-1 flex items-center justify-between rounded border border-border/50 bg-muted/5 px-3 py-2 text-[0.7rem] font-semibold text-muted-foreground/70">
+                <span>{storyItems.length} MLB stories shown</span>
+                <span>Board updated {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+            )}
           </>
         ) : isInitialBoardLoading ? (
           <BoardLoadingState
