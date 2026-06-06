@@ -69,7 +69,7 @@ function App() {
       <Router>
         <Switch>
           {/* ── Main routes ── */}
-          <Route path="/" component={FlagshipHome} />
+          <Route path="/" component={LiveIntelligenceHome} />
           <Route path="/nba" component={NBABoard} />
           <Route path="/mlb" component={MLBBoard} />
           <Route path="/nfl" component={NFLBoard} />
