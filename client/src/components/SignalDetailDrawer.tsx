@@ -98,7 +98,6 @@ const clamp = (value: number, min = 0, max = 100) => Math.min(max, Math.max(min,
 
 function readConfidence(signal: SignalDetailLike) {
   const verdict = (signal.verdict ?? signal.status_tag ?? "").toLowerCase();
-  console.log("EDGESETTER DEBUG verdict:", verdict, "confidence:", signal.confidence);
   if (verdict.includes("verified") || verdict.includes("confirmed")) return 100;
   if (typeof signal.confidence === "number") return clamp(signal.confidence);
   if (typeof signal.confidence_score === "number") return clamp(signal.confidence_score);
