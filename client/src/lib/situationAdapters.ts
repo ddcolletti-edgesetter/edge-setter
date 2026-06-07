@@ -222,7 +222,6 @@ export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) 
 }
 
 function computeDetectionLeadTime(situation: CanonicalSituation): string | undefined {
-  if (situation.lifecycleState !== "official" && situation.lifecycleState !== "confirmed") return undefined;
   const confirmEntry = situation.stateHistoryPreview.find(
     (entry) => entry.newState === "official" || entry.newState === "confirmed",
   );
