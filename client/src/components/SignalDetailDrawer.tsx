@@ -681,7 +681,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
           </Section>
 
           <Section title="Source trail / timing / evidence" icon={<ShieldCheck size={14} />}>
-            <<div style={{ display: "flex", justifyContent: "center", marginBottom: 16, paddingTop: 4 }}>
+            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, paddingTop: 4 }}>
   <ConfidenceGauge
     value={model.confidence}
     agentsAgree={agentsFromConfidenceAndSources(model.confidence, model.sources)}
