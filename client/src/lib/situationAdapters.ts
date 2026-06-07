@@ -48,7 +48,7 @@ export function canonicalSituationToBoardSituation(situation: CanonicalSituation
     timeLabel: relativeTime(situation.lastUpdatedAt),
     movementLabel: situation.latestEvidence.find((event) => event.marketImpact)?.marketImpact ?? undefined,
     score: situation.operationalVisibilityScore,
-    confidence: situation.confidence,
+    confidence: (situation.lifecycleState === "confirmed" || situation.lifecycleState === "official") ? 100 : situation.confidence,
     sourceCount: situation.sourceCount,
     trustLabel: situation.confidenceLabel,
     lifecycle: signalLifecycleForCanonicalSituation(situation),
@@ -195,7 +195,7 @@ export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) 
     player: situation.players[0] ?? null,
     team: situation.teams[0] ?? null,
     type: situation.situationType,
-    confidence: situation.confidence,
+    confidence: (situation.lifecycleState === "confirmed" || situation.lifecycleState === "official") ? 100 : situation.confidence,
     verdict: situation.confidenceLabel,
     status_tag: canonicalLifecycleLabel(situation.lifecycleState),
     action_takeaway: situation.confidenceFactors.whatRemainsUncertain[0] ?? situation.lifecycleExplanation,
@@ -217,6 +217,7 @@ export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) 
     weakeningSignals: situation.weakeningSignals,
     calibrationSummary: situation.calibrationSummary,
     calibrationLimitations: situation.calibrationLimitations,
+    detectionLeadTime: computeDetectionLeadTime(situation),
   };
 }
 
@@ -225,9 +226,10 @@ function computeDetectionLeadTime(situation: CanonicalSituation): string | undef
   const confirmEntry = situation.stateHistoryPreview.find(
     (entry) => entry.newState === "official" || entry.newState === "confirmed",
   );
-  if (!confirmEntry || !situation.firstSeenAt) return undefined;
+  const confirmedTimestamp = confirmEntry?.timestamp ?? situation.lastUpdatedAt;
+  if (!confirmedTimestamp || !situation.firstSeenAt) return undefined;
   const detectedMs = new Date(situation.firstSeenAt).getTime();
-  const confirmedMs = new Date(confirmEntry.timestamp).getTime();
+  const confirmedMs = new Date(confirmedTimestamp).getTime();
   const gapMinutes = Math.round((confirmedMs - detectedMs) / 60_000);
   if (gapMinutes < 15) return undefined;
   if (gapMinutes < 60) return `${gapMinutes}m`;

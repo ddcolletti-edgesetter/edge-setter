@@ -82,6 +82,7 @@ export type SignalDetailLike = {
   weakeningSignals?: string[] | null;
   calibrationSummary?: string | null;
   calibrationLimitations?: string[] | null;
+  detectionLeadTime?: string | null;
 };
 
 type SignalDetailDrawerProps = {
@@ -96,6 +97,9 @@ type Tone = "green" | "gold" | "blue" | "red" | "gray";
 const clamp = (value: number, min = 0, max = 100) => Math.min(max, Math.max(min, value));
 
 function readConfidence(signal: SignalDetailLike) {
+  const verdict = (signal.verdict ?? signal.status_tag ?? "").toLowerCase();
+  console.log("EDGESETTER DEBUG verdict:", verdict, "confidence:", signal.confidence);
+  if (verdict.includes("verified") || verdict.includes("confirmed")) return 100;
   if (typeof signal.confidence === "number") return clamp(signal.confidence);
   if (typeof signal.confidence_score === "number") return clamp(signal.confidence_score);
   if (typeof signal.confidence_score === "string") {
@@ -122,6 +126,7 @@ function readSourceCount(signal: SignalDetailLike) {
 
 function confidenceLabel(value: number) {
   if (!value) return "Unavailable";
+  if (value >= 100) return "VERIFIED";
   if (value >= 96) return "95%+";
   return `${Math.round(value)}%`;
 }
@@ -676,15 +681,20 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
           </Section>
 
           <Section title="Source trail / timing / evidence" icon={<ShieldCheck size={14} />}>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, paddingTop: 4 }}>
-              <ConfidenceGauge
-                value={model.confidence}
-                agentsAgree={agentsFromConfidenceAndSources(model.confidence, model.sources)}
-                agentsTotal={4}
-                size="md"
-                showAgents
-              />
-            </div>
+            <<div style={{ display: "flex", justifyContent: "center", marginBottom: 16, paddingTop: 4 }}>
+  <ConfidenceGauge
+    value={model.confidence}
+    agentsAgree={agentsFromConfidenceAndSources(model.confidence, model.sources)}
+    agentsTotal={4}
+    size="md"
+    showAgents
+  />
+</div>
+{signal.detectionLeadTime && (
+  <div style={{ textAlign: "center", color: "#18D47B", fontSize: 13, marginBottom: 12, letterSpacing: "0.03em" }}>
+    ⚡ EdgeSetter flagged this {signal.detectionLeadTime} before public confirmation
+  </div>
+)}
             <div className="signal-detail-stat-grid">
               <StatCard label="Evidence strength" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence, editorialCopy)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
               <StatCard label="Verification state" value={storyVerificationState} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />

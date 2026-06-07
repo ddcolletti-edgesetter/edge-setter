@@ -1,0 +1,192 @@
+﻿# EdgeSetter North Star
+## Permanent Product Principle Document
+## Read this at the start of every Claude Code session
+
+This document defines the non-negotiable core of EdgeSetter. 
+Every feature, every fix, every design decision must serve this thesis 
+or stay out of the product.
+
+---
+
+## THE ONE THING EDGESETTER DOES THAT NOBODY ELSE DOES
+
+Every other sports intelligence site — ESPN, The Athletic, Rotoworld, 
+PFF, DraftKings news, beat writers — reports after a human reads a 
+source and writes a story.
+
+That takes time.
+
+EdgeSetter's autonomous agents monitor sources, cross-reference signals, 
+and build confidence scores in parallel, continuously, without waiting 
+for a human editor. The agents reach consensus on a situation before 
+any single reporter has finished writing about it.
+
+That means EdgeSetter should reach VERIFIED on confirmed events 
+BEFORE mainstream sports media publishes.
+
+This is not a feature. This is the product.
+
+---
+
+## THE TIMING ADVANTAGE IS THE MARKET DIFFERENTIATOR
+
+The gap between:
+  firstDetected (when EdgeSetter agents flagged the situation)
+and
+  publicConfirmation (when the situation became officially confirmed)
+
+...is the proof of EdgeSetter's advantage.
+
+This gap must be visible to users on every verified story where 
+it exists. It is the single most important trust signal in the product.
+
+Examples of what users should see:
+- "EdgeSetter flagged 47 min before public confirmation"
+- "EdgeSetter detected this before national pickup"
+- "Confidence reached 80% before official announcement"
+
+A user who sees this once will understand immediately why EdgeSetter 
+is worth paying for. A user who never sees it has no reason to 
+believe the agents are doing anything.
+
+THIS DISPLAY MUST NEVER BE REMOVED. If a refactor touches story cards, 
+detail panels, or the situation pipeline, verify that timing advantage 
+display is preserved before shipping.
+
+---
+
+## CONFIDENCE SCORING RULES — NON-NEGOTIABLE
+
+1. A confirmed, publicly announced event with no conflicting sources 
+   is 100% confidence. Not 90%. Not 95%. 100% or VERIFIED.
+
+2. Sub-100% percentages communicate doubt. Never show doubt on 
+   settled facts. That destroys trust faster than any design problem.
+
+3. The confidence journey — from first detection to consensus to 
+   verification — is the story EdgeSetter tells. The journey should 
+   be visible. The destination (VERIFIED) should be unambiguous.
+
+4. When verificationState = "verified" AND publicConfirmation exists 
+   AND no conflicting sources remain:
+   → Display: VERIFIED (not a percentage)
+   → Confidence score in pipeline: 100
+
+## THE AGENTS ARE THE SOURCE — NOT PUBLIC CONFIRMATION
+
+EdgeSetter's consensus engine is the verification authority.
+Adam Schefter is not. ESPN is not. Public announcement is not.
+
+The agents analyze all available signals in parallel. When agent 
+consensus reaches the verified threshold, that IS confirmation.
+The determination comes from the system, not from waiting for 
+an external source to publish.
+
+Public confirmation is a data point that adds signal weight.
+It is not a prerequisite for EdgeSetter to call something verified.
+
+This means:
+- When the consensus engine determines verified: show VERIFIED / 100%
+- When public sources later confirm: show "Public sources confirmed 
+  X minutes after EdgeSetter"
+- Never hold confidence below the consensus engine's determination 
+  while waiting for a mainstream source to catch up
+
+The pipeline confidence ceiling should reflect agent consensus,
+not external publication status. Any logic that gates 100% on 
+public confirmation is the ESPN model, not the EdgeSetter model.
+
+---
+
+## WHAT EDGESETTER MUST FEEL LIKE
+
+A user should open EdgeSetter and immediately feel:
+"This system knows something the other sites don't have yet."
+
+That feeling comes from:
+- Seeing confidence scores moving in real time
+- Seeing timing advantage callouts on verified stories
+- Seeing the agent consensus journey on every card
+- Seeing situations escalate from DETECTED to VERIFIED
+
+That feeling is destroyed by:
+- 90% confidence on a confirmed public trade
+- Template copy that reads as AI-generated
+- Empty sections with placeholder text
+- Generic icons that don't match their context
+- Logo fallbacks that look unfinished
+- Dashboard language instead of sports intelligence language
+
+---
+
+## HIERARCHY OF EVERY PAGE — NEVER INVERT THIS
+
+1. The sports story (what happened, who it involves)
+2. The evidence (what sources, what signals)
+3. The agent consensus (how many agents agree, confidence score)
+4. The timing advantage (when EdgeSetter detected it vs. public)
+5. Fantasy / betting / DFS impact
+6. Downstream context
+
+Fantasy and betting value belong in the product. They must never 
+appear before the sports story is clear. A user who opens EdgeSetter 
+and sees odds before context will not trust the intelligence layer.
+
+---
+
+## AGENT TRANSPARENCY IS A TRUST LAYER, NOT A TECHNICAL DETAIL
+
+Users do not need to understand how agents work.
+Users do need to see that agents work.
+
+The product should always show (in plain language):
+- How many agents detected this signal
+- Whether agents agree or conflict
+- What confidence score the consensus produced
+- When the situation was first detected
+- What would confirm it further
+- What would weaken it
+
+These are not optional features for a future version. 
+They are what makes EdgeSetter different from a sports news feed.
+
+---
+
+## DEFINITION OF SUBSCRIBER-READY
+
+EdgeSetter is subscriber-ready only when a new user can:
+
+1. Open the homepage and within 5 seconds understand 
+   "this system knows things before other sites do"
+
+2. See at least one story with a visible timing advantage callout
+   showing EdgeSetter detected it before public confirmation
+
+3. Open any story detail and see a confidence score that makes 
+   intuitive sense (developing = under 70%, escalating = 70-89%, 
+   verified = 100% / VERIFIED)
+
+4. Trust the logos, the copy, and the data enough to not question 
+   whether the product is finished
+
+Until all four of these are true, the product is not ready for 
+broad subscriber launch.
+
+---
+
+## HOW TO USE THIS DOCUMENT
+
+Paste this into Claude Code at the start of every session.
+
+When Claude Code proposes a change that would:
+- Remove or hide the timing advantage display
+- Change confidence scoring in a way that shows doubt on verified facts
+- Add features before current trust issues are resolved
+- Put fantasy/betting context above the sports story
+
+...refer back to this document and reject the change.
+
+This document does not prevent new features. It ensures every new 
+feature serves the core thesis: EdgeSetter detects sports intelligence 
+faster than anyone else, and users can see the proof.
+

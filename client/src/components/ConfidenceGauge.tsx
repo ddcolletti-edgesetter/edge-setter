@@ -40,6 +40,7 @@ function arcColor(v: number): string {
 }
 
 function statusLabel(v: number): string {
+  if (v >= 100) return 'VERIFIED';
   if (v >= 85) return 'CONFIRMED';
   if (v >= 65) return 'LIKELY';
   if (v >= 45) return 'DEVELOPING';
@@ -122,8 +123,8 @@ export function ConfidenceGauge({
 
   // Clamp
   const clamped = Math.max(0, Math.min(100, value));
-  const color   = arcColor(clamped);
-  const dashOff = arcLen * (1 - clamped / 100);
+  const color   = clamped >= 100 ? '#18D47B' : arcColor(clamped);
+  const dashOff = clamped >= 100 ? 0 : arcLen * (1 - clamped / 100);
 
   // Animated counter
   const [displayVal, setDisplayVal] = useState(0);
