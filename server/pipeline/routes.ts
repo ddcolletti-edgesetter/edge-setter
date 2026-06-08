@@ -1239,7 +1239,7 @@ export function registerPipelineRoutes(app: Express) {
    *
    * Supported event_types:
    *   injury_update | lineup_confirm | lineup_change | line_move |
-   *   weather_update | scheme_note | transaction | manual
+   *   weather_update | scheme_note | transaction | eligibility_ruling | manual
    */
   app.post("/api/pipeline/ingest/manual", async (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
@@ -1252,7 +1252,7 @@ export function registerPipelineRoutes(app: Express) {
     const VALID_LEAGUES = ["NBA", "MLB", "NFL", "CFB"];
     const VALID_TYPES: RawEventType[] = [
       "injury_update", "lineup_confirm", "lineup_change", "line_move",
-      "weather_update", "scheme_note", "transaction", "manual", "odds_open",
+      "weather_update", "scheme_note", "transaction", "eligibility_ruling", "manual", "odds_open",
     ];
 
     if (!VALID_LEAGUES.includes(league)) {
