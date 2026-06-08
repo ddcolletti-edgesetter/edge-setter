@@ -120,9 +120,10 @@ function getLeagueModifier(sport: Sport, signalType: string): LeagueModifier {
   }
   // CFB
   if (sport === "CFB") {
-    if (type.includes("line_move") || type.includes("sharp"))           return { marketMultiplier: 1.3, contextMultiplier: 1.0, label: "CFB line_move ×1.3 on market+context" };
-    if (type.includes("injury"))                                         return { marketMultiplier: 1.1, contextMultiplier: 1.0, label: "CFB injury ×1.1 on market+context" };
-    if (type.includes("scheme") || type.includes("transfer"))           return { marketMultiplier: 1.2, contextMultiplier: 1.0, label: "CFB scheme/transfer ×1.2 on market+context" };
+    if (type.includes("eligibility_ruling"))                             return { marketMultiplier: 1.35, contextMultiplier: 1.2, label: "CFB eligibility_ruling ×1.35 on market+context" };
+    if (type.includes("line_move") || type.includes("sharp"))           return { marketMultiplier: 1.3,  contextMultiplier: 1.0, label: "CFB line_move ×1.3 on market+context" };
+    if (type.includes("injury"))                                         return { marketMultiplier: 1.1,  contextMultiplier: 1.0, label: "CFB injury ×1.1 on market+context" };
+    if (type.includes("scheme") || type.includes("transfer"))           return { marketMultiplier: 1.2,  contextMultiplier: 1.0, label: "CFB scheme/transfer ×1.2 on market+context" };
   }
   return { marketMultiplier: 1.0, contextMultiplier: 1.0, label: "no league modifier" };
 }

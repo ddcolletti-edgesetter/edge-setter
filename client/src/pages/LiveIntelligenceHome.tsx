@@ -878,6 +878,8 @@ function hasHomepagePressure(text: string, situation: IntelligenceSituation) {
 }
 
 function isRoutineRosterMove(text: string, situation: IntelligenceSituation) {
+  // Eligibility rulings are categorically not routine — immediate DFS/betting impact
+  if (/(eligib|waiver|cleared to play|granted|reinstat|ncaa approved)/i.test(text)) return false;
   const routineMove = /(designated .* assignment|designated .* injured list|designated for assignment|optioned|recalled|assigned|waived|claimed|placed .* injured list|10-day injured list|10-day il|retroactive)/i.test(text);
   return routineMove && !hasHomepagePressure(text, situation);
 }

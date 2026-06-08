@@ -100,6 +100,7 @@ const NFL_MODIFIERS: LeagueModifierSet = {
 
 const CFB_MODIFIERS: LeagueModifierSet = {
   signalType: {
+    eligibility_ruling: 1.35,  // immediate DFS/fantasy/betting impact
     transfer:     1.20,  // Starting QB uncertainty = massive market impact
     injury:       1.10,
     sharp_money:  1.25,  // CFB sharp moves are rarer → more signal value
@@ -139,27 +140,28 @@ export function getLeagueModifiers(sport: Sport): LeagueModifierSet {
 // Normalizes signal type strings to the canonical keys used above
 export function normalizeSignalType(type: string): string {
   const map: Record<string, string> = {
-    "injury":       "injury",
-    "line_move":    "line_move",
-    "matchup_edge": "matchup_edge",
-    "matchup":      "matchup_edge",
-    "rotation":     "rotation",
-    "lineup":       "lineup",
-    "trend":        "trend",
-    "prop":         "prop",
-    "news":         "news",
-    "sharp_money":  "sharp_money",
-    "sharp":        "sharp_money",
-    "coaching":     "coaching",
-    "scheme":       "scheme",
-    "weather":      "weather",
-    "depth":        "depth",
-    "portal":       "portal",
-    "transfer":     "transfer",
-    "transaction":  "transaction",
-    "camp":         "camp",
-    "role_change":  "role_change",
-    "rookie":       "camp",
+    "injury":             "injury",
+    "line_move":          "line_move",
+    "matchup_edge":       "matchup_edge",
+    "matchup":            "matchup_edge",
+    "rotation":           "rotation",
+    "lineup":             "lineup",
+    "trend":              "trend",
+    "prop":               "prop",
+    "news":               "news",
+    "sharp_money":        "sharp_money",
+    "sharp":              "sharp_money",
+    "coaching":           "coaching",
+    "scheme":             "scheme",
+    "weather":            "weather",
+    "depth":              "depth",
+    "portal":             "portal",
+    "transfer":           "transfer",
+    "transaction":        "transaction",
+    "eligibility_ruling": "eligibility_ruling",
+    "camp":               "camp",
+    "role_change":        "role_change",
+    "rookie":             "camp",
   };
   return map[type] ?? type;
 }

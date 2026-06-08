@@ -158,6 +158,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     evidenceChain: canonical ? evidenceChain(canonical) : fallbackEvidenceChain(situation),
     sportsIdentity: sportsIdentityForSituation(situation, canonical),
     confidenceNote: situation.confidenceNote,
+    confidenceJourney: situation.confidenceJourney,
     sourceSummary: situation.sourceSummary,
     timingAdvantage: situation.timingAdvantage,
     detectionLeadTime: situation.detectionLeadTime,

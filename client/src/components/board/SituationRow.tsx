@@ -74,6 +74,7 @@ export interface SituationRowData {
   evidenceChain?: SituationEvidenceStep[];
   sportsIdentity?: SituationSportsIdentity;
   confidenceNote?: string;
+  confidenceJourney?: string;
   sourceSummary?: string;
   timingAdvantage?: string;
   detectionLeadTime?: string;

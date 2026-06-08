@@ -56,6 +56,7 @@ export function canonicalSituationToBoardSituation(situation: CanonicalSituation
     confidenceNote: confidenceMovement
       ? `${confidenceMovement}: ${canonicalConfidenceSummary(situation)}`
       : canonicalConfidenceSummary(situation),
+    confidenceJourney: computeConfidenceJourney(situation),
     sourceSummary: convergence,
     timingAdvantage: cooling ? quietTimingCopy(situation.lifecycleState) : timingPressureCopy(situation.timingPressure),
     detectionLeadTime: computeDetectionLeadTime(situation),
@@ -219,6 +220,29 @@ export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) 
     calibrationLimitations: situation.calibrationLimitations,
     detectionLeadTime: computeDetectionLeadTime(situation),
   };
+}
+
+function computeConfidenceJourney(situation: CanonicalSituation): string | undefined {
+  const history = situation.confidenceHistoryPreview;
+  if (!history.length || !situation.firstSeenAt) return undefined;
+
+  // Find peak confidence across all history entries
+  const peak = Math.max(...history.map((e) => e.newConfidence));
+  if (peak < 60) return undefined;
+
+  // History is newest-first; reverse to find the earliest entry that hit peak
+  const peakEntry = [...history].reverse().find((e) => e.newConfidence >= peak);
+  if (!peakEntry) return undefined;
+
+  const firstMs = new Date(situation.firstSeenAt).getTime();
+  const peakMs = new Date(peakEntry.timestamp).getTime();
+  const gapMinutes = Math.round((peakMs - firstMs) / 60_000);
+
+  if (gapMinutes < 3) return `Confidence reached ${peak}% at first signal`;
+  if (gapMinutes < 60) return `Confidence reached ${peak}% within ${gapMinutes} min`;
+  const h = Math.floor(gapMinutes / 60);
+  const m = gapMinutes % 60;
+  return `Confidence reached ${peak}% within ${m > 0 ? `${h}h ${m}m` : `${h}h`}`;
 }
 
 function computeDetectionLeadTime(situation: CanonicalSituation): string | undefined {

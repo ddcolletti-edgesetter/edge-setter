@@ -89,6 +89,8 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           <ProofPill label="Evidence" value={story.evidence ?? evidenceCountText(story.row.evidenceCount)} />
           {(story.row.escalationState === "verified" || story.row.escalationState === "official")
             ? <ProofPill label="Verified" value="VERIFIED" />
+            : story.row.confidenceJourney
+            ? <ProofPill label="Confidence" value={story.row.confidenceJourney} />
             : story.confidence && <ProofPill label="Confidence" value={story.confidence} />}
           {featured && (
             <AgentCalibrationBadge

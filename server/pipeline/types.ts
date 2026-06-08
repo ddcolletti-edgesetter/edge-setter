@@ -62,10 +62,11 @@ export type RawEventType =
   | "lineup_change"
   | "line_move"
   | "weather_update"
-  | "scheme_note"    // CFB/NFL manual notes
-  | "transaction"    // roster moves, IL activations, trades
-  | "odds_open"      // opening line for a new game
-  | "manual";        // operator-entered
+  | "scheme_note"         // CFB/NFL manual notes
+  | "transaction"         // roster moves, IL activations, trades
+  | "eligibility_ruling"  // NCAA/transfer eligibility decisions
+  | "odds_open"           // opening line for a new game
+  | "manual";             // operator-entered
 
 export interface RawEvent {
   id: string;                       // UUID
@@ -101,6 +102,7 @@ export type SignalType =
   | "weather_update"
   | "scheme_note"
   | "transaction"
+  | "eligibility_ruling"
   | "sharp_money"
   | "manual";
 

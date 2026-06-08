@@ -57,6 +57,7 @@ export type BoardSituation = {
   lifecycle: SignalLifecycle;
   lifecycleStage: OperationalLifecycle;
   confidenceNote?: string;
+  confidenceJourney?: string;
   sourceSummary?: string;
   timingAdvantage?: string;
   detectionLeadTime?: string;

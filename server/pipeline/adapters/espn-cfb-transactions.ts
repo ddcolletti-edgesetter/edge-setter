@@ -52,6 +52,7 @@ export interface ESPNTransactionDiagnostics {
 }
 
 function confidenceFor(type: string): number {
+  if (type === "EligibilityRuling") return 90;  // official rulings are nearly always confirmed
   if (type === "Transfer" || type === "TransferPortal") return 86;
   if (type === "NationalLetterOfIntent" || type === "Signed") return 88;
   if (type === "Committed") return 72;
@@ -59,17 +60,22 @@ function confidenceFor(type: string): number {
   return 74;
 }
 
+const ELIGIBILITY_PATTERN = /\beligib|\bwaiver\b|\breinstat|\bcleared to play\b|\bgranted eligibility\b|\bncaa approved\b|\btransfer waiver\b/i;
+
 function inferTransactionType(description?: string, explicitType?: string): string {
   if (explicitType) return explicitType;
-  if (/\btransfer\b|\bportal\b/i.test(description ?? "")) return "Transfer";
-  if (/\bcommitted\b/i.test(description ?? "")) return "Committed";
-  if (/\bdecommitted\b/i.test(description ?? "")) return "Decommitted";
-  if (/\bsigned\b/i.test(description ?? "")) return "Signed";
+  const desc = description ?? "";
+  if (ELIGIBILITY_PATTERN.test(desc)) return "EligibilityRuling";
+  if (/\btransfer\b|\bportal\b/i.test(desc)) return "Transfer";
+  if (/\bcommitted\b/i.test(desc)) return "Committed";
+  if (/\bdecommitted\b/i.test(desc)) return "Decommitted";
+  if (/\bsigned\b/i.test(desc)) return "Signed";
   return "RosterMove";
 }
 
 function actionFor(type: string, player: string | null, team: string): string {
   const subject = player ?? team;
+  if (type === "EligibilityRuling") return `${subject} is immediately eligible — update depth chart exposure and DFS/betting lineups now.`;
   if (type === "Transfer" || type === "TransferPortal") return `Monitor ${subject} for depth chart and role impact.`;
   if (type === "Committed" || type === "Decommitted") return `Track recruiting status before treating ${subject} as stable roster context.`;
   return `Monitor roster construction impact from ${type}.`;
@@ -180,7 +186,7 @@ export async function ingestCFBTransactions(): Promise<{ created: number; skippe
       game_id: null,
       team,
       player: playerName,
-      event_type: "transaction",
+      event_type: txType === "EligibilityRuling" ? "eligibility_ruling" : "transaction",
       payload: {
         transaction_type: txType,
         date: txDate?.slice(0, 10) ?? "",

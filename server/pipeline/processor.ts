@@ -163,6 +163,26 @@ function handleSchemeNote(raw: RawEvent): Partial<LiveSignal> {
   };
 }
 
+/* ─── Handler: eligibility_ruling ──────────────────────── */
+
+function handleEligibilityRuling(raw: RawEvent): Partial<LiveSignal> {
+  const p = raw.payload as any;
+  const player = raw.player ?? "Player";
+  const team = raw.team ?? "Team";
+  return {
+    signal_type: "eligibility_ruling",
+    headline: `${player} (${team}) — eligibility ruling: cleared to play`,
+    body: p.notes ?? `${player} has been granted eligibility by the NCAA. Immediate roster and lineup impact expected.`,
+    action_note: p.action_note ?? `${player} is immediately eligible — update DFS, props, and depth chart exposure now.`,
+    why_it_matters: p.why_it_matters ?? `Eligibility rulings have direct, immediate fantasy and betting impact. ${player} activates roster availability that was previously uncertain.`,
+    betting_relevance: true,
+    fantasy_relevance: true,
+    confidence: p.confidence ?? 90,
+    verdict: "confirmed",
+    confirmation_strength: p.confirmation ?? "Corroborated",
+  };
+}
+
 /* ─── Handler: transaction ──────────────────────────────── */
 
 function handleTransaction(raw: RawEvent): Partial<LiveSignal> {
@@ -231,18 +251,37 @@ function handleManual(raw: RawEvent): Partial<LiveSignal> {
 
 /* ─── Routing ───────────────────────────────────────────── */
 
-function routeEventToFields(raw: RawEvent): Partial<LiveSignal> {
+export function routeEventToFields(raw: RawEvent): Partial<LiveSignal> {
   switch (raw.event_type) {
-    case "injury_update":  return handleInjuryUpdate(raw);
-    case "lineup_confirm": return handleLineup(raw, false);
-    case "lineup_change":  return handleLineup(raw, true);
-    case "line_move":      return handleLineMove(raw);
-    case "weather_update": return handleWeather(raw);
-    case "scheme_note":    return handleSchemeNote(raw);
-    case "transaction":    return handleTransaction(raw);
-    case "odds_open":      return handleOddsOpen(raw);
-    case "manual":         return handleManual(raw);
-    default:               return handleManual(raw);
+    case "injury_update":      return handleInjuryUpdate(raw);
+    case "lineup_confirm":     return handleLineup(raw, false);
+    case "lineup_change":      return handleLineup(raw, true);
+    case "line_move":          return handleLineMove(raw);
+    case "weather_update":     return handleWeather(raw);
+    case "scheme_note":        return handleSchemeNote(raw);
+    case "transaction":        return handleTransaction(raw);
+    case "eligibility_ruling": return handleEligibilityRuling(raw);
+    case "odds_open":          return handleOddsOpen(raw);
+    case "manual":             return handleManual(raw);
+    default: {
+      // Unknown event type: emit a low-confidence signal for human review
+      // rather than dropping silently. A story at 25% that climbs to VERIFIED
+      // is the product. A story that never appears is not.
+      const p = raw.payload as any;
+      console.warn(`[processor] Unknown event_type "${raw.event_type}" — emitting low-confidence unknown signal for review`);
+      return {
+        signal_type: "manual",
+        headline: p.headline ?? `Unclassified signal — ${raw.player ?? raw.team ?? raw.league}`,
+        body: p.notes ?? p.body ?? `Signal type "${raw.event_type}" has no classifier. Flagged for human review.`,
+        action_note: "Review required — unrecognized signal type.",
+        why_it_matters: "Unknown signal type detected. May represent a novel event category requiring classifier update.",
+        betting_relevance: false,
+        fantasy_relevance: false,
+        confidence: 25,
+        verdict: "review",
+        confirmation_strength: "Unverified",
+      };
+    }
   }
 }
 
