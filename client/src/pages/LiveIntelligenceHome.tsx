@@ -868,6 +868,8 @@ function homepageStoryScore(situation: IntelligenceSituation) {
   if (/(placed .* injured list|injured list|10-day il|10-day injured list|retroactive)/i.test(text) && !situation.marketReaction) score -= 34;
   if (/(low back strain|hamstring strain|illness|rest day)/i.test(text) && !/(mvp|all-star|star|ace|qb|starter)/i.test(text)) score -= 18;
   if (!situation.subject.player && !situation.subject.team && !situation.subject.matchup) score -= 12;
+  if (situation.timing.window === "Widely Known") score -= 60;
+  if (situation.timing.window === "Late") score -= 80;
   if (situation.timing.window === "Stale") score -= 35;
 
   return score;
