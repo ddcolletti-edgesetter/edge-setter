@@ -172,20 +172,12 @@ export default function LiveIntelligenceHome() {
         <LiveTicker items={tickerItems} />
         <section className="media-homepage" aria-label="EdgeSetter sports media network">
           <header className="media-homepage-header">
-            <div className="live-intel-brand-anchor">
-              <div className="live-intel-brand-logo-crop">
-                <img
-                  src="/brand/edgesetter-logo.png"
-                  alt="EdgeSetter live sports intelligence"
-                  onError={(event) => {
-                    event.currentTarget.style.display = "none";
-                    const fallback = event.currentTarget.parentElement?.nextElementSibling as HTMLElement | null;
-                    if (fallback) fallback.style.display = "block";
-                  }}
-                />
-              </div>
-              <strong>EdgeSetter</strong>
-              <span>Live sports desk for source, timing, and market context</span>
+            <div style={{ display: "flex", alignItems: "center", padding: "8px 0" }}>
+              <img
+                src="/brand/edgesetter-logo.png"
+                alt="EdgeSetter Intelligence Verified"
+                style={{ height: "72px", width: "auto", objectFit: "contain" }}
+              />
             </div>
             <div className="media-homepage-leagues" aria-label="League story filters">
               {LEAGUES.map((league) => {
