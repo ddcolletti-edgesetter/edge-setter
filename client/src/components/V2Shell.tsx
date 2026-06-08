@@ -120,7 +120,6 @@ function BrandWordmark() {
     </div>
   );
 }
-}
 function useTheme() {
   return { theme: "dark" as const, toggleTheme: () => {} };
 }
