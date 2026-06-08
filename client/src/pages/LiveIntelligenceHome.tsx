@@ -785,7 +785,7 @@ function selectHomepageLead(situations: IntelligenceSituation[]) {
     .map((situation) => ({ situation, score: homepageStoryScore(situation) }))
     .sort((a, b) => b.score - a.score);
   const lead = ranked[0];
-  return lead && lead.score >= 125 ? lead.situation : null;
+  return lead && lead.score >= 60 ? lead.situation : null;
 }
 
 function selectEditorialDevelopment(situations: IntelligenceSituation[], exclude?: IntelligenceSituation | null) {
