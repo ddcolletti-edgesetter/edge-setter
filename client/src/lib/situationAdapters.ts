@@ -222,15 +222,16 @@ export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) 
 }
 
 function computeDetectionLeadTime(situation: CanonicalSituation): string | undefined {
-  console.log("LEAD TIME DEBUG", situation.id, situation.lifecycleState, JSON.stringify(situation.stateHistoryPreview));
+  if (situation.lifecycleState !== "official" && situation.lifecycleState !== "confirmed" && situation.lifecycleState !== "cooling") return undefined;
   const confirmEntry = situation.stateHistoryPreview.find(
     (entry) => entry.newState === "official" || entry.newState === "confirmed",
   );
-  const confirmedTimestamp = confirmEntry?.timestamp ?? situation.lastUpdatedAt;
-  if (!confirmedTimestamp || !situation.firstSeenAt) return undefined;
+  const confirmTime = confirmEntry
+    ? new Date(confirmEntry.timestamp).getTime()
+    : new Date(situation.lastUpdatedAt).getTime();
+  if (!situation.firstSeenAt) return undefined;
   const detectedMs = new Date(situation.firstSeenAt).getTime();
-  const confirmedMs = new Date(confirmedTimestamp).getTime();
-  const gapMinutes = Math.round((confirmedMs - detectedMs) / 60_000);
+  const gapMinutes = Math.round((confirmTime - detectedMs) / 60_000);
   if (gapMinutes < 15) return undefined;
   if (gapMinutes < 60) return `${gapMinutes}m`;
   const h = Math.floor(gapMinutes / 60);
