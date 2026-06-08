@@ -238,7 +238,7 @@ function storyContext(signal: SignalDetailLike, sport?: string, editorial = fals
 function verificationState(signal: SignalDetailLike, confidence: number, sources: number, editorial = false) {
   const status = (signal.verdict ?? signal.status_tag ?? "").toLowerCase();
   if (!editorial) {
-    if (status.includes("confirmed") || status.includes("verified")) return "Verified by public confirmation";
+    if (status.includes("confirmed") || status.includes("verified")) return "Verified by agent consensus";
     if (sources >= 3 && confidence >= 72) return "Source-confirmed posture forming";
     if (sources >= 2) return "Corroborated, still developing";
     if (sources === 1) return "Single-source verification watch";
