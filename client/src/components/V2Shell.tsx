@@ -284,7 +284,7 @@ function Sidebar({
           height: collapsed ? "56px" : "90px",
           display: "flex",
           alignItems: "center",
-          padding: collapsed ? "0 7px" : "0 10px",
+          padding: collapsed ? "0 7px" : "0 6px",
           borderBottom: "1px solid var(--es-border)",
           flexShrink: 0,
           gap: collapsed ? "0" : "8px",
