@@ -103,17 +103,21 @@ function BrandEmblem({ size = 38 }: { size?: number }) {
 
 function BrandWordmark() {
   return (
-    <div className="edgesetter-sidebar-wordmark" aria-label="EdgeSetter live sports desk" style={{ flex: "1 1 auto", overflow: "visible", lineHeight: 1 }}
-      <img
-        src={EDGESETTER_LOGO_SRC}
-        alt="EdgeSetter"
-        style={{ display: "block", width: "100%", maxWidth: "140px", height: "auto", objectFit: "contain", objectPosition: "left center" }}
-        onError={(event) => {
-          event.currentTarget.style.display = "none";
-          const fallback = event.currentTarget.nextElementSibling as HTMLElement | null;
-          if (fallback) fallback.style.display = "block";
-        }}
-      />
+    <div className="edgesetter-sidebar-wordmark" aria-label="EdgeSetter live sports desk" style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", lineHeight: 1 }}>
+      <span style={{ display: "block", width: 160, maxWidth: "100%", height: 52, overflow: "visible" }}>
+        <img
+          src={EDGESETTER_LOGO_SRC}
+          alt="EdgeSetter"
+          width={174}
+          height={64}
+          style={{ display: "block", width: "100%", height: "100%", objectFit: "contain", objectPosition: "left center" }}
+          onError={(event) => {
+            event.currentTarget.style.display = "none";
+            const fallback = event.currentTarget.parentElement?.nextElementSibling as HTMLElement | null;
+            if (fallback) fallback.style.display = "block";
+          }}
+        />
+      </span>
       <strong style={{ display: "none", color: "#F8FAFC", fontFamily: "'Barlow Condensed', sans-serif", fontSize: "1.08rem", fontWeight: 950, letterSpacing: "0.055em", whiteSpace: "nowrap" }}>
         EDGESETTER
       </strong>
