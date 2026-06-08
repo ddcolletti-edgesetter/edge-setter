@@ -222,6 +222,7 @@ export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) 
 }
 
 function computeDetectionLeadTime(situation: CanonicalSituation): string | undefined {
+  console.log("LEAD TIME DEBUG", situation.id, situation.lifecycleState, JSON.stringify(situation.stateHistoryPreview));
   const confirmEntry = situation.stateHistoryPreview.find(
     (entry) => entry.newState === "official" || entry.newState === "confirmed",
   );
