@@ -103,8 +103,8 @@ function BrandEmblem({ size = 38 }: { size?: number }) {
 
 function BrandWordmark() {
   return (
-    <div className="edgesetter-sidebar-wordmark" aria-label="EdgeSetter live sports desk" style={{ minWidth: 0, flex: "1 1 auto", overflow: "hidden", lineHeight: 1 }}>
-      <span style={{ display: "block", width: 160, maxWidth: "100%", height: 52, overflow: "visible" }}>
+    <div className="edgesetter-sidebar-wordmark" aria-label="EdgeSetter live sports desk" style={{ minWidth: 0, flex: "1 1 auto", overflow: "visible", lineHeight: 1 }}>
+      <span style={{ display: "block", width: 155, maxWidth: "100%", height: auto, overflow: "visible" }}>
         <img
           src={EDGESETTER_LOGO_SRC}
           alt="EdgeSetter"
