@@ -35,7 +35,9 @@
       "PowerShell($env:PATH = \"C:\\\\Program Files\\\\nodejs;$env:PATH\"; cd C:\\\\Users\\\\ddcol\\\\edge-setter; npx tsc --noEmit -p client/tsconfig.json 2>&1 | Select-Object -First 40)",
       "PowerShell($env:PATH)",
       "PowerShell($env:NVM_HOME; $env:NVM_SYMLINK; $env:NODE_PATH)",
-      "Bash(npx vitest *)"
+      "Bash(npx vitest *)",
+      "Bash(Remove-Item *)",
+      "PowerShell(Remove-Item *)"
     ]
   }
 }

@@ -190,3 +190,56 @@ This document does not prevent new features. It ensures every new
 feature serves the core thesis: EdgeSetter detects sports intelligence 
 faster than anyone else, and users can see the proof.
 
+---
+
+## ESTABLISHED SIGNAL TYPES
+
+This section documents signal types that have been formally established
+in the pipeline. Each entry represents a verified, production-ready
+signal type with confirmed behavior. New signal types must be added
+here before they are considered production-ready.
+
+### eligibility_ruling
+
+Signal type name: eligibility_ruling
+Confidence floor: 90
+(Eligibility rulings are official determinations — nearly always confirmed
+at source. A confidence floor of 90 reflects that these are not rumors
+or developing situations; they are official statements.)
+
+What triggers it:
+  Keyword patterns in source text: "eligible", "eligibility", "waiver",
+  "reinstate", "cleared to play", "granted eligibility", "NCAA approved",
+  "transfer waiver". Any of these in a description field classifies the
+  event as eligibility_ruling rather than a generic transaction.
+
+Pipeline behavior:
+  - Bypasses the isRoutineRosterMove suppression entirely. Eligibility
+    rulings are categorically not routine roster moves. They have immediate
+    fantasy, DFS, and betting impact and must always surface to the homepage.
+  - In the CFB pipeline scorer, eligibility_ruling receives a market
+    multiplier of ×1.35 and a context multiplier of ×1.2 — the highest
+    multiplier of any CFB signal type after coaching and scheme.
+  - In the leagueModifiers (client), eligibility_ruling: 1.35 in
+    CFB_MODIFIERS.signalType.
+
+Verdict and confirmation:
+  verdict: "confirmed"
+  confirmation_strength: "Corroborated" (default; can be overridden to
+  "Consensus" by payload if multiple sources confirm)
+
+Why this matters for the North Star:
+  The Texas Tech QB Brendan Sorsby ruling was the failure case that
+  created this signal type. The story published. The CFB board showed
+  nothing. A school SID post is a primary source — not a rumor, not a
+  secondary report. Any eligibility ruling with a school SID source
+  should surface within the ingestion cycle and reach VERIFIED before
+  national media writes the story.
+
+Source coverage:
+  Primary sources for eligibility rulings: school SID Twitter/X accounts,
+  athletics department press release feeds, local beat writers.
+  These are defined in server/pipeline/adapters/cfb-school-sources.ts.
+  Wire services (ESPN, AP) pick up eligibility rulings 20–60 minutes
+  after the SID post. The SID feed is the EdgeSetter advantage.
+
