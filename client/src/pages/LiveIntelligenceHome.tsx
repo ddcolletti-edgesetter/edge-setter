@@ -75,7 +75,7 @@ const leagueWorld = {
     movement: "Transfer / QB / reports",
     color: "#B06EFF",
     href: "/cfb",
-    logo: "",
+    logo: "https://a.espncdn.com/i/teamlogos/leagues/500/ncaa.png",
   },
 } as const;
 
@@ -128,13 +128,27 @@ export default function LiveIntelligenceHome() {
 
   const featured = selectHomepageLead(visibleSituations) ?? selectHomepageLead(publicSituations);
   const heroSituation = featured;
+  const backdropLeague: typeof LEAGUES[number] = activeLeague === "ALL"
+    ? (featured && (LEAGUES as readonly string[]).includes(featured.league) ? featured.league as typeof LEAGUES[number] : "NFL")
+    : activeLeague;
+  // North Star: sport-specific shell background fades (200ms) between leagues
+  // instead of snapping when the class changes.
+  const [backdropFading, setBackdropFading] = useState(false);
+  const previousBackdropRef = useRef(backdropLeague);
+  useEffect(() => {
+    if (previousBackdropRef.current === backdropLeague) return;
+    previousBackdropRef.current = backdropLeague;
+    setBackdropFading(true);
+    const timer = window.setTimeout(() => setBackdropFading(false), 200);
+    return () => window.clearTimeout(timer);
+  }, [backdropLeague]);
   const editorialSituation = selectEditorialDevelopment(visibleSituations, heroSituation) ?? selectEditorialDevelopment(publicSituations, heroSituation);
   const leadGames = useMemo(() => {
     const leagueRank = (game: LiveGameSituation) => game.league === "MLB" ? 0 : game.league === "NBA" ? 1 : 2;
     return [...games].sort((a, b) => leagueRank(a) - leagueRank(b) || b.activeSituations - a.activeSituations);
   }, [games]);
   const livePressure = useMemo(() => buildLivePressureContext(games, publicSituations, loading), [games, publicSituations, loading]);
-  const tickerItems = useMemo(() => buildTickerItems({ situations: publicSituations, games, pressure: livePressure }), [games, livePressure, publicSituations]);
+  const tickerItems = useMemo(() => buildTickerItems({ situations: publicSituations, games }), [games, publicSituations]);
   const counts = useMemo(() => {
     return escalationOrder.map((state) => ({
       state,
@@ -157,7 +171,7 @@ export default function LiveIntelligenceHome() {
 
   return (
     <AppShell brandContext="LIVE SPORTS DESK">
-      <div className="live-intel-home">
+      <div className={`live-intel-home league-board-shell es-league-${backdropLeague.toLowerCase()}${backdropFading ? " is-backdrop-fading" : ""}`}>
         <div className="live-intel-atmosphere es-atmosphere es-atmosphere-mlb" aria-hidden="true">
           <div className="live-intel-atmosphere-stadium" />
           <div className="live-intel-atmosphere-crowd" />
@@ -169,6 +183,7 @@ export default function LiveIntelligenceHome() {
           <div className="live-intel-atmosphere-scoreline" />
           <div className="live-intel-atmosphere-lights" />
         </div>
+        <SportBackdrop league={backdropLeague} />
         <LiveTicker items={tickerItems} />
         <section className="media-homepage" aria-label="EdgeSetter sports media network">
           <header className="media-homepage-header">
@@ -187,10 +202,19 @@ export default function LiveIntelligenceHome() {
                   <button
                     key={league}
                     type="button"
-                    className={activeLeague === league || activeLeague === "ALL" ? "is-active" : ""}
-                    onClick={() => setActiveLeague(league)}
+                    className={activeLeague === league ? "is-active" : ""}
+                    onClick={() => setActiveLeague(activeLeague === league ? "ALL" : league)}
                     style={{ "--league-color": meta.color } as CSSProperties}
                   >
+                    <img
+                      className="media-league-tab-logo"
+                      src={meta.logo}
+                      alt=""
+                      width={20}
+                      height={20}
+                      loading="lazy"
+                      onError={(event) => { event.currentTarget.style.display = "none"; }}
+                    />
                     <span>{league}</span>
                     <strong>{leagueWatchLabel(count)}</strong>
                   </button>
@@ -202,7 +226,7 @@ export default function LiveIntelligenceHome() {
             </div>
           </header>
 
-          <div className={`media-homepage-grid${hasAssignmentRail ? " has-assignment-rail" : ""}`}>
+          <div className={`media-homepage-grid has-intel-sidebar${hasAssignmentRail ? " has-assignment-rail" : ""}`}>
             <div className="media-homepage-main">
               <div className="media-section-label">
                 <span className="es-live-dot es-live-pulse" />
@@ -210,16 +234,19 @@ export default function LiveIntelligenceHome() {
               </div>
               <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" />
               <HomepageSupportStack stories={homepageStories} pressure={livePressure} loading={loading} />
+              {hasAssignmentRail && (
+                <>
+                  <div className="media-section-label">Developing now</div>
+                  <div className="media-developing-grid" aria-label="Developing stories">
+                    {homepageStories.rail.map((story) => (
+                      <StoryCard key={story.id} story={story} variant="rail" copyVariant="public" />
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
-            {hasAssignmentRail && (
-              <aside className="media-homepage-rail" aria-label="Top watch stories">
-                <div className="media-section-label">Top Watch</div>
-                {homepageStories.rail.map((story) => (
-                  <StoryCard key={story.id} story={story} variant="rail" copyVariant="public" />
-                ))}
-              </aside>
-            )}
+            <HomepageSidebar games={leadGames} loading={loading} />
           </div>
 
           <section className="media-game-context" aria-label="Active matchup and game context">
@@ -302,7 +329,7 @@ export function buildHomepageStoryModel({
   const cleanEditorial = editorialSituation && isCleanHomepageSituation(editorialSituation) ? editorialSituation : null;
   const lead = cleanFeatured
     ? situationToStoryCard(cleanFeatured, { slot: "lead" })
-    : quietNetworkStory(activeLeague, pressure, loading);
+    : quietNetworkStory(activeLeague, loading, cleanSituations);
 
   const usedSituationIds = new Set<string>();
   if (cleanFeatured) usedSituationIds.add(cleanFeatured.id);
@@ -363,6 +390,24 @@ function uniqueSituations(items: Array<IntelligenceSituation | null | undefined>
   return out;
 }
 
+// North Star timing advantage for homepage stories: detection (timing.firstSeen)
+// vs the timeline entry where the story reached Official. Verified stories only.
+function detectionLeadForIntelligence(situation: IntelligenceSituation): { lead: string; kind: "confirmation" } | null {
+  if (situation.escalationState !== "Official" && situation.confidence.current < 100) return null;
+  const firstSeenMs = new Date(situation.timing.firstSeen).getTime();
+  if (!Number.isFinite(firstSeenMs)) return null;
+  const confirmEntry = situation.timeline.find((event) => event.state === "Official");
+  if (!confirmEntry) return null;
+  const confirmMs = new Date(confirmEntry.at).getTime();
+  if (!Number.isFinite(confirmMs)) return null;
+  const gapMinutes = Math.round((confirmMs - firstSeenMs) / 60_000);
+  if (gapMinutes < 15) return null;
+  if (gapMinutes < 60) return { lead: `${gapMinutes}m`, kind: "confirmation" };
+  const h = Math.floor(gapMinutes / 60);
+  const m = gapMinutes % 60;
+  return { lead: m > 0 ? `${h}h ${m}m` : `${h}h`, kind: "confirmation" };
+}
+
 function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot: "lead" | "rail" | "league" }): StoryCardData {
   const matchupTeams = splitMatchup(situation.subject.matchup);
   const rawPrimaryTeam = matchupTeams.length === 2 ? matchupTeams[0] : situation.subject.team ?? matchupTeams[0] ?? undefined;
@@ -377,9 +422,12 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
   const deck = hasCleanPublicText(storyCopy.deck) ? storyCopy.deck : "EdgeSetter is monitoring source support, timing, and sports context before elevating this item.";
   const shortDeck = hasCleanPublicText(storyCopy.shortDeck) ? storyCopy.shortDeck : "Source support and timing remain under watch.";
   const player = hasCleanPublicText(situation.subject.player) ? situation.subject.player ?? undefined : undefined;
+  const detectionLead = detectionLeadForIntelligence(situation);
   return {
     id: situation.id,
     league: situation.league,
+    timingAdvantageLead: detectionLead?.lead ?? null,
+    timingAdvantageKind: detectionLead?.kind ?? null,
     headline: slot === "lead" ? headline : shortHeadline,
     dek: slot === "rail" ? shortDeck : deck,
     label: slot === "lead" ? "Top story" : storyType,
@@ -471,36 +519,55 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
   };
 }
 
-function quietNetworkStory(activeLeague: "ALL" | typeof LEAGUES[number], pressure: LivePressureContext, loading: boolean): StoryCardData {
-  const league = activeLeague === "ALL" ? "MLB" : activeLeague;
-  return quietLeagueStory(
-    league,
-    loading ? "Checking the live sports wire for verified movement." : pressure.heroHeadline,
-    loading ? "EdgeSetter agents are scanning team news, game state, and source agreement." : pressure.heroBody,
-    loading,
-  );
-}
-
-function quietLeagueStory(league: typeof LEAGUES[number], title: string, note: string, loading: boolean): StoryCardData {
+// North Star quiet slate: report the active watch, never apologize for the
+// absence of a story. Surfaces the most-developed situation's confidence and
+// source trail so the journey is visible even before anything verifies.
+function quietNetworkStory(activeLeague: "ALL" | typeof LEAGUES[number], loading: boolean, situations: IntelligenceSituation[]): StoryCardData {
+  const league = activeLeague === "ALL" ? "NFL" : activeLeague;
+  const leagueLabel = activeLeague === "ALL" ? "all leagues" : activeLeague;
+  const count = situations.length;
+  const headline = loading
+    ? `${league} coverage check in progress`
+    : count
+      ? `Monitoring ${count} active situation${count === 1 ? "" : "s"}`
+      : "Agents active across all leagues";
+  const dek = loading
+    ? "EdgeSetter agents are scanning team news, game state, and source agreement."
+    : `EdgeSetter agents are watching ${leagueLabel}. Nothing has crossed the verification threshold yet — when it does, you'll see it here first.`;
+  const watched = count
+    ? [...situations].sort((a, b) => b.confidence.current - a.confidence.current)[0]
+    : null;
   return {
-    id: `quiet-${league}-${title}`,
+    id: `quiet-${league}-${count}`,
     league,
-    headline: loading ? `${league} coverage check in progress` : title,
-    dek: note,
+    headline,
+    dek,
     label: "Quiet slate watch",
     href: `/${league.toLowerCase()}`,
     primaryTeam: league,
     storyType: "Coverage watch",
-    detail: "Coverage remains steady",
-    whatChanged: "No verified team-news break has reached the lead-story threshold.",
-    whyItMatters: "Quiet coverage is still useful because it confirms what has not changed across public reports and official channels.",
+    detail: count ? `${count} active situation${count === 1 ? "" : "s"} under watch` : "Agents on watch",
+    whatChanged: count
+      ? `EdgeSetter agents are tracking ${count} live situation${count === 1 ? "" : "s"} across ${leagueLabel}.`
+      : "EdgeSetter agents are scanning team news, lineups, and source agreement across the slate.",
+    whyItMatters: "The first verified break lands here before public confirmation — and a quiet watch confirms what has not changed.",
     watchNext: leagueQuietNote(league),
-    overlay: {
+    overlay: watched ? {
+      escalationState: watched.escalationState,
+      confidence: watched.confidence,
+      sourceSummary: {
+        ...watched.sourceSummary,
+        convergence: publicSourceSummary(watched.sourceSummary.convergence),
+      },
+      timing: watched.timing,
+      replay: ["Coverage scan", "Source trail reviewed", "Continue watch"],
+      status: "Most developed watch",
+    } : {
       escalationState: "Monitoring",
       confidence: { current: null, delta: null, explanation: "Confidence pending until a verified story attaches." },
       sourceSummary: { count: 0, convergence: "Awaiting confirmed source" },
       timing: { window: loading ? "Checking" : "Monitoring", freshnessLabel: "Live scan" },
-      replay: ["Coverage scan", "Impact still developing", "Continue watch"],
+      replay: ["Coverage scan", "Agents watching", "Continue watch"],
       status: "Quiet coverage",
     },
     imageAsset: resolveSportsImageAsset({
@@ -543,6 +610,170 @@ function HomepageSupportStack({
         </div>
       ))}
     </div>
+  );
+}
+
+type LeaderboardRow = {
+  source_id?: string | null;
+  source_name?: string | null;
+  trust_tier?: string | null;
+  overall_accuracy?: string | number | null;
+  average_lead_time_minutes?: string | number | null;
+};
+
+type SidebarTrackRecord = {
+  confirmedPct: number | null;
+  avgLeadMinutes: number | null;
+  verified: number;
+  revised: number;
+};
+
+function tierShortLabel(tier?: string | null) {
+  const match = /^tier(\d)$/.exec(String(tier ?? "").toLowerCase());
+  return match ? `T${match[1]}` : "T?";
+}
+
+function HomepageSidebar({ games, loading }: { games: LiveGameSituation[]; loading: boolean }) {
+  const [sources, setSources] = useState<LeaderboardRow[]>([]);
+  const [record, setRecord] = useState<SidebarTrackRecord | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      let leaderboard: LeaderboardRow[] = [];
+      try {
+        const res = await fetch("/api/leaderboard");
+        if (res.ok) {
+          const rows = await res.json();
+          if (Array.isArray(rows)) leaderboard = rows as LeaderboardRow[];
+        }
+      } catch {
+        // Sidebar keeps its quiet fallback state when the board API is unreachable.
+      }
+
+      let totals: SidebarTrackRecord | null = null;
+      try {
+        const results = await Promise.allSettled(LEAGUES.map(async (league) => {
+          const res = await fetch(`/api/stats/track-record?league=${league}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return (await res.json()) as { overall?: { wins?: number | null; losses?: number | null } };
+        }));
+        let wins = 0;
+        let losses = 0;
+        let sawRecord = false;
+        for (const result of results) {
+          if (result.status !== "fulfilled" || !result.value?.overall) continue;
+          sawRecord = true;
+          wins += Number(result.value.overall.wins ?? 0);
+          losses += Number(result.value.overall.losses ?? 0);
+        }
+        const leadTimes = leaderboard
+          .map((row) => Number(row.average_lead_time_minutes ?? 0))
+          .filter((minutes) => Number.isFinite(minutes) && minutes > 0);
+        const settled = wins + losses;
+        if (sawRecord) {
+          totals = {
+            confirmedPct: settled ? Math.round((wins / settled) * 100) : null,
+            avgLeadMinutes: leadTimes.length ? Math.round(leadTimes.reduce((sum, minutes) => sum + minutes, 0) / leadTimes.length) : null,
+            verified: wins,
+            revised: losses,
+          };
+        }
+      } catch {
+        // Track record stays in fallback state.
+      }
+
+      if (!cancelled) {
+        setSources(leaderboard);
+        setRecord(totals);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
+  const topSources = useMemo(() => {
+    const seen = new Map<string, LeaderboardRow>();
+    for (const row of sources) {
+      const key = String(row.source_id ?? row.source_name ?? "");
+      if (!key || !row.source_name) continue;
+      const existing = seen.get(key);
+      if (!existing || Number(row.overall_accuracy ?? 0) > Number(existing.overall_accuracy ?? 0)) {
+        seen.set(key, row);
+      }
+    }
+    return Array.from(seen.values())
+      .sort((a, b) => Number(b.overall_accuracy ?? 0) - Number(a.overall_accuracy ?? 0))
+      .slice(0, 5);
+  }, [sources]);
+
+  const upcomingGames = games.filter((game) => !game.status.toLowerCase().includes("final")).slice(0, 6);
+
+  // All three sidebar sections fail silently: when an API call comes back
+  // empty or errors, the section disappears — no placeholder or skeleton copy.
+  return (
+    <aside className="media-homepage-sidebar" aria-label="Trust and slate context">
+      {record && (
+        <section className="sidebar-block" aria-label="EdgeSetter track record">
+          <header>EdgeSetter track record</header>
+          <div className="sidebar-stat-grid">
+            <div>
+              <span>Verified calls</span>
+              <strong>{record.verified}</strong>
+            </div>
+            <div>
+              <span>Avg lead time</span>
+              <strong>{record.avgLeadMinutes ? `${record.avgLeadMinutes}m` : "—"}</strong>
+            </div>
+            <div>
+              <span>Accuracy rate</span>
+              <strong>{record.confirmedPct !== null ? `${record.confirmedPct}%` : "—"}</strong>
+            </div>
+            <div className="is-amber">
+              <span>Revised or weakened</span>
+              <strong>{record.revised}</strong>
+            </div>
+          </div>
+          <small>Revisions included</small>
+          <Link href="/accuracy" className="sidebar-link">What is this? →</Link>
+        </section>
+      )}
+
+      {upcomingGames.length > 0 && (
+        <section className="sidebar-block" aria-label="Today's games">
+          <header>Today's games</header>
+          <div className="sidebar-games">
+            {upcomingGames.map((game) => (
+              <Link key={`sidebar-${game.league}-${game.id}`} href={`/${game.league.toLowerCase()}`}>
+                <div className="sidebar-game-row">
+                  <strong>{cleanShortTeam(game.awayTeam)} @ {cleanShortTeam(game.homeTeam)}</strong>
+                  <span>{gameTimeLabel(game)} / {game.league}</span>
+                  {game.activeSituations > 0 && <em>⚠ Watch</em>}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {topSources.length > 0 && (
+        <section className="sidebar-block" aria-label="Top sources">
+          <header>Top sources</header>
+          <div className="sidebar-sources">
+            {topSources.map((row, index) => (
+              <div key={String(row.source_id ?? row.source_name)} className="sidebar-source-row">
+                <span className="sidebar-source-rank">{index + 1}</span>
+                <strong>{row.source_name}</strong>
+                <i className={`sidebar-tier-badge is-${tierShortLabel(row.trust_tier).toLowerCase()}`}>{tierShortLabel(row.trust_tier)}</i>
+                <em>{Math.round(Number(row.overall_accuracy ?? 0))}%</em>
+              </div>
+            ))}
+          </div>
+          <Link href="/sources" className="sidebar-link">Full board →</Link>
+        </section>
+      )}
+    </aside>
   );
 }
 
@@ -752,8 +983,127 @@ function GameWindowRow({ game, compact = false }: { game: LiveGameSituation; com
   );
 }
 
+// Sport-specific atmosphere pattern: faint court/diamond/field/chalkboard lines
+// behind all content (z-index 0). Keyed by league so switching tabs re-mounts
+// the SVG and replays the 200ms opacity fade.
+function SportBackdrop({ league }: { league: typeof LEAGUES[number] }) {
+  return (
+    <div className="live-intel-sport-backdrop" aria-hidden="true">
+      <svg
+        key={league}
+        viewBox="0 0 1200 800"
+        preserveAspectRatio="xMidYMid slice"
+        xmlns="http://www.w3.org/2000/svg"
+        focusable="false"
+      >
+        {league === "NBA" && <NbaCourtPattern />}
+        {league === "MLB" && <MlbDiamondPattern />}
+        {league === "NFL" && <NflFieldPattern />}
+        {league === "CFB" && <CfbChalkboardPattern />}
+      </svg>
+    </div>
+  );
+}
+
+function NbaCourtPattern() {
+  const stroke = "rgba(200,140,60,0.05)";
+  return (
+    <g fill="none" stroke={stroke} strokeWidth="2.5">
+      {/* half-court line + center circles */}
+      <line x1="600" y1="0" x2="600" y2="800" />
+      <circle cx="600" cy="400" r="70" />
+      <circle cx="600" cy="400" r="24" />
+      {/* left key/paint + free-throw circle */}
+      <rect x="0" y="310" width="190" height="180" />
+      <circle cx="190" cy="400" r="58" />
+      {/* right key/paint + free-throw circle */}
+      <rect x="1010" y="310" width="190" height="180" />
+      <circle cx="1010" cy="400" r="58" />
+      {/* three-point arcs */}
+      <path d="M 0 120 Q 330 400 0 680" />
+      <path d="M 1200 120 Q 870 400 1200 680" />
+      {/* baselines */}
+      <line x1="0" y1="40" x2="0" y2="760" />
+      <line x1="1200" y1="40" x2="1200" y2="760" />
+    </g>
+  );
+}
+
+function MlbDiamondPattern() {
+  const stroke = "rgba(100,140,200,0.06)";
+  return (
+    <g fill="none" stroke={stroke} strokeWidth="2.5">
+      {/* infield diamond: home (600,690) → 1B → 2B → 3B */}
+      <path d="M 600 690 L 790 500 L 600 310 L 410 500 Z" />
+      {/* base paths extended as foul lines from home plate */}
+      <line x1="600" y1="690" x2="1080" y2="210" />
+      <line x1="600" y1="690" x2="120" y2="210" />
+      {/* pitching mound */}
+      <circle cx="600" cy="500" r="34" />
+      {/* base markers */}
+      <rect x="781" y="491" width="18" height="18" transform="rotate(45 790 500)" />
+      <rect x="591" y="301" width="18" height="18" transform="rotate(45 600 310)" />
+      <rect x="401" y="491" width="18" height="18" transform="rotate(45 410 500)" />
+      {/* outfield arcs radiating from home plate */}
+      <path d="M 180 270 A 540 540 0 0 1 1020 270" />
+      <path d="M 300 390 A 420 420 0 0 1 900 390" />
+      {/* home plate circle */}
+      <circle cx="600" cy="690" r="42" />
+    </g>
+  );
+}
+
+function NflFieldPattern() {
+  const stroke = "rgba(160,160,220,0.05)";
+  const yardLines = Array.from({ length: 14 }, (_, i) => 80 + i * 80);
+  const hashMarks = Array.from({ length: 56 }, (_, i) => 30 + i * 21);
+  return (
+    <g fill="none" stroke={stroke} strokeWidth="2.5">
+      {/* vertical yard lines every ~80px */}
+      {yardLines.map((x) => <line key={`yard-${x}`} x1={x} y1="0" x2={x} y2="800" />)}
+      {/* 3 horizontal field lines */}
+      <line x1="0" y1="180" x2="1200" y2="180" />
+      <line x1="0" y1="400" x2="1200" y2="400" />
+      <line x1="0" y1="620" x2="1200" y2="620" />
+      {/* hash marks along the middle line */}
+      {hashMarks.map((x) => <line key={`hash-${x}`} x1={x} y1="392" x2={x} y2="408" />)}
+      {/* goalposts at both edges */}
+      <path d="M 14 480 L 14 360 M 14 400 L 14 388 M 6 360 L 6 300 M 22 360 L 22 300 M 6 360 L 22 360" />
+      <path d="M 1186 480 L 1186 360 M 1178 360 L 1178 300 M 1194 360 L 1194 300 M 1178 360 L 1194 360" />
+    </g>
+  );
+}
+
+function CfbChalkboardPattern() {
+  const stroke = "rgba(29,158,117,0.05)";
+  return (
+    <g fill="none" stroke={stroke} strokeWidth="2.5">
+      {/* yard lines as the chalkboard base */}
+      {Array.from({ length: 11 }, (_, i) => 60 + i * 108).map((x) => (
+        <line key={`cfb-yard-${x}`} x1={x} y1="0" x2={x} y2="800" />
+      ))}
+      {/* three receiver routes: curved dashed paths with arrowheads */}
+      <g strokeDasharray="10 8">
+        <path d="M 320 640 C 360 480 420 420 560 380" />
+        <path d="M 600 660 C 620 520 700 470 820 460" />
+        <path d="M 880 640 C 900 500 860 380 740 330" />
+      </g>
+      <path d="M 560 380 L 540 366 M 560 380 L 548 398" />
+      <path d="M 820 460 L 800 448 M 820 460 L 802 474" />
+      <path d="M 740 330 L 760 332 M 740 330 L 754 346" />
+      {/* blockers as X marks */}
+      <path d="M 420 600 L 444 624 M 444 600 L 420 624" />
+      <path d="M 500 620 L 524 644 M 524 620 L 500 644" />
+      <path d="M 700 610 L 724 634 M 724 610 L 700 634" />
+      {/* ball carrier arrow: solid path */}
+      <path d="M 460 700 C 520 660 600 640 680 560" />
+      <path d="M 680 560 L 654 562 M 680 560 L 670 584" />
+    </g>
+  );
+}
+
 function LiveTicker({ items }: { items: string[] }) {
-  const visibleItems = items.length ? items : ["Quiet board", "No major lineup or injury shift", "Books holding", "Awaiting reports"];
+  const visibleItems = items.length ? items : ["Agents monitoring — no verified breaks yet"];
   const doubled = [...visibleItems, ...visibleItems];
   return (
     <div className="live-intel-ticker" aria-label="Live intelligence ticker">
@@ -861,7 +1211,7 @@ function homepageStoryScore(situation: IntelligenceSituation) {
   if (/(low back strain|hamstring strain|illness|rest day)/i.test(text) && !/(mvp|all-star|star|ace|qb|starter)/i.test(text)) score -= 18;
   if (!situation.subject.player && !situation.subject.team && !situation.subject.matchup) score -= 12;
   if (situation.timing.window === "Widely Known") score -= 60;
-  if (situation.timing.window === "Late") score -= 80;
+  if (situation.timing.window === "Closing") score -= 80;
   if (situation.timing.window === "Stale") score -= 35;
 
   return score;
@@ -907,7 +1257,7 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
       timing: "Pre-slate",
       market: "impact still developing",
       source: "Awaiting reports",
-      changed: "No verified lineup or injury break has reached lead-story weight",
+      changed: "Agents monitoring — no verified breaks yet",
       whoReacts: "Lineup desks, fantasy players, and books are waiting for verified team news.",
       next: "A lineup confirmation, warmup note, weather update, or late movement may become relevant if verified.",
       sourceArcTitle: "Awaiting report support",
@@ -938,14 +1288,20 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
         ? `${earlyCount} early read${earlyCount === 1 ? "" : "s"}`
         : "Quiet board";
 
+  const buildingCount = situations.filter((situation) => situation.confidence.current >= 70 && situation.confidence.current < 90).length;
+
   return {
     heroLeague: league,
-    heroHeadline: marketCount ? "Team and player updates are shaping the slate" : "No verified lineup or injury break has reached lead-story weight",
+    heroHeadline: marketCount
+      ? "Team and player updates are shaping the slate"
+      : situations.length
+        ? `Monitoring ${situations.length} active situation${situations.length === 1 ? "" : "s"}`
+        : "Agents active across all leagues",
     heroBody: `${slateLine} ${weatherCount ? "Weather is part of the game read." : "EdgeSetter is waiting for a real team-news break before elevating a single story."}`,
     timing: timingLine,
     market: marketCount ? `${marketCount} sports shift${marketCount === 1 ? "" : "s"}` : "impact still developing",
     source: sourceCount ? `${sourceCount} report${sourceCount === 1 ? "" : "s"} attached` : "Awaiting reports",
-    changed: marketCount ? "Team or player news moving before public consensus" : upcoming.length ? "Games entering confirmation window" : "Impact still developing",
+    changed: marketCount ? "Team or player news moving before public consensus" : upcoming.length ? "Games entering confirmation window" : buildingCount ? "Confidence building" : "Agents monitoring — no verified breaks yet",
     whoReacts: mlbCount ? "Clubhouses, lineup desks, fantasy players, and books are waiting on the same confirmations." : "Teams, report desks, and books are holding for firmer confirmation.",
     next: weatherCount ? "Weather, lineup, and external context may converge before first pitch." : "A late scratch, lineup confirmation, warmup note, or external movement could become the lead.",
     sourceArcTitle: sourceCount ? "Reports active across the slate" : "Awaiting lineup or injury confirmation",
@@ -964,7 +1320,19 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
   };
 }
 
-function buildTickerItems({ situations, games, pressure }: { situations: IntelligenceSituation[]; games: LiveGameSituation[]; pressure: LivePressureContext }) {
+// North Star ticker: real situations with real copy only — no generic filler.
+function buildTickerItems({ situations, games }: { situations: IntelligenceSituation[]; games: LiveGameSituation[] }) {
+  const verified = situations
+    .map((situation) => ({ situation, detection: detectionLeadForIntelligence(situation) }))
+    .filter((entry) => entry.detection !== null)
+    .slice(0, 2)
+    .map(({ situation, detection }) => {
+      const storyCopy = buildPublicSituationStory(situation);
+      const headline = hasCleanPublicText(storyCopy.shortHeadline)
+        ? storyCopy.shortHeadline
+        : publicFallbackLabel(`${storyCopy.headline} ${situation.raw.signal_type}`, situation.league);
+      return `⚡ EdgeSetter verified ${headline} — ${detection!.lead} before public confirmation`;
+    });
   const market = situations
     .filter((situation) => situation.marketReaction)
     .slice(0, 2)
@@ -980,9 +1348,12 @@ function buildTickerItems({ situations, games, pressure }: { situations: Intelli
   const game = games
     .filter((item) => item.activeSituations > 0)
     .slice(0, 2)
-    .map((item) => `${item.league}: ${cleanShortTeam(item.awayTeam)} @ ${cleanShortTeam(item.homeTeam)} carrying ${item.activeSituations} active update${item.activeSituations === 1 ? "" : "s"}`);
+    .map((item) => `${item.league}: ${cleanShortTeam(item.awayTeam)} @ ${cleanShortTeam(item.homeTeam)} — ${item.activeSituations} situation${item.activeSituations === 1 ? "" : "s"} in progress`);
+  const building = situations.some((situation) => situation.confidence.current >= 70 && situation.confidence.current < 90)
+    ? ["Confidence building"]
+    : [];
 
-  return [...market, ...lineup, ...source, ...game, pressure.changed, pressure.next]
+  return [...verified, ...market, ...lineup, ...source, ...game, ...building]
     .filter(Boolean)
     .filter((item) => !containsPublicInvalidToken(item))
     .filter((item, index, array) => array.indexOf(item) === index)
@@ -1055,9 +1426,79 @@ function storyChangeLabel(situation: IntelligenceSituation) {
   return situation.timeline.at(-1)?.label ?? "Live read updated";
 }
 
+const INJURY_TYPE_PATTERN = /(hamstring|ankle|knee|quad(?:ricep)?|calf|groin|shoulder|lower back|back|hip|foot|wrist|hand|elbow|concussion|achilles|oblique|illness|toe|rib|neck|forearm|finger|thumb|acl|mcl|ucl|pectoral|lat|hernia|abdominal)/i;
+
+function headlineSourceTier(situation: IntelligenceSituation) {
+  const convergence = (situation.sourceSummary.convergence ?? "").toLowerCase();
+  if (convergence.includes("official")) return "official sources";
+  if (situation.sourceSummary.count >= 2) return "multiple reports";
+  return "source reports";
+}
+
+// FIX 2 — specific headline templates. Names the player/team plus the concrete
+// development whenever the pipeline carried one; returns null when the data
+// can't support a specific claim so editorial branch copy takes over.
+function generateHeadline(situation: IntelligenceSituation): string | null {
+  const player = situation.subject.player?.trim() || null;
+  const matchupTeams = splitMatchup(situation.subject.matchup);
+  const rawTeam = situation.subject.team ?? matchupTeams[0] ?? null;
+  const team = rawTeam ? displayTeamName(rawTeam) : null;
+  if (!player && !team) return null;
+
+  const type = situation.raw.signal_type.toLowerCase();
+  const text = `${situation.raw.signal_type} ${situation.headline} ${situation.currentRead}`.toLowerCase();
+  const opponent = rawTeam
+    ? matchupTeams.map(displayTeamName).find((side) => side.toLowerCase() !== displayTeamName(rawTeam).toLowerCase()) ?? null
+    : null;
+
+  // Eligibility ruling — official determination, names the school
+  if (type.includes("eligibility") || /\b(eligibility|eligible|waiver|reinstate|cleared to play)\b/.test(text)) {
+    if (player && team) return `${player} cleared — ${team} confirms eligibility`;
+    if (player) return `${player} cleared — eligibility confirmed`;
+    return `${team} eligibility ruling confirmed`;
+  }
+
+  // Coaching change — coach name rides in the player slot for coaching signals
+  if (type.includes("coaching") || /\bcoach(?:ing|es)?\b/.test(text)) {
+    const action = /\b(hired|named|joins)\b/.test(text) ? "hired" : /\b(fired|dismissed|parts ways|resigns?|resigned)\b/.test(text) ? "fired" : null;
+    if (action && player && team) return `${player} ${action} at ${team}`;
+    if (action && (player || team)) return `${player ?? team} — coaching ${action === "hired" ? "hire" : "change"} confirmed`;
+  }
+
+  // Trade — destination team plus the trail strength
+  if (/\btraded?\b/.test(text) && player && team) {
+    return `${player} traded to ${team}, per ${headlineSourceTier(situation)}`;
+  }
+
+  // Injury — the designation is the concrete development
+  const status = publicAvailabilityStatus(situation.raw.injury_designation);
+  if (status) {
+    const injury = text.match(INJURY_TYPE_PATTERN)?.[1] ?? null;
+    const subject = player ?? `${team}`;
+    return injury ? `${subject} (${injury}) — ${status}` : `${subject} — ${status}`;
+  }
+
+  // Lineup — confirmed role or scratch
+  if (situation.raw.lineup_status && player && team) {
+    const lineupStatus = situation.raw.lineup_status.toLowerCase();
+    const role = text.match(/\b(starter|starting pitcher|qb1|leadoff|cleanup|closer)\b/)?.[1] ?? "starter";
+    const action = /scratch/.test(lineupStatus) ? "scratched" : `confirmed ${role}`;
+    return opponent ? `${player} ${action} for ${team} vs ${opponent}` : `${player} ${action} for ${team}`;
+  }
+
+  // Market — real numbers only
+  const reaction = situation.marketReaction;
+  if (reaction?.open && reaction?.current && reaction.open !== reaction.current && (team || situation.subject.matchup)) {
+    return `${team ?? situation.subject.matchup} line moves ${reaction.open} → ${reaction.current}`;
+  }
+
+  return null;
+}
+
 function buildPublicSituationStory(situation: IntelligenceSituation) {
   const player = situation.subject.player?.trim();
   const team = displayTeamName(situation.subject.team ?? splitMatchup(situation.subject.matchup)[0] ?? situation.league);
+  const specificHeadline = generateHeadline(situation);
   const teamContext = team ? `${team} ${teamContextNoun(situation)}` : `${situation.league} context`;
   const type = publicSituationType(situation);
   const status = publicAvailabilityStatus(situation.raw.injury_designation);
@@ -1067,9 +1508,9 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (isAvailabilitySituation(situation)) {
     const subject = hasPlayer ? `${player} availability` : `${team} availability`;
-    const headline = hasPlayer
+    const headline = specificHeadline ?? (hasPlayer
       ? `${player} availability puts ${team} ${teamContextNoun(situation)} in focus`
-      : `${team} availability puts ${teamContextNoun(situation)} in focus`;
+      : `${team} availability puts ${teamContextNoun(situation)} in focus`);
     return {
       headline,
       shortHeadline: headline,
@@ -1088,7 +1529,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (isRosterMoveSituation(situation)) {
     const subject = player ?? team;
-    const headline = `${subject} roster move could change ${team} depth-chart plan`;
+    const headline = specificHeadline ?? `${subject} roster move could change ${team} depth-chart plan`;
     return {
       headline,
       shortHeadline: headline,
@@ -1103,7 +1544,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (isLineupSituation(situation)) {
     const subject = player ?? team;
-    const headline = `${subject} lineup update could shape ${team} pregame plan`;
+    const headline = specificHeadline ?? `${subject} lineup update could shape ${team} pregame plan`;
     return {
       headline,
       shortHeadline: headline,
@@ -1118,7 +1559,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (isDepthChartSituation(situation)) {
     const subject = player ?? team;
-    const headline = `${subject} depth-chart update puts ${team} roles in focus`;
+    const headline = specificHeadline ?? `${subject} depth-chart update puts ${team} roles in focus`;
     return {
       headline,
       shortHeadline: headline,
@@ -1133,7 +1574,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
 
   if (situation.marketReaction) {
     const subject = player ?? situation.subject.matchup ?? team;
-    const headline = `${subject} line movement follows late ${team} context`;
+    const headline = specificHeadline ?? `${subject} line movement follows late ${team} context`;
     return {
       headline,
       shortHeadline: headline,
@@ -1160,8 +1601,21 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     };
   }
 
+  // Generic "remains on the watch" copy is allowed ONLY when neither a player
+  // nor a team can be named (North Star: every headline names the sports story).
   const subject = player ?? situation.subject.matchup ?? team;
-  const headline = `${subject} update remains on the ${situation.league} watch`;
+  const development = compactIntelPhrase(situation.timeline.at(-1)?.detail ?? situation.currentRead);
+  const serverHeadline = situation.headline?.trim();
+  const serverHeadlineUsable = Boolean(
+    serverHeadline &&
+    hasCleanPublicText(serverHeadline) &&
+    ((player && serverHeadline.includes(player)) || (situation.subject.team && serverHeadline.includes(situation.subject.team))),
+  );
+  const hasNamedSubject = Boolean(player || situation.subject.team || situation.subject.matchup);
+  const headline =
+    specificHeadline
+    ?? (serverHeadlineUsable ? serverHeadline! : null)
+    ?? (hasNamedSubject && development ? `${subject} — ${development}` : `${subject} update remains on the ${situation.league} watch`);
   return {
     headline,
     shortHeadline: headline,
@@ -1468,9 +1922,34 @@ const liveIntelCss = `
   min-width: 0;
 }
 .live-intel-home > section,
-.live-intel-home > div:not(.live-intel-atmosphere) {
+.live-intel-home > div:not(.live-intel-atmosphere):not(.live-intel-sport-backdrop) {
   position: relative;
-  z-index: 1;
+  z-index: 5;
+}
+.live-intel-sport-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.live-intel-sport-backdrop svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  animation: es-sport-backdrop-fade 200ms ease forwards;
+}
+@keyframes es-sport-backdrop-fade {
+  to { opacity: 1; }
+}
+.live-intel-home.league-board-shell::before,
+.live-intel-home.league-board-shell::after {
+  transition: opacity 200ms ease;
+}
+.live-intel-home.is-backdrop-fading::before,
+.live-intel-home.is-backdrop-fading::after {
+  opacity: 0;
 }
 .media-homepage {
   display: grid;
@@ -1497,28 +1976,53 @@ const liveIntelCss = `
 .media-homepage-leagues {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
-  gap: 6px;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid rgba(82,101,122,0.22);
+  border-radius: 999px;
+  background: rgba(8,14,22,0.66);
 }
 .media-homepage-leagues button {
-  min-height: 34px;
-  padding: 7px 11px;
-  border: 1px solid rgba(82,101,122,0.24);
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 7px 14px;
+  border: 1px solid rgba(82, 101, 122, 0.22);
   border-radius: 999px;
-  background: rgba(10,18,28,0.42);
-  color: #a9b6c5;
-  font-family: var(--font-sans);
-  font-size: 0.74rem;
-  font-weight: 760;
-  letter-spacing: 0.01em;
+  background: rgba(10, 20, 32, 0.52);
+  color: var(--es-text-secondary, #94a3b8);
+  font-family: var(--font-cond);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.10em;
   text-transform: uppercase;
   cursor: pointer;
+  transition: all 140ms ease;
+}
+.media-league-tab-logo {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+.media-homepage-leagues button:hover {
+  color: #cbd5e1;
+}
+.media-homepage-leagues button:hover .media-league-tab-logo {
+  opacity: 0.75;
 }
 .media-homepage-leagues button.is-active {
-  border-color: var(--league-color);
-  color: #f8fafc;
-  background: color-mix(in srgb, var(--league-color) 14%, rgba(10,18,28,0.52));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--league-color) 20%, transparent);
+  border-color: rgba(245, 184, 65, 0.42);
+  color: var(--es-text-primary, #f8fafc);
+  background: rgba(245, 184, 65, 0.10);
+  box-shadow: inset 0 -2px 0 rgba(245, 184, 65, 0.55);
+}
+.media-homepage-leagues button.is-active .media-league-tab-logo {
+  opacity: 1;
 }
 .media-homepage-leagues button strong,
 .media-homepage-leagues button span {
@@ -1538,6 +2042,186 @@ const liveIntelCss = `
 }
 .media-homepage-grid.has-assignment-rail {
   grid-template-columns: minmax(0, 1fr);
+}
+.media-homepage-grid.has-intel-sidebar,
+.media-homepage-grid.has-intel-sidebar.has-assignment-rail {
+  grid-template-columns: minmax(0, 1fr) 296px;
+}
+.media-developing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+.media-homepage-sidebar {
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  min-width: 0;
+}
+.sidebar-block {
+  display: grid;
+  gap: 9px;
+  padding: 12px;
+  border: 1px solid rgba(82,101,122,0.18);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(9,16,25,0.82), rgba(5,8,12,0.68));
+  box-shadow: 0 18px 44px rgba(0,0,0,0.18);
+}
+.sidebar-block > header {
+  color: var(--es-gold, #d9a441);
+  font-family: var(--font-cond);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(245, 184, 65, 0.16);
+  padding-bottom: 8px;
+}
+.sidebar-block > small {
+  color: var(--es-text-muted, #64748b);
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+.sidebar-link {
+  color: var(--es-brand-green, #18D47B);
+  font-size: 0.70rem;
+  font-weight: 760;
+  text-decoration: none;
+}
+.sidebar-link:hover {
+  color: #5fe8a6;
+}
+.sidebar-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+.sidebar-stat-grid > div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(82, 101, 122, 0.18);
+  border-radius: 6px;
+  background: rgba(10, 20, 32, 0.52);
+}
+.sidebar-stat-grid span {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--es-text-muted, #64748b);
+  font-family: var(--font-cond);
+  font-size: 0.60rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.sidebar-stat-grid strong {
+  display: block;
+  color: var(--es-brand-green, #18D47B);
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.sidebar-stat-grid > div.is-amber strong {
+  color: var(--es-amber, #E6B450);
+}
+.sidebar-games {
+  display: grid;
+  gap: 6px;
+}
+.sidebar-game-row {
+  display: grid;
+  gap: 2px;
+  padding: 7px 9px;
+  border: 1px solid rgba(82,101,122,0.18);
+  border-radius: 6px;
+  background: rgba(8,14,22,0.55);
+  cursor: pointer;
+}
+.sidebar-game-row:hover {
+  border-color: rgba(245,184,65,0.3);
+}
+.sidebar-game-row strong {
+  color: #f8fafc;
+  font-size: 0.78rem;
+}
+.sidebar-game-row span {
+  color: #94a3b8;
+  font-size: 0.66rem;
+}
+.sidebar-game-row em {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: fit-content;
+  padding: 2px 6px;
+  border: 1px solid rgba(230, 180, 80, 0.36);
+  border-radius: 4px;
+  background: rgba(230, 180, 80, 0.10);
+  color: var(--es-amber, #E6B450);
+  font-family: var(--font-cond);
+  font-size: 0.60rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+}
+.sidebar-sources {
+  display: grid;
+  gap: 5px;
+}
+.sidebar-source-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border-left: 1px solid rgba(82,101,122,0.26);
+  background: rgba(255,255,255,0.015);
+}
+.sidebar-source-rank {
+  color: #64748b;
+  font-family: var(--font-cond);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+.sidebar-source-row strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #dbe7f4;
+  font-size: 0.74rem;
+}
+.sidebar-tier-badge {
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid rgba(148,163,184,0.3);
+  color: #94a3b8;
+  font-family: var(--font-cond);
+  font-size: 0.60rem;
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+.sidebar-tier-badge.is-t1 {
+  background: rgba(24, 212, 123, 0.10);
+  border-color: rgba(24, 212, 123, 0.24);
+  color: #18D47B;
+}
+.sidebar-tier-badge.is-t2 {
+  background: rgba(111, 164, 191, 0.10);
+  border-color: rgba(111, 164, 191, 0.24);
+  color: #6FA4BF;
+}
+.sidebar-source-row em {
+  color: var(--es-brand-green, #18D47B);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 800;
+}
+.sidebar-empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 .media-homepage-main,
 .media-homepage-rail,
@@ -1672,23 +2356,221 @@ const liveIntelCss = `
   background: linear-gradient(180deg, rgba(14,24,36,0.94), rgba(7,12,18,0.84));
 }
 .story-card-lead {
-  grid-template-columns: minmax(280px, 0.64fr) minmax(0, 1fr);
-  grid-template-areas:
-    "visual copy"
-    "visual evidence";
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   min-height: 0;
-  padding: 12px;
+  padding: 0;
+  gap: 0;
 }
 .story-card-lead .story-card-visual {
-  grid-area: visual;
+  position: relative;
   height: auto;
 }
 .story-card-lead .story-card-visual .sports-story-visual {
-  min-height: 286px;
+  min-height: 220px;
+  border-radius: 7px 7px 0 0;
+}
+.story-hero-timing-banner {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  padding: 6px 14px;
+  background: rgba(29,158,117,0.12);
+  border-top: 0.5px solid rgba(29,158,117,0.2);
+  color: #1D9E75;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
 }
 .story-card-lead .story-card-copy {
-  grid-area: copy;
+  padding: 14px 16px 12px;
+}
+.story-card-kicker-time {
+  color: #64748b;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+.story-intel-zone {
+  display: grid;
+  gap: 9px;
+  padding: 12px 16px 14px;
+  background: rgba(24,212,123,0.04);
+  border-top: 1px solid rgba(24,212,123,0.14);
+}
+.story-intel-zone-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-cond);
+  font-size: 0.66rem;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--es-brand-green, #18D47B);
+}
+.story-intel-zone-label span {
+  color: var(--es-text-muted, #64748b);
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+}
+.story-intel-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+.story-intel-stats > div {
+  min-width: 0;
+  padding: 7px 9px;
+  border-left: 1px solid rgba(29,158,117,0.18);
+  background: rgba(255,255,255,0.015);
+}
+.story-intel-stats span {
+  display: block;
+  margin-bottom: 3px;
+  color: #64748b;
+  font-family: var(--font-sans);
+  font-size: 0.58rem;
+  font-weight: 760;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.story-intel-stats strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #dbe7f4;
+  font-size: 0.8rem;
+  line-height: 1.2;
+}
+.story-card-conf.is-verified,
+.story-card-conf.is-strong {
+  color: #1D9E75;
+}
+.story-card-conf.is-developing {
+  color: #f5b841;
+}
+.story-card-conf.is-forming,
+.story-card-conf.is-pending {
+  color: #94a3b8;
+}
+.story-intel-agents {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+.story-intel-agents i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(29,158,117,0.45);
+  background: transparent;
+}
+.story-intel-agents i.is-filled {
+  background: #1D9E75;
+  border-color: #1D9E75;
+}
+.story-intel-agents span {
+  margin-left: 5px;
+}
+.story-intel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.story-intel-actions button {
+  padding: 5px 11px;
+  border: 1px solid rgba(29,158,117,0.28);
+  border-radius: 999px;
+  background: rgba(29,158,117,0.06);
+  color: #9fd6c2;
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  font-weight: 760;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.story-intel-actions button:hover {
+  background: rgba(29,158,117,0.14);
+  color: #d4f2e6;
+}
+.story-intel-actions button.is-open {
+  background: rgba(29,158,117,0.2);
+  border-color: rgba(29,158,117,0.5);
+  color: #eafff5;
+}
+.story-intel-panel {
+  margin: 0;
+  padding: 8px 10px;
+  border-left: 2px solid rgba(29,158,117,0.4);
+  background: rgba(29,158,117,0.05);
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+.story-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+.story-card-agents {
+  color: #94a3b8;
+}
+.story-card-footer .story-card-conf {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+.story-card-footer .story-card-conf.is-verified,
+.story-card-footer .story-card-conf.is-strong {
+  background: rgba(24, 212, 123, 0.12);
+  color: #18D47B;
+  border: 1px solid rgba(24, 212, 123, 0.28);
+}
+.story-card-footer .story-card-conf.is-developing {
+  background: rgba(230, 180, 80, 0.12);
+  color: #E6B450;
+  border: 1px solid rgba(230, 180, 80, 0.28);
+}
+.story-card-footer .story-card-conf.is-forming,
+.story-card-footer .story-card-conf.is-pending {
+  background: rgba(100, 116, 139, 0.12);
+  color: #94A3B8;
+  border: 1px solid rgba(100, 116, 139, 0.22);
+}
+.story-card-timing-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: 1px solid rgba(45, 212, 191, 0.28);
+  border-radius: 4px;
+  background: rgba(45, 212, 191, 0.08);
+  color: #2DD4BF;
+  font-size: 0.66rem;
+  font-weight: 800;
 }
 .story-card-visual,
 .story-card-visual .sports-story-visual {
@@ -1699,10 +2581,6 @@ const liveIntelCss = `
 .story-card-visual .sports-story-visual-copy,
 .story-card-visual .sports-story-visual-top {
   max-width: 100%;
-}
-.story-card-lead .edge-overlay {
-  grid-area: evidence;
-  margin-top: 8px;
 }
 .story-card-rail .edge-overlay,
 .story-card-compact .edge-overlay {
@@ -1716,8 +2594,16 @@ const liveIntelCss = `
 .story-card-compact {
   grid-template-columns: 118px minmax(0, 1fr);
 }
-.story-card-rail .story-card-visual {
+.story-card-rail .story-card-visual .sports-story-visual {
+  min-height: 76px;
+  padding: 7px;
+}
+.story-card-rail .sports-story-visual-top,
+.story-card-rail .sports-story-visual-copy {
   display: none;
+}
+.story-card-rail .sports-story-visual-stage {
+  padding: 5px 0 4px;
 }
 .story-card-compact .story-card-visual .sports-story-visual {
   min-height: 126px;
@@ -1800,11 +2686,70 @@ const liveIntelCss = `
 }
 .story-card-lead h2 {
   font-family: var(--font-serif);
-  font-size: clamp(1.72rem, 2.55vw, 2.72rem);
-  line-height: 1.03;
+  font-size: clamp(1.375rem, 2.2vw, 1.875rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 8px 0 6px;
   -webkit-line-clamp: 3;
 }
-.story-card-rail h2,
+.story-headline-accent {
+  color: var(--es-gold, #d9a441);
+}
+.story-card-lead .story-card-kicker {
+  font-family: var(--font-cond);
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--es-gold, #d9a441);
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.story-card-lead .story-card-kicker span,
+.story-card-lead .story-card-kicker strong {
+  color: var(--es-gold, #d9a441);
+}
+.story-card-kicker-sep {
+  color: var(--es-text-muted, #64748b);
+  font-style: normal;
+}
+.story-card-lead .story-card-copy > p {
+  font-size: 0.9375rem;
+  color: var(--es-text-secondary, #94a3b8);
+}
+.story-card-lead .story-card-reads {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(82,101,122,0.22);
+}
+.story-card-lead .story-card-reads div {
+  min-height: 0;
+  padding: 0;
+  border-left: 0;
+  background: transparent;
+}
+.story-card-lead .story-card-reads span {
+  font-family: var(--font-cond);
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  margin-bottom: 3px;
+}
+.story-card-lead .story-card-reads strong {
+  font-size: 0.82rem;
+  font-weight: 650;
+  color: var(--es-text-secondary, #94a3b8);
+  line-height: 1.35;
+  -webkit-line-clamp: 3;
+}
+.story-card-rail h2 {
+  font-size: 0.75rem;
+  line-height: 1.18;
+  -webkit-line-clamp: 2;
+}
 .story-card-compact h2 {
   font-size: 0.98rem;
   line-height: 1.08;
@@ -1829,7 +2774,10 @@ const liveIntelCss = `
 .story-card-compact .story-card-reads {
   grid-template-columns: 1fr;
 }
-.story-card-rail .story-card-reads div:nth-child(n+2),
+.story-card-rail .story-card-reads,
+.story-card-rail .story-card-copy > p {
+  display: none;
+}
 .story-card-compact .story-card-reads div:nth-child(n+2) {
   display: none;
 }
@@ -1860,9 +2808,6 @@ const liveIntelCss = `
 }
 .story-impact-details {
   align-self: start;
-}
-.story-card-lead .story-impact-details {
-  grid-column: 1 / -1;
 }
 .story-card-rail .story-impact-details,
 .story-card-compact .story-impact-details {
@@ -1977,15 +2922,16 @@ const liveIntelCss = `
   line-height: 1.28;
   text-overflow: ellipsis;
 }
+/* The lead intel zone's stat row already shows confidence/sources/timing, so
+   the generic overlay grid is hidden there to avoid duplicate readouts. */
 .story-card-lead .edge-overlay-primitives,
-.story-card-lead .edge-overlay-grid {
-  grid-template-columns: 1fr;
-}
-.story-card-lead .edge-overlay-primitives > *:nth-child(n+2),
-.story-card-lead .edge-overlay-grid > div:nth-child(n+3),
+.story-card-lead .edge-overlay-grid,
 .story-card-lead .edge-overlay-replay,
 .story-card-lead .edge-overlay .agent-calibration-badge + * {
   display: none;
+}
+.story-card-lead .edge-overlay {
+  padding-top: 6px;
 }
 .edge-overlay.is-compact .edge-overlay-grid {
   grid-template-columns: 1fr;
@@ -2023,14 +2969,10 @@ const liveIntelCss = `
 @media (max-width: 1100px) {
   .media-homepage-grid,
   .media-homepage-grid.has-assignment-rail,
+  .media-homepage-grid.has-intel-sidebar,
+  .media-homepage-grid.has-intel-sidebar.has-assignment-rail,
   .story-card-lead {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .story-card-lead {
-    grid-template-areas:
-      "visual"
-      "copy"
-      "evidence";
   }
   .media-game-grid,
   .media-league-story-grid {
@@ -2112,15 +3054,25 @@ const liveIntelCss = `
     overflow: hidden;
   }
   .story-card-lead {
-    padding: 9px;
-    grid-template-areas:
-      "copy"
-      "impact"
-      "evidence";
-    gap: 8px;
+    padding: 0;
+    gap: 0;
   }
-  .story-card-lead .story-card-visual {
+  /* Mobile drops the hero art but keeps the North Star timing banner visible. */
+  .story-card-lead .story-card-visual .sports-story-visual {
     display: none;
+  }
+  .story-card-lead .story-hero-timing-banner {
+    position: static;
+    border-radius: 7px 7px 0 0;
+  }
+  .story-card-lead .story-card-copy {
+    padding: 10px 12px 9px;
+  }
+  .story-intel-zone {
+    padding: 10px 12px 12px;
+  }
+  .story-intel-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .story-card-compact {
     grid-template-columns: 94px minmax(0, 1fr);
@@ -2180,9 +3132,6 @@ const liveIntelCss = `
   .story-card-lead .edge-overlay {
     display: none;
   }
-  .story-card-lead .story-impact-details {
-    grid-area: impact;
-  }
   .story-card-lead .story-impact-details summary {
     font-size: 0.58rem;
   }
@@ -2192,6 +3141,9 @@ const liveIntelCss = `
   }
   .media-homepage-support div:nth-child(n+3) {
     display: none;
+  }
+  .media-developing-grid {
+    grid-template-columns: 1fr;
   }
   .story-card p {
     width: 100%;
