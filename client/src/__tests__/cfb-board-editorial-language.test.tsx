@@ -1,5 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import CFBBoard from "@/pages/CFBBoard";
 import { SignalGateProvider } from "@/context/SignalGate";
@@ -27,6 +27,12 @@ const mockUseAuth = vi.mocked(useAuth);
 const mockUseCFBSignals = vi.mocked(useCFBSignals);
 const mockUseCanonicalSituations = vi.mocked(useCanonicalSituations);
 
+// Lane assignment derives freshness from signal age (<=30m / <=45m windows),
+// so the clock is frozen and the signal timestamp is anchored 18 minutes
+// before it. Only Date is faked so waitFor's real timers keep working.
+const FROZEN_NOW = new Date("2026-06-11T15:00:00Z");
+const SIGNAL_ISO = new Date(FROZEN_NOW.getTime() - 18 * 60_000).toISOString();
+
 function cfbSignal(overrides: Record<string, unknown> = {}) {
   return {
     id: "cfb-story-1",
@@ -39,9 +45,12 @@ function cfbSignal(overrides: Record<string, unknown> = {}) {
     why_it_matters: "Depth chart, travel, matchup prep, and team context can shift when source support changes.",
     action_takeaway: "Watch official participation updates and local reports.",
     verdict: "review",
-    confidence: 84,
-    sources: 3,
-    source_count: 3,
+    confidence: 92,
+    sources: 5,
+    source_count: 5,
+    sourceLabels: ["Official injury report", "The Athletic (TEX Beat)", "247Sports"],
+    confirmationStrength: "corroborated",
+    isoTimestamp: SIGNAL_ISO,
     timestamp: "18m ago",
     conference: "SEC",
     tags: ["injury", "Texas", "Oklahoma"],
@@ -51,7 +60,12 @@ function cfbSignal(overrides: Record<string, unknown> = {}) {
 }
 
 describe("CFB board editorial language", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: FROZEN_NOW, toFake: ["Date"] });
+  });
+
   afterEach(() => {
+    vi.useRealTimers();
     document.body.innerHTML = "";
     vi.clearAllMocks();
   });

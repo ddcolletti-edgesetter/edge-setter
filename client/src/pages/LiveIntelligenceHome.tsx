@@ -12,7 +12,7 @@ import {
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { fetchSignals } from "@/lib/signalsApi";
 import { containsPublicInvalidToken, hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
-import { AlertTriangle, Crosshair, RefreshCw, ShieldCheck, Zap } from "lucide-react";
+import { AlertTriangle, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import { Link } from "wouter";
 
 const REFRESH_MS = 60_000;
@@ -24,7 +24,6 @@ const HERO_FALLBACK_TILES = [
   { league: "CFB", title: "Roster board quiet", note: "Transfer impact still developing" },
 ] as const;
 
-const escalationOrder: EscalationState[] = ["Official", "Confirming", "Significant", "Escalating", "Emerging", "Monitoring"];
 
 type LivePressureContext = {
   heroLeague: string;
@@ -149,12 +148,6 @@ export default function LiveIntelligenceHome() {
   }, [games]);
   const livePressure = useMemo(() => buildLivePressureContext(games, publicSituations, loading), [games, publicSituations, loading]);
   const tickerItems = useMemo(() => buildTickerItems({ situations: publicSituations, games }), [games, publicSituations]);
-  const counts = useMemo(() => {
-    return escalationOrder.map((state) => ({
-      state,
-      count: visibleSituations.filter((situation) => situation.escalationState === state).length,
-    }));
-  }, [visibleSituations]);
   const homepageStories = useMemo(
     () => buildHomepageStoryModel({
       activeLeague,
@@ -249,20 +242,14 @@ export default function LiveIntelligenceHome() {
             <HomepageSidebar games={leadGames} loading={loading} />
           </div>
 
-          <section className="media-game-context" aria-label="Active matchup and game context">
-            <div className="live-intel-section-header">
-              <div>
-                <Zap size={15} />
-                  <span>Game windows</span>
-              </div>
-              <small>{livePressure.timing} / {livePressure.market}</small>
+          <div className="media-dive-deeper" aria-label="Dive deeper into league boards">
+            <div className="section-kicker">Dive Deeper</div>
+            <div className="media-dive-deeper-links">
+              <Link href="/nfl" className="btn-secondary"><Zap size={13} /> Full NFL Board →</Link>
+              <Link href="/mlb" className="btn-secondary">Full MLB Board →</Link>
+              <Link href="/cfb" className="btn-secondary">Full CFB Board →</Link>
             </div>
-            <div className="media-game-grid">
-              {homepageStories.games.length
-                ? homepageStories.games.map((story) => <StoryCard key={story.id} story={story} variant="compact" copyVariant="public" />)
-                : HERO_FALLBACK_TILES.map((tile) => <CoverageStatusCard key={tile.league} tile={tile} loading={loading} />)}
-            </div>
-          </section>
+          </div>
         </section>
 
         {error && (
@@ -271,30 +258,6 @@ export default function LiveIntelligenceHome() {
             {error}
           </div>
         )}
-
-        {homepageStories.leagues.length > 0 && (
-          <section className="media-league-sections" aria-label="League story sections">
-            {homepageStories.leagues.map((section) => (
-              <section key={section.league} className="media-league-section">
-                <div className="live-intel-section-header">
-                  <div>
-                    <Crosshair size={15} />
-                    <span>{section.league} Story Desk</span>
-                  </div>
-                  <small>{section.summary}</small>
-                </div>
-                <div className="media-league-story-grid">
-                  {section.stories.map((story) => (
-                    <StoryCard key={story.id} story={story} variant="feature" copyVariant="public" />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </section>
-        )}
-
-        <PressureSection situation={heroSituation} pressure={livePressure} />
-        <SourceArc situation={heroSituation} counts={counts} pressure={livePressure} />
       </div>
       <style>{liveIntelCss}</style>
     </AppShell>
@@ -486,7 +449,7 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
     secondaryTeam: hasCleanPublicTeamIdentity(game.homeTeam) ? game.homeTeam : undefined,
     storyType: hasUnmatchedUpdates ? "Developing watch item" : sameLeagueSituation ? publicSituationType(sameLeagueSituation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
     detail: `${game.activeSituations} linked update${game.activeSituations === 1 ? "" : "s"}`,
-    whatChanged: sameLeagueSituation && hasCleanPublicText(storyCopy?.whatHappened) ? storyCopy?.whatHappened : "No verified team-news change has attached to this game yet.",
+    whatChanged: sameLeagueSituation && hasCleanPublicText(storyCopy?.whatHappened) ? storyCopy?.whatHappened : undefined,
     whyItMatters: sameLeagueSituation && hasCleanPublicText(storyCopy?.whyItMatters) ? storyCopy?.whyItMatters : "Game context can change when lineup, availability, or source confirmation lands.",
     watchNext: sameLeagueSituation && hasCleanPublicText(storyCopy?.watchNext) ? storyCopy?.watchNext : "Watch for official team news and source convergence.",
     overlay: sameLeagueSituation ? {
@@ -2844,6 +2807,22 @@ const liveIntelCss = `
   line-height: 1.24;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+}
+.media-dive-deeper {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(82,101,122,0.18);
+}
+.media-dive-deeper-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.media-dive-deeper-links .btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 .edge-overlay {
   display: grid;

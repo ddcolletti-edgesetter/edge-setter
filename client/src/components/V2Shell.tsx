@@ -979,7 +979,10 @@ function TopTabBar({
 
       {!isMobile && <div style={{ flex: 1 }} />}
 
-      {/* Sport tabs — horizontally scrollable on mobile */}
+      {/* Sport tabs — horizontally scrollable on mobile.
+          Hidden on the homepage: the pill tabs with logos in the homepage
+          masthead are the only league navigation there. */}
+      {location !== "/" && (
       <div
         style={{
           display: "flex",
@@ -1047,6 +1050,9 @@ function TopTabBar({
           );
         })}
       </div>
+      )}
+
+      {isMobile && location === "/" && <div style={{ flex: "1 1 auto" }} />}
 
       {!isPro && !isMobile && (
         <button

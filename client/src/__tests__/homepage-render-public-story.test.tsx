@@ -153,7 +153,7 @@ describe("homepage public story render", () => {
 
     await waitFor(() => {
       expect(screen.getByRole("heading", {
-        name: "Brandon Aiyuk availability puts 49ers passing-game plan in focus",
+        name: "Brandon Aiyuk — OUT",
       })).toBeInTheDocument();
     });
 
@@ -190,7 +190,7 @@ describe("homepage public story render", () => {
     expect(domText).not.toMatch(/\b[A-Z]{2,4} availability status is moving\b/);
 
     const leadStory = screen.getByRole("heading", {
-      name: "Brandon Aiyuk availability puts 49ers passing-game plan in focus",
+      name: "Brandon Aiyuk — OUT",
     }).closest("article");
     expect(leadStory).not.toBeNull();
     const leadImage = leadStory?.querySelector<HTMLImageElement>("[data-testid='homepage-story-image']");
@@ -198,7 +198,7 @@ describe("homepage public story render", () => {
 
     expect(document.querySelector(".edgesetter-sidebar-wordmark img")?.getAttribute("width")).toBe("174");
     expect(document.querySelector(".edgesetter-sidebar-wordmark")).toBeInTheDocument();
-    expect(document.querySelector(".live-intel-brand-logo-crop img")?.getAttribute("src")).toBe("/brand/edgesetter-logo.png");
+    expect(document.querySelector(".media-homepage-header img")?.getAttribute("src")).toBe("/brand/edgesetter-logo.png");
   });
 
   it("does not render UNK in homepage lead or top watch", async () => {
@@ -239,12 +239,14 @@ describe("homepage public story render", () => {
     render(<LiveIntelligenceHome />);
 
     await waitFor(() => {
-      expect(screen.getByText("Game windows")).toBeInTheDocument();
+      expect(document.body.textContent).toContain("SEA @ DET sits in scheduled watch");
     });
 
     const domText = document.body.textContent ?? "";
-    expect(domText).toContain("SEA @ DET sits in scheduled watch");
-    expect(domText).toContain("Developing watch item");
+    // Session 2: the Game windows card section was cut from the homepage —
+    // game-window context now only surfaces through the quick-nav support stack.
+    expect(screen.queryByText("Game windows")).not.toBeInTheDocument();
+    expect(domText).not.toContain("No verified team-news change has attached to");
     expect(domText).not.toContain("SEA @ DET: Brandon Aiyuk");
     expect(domText).not.toContain("SEA @ DET: Brandon Aiyuk availability");
     expect(domText).not.toContain("SEA @ DET: Kendrick Law");
