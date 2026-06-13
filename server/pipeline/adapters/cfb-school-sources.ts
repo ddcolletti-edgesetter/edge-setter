@@ -1,5 +1,5 @@
 /**
- * Edge Setter — Power 4 CFB School Source Manifest
+ * Edge Setter — CFB School Source Manifest
  *
  * School SID feeds and beat writers are the PRIMARY source for eligibility
  * rulings, transfer waivers, and roster decisions. Wire services pick these
@@ -7,16 +7,22 @@
  * Sorsby detection failure.
  *
  * Format:
- *   sidTwitter  — official athletics department X/Twitter account
- *   pressReleaseFeed — athletics.school.edu news RSS or scrape target
- *   beatWriters — primary beat reporters with high eligibility/roster signal rate
- *   conference  — used for pipeline routing and modifier application
+ *   sidTwitter        — official athletics department X/Twitter account
+ *   pressReleaseFeed  — athletics.school.edu news RSS or scrape target
+ *   beatWriters       — primary beat reporters with high eligibility/roster signal rate
+ *   conference        — used for pipeline routing and modifier application
+ *   tier              — P4 = Power 4; G5 = Group of 5
  */
+
+export type P4Conference = "Big12" | "SEC" | "BigTen" | "ACC";
+export type G5Conference = "AAC" | "MWC" | "SunBelt" | "MAC" | "CUSA";
+export type CFBConference = P4Conference | G5Conference;
 
 export interface SchoolSource {
   school: string;
   abbreviation: string;
-  conference: "Big12" | "SEC" | "BigTen" | "ACC";
+  conference: CFBConference;
+  tier: "P4" | "G5";
   sidTwitter: string;
   pressReleaseFeed: string;
   beatWriters: string[];
@@ -29,6 +35,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Texas Tech",
     abbreviation: "TTU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@TTUAthletics",
     pressReleaseFeed: "https://texastech.com/sports/football/schedule",
     beatWriters: ["@CannonSports", "@MaxMcNabb_TTU", "@ESPNRoySS"],
@@ -37,6 +44,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Texas",
     abbreviation: "TEX",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@TexasLonghorns",
     pressReleaseFeed: "https://texassports.com/sports/football",
     beatWriters: ["@ChrisHaney_UT", "@NickMoyle_SA", "@ESPNMarcus"],
@@ -45,6 +53,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Oklahoma",
     abbreviation: "OU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@OU_Football",
     pressReleaseFeed: "https://soonersports.com/sports/football",
     beatWriters: ["@DanKoob_SN", "@Guerin_Emig", "@TheOUDaily"],
@@ -53,6 +62,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Oklahoma State",
     abbreviation: "OKST",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@CowboyFB",
     pressReleaseFeed: "https://okstate.com/sports/football",
     beatWriters: ["@ScottRudeau", "@PokesReport"],
@@ -61,6 +71,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "TCU",
     abbreviation: "TCU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@TCUFootball",
     pressReleaseFeed: "https://gofrogs.com/sports/football",
     beatWriters: ["@MaxOlson_ESPN", "@FrogsOWar"],
@@ -69,6 +80,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Baylor",
     abbreviation: "BAY",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@BaylorFootball",
     pressReleaseFeed: "https://baylorbears.com/sports/football",
     beatWriters: ["@BruceFeldmanCFB", "@ScottDavis_SI"],
@@ -77,6 +89,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Kansas State",
     abbreviation: "KSU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@KStateFB",
     pressReleaseFeed: "https://kstatesports.com/sports/football",
     beatWriters: ["@AaronKaiserKSN", "@CraigMLahr"],
@@ -85,6 +98,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Kansas",
     abbreviation: "KU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@KUFootball",
     pressReleaseFeed: "https://kuathletics.com/sports/football",
     beatWriters: ["@MattTait_LJW", "@PeteGoble_KU"],
@@ -93,6 +107,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Iowa State",
     abbreviation: "ISU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@CycloneFB",
     pressReleaseFeed: "https://cyclones.com/sports/football",
     beatWriters: ["@ChrisWilliams_IS", "@SethAabergISU"],
@@ -101,6 +116,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "West Virginia",
     abbreviation: "WVU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@WVUfootball",
     pressReleaseFeed: "https://wvusports.com/sports/football",
     beatWriters: ["@MetroNewsSports", "@DHomeier_WVU"],
@@ -109,6 +125,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Cincinnati",
     abbreviation: "CIN",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@GoBearcatsFB",
     pressReleaseFeed: "https://gobearcats.com/sports/football",
     beatWriters: ["@Fletcher_Page", "@BrendanKing_CIN"],
@@ -117,6 +134,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "UCF",
     abbreviation: "UCF",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@UCF_Football",
     pressReleaseFeed: "https://ucfknights.com/sports/football",
     beatWriters: ["@KassidyHill", "@DavidSchofieldOS"],
@@ -125,6 +143,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Houston",
     abbreviation: "HOU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@UHCougarFB",
     pressReleaseFeed: "https://uhcougars.com/sports/football",
     beatWriters: ["@ChrisDurso_HOU", "@MarkBerman_Fox26"],
@@ -133,6 +152,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "BYU",
     abbreviation: "BYU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@BYUfootball",
     pressReleaseFeed: "https://byucougars.com/sports/football",
     beatWriters: ["@ZachSandersDS", "@KSLSports"],
@@ -141,6 +161,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Colorado",
     abbreviation: "COL",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@CUBuffsFootball",
     pressReleaseFeed: "https://cubuffs.com/sports/football",
     beatWriters: ["@TomKensler_DP", "@MarkKiszla"],
@@ -149,6 +170,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Arizona",
     abbreviation: "ARIZ",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@ArizonaFBall",
     pressReleaseFeed: "https://arizonawildcats.com/sports/football",
     beatWriters: ["@TheWildcatAuthority", "@GeoffBaker_Wildcat"],
@@ -157,6 +179,7 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Arizona State",
     abbreviation: "ASU",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@ASUFootball",
     pressReleaseFeed: "https://thesundevils.com/sports/football",
     beatWriters: ["@SteveATorre_ASU", "@Doug_Haller"],
@@ -165,19 +188,21 @@ const BIG12_SOURCES: SchoolSource[] = [
     school: "Utah",
     abbreviation: "UTAH",
     conference: "Big12",
+    tier: "P4",
     sidTwitter: "@Utah_Football",
     pressReleaseFeed: "https://utahutes.com/sports/football",
     beatWriters: ["@GordonMonson_SLT", "@ChrisaMorton"],
   },
 ];
 
-// ─── SEC (primary programs) ───────────────────────────────────────────────────
+// ─── SEC ──────────────────────────────────────────────────────────────────────
 
 const SEC_SOURCES: SchoolSource[] = [
   {
     school: "Alabama",
     abbreviation: "ALA",
     conference: "SEC",
+    tier: "P4",
     sidTwitter: "@AlabamaFTBL",
     pressReleaseFeed: "https://rolltide.com/sports/football",
     beatWriters: ["@JoshVitale_247", "@TedGreenATH", "@LarsAndersonSI"],
@@ -186,6 +211,7 @@ const SEC_SOURCES: SchoolSource[] = [
     school: "Georgia",
     abbreviation: "UGA",
     conference: "SEC",
+    tier: "P4",
     sidTwitter: "@GeorgiaFootball",
     pressReleaseFeed: "https://georgiadogs.com/sports/football",
     beatWriters: ["@DanWolken_USA", "@chip_towers_AJC", "@Seth_Emerson"],
@@ -194,6 +220,7 @@ const SEC_SOURCES: SchoolSource[] = [
     school: "LSU",
     abbreviation: "LSU",
     conference: "SEC",
+    tier: "P4",
     sidTwitter: "@LSUfootball",
     pressReleaseFeed: "https://lsusports.net/sports/football",
     beatWriters: ["@BrianKallmeyer", "@StefAshby"],
@@ -202,6 +229,7 @@ const SEC_SOURCES: SchoolSource[] = [
     school: "Tennessee",
     abbreviation: "TENN",
     conference: "SEC",
+    tier: "P4",
     sidTwitter: "@Vol_Football",
     pressReleaseFeed: "https://utsports.com/sports/football",
     beatWriters: ["@ErikBacharach_KNS", "@TerryMcCormick"],
@@ -210,6 +238,7 @@ const SEC_SOURCES: SchoolSource[] = [
     school: "Ole Miss",
     abbreviation: "MISS",
     conference: "SEC",
+    tier: "P4",
     sidTwitter: "@OleMissFB",
     pressReleaseFeed: "https://olemisssports.com/sports/football",
     beatWriters: ["@NickSuss_CM", "@GSiegel_ClarionLedger"],
@@ -218,6 +247,7 @@ const SEC_SOURCES: SchoolSource[] = [
     school: "Texas A&M",
     abbreviation: "TAMU",
     conference: "SEC",
+    tier: "P4",
     sidTwitter: "@AggieFootball",
     pressReleaseFeed: "https://12thman.com/sports/football",
     beatWriters: ["@Brent_Zwerneman", "@ChrisRamirez_TAMU"],
@@ -226,6 +256,7 @@ const SEC_SOURCES: SchoolSource[] = [
     school: "Florida",
     abbreviation: "FLA",
     conference: "SEC",
+    tier: "P4",
     sidTwitter: "@GatorsFB",
     pressReleaseFeed: "https://floridagators.com/sports/football",
     beatWriters: ["@SaturdayDownSouth", "@DouglasByrne_Gators"],
@@ -234,19 +265,75 @@ const SEC_SOURCES: SchoolSource[] = [
     school: "Auburn",
     abbreviation: "AUB",
     conference: "SEC",
+    tier: "P4",
     sidTwitter: "@AuburnFootball",
     pressReleaseFeed: "https://auburntigers.com/sports/football",
     beatWriters: ["@EvanCoombs_AU", "@BryanHarsin"],
   },
+  {
+    school: "South Carolina",
+    abbreviation: "SC",
+    conference: "SEC",
+    tier: "P4",
+    sidTwitter: "@GamecockFB",
+    pressReleaseFeed: "https://gamecocksonline.com/sports/football",
+    beatWriters: ["@GamecockCentral", "@ThatsWhatI_Seth"],
+  },
+  {
+    school: "Arkansas",
+    abbreviation: "ARK",
+    conference: "SEC",
+    tier: "P4",
+    sidTwitter: "@RazorbackFB",
+    pressReleaseFeed: "https://arkansasrazorbacks.com/sports/football",
+    beatWriters: ["@WholeHogSports", "@KodyStuard"],
+  },
+  {
+    school: "Mississippi State",
+    abbreviation: "MSST",
+    conference: "SEC",
+    tier: "P4",
+    sidTwitter: "@HailStateFB",
+    pressReleaseFeed: "https://hailstate.com/sports/football",
+    beatWriters: ["@BradKelly_MBS", "@GSiegel_ClarionLedger"],
+  },
+  {
+    school: "Kentucky",
+    abbreviation: "UK",
+    conference: "SEC",
+    tier: "P4",
+    sidTwitter: "@UKFootball",
+    pressReleaseFeed: "https://ukathletics.com/sports/football",
+    beatWriters: ["@DrewFranklin_KSR", "@ChadMilton_HeraldLeader"],
+  },
+  {
+    school: "Missouri",
+    abbreviation: "MIZ",
+    conference: "SEC",
+    tier: "P4",
+    sidTwitter: "@MizzouFootball",
+    pressReleaseFeed: "https://mutigers.com/sports/football",
+    beatWriters: ["@GabeDeArmond", "@BillCLeder"],
+  },
+  {
+    school: "Vanderbilt",
+    abbreviation: "VAN",
+    conference: "SEC",
+    tier: "P4",
+    sidTwitter: "@VandyFootball",
+    pressReleaseFeed: "https://vucommodores.com/sports/football",
+    beatWriters: ["@AdamRittenberg_ESPN", "@GalenGordon_VU"],
+  },
 ];
 
-// ─── Big Ten (primary programs) ───────────────────────────────────────────────
+// ─── Big Ten ──────────────────────────────────────────────────────────────────
 
 const BIG10_SOURCES: SchoolSource[] = [
   {
     school: "Michigan",
     abbreviation: "MICH",
     conference: "BigTen",
+    tier: "P4",
     sidTwitter: "@UMichFootball",
     pressReleaseFeed: "https://mgoblue.com/sports/football",
     beatWriters: ["@nicklang247", "@JoshTejada_Mich"],
@@ -255,6 +342,7 @@ const BIG10_SOURCES: SchoolSource[] = [
     school: "Ohio State",
     abbreviation: "OSU",
     conference: "BigTen",
+    tier: "P4",
     sidTwitter: "@OhioStateFB",
     pressReleaseFeed: "https://ohiostatebuckeyes.com/sports/football",
     beatWriters: ["@PeteSampson_", "@TomMcCulloughKFJ"],
@@ -263,6 +351,7 @@ const BIG10_SOURCES: SchoolSource[] = [
     school: "Penn State",
     abbreviation: "PSU",
     conference: "BigTen",
+    tier: "P4",
     sidTwitter: "@PennStateFball",
     pressReleaseFeed: "https://gopsusports.com/sports/football",
     beatWriters: ["@RyanMcFadden_PSU", "@Greg_Pickel"],
@@ -271,6 +360,7 @@ const BIG10_SOURCES: SchoolSource[] = [
     school: "USC",
     abbreviation: "USC",
     conference: "BigTen",
+    tier: "P4",
     sidTwitter: "@USCFootball",
     pressReleaseFeed: "https://usctrojans.com/sports/football",
     beatWriters: ["@LindseyThiry", "@JeffMiller_USC"],
@@ -279,19 +369,138 @@ const BIG10_SOURCES: SchoolSource[] = [
     school: "UCLA",
     abbreviation: "UCLA",
     conference: "BigTen",
+    tier: "P4",
     sidTwitter: "@UCLAFootball",
     pressReleaseFeed: "https://uclabruins.com/sports/football",
     beatWriters: ["@BruceFeldmanCFB", "@TomTeleshow"],
   },
+  {
+    school: "Michigan State",
+    abbreviation: "MSU",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@MSU_Football",
+    pressReleaseFeed: "https://msuspartans.com/sports/football",
+    beatWriters: ["@ByMikeCregan", "@MSUspartansbeat"],
+  },
+  {
+    school: "Iowa",
+    abbreviation: "IOWA",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@HawkeyeFootball",
+    pressReleaseFeed: "https://hawkeyesports.com/sports/football",
+    beatWriters: ["@HawkeyeInsider", "@ChrisMorrisDS"],
+  },
+  {
+    school: "Wisconsin",
+    abbreviation: "WIS",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@BadgerFootball",
+    pressReleaseFeed: "https://uwbadgers.com/sports/football",
+    beatWriters: ["@MatthewDefour_WSJ", "@DougKoelker"],
+  },
+  {
+    school: "Minnesota",
+    abbreviation: "MINN",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@GopherFootball",
+    pressReleaseFeed: "https://gophersports.com/sports/football",
+    beatWriters: ["@ChrisHarder_Star", "@MarkCraig_Star"],
+  },
+  {
+    school: "Indiana",
+    abbreviation: "IND",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@IndianaFootball",
+    pressReleaseFeed: "https://iuhoosiers.com/sports/football",
+    beatWriters: ["@DSikking_IU", "@IHoosiersBeat"],
+  },
+  {
+    school: "Purdue",
+    abbreviation: "PUR",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@BoilerFootball",
+    pressReleaseFeed: "https://purduesports.com/sports/football",
+    beatWriters: ["@ArmySmith_Purdue", "@BoilermakerXtra"],
+  },
+  {
+    school: "Illinois",
+    abbreviation: "ILL",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@IlliniFootball",
+    pressReleaseFeed: "https://fightingillini.com/sports/football",
+    beatWriters: ["@TomJakubowski_NG", "@IlliniInquirer"],
+  },
+  {
+    school: "Nebraska",
+    abbreviation: "NEB",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@HuskerFBNation",
+    pressReleaseFeed: "https://huskers.com/sports/football",
+    beatWriters: ["@SeanCallahan247", "@BigRedToday"],
+  },
+  {
+    school: "Maryland",
+    abbreviation: "MD",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@TerpFootball",
+    pressReleaseFeed: "https://umterps.com/sports/football",
+    beatWriters: ["@SteveRichardsMD", "@MattBowmanWBFF"],
+  },
+  {
+    school: "Rutgers",
+    abbreviation: "RUT",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@RFootball",
+    pressReleaseFeed: "https://scarletknights.com/sports/football",
+    beatWriters: ["@RutgersRivals", "@KerithBurke_SHL"],
+  },
+  {
+    school: "Northwestern",
+    abbreviation: "NW",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@NUFBFamily",
+    pressReleaseFeed: "https://nusports.com/sports/football",
+    beatWriters: ["@WallaceLangham", "@NorthwesternNow"],
+  },
+  {
+    school: "Oregon",
+    abbreviation: "ORE",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@oregonfootball",
+    pressReleaseFeed: "https://goducks.com/sports/football",
+    beatWriters: ["@JohnCanzano", "@AndrewGreif_LAT"],
+  },
+  {
+    school: "Washington",
+    abbreviation: "WASH",
+    conference: "BigTen",
+    tier: "P4",
+    sidTwitter: "@UW_Football",
+    pressReleaseFeed: "https://gohuskies.com/sports/football",
+    beatWriters: ["@DaveRyle_UW", "@PercyAllenSeaTimes"],
+  },
 ];
 
-// ─── ACC (primary programs) ───────────────────────────────────────────────────
+// ─── ACC ──────────────────────────────────────────────────────────────────────
 
 const ACC_SOURCES: SchoolSource[] = [
   {
     school: "Clemson",
     abbreviation: "CLEM",
     conference: "ACC",
+    tier: "P4",
     sidTwitter: "@ClemsonFB",
     pressReleaseFeed: "https://clemsontigers.com/sports/football",
     beatWriters: ["@TimKiblerHerald", "@AndrewCitraCFB"],
@@ -300,6 +509,7 @@ const ACC_SOURCES: SchoolSource[] = [
     school: "Florida State",
     abbreviation: "FSU",
     conference: "ACC",
+    tier: "P4",
     sidTwitter: "@FSUFootball",
     pressReleaseFeed: "https://seminoles.com/sports/football",
     beatWriters: ["@TomDNBC6", "@ImamouleSFT"],
@@ -308,6 +518,7 @@ const ACC_SOURCES: SchoolSource[] = [
     school: "Miami",
     abbreviation: "MIA",
     conference: "ACC",
+    tier: "P4",
     sidTwitter: "@CanesFootball",
     pressReleaseFeed: "https://hurricanesports.com/sports/football",
     beatWriters: ["@CraigMissSun", "@Zach_Meltzer_Miami"],
@@ -316,14 +527,725 @@ const ACC_SOURCES: SchoolSource[] = [
     school: "North Carolina",
     abbreviation: "UNC",
     conference: "ACC",
+    tier: "P4",
     sidTwitter: "@TarHeelFootball",
     pressReleaseFeed: "https://goheels.com/sports/football",
     beatWriters: ["@JimKreager_DHill", "@Steve_Wiseman_DNT"],
   },
+  {
+    school: "NC State",
+    abbreviation: "NCST",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@PackFootball",
+    pressReleaseFeed: "https://gopack.com/sports/football",
+    beatWriters: ["@BryanStrickland_NCST", "@TomHiggins_ATH"],
+  },
+  {
+    school: "Virginia Tech",
+    abbreviation: "VT",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@HokiesFB",
+    pressReleaseFeed: "https://hokiesports.com/sports/football",
+    beatWriters: ["@MarkBledsoe_VT", "@TechSideline"],
+  },
+  {
+    school: "Virginia",
+    abbreviation: "UVA",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@UVAFootball",
+    pressReleaseFeed: "https://virginiasports.com/sports/football",
+    beatWriters: ["@DaveJohnsonCVille", "@SeanOBrienUVA"],
+  },
+  {
+    school: "Pittsburgh",
+    abbreviation: "PITT",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@Pitt_FB",
+    pressReleaseFeed: "https://pittsburghpanthers.com/sports/football",
+    beatWriters: ["@JohnMcGonigal_PG", "@PittInsider247"],
+  },
+  {
+    school: "Syracuse",
+    abbreviation: "SYR",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@CuseFootball",
+    pressReleaseFeed: "https://cuse.com/sports/football",
+    beatWriters: ["@Brent_Axe", "@DonNapolitanoSYR"],
+  },
+  {
+    school: "Boston College",
+    abbreviation: "BC",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@BCEaglesFB",
+    pressReleaseFeed: "https://bceagles.com/sports/football",
+    beatWriters: ["@TomHamiltonBC", "@BCFootballInsider"],
+  },
+  {
+    school: "Wake Forest",
+    abbreviation: "WAKE",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@WakeFootball",
+    pressReleaseFeed: "https://godeacs.com/sports/football",
+    beatWriters: ["@MikeBarber_WS", "@WakeForestInsider"],
+  },
+  {
+    school: "Duke",
+    abbreviation: "DUKE",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@DukeFOOTBALL",
+    pressReleaseFeed: "https://goduke.com/sports/football",
+    beatWriters: ["@RobMadigan_ATH", "@DukeFBInsider"],
+  },
+  {
+    school: "Georgia Tech",
+    abbreviation: "GT",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@GeorgiaTechFB",
+    pressReleaseFeed: "https://ramblinwreck.com/sports/football",
+    beatWriters: ["@TomBlankenship_AJC", "@GTfootballInsider"],
+  },
+  {
+    school: "Louisville",
+    abbreviation: "LOU",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@LouisvilleFB",
+    pressReleaseFeed: "https://gocards.com/sports/football",
+    beatWriters: ["@TimSullivan_CJ", "@LouisvilleInsider"],
+  },
+  {
+    school: "Stanford",
+    abbreviation: "STAN",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@StanfordFball",
+    pressReleaseFeed: "https://gostanford.com/sports/football",
+    beatWriters: ["@JonWilner_Bay", "@StanfordFBInsider"],
+  },
+  {
+    school: "California",
+    abbreviation: "CAL",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@CalFootball",
+    pressReleaseFeed: "https://calbears.com/sports/football",
+    beatWriters: ["@SteveKilpatrick_Cal", "@CalBearsMaven"],
+  },
+  {
+    school: "SMU",
+    abbreviation: "SMU",
+    conference: "ACC",
+    tier: "P4",
+    sidTwitter: "@SMUFootball",
+    pressReleaseFeed: "https://smumustangs.com/sports/football",
+    beatWriters: ["@DavidMooreDMN", "@SMUMustangsMaven"],
+  },
 ];
 
-// ─── Unified export ───────────────────────────────────────────────────────────
+// ─── AAC (American Athletic Conference) ──────────────────────────────────────
 
+const AAC_SOURCES: SchoolSource[] = [
+  {
+    school: "Memphis",
+    abbreviation: "MEM",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@MemphisFB",
+    pressReleaseFeed: "https://gotigersgo.com/sports/football",
+    beatWriters: ["@JasonSmith_CA", "@MemphisTigersMaven"],
+  },
+  {
+    school: "Tulane",
+    abbreviation: "TUL",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@GreenWaveFB",
+    pressReleaseFeed: "https://tulanegreenwave.com/sports/football",
+    beatWriters: ["@WilliamMcFadden_NO", "@TulaneInsider"],
+  },
+  {
+    school: "Tulsa",
+    abbreviation: "TLSA",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@TulsaFootball",
+    pressReleaseFeed: "https://tulsahurricane.com/sports/football",
+    beatWriters: ["@PaulKuharskyNFL", "@TulsaWorldSports"],
+  },
+  {
+    school: "South Florida",
+    abbreviation: "USF",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@USFFootball",
+    pressReleaseFeed: "https://gousfbulls.com/sports/football",
+    beatWriters: ["@BrettMcMurphy", "@USFBullsMaven"],
+  },
+  {
+    school: "Temple",
+    abbreviation: "TEM",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@Temple_FB",
+    pressReleaseFeed: "https://owlsports.com/sports/football",
+    beatWriters: ["@JimPetrey_TI", "@TempleFBInsider"],
+  },
+  {
+    school: "East Carolina",
+    abbreviation: "ECU",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@ECUPiratesFB",
+    pressReleaseFeed: "https://ecupirates.com/sports/football",
+    beatWriters: ["@JoeKinnamon_PD", "@ECUPiratesMaven"],
+  },
+  {
+    school: "UAB",
+    abbreviation: "UAB",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@UAB_FB",
+    pressReleaseFeed: "https://uabsports.com/sports/football",
+    beatWriters: ["@JonSolomon_ATH", "@UABInsider"],
+  },
+  {
+    school: "UTSA",
+    abbreviation: "UTSA",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@UTSA_Football",
+    pressReleaseFeed: "https://utsaathletics.com/sports/football",
+    beatWriters: ["@TomRomoSA", "@UTSARoadrunnersFB"],
+  },
+  {
+    school: "Rice",
+    abbreviation: "RICE",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@RiceFootball",
+    pressReleaseFeed: "https://riceowls.com/sports/football",
+    beatWriters: ["@JohnMcClain_HC", "@RiceOwlsMaven"],
+  },
+  {
+    school: "North Texas",
+    abbreviation: "UNT",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@MeanGreenFB",
+    pressReleaseFeed: "https://meangreensports.com/sports/football",
+    beatWriters: ["@GabrielleHickey_DRC", "@NorthTexasMaven"],
+  },
+  {
+    school: "Florida Atlantic",
+    abbreviation: "FAU",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@FAUFootball",
+    pressReleaseFeed: "https://fausports.com/sports/football",
+    beatWriters: ["@OmarKelly_SunS", "@FAUOwlsMaven"],
+  },
+  {
+    school: "Charlotte",
+    abbreviation: "CLT",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@Charlotte49ers_FB",
+    pressReleaseFeed: "https://charlotte49ers.com/sports/football",
+    beatWriters: ["@JoePechey_CLT", "@Charlotte49ersMaven"],
+  },
+  {
+    school: "Wichita State",
+    abbreviation: "WST",
+    conference: "AAC",
+    tier: "G5",
+    sidTwitter: "@GoShockers",
+    pressReleaseFeed: "https://goshockers.com/sports/football",
+    beatWriters: ["@EvanBurnsEagle", "@WichitaStateMaven"],
+  },
+];
+
+// ─── Mountain West (MWC) ──────────────────────────────────────────────────────
+
+const MWC_SOURCES: SchoolSource[] = [
+  {
+    school: "Boise State",
+    abbreviation: "BSU",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@BroncoSportsFB",
+    pressReleaseFeed: "https://broncosports.com/sports/football",
+    beatWriters: ["@KristenHeckert", "@BoiseStateMaven"],
+  },
+  {
+    school: "Fresno State",
+    abbreviation: "FRES",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@FresnoStateFB",
+    pressReleaseFeed: "https://gobulldogs.com/sports/football",
+    beatWriters: ["@DonaldMoore_Fresno", "@FresnoStateMaven"],
+  },
+  {
+    school: "San Diego State",
+    abbreviation: "SDSU",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@AztecFB",
+    pressReleaseFeed: "https://goaztecs.com/sports/football",
+    beatWriters: ["@MCNinko_SD", "@SDSUAztecsMaven"],
+  },
+  {
+    school: "Colorado State",
+    abbreviation: "CSU",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@CSUFootball",
+    pressReleaseFeed: "https://csurams.com/sports/football",
+    beatWriters: ["@BrianMaass_CBS", "@ColoradoStateMaven"],
+  },
+  {
+    school: "Nevada",
+    abbreviation: "NEV",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@NevadaFootball",
+    pressReleaseFeed: "https://nevadawolfpack.com/sports/football",
+    beatWriters: ["@ScottHubbard_RGJ", "@NevadaWolfpackFB"],
+  },
+  {
+    school: "UNLV",
+    abbreviation: "UNLV",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@UNLVFootball",
+    pressReleaseFeed: "https://unlvrebels.com/sports/football",
+    beatWriters: ["@CraigTornberg_LVR", "@UNLVRebelsMaven"],
+  },
+  {
+    school: "Air Force",
+    abbreviation: "AFA",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@AF_Football",
+    pressReleaseFeed: "https://goairforcefalcons.com/sports/football",
+    beatWriters: ["@KyleCasey_GS", "@AirForceFalconsMaven"],
+  },
+  {
+    school: "Wyoming",
+    abbreviation: "WYO",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@WyomingFootball",
+    pressReleaseFeed: "https://wyomingcowboys.com/sports/football",
+    beatWriters: ["@RyanBlair_CS", "@WyomingCowboysMaven"],
+  },
+  {
+    school: "Utah State",
+    abbreviation: "USU",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@USUFootball",
+    pressReleaseFeed: "https://utahstateaggies.com/sports/football",
+    beatWriters: ["@DarrenMcKee_HS", "@UtahStateMaven"],
+  },
+  {
+    school: "New Mexico",
+    abbreviation: "UNM",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@UNMLoboFB",
+    pressReleaseFeed: "https://golobos.com/sports/football",
+    beatWriters: ["@RyanMcKnight_ABQ", "@NewMexicoLobosMaven"],
+  },
+  {
+    school: "San Jose State",
+    abbreviation: "SJSU",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@SJSUFootball",
+    pressReleaseFeed: "https://sjsuspartans.com/sports/football",
+    beatWriters: ["@LeeGloster_MN", "@SJSUSpartansMaven"],
+  },
+  {
+    school: "Hawaii",
+    abbreviation: "HAW",
+    conference: "MWC",
+    tier: "G5",
+    sidTwitter: "@HawaiiFootball",
+    pressReleaseFeed: "https://hawaiiathletics.com/sports/football",
+    beatWriters: ["@RyanNakashima_SA", "@HawaiiRainbowsMaven"],
+  },
+];
+
+// ─── Sun Belt ─────────────────────────────────────────────────────────────────
+
+const SUNBELT_SOURCES: SchoolSource[] = [
+  {
+    school: "App State",
+    abbreviation: "APP",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@AppState_FB",
+    pressReleaseFeed: "https://appstatesports.com/sports/football",
+    beatWriters: ["@MattForthun_JW", "@AppStateMaven"],
+  },
+  {
+    school: "Coastal Carolina",
+    abbreviation: "CCU",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@CoastalFB",
+    pressReleaseFeed: "https://goccusports.com/sports/football",
+    beatWriters: ["@SteveRichards_SC", "@CoastalCarolinaMaven"],
+  },
+  {
+    school: "Louisiana",
+    abbreviation: "ULL",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@RaginCajunsFB",
+    pressReleaseFeed: "https://ragincajuns.com/sports/football",
+    beatWriters: ["@ScottACarr_DP", "@LouisianaRaginCajunsMaven"],
+  },
+  {
+    school: "Georgia Southern",
+    abbreviation: "GASO",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@GSAthletics_FB",
+    pressReleaseFeed: "https://gseagles.com/sports/football",
+    beatWriters: ["@ChrisMurphyGS", "@GeorgiaSouthernMaven"],
+  },
+  {
+    school: "Georgia State",
+    abbreviation: "GAST",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@GeorgiaStateFB",
+    pressReleaseFeed: "https://georgiastatesports.com/sports/football",
+    beatWriters: ["@TomGlasgow_AJC", "@GeorgiaStateMaven"],
+  },
+  {
+    school: "Troy",
+    abbreviation: "TROY",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@TroyTrojansFB",
+    pressReleaseFeed: "https://troytrojans.com/sports/football",
+    beatWriters: ["@LeeFreeman_MA", "@TroyTrojansMaven"],
+  },
+  {
+    school: "South Alabama",
+    abbreviation: "SOAL",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@SouthAlabamafb",
+    pressReleaseFeed: "https://usajaguars.com/sports/football",
+    beatWriters: ["@JohnMcDaid_PR", "@SouthAlabamaMaven"],
+  },
+  {
+    school: "Arkansas State",
+    abbreviation: "ARST",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@AStateFootball",
+    pressReleaseFeed: "https://astateredwolves.com/sports/football",
+    beatWriters: ["@GrantHerringAS", "@ArkansasStateMaven"],
+  },
+  {
+    school: "Louisiana Monroe",
+    abbreviation: "ULM",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@ULMFootball",
+    pressReleaseFeed: "https://ulmwarhawks.com/sports/football",
+    beatWriters: ["@TommyLovell_NS", "@ULMWarhawksMaven"],
+  },
+  {
+    school: "Texas State",
+    abbreviation: "TXST",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@TXStateFootball",
+    pressReleaseFeed: "https://txstatebobcats.com/sports/football",
+    beatWriters: ["@JohnSandifer_SR", "@TexasStateMaven"],
+  },
+  {
+    school: "Old Dominion",
+    abbreviation: "ODU",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@ODUFootball",
+    pressReleaseFeed: "https://odusports.com/sports/football",
+    beatWriters: ["@ByFrankWalters", "@ODUMonarchsMaven"],
+  },
+  {
+    school: "James Madison",
+    abbreviation: "JMU",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@JMUFootball",
+    pressReleaseFeed: "https://jmusports.com/sports/football",
+    beatWriters: ["@BrittParsons_DNR", "@JMUDukesMaven"],
+  },
+  {
+    school: "Marshall",
+    abbreviation: "MRSH",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@HerdFB",
+    pressReleaseFeed: "https://herdzone.com/sports/football",
+    beatWriters: ["@GeoffGaines_HD", "@MarshallHerdMaven"],
+  },
+  {
+    school: "Southern Miss",
+    abbreviation: "USM",
+    conference: "SunBelt",
+    tier: "G5",
+    sidTwitter: "@SouthernMissFB",
+    pressReleaseFeed: "https://southernmiss.com/sports/football",
+    beatWriters: ["@JeremiahAlbarran", "@SouthernMissMaven"],
+  },
+];
+
+// ─── MAC (Mid-American Conference) ───────────────────────────────────────────
+
+const MAC_SOURCES: SchoolSource[] = [
+  {
+    school: "Toledo",
+    abbreviation: "TOL",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@ToledoRockets_FB",
+    pressReleaseFeed: "https://utrockets.com/sports/football",
+    beatWriters: ["@DanWiederer_Blade", "@ToledoRocketsMaven"],
+  },
+  {
+    school: "Ohio",
+    abbreviation: "OHIO",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@OhioFootball",
+    pressReleaseFeed: "https://ohiobobcats.com/sports/football",
+    beatWriters: ["@TimFlannery_AthCom", "@OhioBobcatsMaven"],
+  },
+  {
+    school: "Western Michigan",
+    abbreviation: "WMU",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@WMUFootball",
+    pressReleaseFeed: "https://wmubroncos.com/sports/football",
+    beatWriters: ["@ScottDeSapio_KG", "@WMUBroncosMaven"],
+  },
+  {
+    school: "Central Michigan",
+    abbreviation: "CMU",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@CMUChipFB",
+    pressReleaseFeed: "https://cmuchippewas.com/sports/football",
+    beatWriters: ["@StevePedersonCMU", "@CMUChippewasInsider"],
+  },
+  {
+    school: "Eastern Michigan",
+    abbreviation: "EMU",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@EMUEaglesFB",
+    pressReleaseFeed: "https://emueagles.com/sports/football",
+    beatWriters: ["@ChadMoeller_AA", "@EMUEaglesMaven"],
+  },
+  {
+    school: "Northern Illinois",
+    abbreviation: "NIU",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@NIUFootball",
+    pressReleaseFeed: "https://niuhuskies.com/sports/football",
+    beatWriters: ["@SteveGreenberg_SH", "@NIUHuskiesMaven"],
+  },
+  {
+    school: "Ball State",
+    abbreviation: "BALL",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@BallStateFB",
+    pressReleaseFeed: "https://ballstatesports.com/sports/football",
+    beatWriters: ["@CoreyRoots_SR", "@BallStateCardinalsMaven"],
+  },
+  {
+    school: "Bowling Green",
+    abbreviation: "BGSU",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@BG_Football",
+    pressReleaseFeed: "https://bgsufalcons.com/sports/football",
+    beatWriters: ["@TomFlannery_BS", "@BGSUFalconsMaven"],
+  },
+  {
+    school: "Miami (OH)",
+    abbreviation: "MIOH",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@MiamiOHFootball",
+    pressReleaseFeed: "https://miamiredhawks.com/sports/football",
+    beatWriters: ["@ChrisReid_JN", "@MiamiOHRedhawksMaven"],
+  },
+  {
+    school: "Akron",
+    abbreviation: "AKR",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@ZipsFB",
+    pressReleaseFeed: "https://gozips.com/sports/football",
+    beatWriters: ["@ChrisNidel_ABJ", "@AkronZipsMaven"],
+  },
+  {
+    school: "Kent State",
+    abbreviation: "KENT",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@KentStFootball",
+    pressReleaseFeed: "https://kentstatesports.com/sports/football",
+    beatWriters: ["@PaulSwick_KR", "@KentStateGoldenFlashesMaven"],
+  },
+  {
+    school: "Buffalo",
+    abbreviation: "BUFF",
+    conference: "MAC",
+    tier: "G5",
+    sidTwitter: "@UBFootball",
+    pressReleaseFeed: "https://ubbulls.com/sports/football",
+    beatWriters: ["@MikeFarrell_BN", "@UBBullsMaven"],
+  },
+];
+
+// ─── CUSA (Conference USA) ────────────────────────────────────────────────────
+
+const CUSA_SOURCES: SchoolSource[] = [
+  {
+    school: "Liberty",
+    abbreviation: "LIB",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@LibertyFootball",
+    pressReleaseFeed: "https://libertyflames.com/sports/football",
+    beatWriters: ["@GWilliams_LNS", "@LibertyFlamesMaven"],
+  },
+  {
+    school: "Western Kentucky",
+    abbreviation: "WKU",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@WKUFootball",
+    pressReleaseFeed: "https://wkusports.com/sports/football",
+    beatWriters: ["@MikeWilkinsWKU", "@WKUHilltoppersMaven"],
+  },
+  {
+    school: "Jacksonville State",
+    abbreviation: "JSU",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@JSUGamecocksFB",
+    pressReleaseFeed: "https://jsugamecocksports.com/sports/football",
+    beatWriters: ["@JasonKohls_ATH", "@JSUGamecocksMaven"],
+  },
+  {
+    school: "Sam Houston",
+    abbreviation: "SHSU",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@SHSU_Football",
+    pressReleaseFeed: "https://gobearkats.com/sports/football",
+    beatWriters: ["@TomHoward_HC", "@SHSUBearkatsMaven"],
+  },
+  {
+    school: "New Mexico State",
+    abbreviation: "NMST",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@NMStateFootball",
+    pressReleaseFeed: "https://nmstatesports.com/sports/football",
+    beatWriters: ["@AlejandroTGarcia", "@NMStateAggiesMaven"],
+  },
+  {
+    school: "Middle Tennessee",
+    abbreviation: "MTSU",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@MT_FB",
+    pressReleaseFeed: "https://goblueraiders.com/sports/football",
+    beatWriters: ["@ChuckEaly_DNJ", "@MTSUBlueRaidersMaven"],
+  },
+  {
+    school: "UTEP",
+    abbreviation: "UTEP",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@UTEP_Football",
+    pressReleaseFeed: "https://utepathletics.com/sports/football",
+    beatWriters: ["@BrentBirkett_EP", "@UTEPMinersMaven"],
+  },
+  {
+    school: "FIU",
+    abbreviation: "FIU",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@FIUFootball",
+    pressReleaseFeed: "https://fiusports.com/sports/football",
+    beatWriters: ["@CarlosVillalobos_MH", "@FIUPanthersMaven"],
+  },
+  {
+    school: "Louisiana Tech",
+    abbreviation: "LATECH",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@LATechFB",
+    pressReleaseFeed: "https://latechsports.com/sports/football",
+    beatWriters: ["@TroyHunter_NT", "@LATechBulldogsMaven"],
+  },
+  {
+    school: "Kennesaw State",
+    abbreviation: "KENN",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@KSUOwlsFB",
+    pressReleaseFeed: "https://ksuowls.com/sports/football",
+    beatWriters: ["@DavidHale_MDJ", "@KSUOwlsMaven"],
+  },
+  {
+    school: "Florida International",
+    abbreviation: "FINT",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@FIUFootball",
+    pressReleaseFeed: "https://fiusports.com/sports/football",
+    beatWriters: ["@MarisolSanchez_MH", "@FIUPanthersFB"],
+  },
+  {
+    school: "Western Carolina",
+    abbreviation: "WCU",
+    conference: "CUSA",
+    tier: "G5",
+    sidTwitter: "@WCUCatamounts",
+    pressReleaseFeed: "https://catamountathletics.com/sports/football",
+    beatWriters: ["@ChadPergram_WCU", "@WCUCatamountsMaven"],
+  },
+];
+
+// ─── Unified exports ──────────────────────────────────────────────────────────
+
+/** Original Power 4 sources */
 export const POWER4_SOURCES: SchoolSource[] = [
   ...BIG12_SOURCES,
   ...SEC_SOURCES,
@@ -331,10 +1253,53 @@ export const POWER4_SOURCES: SchoolSource[] = [
   ...ACC_SOURCES,
 ];
 
+/** All Group of 5 sources */
+export const G5_SOURCES: SchoolSource[] = [
+  ...AAC_SOURCES,
+  ...MWC_SOURCES,
+  ...SUNBELT_SOURCES,
+  ...MAC_SOURCES,
+  ...CUSA_SOURCES,
+];
+
+/** All FBS sources */
+export const ALL_CFB_SOURCES: SchoolSource[] = [
+  ...POWER4_SOURCES,
+  ...G5_SOURCES,
+];
+
+/** Look up a single school by abbreviation (case-insensitive) */
 export function getSchoolSource(abbreviation: string): SchoolSource | undefined {
-  return POWER4_SOURCES.find(s => s.abbreviation.toLowerCase() === abbreviation.toLowerCase());
+  return ALL_CFB_SOURCES.find(
+    (s) => s.abbreviation.toLowerCase() === abbreviation.toLowerCase()
+  );
 }
 
-export function getConferenceSources(conference: SchoolSource["conference"]): SchoolSource[] {
-  return POWER4_SOURCES.filter(s => s.conference === conference);
+/** All sources for a given conference */
+export function getConferenceSources(conference: CFBConference): SchoolSource[] {
+  return ALL_CFB_SOURCES.filter((s) => s.conference === conference);
+}
+
+/** All G5 sources — convenience wrapper for the polling adapter */
+export function getG5Sources(): SchoolSource[] {
+  return G5_SOURCES;
+}
+
+/** All P4 sources — convenience wrapper for the polling adapter */
+export function getP4Sources(): SchoolSource[] {
+  return POWER4_SOURCES;
+}
+
+/** Source counts by tier and conference — useful for health checks / seed verification */
+export function getSourceInventory(): Record<string, number> {
+  const byConf: Record<string, number> = {};
+  for (const s of ALL_CFB_SOURCES) {
+    byConf[s.conference] = (byConf[s.conference] ?? 0) + 1;
+  }
+  return {
+    ...byConf,
+    P4_total: POWER4_SOURCES.length,
+    G5_total: G5_SOURCES.length,
+    ALL_total: ALL_CFB_SOURCES.length,
+  };
 }
