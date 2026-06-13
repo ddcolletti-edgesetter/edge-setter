@@ -60,9 +60,6 @@ export function SportsStoryVisual({
   const showMatchup = Boolean(secondary && secondary !== primary);
   const leagueLabel = league?.toUpperCase() ?? (resolvedSport ? SPORT_FALLBACKS[resolvedSport].label : "SPORT");
   const subject = player || title || (showMatchup ? `${primary} @ ${secondary}` : primary);
-  // Initials placeholder represents a player only. Deriving initials from the
-  // headline produced junk chips ("PIT update..." → "PU") next to team logos.
-  const initials = player ? playerInitials(player) : null;
   const texture = resolvedSport ? SPORT_FALLBACKS[resolvedSport].texture : "is-generic";
   const imageCandidates = useMemo(() => imageAsset?.candidateSrcs ?? [], [imageAsset]);
   const [imageIndex, setImageIndex] = useState(0);
@@ -99,11 +96,7 @@ export function SportsStoryVisual({
             <span className="sports-story-visual-vs">VS</span>
             <TeamLogoImg abbr={secondary} sport={resolvedSport} size={logoSize(size)} />
           </>
-        ) : isLeagueOnlyImage || !initials ? null : (
-          <div className="sports-story-player-fallback" aria-hidden="true">
-            <span>{initials}</span>
-          </div>
-        )}
+        ) : null}
       </div>
       <div className="sports-story-visual-copy">
         <span>{player ? "Player focus" : showMatchup ? "Matchup focus" : isLeagueOnlyImage ? "League watch" : "Team focus"}</span>
@@ -257,11 +250,4 @@ function logoSize(size: SportsStoryVisualProps["size"]) {
   return 42;
 }
 
-function playerInitials(value: string) {
-  return value
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("") || "ES";
-}
+
