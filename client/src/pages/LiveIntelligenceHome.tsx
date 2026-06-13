@@ -13,7 +13,7 @@ import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { fetchSignals } from "@/lib/signalsApi";
 import { containsPublicInvalidToken, hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
 import { AlertTriangle, RefreshCw, ShieldCheck, Zap } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 const REFRESH_MS = 60_000;
 const LEAGUES = ["NBA", "MLB", "NFL", "CFB"] as const;
@@ -83,7 +83,13 @@ export default function LiveIntelligenceHome() {
   const [games, setGames] = useState<LiveGameSituation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeLeague, setActiveLeague] = useState<"ALL" | typeof LEAGUES[number]>("ALL");
+  // League pill tabs navigate between / and the league board routes; the
+  // active tab is derived from the current route, not local state.
+  const [location] = useLocation();
+  const activeLeague = useMemo<"ALL" | typeof LEAGUES[number]>(() => {
+    const segment = (location.split("/")[1] ?? "").toUpperCase();
+    return (LEAGUES as readonly string[]).includes(segment) ? (segment as typeof LEAGUES[number]) : "ALL";
+  }, [location]);
   const previousConfidenceRef = useRef<Record<string, number>>({});
 
   const load = useCallback(async () => {
@@ -192,11 +198,11 @@ export default function LiveIntelligenceHome() {
                 const meta = leagueWorld[league];
                 const count = situations.filter((situation) => situation.league === league).length;
                 return (
-                  <button
+                  <Link
                     key={league}
-                    type="button"
-                    className={activeLeague === league ? "is-active" : ""}
-                    onClick={() => setActiveLeague(activeLeague === league ? "ALL" : league)}
+                    href={activeLeague === league ? "/" : meta.href}
+                    className={`media-league-tab${activeLeague === league ? " is-active" : ""}`}
+                    aria-current={activeLeague === league ? "page" : undefined}
                     style={{ "--league-color": meta.color } as CSSProperties}
                   >
                     <img
@@ -210,7 +216,7 @@ export default function LiveIntelligenceHome() {
                     />
                     <span>{league}</span>
                     <strong>{leagueWatchLabel(count)}</strong>
-                  </button>
+                  </Link>
                 );
               })}
               <button type="button" onClick={load} className="live-intel-hero-refresh" aria-label="Refresh live stories">
@@ -245,6 +251,7 @@ export default function LiveIntelligenceHome() {
           <div className="media-dive-deeper" aria-label="Dive deeper into league boards">
             <div className="section-kicker">Dive Deeper</div>
             <div className="media-dive-deeper-links">
+              <Link href="/nba" className="btn-secondary">Full NBA Board →</Link>
               <Link href="/nfl" className="btn-secondary"><Zap size={13} /> Full NFL Board →</Link>
               <Link href="/mlb" className="btn-secondary">Full MLB Board →</Link>
               <Link href="/cfb" className="btn-secondary">Full CFB Board →</Link>
@@ -1405,13 +1412,13 @@ function generateHeadline(situation: IntelligenceSituation): string | null {
   const player = situation.subject.player?.trim() || null;
   const matchupTeams = splitMatchup(situation.subject.matchup);
   const rawTeam = situation.subject.team ?? matchupTeams[0] ?? null;
-  const team = rawTeam ? displayTeamName(rawTeam) : null;
+  const team = rawTeam ? displayTeamName(rawTeam, situation.league) : null;
   if (!player && !team) return null;
 
   const type = situation.raw.signal_type.toLowerCase();
   const text = `${situation.raw.signal_type} ${situation.headline} ${situation.currentRead}`.toLowerCase();
-  const opponent = rawTeam
-    ? matchupTeams.map(displayTeamName).find((side) => side.toLowerCase() !== displayTeamName(rawTeam).toLowerCase()) ?? null
+  const opponent = rawTeam && team
+    ? matchupTeams.map((side) => displayTeamName(side, situation.league)).find((side) => side.toLowerCase() !== team.toLowerCase()) ?? null
     : null;
 
   // Eligibility ruling — official determination, names the school
@@ -1460,7 +1467,7 @@ function generateHeadline(situation: IntelligenceSituation): string | null {
 
 function buildPublicSituationStory(situation: IntelligenceSituation) {
   const player = situation.subject.player?.trim();
-  const team = displayTeamName(situation.subject.team ?? splitMatchup(situation.subject.matchup)[0] ?? situation.league);
+  const team = displayTeamName(situation.subject.team ?? splitMatchup(situation.subject.matchup)[0] ?? situation.league, situation.league);
   const specificHeadline = generateHeadline(situation);
   const teamContext = team ? `${team} ${teamContextNoun(situation)}` : `${situation.league} context`;
   const type = publicSituationType(situation);
@@ -1649,24 +1656,137 @@ function publicWatchNext(situation: IntelligenceSituation) {
   return situation.actionWindow || "Watch for confirmation, source support, and downstream impact.";
 }
 
-function displayTeamName(value?: string | null) {
-  const raw = String(value ?? "").trim();
-  const normalized = raw.toLowerCase();
-  const known: Record<string, string> = {
+// Team nicknames are resolved with (league, abbreviation) as a compound key
+// because abbreviations collide across leagues: KC is the Royals in MLB but
+// the Chiefs in NFL; SF is the Giants in MLB but the 49ers in NFL; MIA is the
+// Marlins, Heat, or Dolphins depending on the league. A miss inside a known
+// league falls back to the raw value rather than another league's name.
+const LEAGUE_TEAM_NAMES: Record<string, Record<string, string>> = {
+  NFL: {
+    ari: "Cardinals",
+    atl: "Falcons",
+    bal: "Ravens",
+    buf: "Bills",
+    car: "Panthers",
+    chi: "Bears",
+    cin: "Bengals",
+    cle: "Browns",
+    dal: "Cowboys",
+    den: "Broncos",
+    det: "Lions",
+    gb: "Packers",
+    hou: "Texans",
+    ind: "Colts",
+    jax: "Jaguars",
+    jac: "Jaguars",
+    kc: "Chiefs",
+    lac: "Chargers",
+    lar: "Rams",
+    lv: "Raiders",
+    mia: "Dolphins",
+    min: "Vikings",
+    ne: "Patriots",
+    no: "Saints",
+    nyg: "Giants",
+    nyj: "Jets",
+    phi: "Eagles",
+    pit: "Steelers",
+    sea: "Seahawks",
     sf: "49ers",
     "san francisco 49ers": "49ers",
-    nyj: "Jets",
-    nyg: "Giants",
-    kc: "Chiefs",
-    buf: "Bills",
-    dal: "Cowboys",
-    phi: "Eagles",
-    tor: "Blue Jays",
-    "toronto blue jays": "Blue Jays",
+    tb: "Buccaneers",
+    ten: "Titans",
+    was: "Commanders",
+    wsh: "Commanders",
+  },
+  MLB: {
+    ari: "Diamondbacks",
+    atl: "Braves",
+    bal: "Orioles",
+    bos: "Red Sox",
+    chc: "Cubs",
+    cws: "White Sox",
+    chw: "White Sox",
+    cin: "Reds",
+    cle: "Guardians",
+    col: "Rockies",
+    det: "Tigers",
+    hou: "Astros",
+    kc: "Royals",
+    kcr: "Royals",
+    laa: "Angels",
+    lad: "Dodgers",
     mia: "Marlins",
     "miami marlins": "Marlins",
-  };
-  return known[normalized] ?? raw;
+    mil: "Brewers",
+    min: "Twins",
+    nym: "Mets",
+    nyy: "Yankees",
+    oak: "Athletics",
+    phi: "Phillies",
+    pit: "Pirates",
+    sd: "Padres",
+    sdp: "Padres",
+    sea: "Mariners",
+    sf: "Giants",
+    sfg: "Giants",
+    stl: "Cardinals",
+    tb: "Rays",
+    tbr: "Rays",
+    tex: "Rangers",
+    tor: "Blue Jays",
+    "toronto blue jays": "Blue Jays",
+    wsn: "Nationals",
+    wsh: "Nationals",
+  },
+  NBA: {
+    atl: "Hawks",
+    bkn: "Nets",
+    bos: "Celtics",
+    cha: "Hornets",
+    chi: "Bulls",
+    cle: "Cavaliers",
+    dal: "Mavericks",
+    den: "Nuggets",
+    det: "Pistons",
+    gsw: "Warriors",
+    hou: "Rockets",
+    ind: "Pacers",
+    lac: "Clippers",
+    lal: "Lakers",
+    mem: "Grizzlies",
+    mia: "Heat",
+    mil: "Bucks",
+    min: "Timberwolves",
+    nop: "Pelicans",
+    nyk: "Knicks",
+    okc: "Thunder",
+    orl: "Magic",
+    phi: "76ers",
+    phx: "Suns",
+    por: "Trail Blazers",
+    sac: "Kings",
+    sas: "Spurs",
+    tor: "Raptors",
+    uta: "Jazz",
+    was: "Wizards",
+  },
+  // CFB schools are referred to by their abbreviation/school name as-is.
+  CFB: {},
+};
+
+function displayTeamName(value?: string | null, league?: string) {
+  const raw = String(value ?? "").trim();
+  const normalized = raw.toLowerCase();
+  const leagueMap = LEAGUE_TEAM_NAMES[String(league ?? "").trim().toUpperCase()];
+  if (leagueMap) return leagueMap[normalized] ?? raw;
+  // Without a league, only resolve names that are unambiguous across leagues.
+  const matches = new Set(
+    Object.values(LEAGUE_TEAM_NAMES)
+      .map((map) => map[normalized])
+      .filter((name): name is string => Boolean(name)),
+  );
+  return matches.size === 1 ? matches.values().next().value! : raw;
 }
 
 function teamContextNoun(situation: IntelligenceSituation) {
@@ -1690,7 +1810,7 @@ function storyTimingLabel(situation: IntelligenceSituation) {
 }
 
 function editorialHeadline(situation: IntelligenceSituation) {
-  const subject = situation.subject.player ?? displayTeamName(situation.subject.team) ?? situation.subject.matchup;
+  const subject = situation.subject.player ?? displayTeamName(situation.subject.team, situation.league) ?? situation.subject.matchup;
   if (situation.marketReaction && subject) return `${subject} confirmation window tightening`;
   if (situation.raw.injury_designation && subject) return `${subject} availability remains on watch`;
   if (situation.raw.lineup_status && subject) return `${subject} lineup status is active`;
@@ -1708,7 +1828,7 @@ function overlayRead(situation: IntelligenceSituation) {
 }
 
 function sportsFirstHeadline(situation: IntelligenceSituation) {
-  const subject = situation.subject.player ?? displayTeamName(situation.subject.team) ?? situation.subject.matchup;
+  const subject = situation.subject.player ?? displayTeamName(situation.subject.team, situation.league) ?? situation.subject.matchup;
   if (subject && situation.marketReaction) return `${subject} confirmation window tightening`;
   if (subject && situation.raw.injury_designation) return `${subject} availability remains on watch`;
   if (subject && situation.raw.lineup_status) return `${subject} lineup status is active`;
@@ -1947,7 +2067,8 @@ const liveIntelCss = `
   border-radius: 999px;
   background: rgba(8,14,22,0.66);
 }
-.media-homepage-leagues button {
+.media-homepage-leagues button,
+.media-homepage-leagues .media-league-tab {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -1957,6 +2078,8 @@ const liveIntelCss = `
   border-radius: 999px;
   background: rgba(10, 20, 32, 0.52);
   color: var(--es-text-secondary, #94a3b8);
+  text-decoration: none;
+  cursor: pointer;
   font-family: var(--font-cond);
   font-size: 0.78rem;
   font-weight: 850;
@@ -1972,27 +2095,34 @@ const liveIntelCss = `
   opacity: 0.5;
   transition: opacity 0.15s ease;
 }
-.media-homepage-leagues button:hover {
+.media-homepage-leagues button:hover,
+.media-homepage-leagues .media-league-tab:hover {
   color: #cbd5e1;
 }
-.media-homepage-leagues button:hover .media-league-tab-logo {
+.media-homepage-leagues button:hover .media-league-tab-logo,
+.media-homepage-leagues .media-league-tab:hover .media-league-tab-logo {
   opacity: 0.75;
 }
-.media-homepage-leagues button.is-active {
+.media-homepage-leagues button.is-active,
+.media-homepage-leagues .media-league-tab.is-active {
   border-color: rgba(245, 184, 65, 0.42);
   color: var(--es-text-primary, #f8fafc);
   background: rgba(245, 184, 65, 0.10);
   box-shadow: inset 0 -2px 0 rgba(245, 184, 65, 0.55);
 }
-.media-homepage-leagues button.is-active .media-league-tab-logo {
+.media-homepage-leagues button.is-active .media-league-tab-logo,
+.media-homepage-leagues .media-league-tab.is-active .media-league-tab-logo {
   opacity: 1;
 }
 .media-homepage-leagues button strong,
-.media-homepage-leagues button span {
+.media-homepage-leagues button span,
+.media-homepage-leagues .media-league-tab strong,
+.media-homepage-leagues .media-league-tab span {
   display: block;
   line-height: 1.05;
 }
-.media-homepage-leagues button strong {
+.media-homepage-leagues button strong,
+.media-homepage-leagues .media-league-tab strong {
   display: none;
 }
 .media-homepage-grid {
@@ -3001,7 +3131,8 @@ const liveIntelCss = `
     width: 100%;
     max-width: 100%;
   }
-  .media-homepage-leagues button {
+  .media-homepage-leagues button,
+  .media-homepage-leagues .media-league-tab {
     min-height: 34px;
     padding: 6px 9px;
     text-align: left;
