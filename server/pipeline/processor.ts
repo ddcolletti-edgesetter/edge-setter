@@ -355,6 +355,18 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
   let processed = 0;
   let errors = 0;
 
+  if (pending.length > 0) {
+    const byKey: Record<string, number> = {};
+    for (const e of pending) {
+      const k = `${e.league ?? "null"}/${e.event_type}`;
+      byKey[k] = (byKey[k] ?? 0) + 1;
+    }
+    console.log(
+      `[processor] cycle: ${pending.length} queued — ` +
+      Object.entries(byKey).map(([k, v]) => `${k}×${v}`).join(", "),
+    );
+  }
+
   for (const raw of pending) {
     try {
       // Route event to Signal fields
@@ -428,6 +440,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       );
       processCanonicalSituationSafe(raw, signal, consensus.validatorAgreement);
       markRawEventProcessed(raw.id);
+      console.log(`[processor] ${raw.league}/${raw.event_type} → ${signal.signal_type} conf:${signal.confidence} verdict:${signal.verdict} id:${signal.id.slice(0, 8)}`);
       processed++;
     } catch (err: any) {
       console.error(`[pipeline/processor] Error processing raw event ${raw.id}:`, err.message);
