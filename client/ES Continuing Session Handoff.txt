@@ -1,0 +1,47 @@
+EDGESETTER — CONTINUING SESSION HANDOFF
+I am building EdgeSetter, a sports intelligence platform that detects and verifies sports news before mainstream media. The product is live at edgesetter.net. The codebase is at github.com/ddcolletti-edgesetter/edge-setter (currently private).
+The North Star document is at client/EDGESETTER_NORTH_STAR.md. Read it before every session.
+Current tech stack:
+
+React + TypeScript + Tailwind + custom CSS
+Wouter for routing
+Vitest for tests (133/133 must pass before every commit)
+Deployed on Render (auto-deploys from origin/main)
+Claude Code for development (currently using Sonnet or Opus — Fable 5 suspended by government directive)
+
+What has been completed:
+
+Full homepage visual overhaul (sport backgrounds, story-first lead card, confidence badges, league tabs, sidebar track record, ticker)
+Homepage hard stop after Developing Now grid + Dive Deeper CTA row (4 buttons: NBA, NFL, MLB, CFB)
+League pill tabs navigate to correct board routes (/nba, /mlb, /nfl, /cfb)
+KC team logo league-qualified fix (Royals vs Chiefs)
+Duplicate nav removed on homepage route
+133/133 tests passing, zero TS errors
+
+What is broken or incomplete — in priority order:
+
+Lead story selection — homepage shows stale NFL (8 days old) instead of live NBA/MLB. Fix in progress in current Opus session. Rule: stories over 24 hours old cannot lead if fresher stories exist at 60%+ confidence. Weight by recency × league activity (offseason leagues get 0.7 multiplier, active get 1.3).
+Copy voice — story descriptions read as system language not sports journalism. Templates need plain language replacements (see previous session notes).
+Left sidebar icons — generic Lucide placeholder icons need replacing with contextually appropriate alternatives.
+Board pages visual pass — NFL, MLB, NBA, CFB boards need story-first / intelligence-second layout matching the homepage treatment.
+Mobile audit — screenshots needed, layout needs verification at 375px.
+Post-launch (after June 22): Social media agent, true parallel agent evaluation, subscription paywall infrastructure.
+
+Operating rules for all sessions:
+
+Always paste EDGESETTER_NORTH_STAR.md at the start of every Claude Code session
+Never touch: confidence scoring logic, timing advantage displays, MyEdge page, agentsFromOverlay(), confidenceDisplay(), sanitizePublicStory()
+Always run npx tsc --noEmit and 133/133 tests before committing
+Commit only the files changed for each fix — never commit the full dirty working tree
+Push to origin/main immediately after each commit
+Keep briefs focused on one problem at a time — no scope creep
+
+Model strategy:
+
+Use Sonnet (options 1 or 2 in /model) for all sessions until Fable 5 is restored
+Keep briefs tight and targeted — Sonnet executes well on focused precise instructions
+One problem per session where possible
+
+June 22 deadline: Fable 5 free access ends June 22. Target: homepage fully working + board pages visually complete before that date. Paywall and social agent are post-launch priorities.
+The product vision: Disrupt ESPN, The Athletic, On3, 247Sports. Radical transparency — confidence scores, source trails, track record including failures. Free tier + Pro at $14.99/month or $99/year.
+The homepage should feel like a newspaper front page (story first, immediately understandable) with a Bloomberg intelligence layer underneath (EdgeSetter's unique value). Compare to On3.com for visual reference — that's the bar for sports presentation quality.

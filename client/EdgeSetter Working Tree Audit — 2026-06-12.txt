@@ -1,0 +1,193 @@
+EdgeSetter Working Tree Audit — 2026-06-12
+
+  ---  PROTECTED FUNCTIONS STATUS
+
+  agentsFromOverlay, confidenceDisplay, sanitizePublicStory live in client/src/components/StoryCard.tsx — not in the modified list.
+  selectHomepageLead lives in LiveIntelligenceHome.tsx — not in the modified list. None of the 45 files under review touch any of them.
+
+  ---
+  PIPELINE WIRING STATUS
+
+  ┌────────────────────────────────────────────┬────────────────────────────────┬────────┐
+  │                  New file                  │          Wired into?           │ Status │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/consensus-engine.ts        │ processor.ts line 367, 451     │ WIRED  │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/consensus-evaluator.ts     │ consensus-engine.ts            │ WIRED  │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/public-confirmation.ts     │ processor.ts lines 527–533     │ WIRED  │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/dst-confidence.ts          │ server/agents.ts verifierAgent │ WIRED  │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/insider-signals.ts         │ server/agents.ts verifierAgent │ WIRED  │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/adapters/cfb-school-sid.ts │ ingestion.ts line 23           │ WIRED  │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/adapters/on3.ts            │ ingestion.ts line 24           │ WIRED  │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/adapters/247sports.ts      │ ingestion.ts line 25           │ WIRED  │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/adapters/x-twitter.ts      │ ingestion.ts line 26           │ WIRED  │
+  ├────────────────────────────────────────────┼────────────────────────────────┼────────┤
+  │ server/pipeline/adapters/sports-rss.ts     │ ingestion.ts lines 27–28       │ WIRED  │
+  └────────────────────────────────────────────┴────────────────────────────────┴────────┘
+
+  All three new consensus/confirmation modules are orphaned in untracked state but fully wired in the modified processor.ts. They are not
+  orphaned — they just haven't been committed yet.
+
+  ---
+  1. SAFE TO COMMIT
+
+  Complete, working, wired, no conflicts with protected functions.
+
+  Untracked new pipeline files — commit as a group (they reference each other):
+  - server/pipeline/consensus-engine.ts — Five-evaluator weighted consensus. Wired in processor.ts.
+  - server/pipeline/consensus-evaluator.ts — Individual evaluators (Source, Corroboration, Market, Official, Recency).
+  - server/pipeline/public-confirmation.ts — Timing advantage detection. Guards are correct: won't fire on first signal, won't overwrite,
+  won't trigger when a wire source was the original detector. The North Star timing advantage display depends on this being committed.
+  - server/pipeline/dst-confidence.ts — Dempster-Shafer belief model used by verifierAgent.
+  - server/pipeline/insider-signals.ts — Pure computation, no storage reads. Used by verifierAgent.
+  - server/pipeline/adapters/cfb-school-sid.ts — The improved version with dual channels (press release + SID Twitter round-robin). Has
+  restart-persistent dedup via seedSeenHashesFromStore. Uses insertRawEvent from ../store, the correct pipeline store — not the old
+  storage.createRawEvent.
+  - server/pipeline/adapters/on3.ts
+  - server/pipeline/adapters/247sports.ts
+  - server/pipeline/adapters/sports-rss.ts
+  - server/pipeline/adapters/x-twitter.ts
+  - server/pipeline/adapters/x-source-manifest.ts
+  - server/pipeline/bootstrap/cfb-source-seed.json
+  - server/pipeline/bootstrap/seed-cfb-sources.ts
+  - server/pipeline/bootstrap/run-seed.ts
+
+  Untracked tests:
+  - server/pipeline/__tests__/public-confirmation.test.ts — 7 well-specified tests for the North Star timing advantage logic. Imports are
+  correct. Will pass once public-confirmation.ts is committed.
+  - server/pipeline/__tests__/cfb-school-sid.test.ts — Tests classifyEventType, extractHeadlines, extractPlayerName which are all exported
+  from the correct path. Will pass once committed.
+
+  Untracked client file:
+  - client/src/lib/teamColors.ts — Team color manifest. Must be committed alongside client/src/components/v2/SportVisuals.tsx — that file
+  imports teamColorsFor and deterministicTeamColors from this module. Without it the build breaks.
+
+  Modified server files (complete):
+  - server/pipeline/situations-contract.ts — Added SituationPublicConfirmation interface at line 264. Correct shape, matches
+  situations-store.ts DDL.
+  - server/pipeline/situations-store.ts — Added situation_public_confirmations table, insertSituationPublicConfirmation,
+  getSituationPublicConfirmation, listSituationEvents. Required by public-confirmation.ts.
+  - server/pipeline/ingestion.ts — All adapters wired with proper mutex separation, active-hours gating, and a fast-tier (5-min SID+tier1)
+  separate from the standard 15-min cycle. Complete.
+  - server/pipeline/processor.ts — Consensus + publicConfirmation integrated. Note: there's a subtle indentation inconsistency around the
+  mutableFields block at lines 366–370 (uses inconsistent indentation vs surrounding code) — cosmetic, not a logic bug.
+  - server/agents.ts — DST-based verifier, real source accuracy rolling window (90-day), sourceScorerOnOutcome wired into processor. This is
+  the live version. The root-level agents.ts duplicate is older.
+  - server/pipeline/adapters/cfb-school-sources.ts — School SID manifest (Power 4 schools). Year-round, correct.
+  - client/EDGESETTER_NORTH_STAR.md — Adds the eligibility_ruling established signal spec. Correct.
+  - package.json — Adds seed:cfb script. Safe.
+
+  ---
+  2. NEEDS REVIEW
+
+  Partially read or potentially incomplete; verify before committing.
+
+  server/pipeline/situations-adapter.ts (modified)
+  - processor.ts now calls confidenceInputFromRawEvent(raw, signal, validatorAgreement) with a third argument — the real consensus engine's
+  validatorAgreement score (0–14). The original signature was (raw, signal). This file is in the modified list, so it was updated to accept
+  the third param. But I only read 80 of its lines — verify the function signature accepts the third param before committing. If it doesn't,
+  processor.ts will pass the value silently (TypeScript would catch it on tsc --noEmit).
+
+  server/pipeline/situations-api.ts (modified)
+  - This is the API endpoint that exposes situations to the client, including timing advantage data. The SituationPublicConfirmation table is
+  new, and getSituationPublicConfirmation is new in situations-store.ts. Verify that situations-api.ts now reads and surfaces the
+  publicConfirmation timing advantage in the API response (the North Star: "EdgeSetter flagged 47 min before public confirmation"). I only
+  read 60 lines.
+
+  server/storage.ts (modified)
+  - server/agents.ts calls (storage as any).getClaimsBySourceId, (storage as any).updateSourceTeamAccuracy, (storage as
+  any).getSourceTeamAccuracy, and storage.getSignalLeadTimesForClaims. These are cast to any defensively, but if storage.ts doesn't implement
+  them, the source scorer silently does nothing. Verify all four methods exist and return the right shapes.
+
+  shared/schema.ts (modified)
+  - sourceScorerAgent calls storage.upsertSourceScore with three new fields: sample_size, window_days, last_computed_at. Verify these columns
+  are in the schema and the upsert won't fail on the existing production table (Render auto-deploys — a missing column causes a runtime crash
+  on deploy).
+
+  tsconfig.json (modified)
+  - Unknown what changed. If this disabled strict mode or added new path aliases for the new untracked files, those changes need to land with
+  the files they reference.
+
+  All modified client component files (7 files: EdgeSetterOverlay.tsx, SignalDetailDrawer.tsx, SportsMedia.tsx, SituationRow.tsx,
+  SituationStoryCard.tsx, boardAdapters.ts, situationAdapters.ts, situationsApi.ts, boardSituations.ts, SportVisuals.tsx):
+  - None touch the four protected functions. However, SportVisuals.tsx imports teamColors.ts which is untracked — these two must be committed
+  together or the build fails.
+  - boardAdapters.ts, SituationStoryCard.tsx, SituationRow.tsx are in the story card rendering path. The North Star requires the timing
+  advantage display be preserved on story cards and detail panels. I read partial content of each — verify the confidence display and timing
+  advantage callout are intact after these changes before committing.
+  - .claude/settings.local.json — Changed settings. Low-risk but confirm intentional before including in a commit.
+
+  fix_rss.py / fix_rss2.py
+  - Python scripts that patch server/pipeline/adapters/sports-rss.ts to add official team RSS feeds (Chiefs, Eagles, Bills, Ravens, Cowboys,
+  49ers, etc.). Verify whether these patches have already been applied to the committed version of sports-rss.ts before discarding the
+  scripts. I only read 50 lines of sports-rss.ts.
+
+  ---
+  3. DISCARD
+
+  Duplicates, scratch files, superseded patches, wrong directory.
+
+  Root-level duplicates — all superseded by their server/pipeline/adapters/ equivalents:
+  - agents.ts (root) — Pre-DST version of server/agents.ts. The live version (modified) has DST confidence engine, insider detection, and
+  sourceScorerOnOutcome. This older copy does not. If committed from the root, nothing imports it; it's inert but confusing.
+  - cfb-school-sid.ts (root) — Earlier version that uses storage.createRawEvent (the old interface). Superseded by
+  server/pipeline/adapters/cfb-school-sid.ts which uses insertRawEvent from the pipeline store and adds SID Twitter + restart-persistent
+  dedup.
+  - x-twitter-adapter.ts (root) — Duplicate of server/pipeline/adapters/x-twitter.ts. Wrong path; imports from "../store" which is a broken
+  relative path from the root.
+  - on3-adapter.ts (root) — Duplicate of server/pipeline/adapters/on3.ts.
+  - 247sports-adapter.ts (root) — Duplicate of server/pipeline/adapters/247sports.ts.
+  - sports-rss-adapter.ts (root) — Duplicate of server/pipeline/adapters/sports-rss.ts. Broken import path.
+  - nfl-cfb-source-manifest.ts (root) — Duplicate of server/pipeline/adapters/x-source-manifest.ts.
+
+  Stale patch documentation — changes already applied:
+  - ingestion.ts.patch.md — Describes wiring ingestCFBSchoolSIDFeeds into ingestion.ts. This is fully applied in the current ingestion.ts
+  (which goes far beyond this patch, adding On3, 247Sports, X tiers, and the fast-tier scheduler).
+  - situations-adapter.patch.md — Describes a computeBridgeValidatorAgreement proxy. Superseded: the real consensus engine
+  (consensus-engine.ts) now produces validatorAgreement directly from evaluator votes. The bridge proxy approach is no longer the design.
+  - README-source-scorer.md — Documents 4 integration steps for the DST source scorer. All 4 steps are reflected in the current modified
+  files.
+  - x-ingestion-additions.ts — Describes wiring X tier1/tier2 into ingestion.ts. Already applied.
+
+  One-shot Python scripts:
+  - fix_rss.py — One-time patching script. Discard after verifying patch status (see NEEDS REVIEW).
+  - fix_rss2.py — Follow-up RSS patch script.
+
+  Non-code files:
+  - client/ES Continuing Session Handoff.txt
+  - client/ES Diagnostic.txt
+  - client/Pipeline.txt
+  - client/Pipline.docx (typo in name)
+  - edge-setter-main.zip
+
+  ---
+  4. UNKNOWN
+
+  Cannot determine without reading more content.
+
+  client/ES Diagnostic.txt and client/Pipeline.txt — I read the Handoff doc but not these two. They may contain in-progress debugging notes
+  relevant to a current issue, or they may be obsolete scratch notes. Check before discarding.
+
+  ---
+  COMMIT SEQUENCE RECOMMENDATION
+
+  If you proceed to commit, the dependencies require this ordering:
+
+  1. Core pipeline types first: shared/schema.ts, server/pipeline/situations-contract.ts, server/pipeline/types.ts
+  2. Store layer: server/storage.ts, server/pipeline/situations-store.ts
+  3. New adapters + manifests: all server/pipeline/adapters/ untracked files + server/pipeline/adapters/cfb-school-sources.ts
+  4. New pipeline logic: consensus-evaluator.ts, consensus-engine.ts, dst-confidence.ts, insider-signals.ts, public-confirmation.ts
+  5. Wiring: server/pipeline/situations-adapter.ts, server/pipeline/situations-api.ts, server/pipeline/processor.ts,
+  server/pipeline/ingestion.ts, server/agents.ts
+  6. Bootstrap + tests: server/pipeline/bootstrap/, server/pipeline/__tests__/
+  7. Client: client/src/lib/teamColors.ts must land in the same commit as client/src/components/v2/SportVisuals.tsx
+
+  Run npx tsc --noEmit and vitest run before each group. The two new test files will add to the 133 baseline — confirm final count is 133 +
+  new tests, not below 133.

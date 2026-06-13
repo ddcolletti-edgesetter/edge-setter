@@ -1,0 +1,85 @@
+EdgeSetter Architecture Diagnostic — Current State
+
+1. How Many Agents Exist and What Does Each One Do
+There are 7 named agents in server/agents.ts, plus several infrastructure processes that log under "agent" names:
+Scout — Ingests a raw source item, creates an Event record and a Claim record. Sets urgency_score (hardcoded: 85 for injury, 50 for everything else). Sets confidence to 0 at creation. Output: event_id + claim_id.
+Clusterer — Groups events by cluster_key (a concatenation of team + player + topic). Counts duplicates. Does not merge them or update any scores. Output: duplicate count (informational only — nothing downstream consumes it to adjust confidence).
+Retriever — Gathers evidence in 3 steps: (1) cross-references the raw_events pipeline table for other sources reporting the same player/topic within a ±6-hour window; (2) calls BallDontLie (NBA) or MLB StatsAPI (MLB) to check official injury/transaction status — NFL and CFB have no official API check; (3) checks market line movement from the games table. Falls back to source-tier inference if no real data is found.
+Verifier — Assigns a verdict (confirmed, likely, rumor, contradicted, review) and a confidence score based on evidence counts and source tier. Maximum confidence ceiling is 92 (tier1 + corroboration). Confirmed + tier1 = 92, not 100. High-risk topics (injury, draft, coaching, trade) and high-risk keywords (QB, first round, playoff, coaching change) are forced to review status, which caps confidence at 70. This means high-impact stories are systematically held below the verified threshold.
+Source Scorer — Updates source accuracy metrics. Uses hardcoded tier-based baselines with random jitter (Math.random() * 6 - 3) and random lead time (Math.random() * 60 + 5). These numbers are not derived from real historical performance. The source leaderboard is simulated.
+Publisher — Converts a verdict into a feed alert if the verdict is confirmed or likely and not flagged for human review. Does not publish review items.
+QA/Audit — Counts claims, verdicts, review queue depth, and alerts. Validates that all verdicts are in the allowed set. No scoring logic — purely a health count.
+Ingestion/[stage] — Not a named agent in agents.ts but logs as Ingestion/Odds, Ingestion/NBAInjuries, etc. Runs the adapter-to-processor pipeline on a 15-minute cycle.
+SiteWatch — Runs every 5 minutes. Checks API route health, signal count, ops queue depth, and funnel anomalies from event_log. Sends alert email on warning/critical.
+
+2. How Agents Communicate
+Agents do not communicate in real time. They score independently, sequentially. The execution model in runFullPipeline() is a linear chain:
+Scout → Clusterer → Retriever → Verifier → SourceScorer → Publisher
+Each agent in agents.ts receives only an ID and reads state from storage. There is no message bus, no event pub/sub, no inter-agent signaling. The Clusterer's duplicate count is logged but nothing downstream reads it to adjust confidence. The Retriever's evidence is written to the evidence table, which the Verifier then reads. That is the only handoff.
+The live ingestion pipeline (ingestion.ts → processor.ts) runs on a completely separate track from the agents.ts pipeline. processRawEvents() in processor.ts does not call any of the seven named agents — it scores signals directly using scoreSignal() from scorer.ts, then calls evolveCanonicalSituation() for the situations layer. The two pipelines share a database but not execution flow.
+
+3. Consensus Calculation
+There are two separate confidence systems running in parallel that do not share a formula:
+Signal-level scoring (scorer.ts) — Used by the live ingestion pipeline. A 6-component weighted formula:
+
+Confidence score: max 22, nonlinear curve (22 × (confidence/100)^0.7)
+Source quality: max 28, based on source type weights + named insider premium + confirmation strength + source count depth
+Market impact: max 24, based on line movement delta, sharp money, injury designation, betting relevance
+Recency bonus: max 12, age-based (< 15 min = 12, < 60 min = 10, etc.)
+Relevance: max 8, betting/fantasy boolean flags × verdict multiplier
+Context: max 6, matchup edge, scheme note, weather note, etc.
+
+League modifiers amplify market + context components (CFB eligibility_ruling ×1.35/×1.2 is the highest). Total capped at 100.
+Situation-level confidence (situations-confidence.ts) — Used by the canonical situations engine, called from processor.ts after scoring. A 6-factor additive formula with a penalty:
+
+Source reliability: max 22
+Independent confirmations: max 18
+Market alignment: max 16
+Validator agreement: max 14 — this is always 0 in production (payload field validator_agreement defaults to 0 and no agent sets it)
+Official confirmation: max 20 — populated only if source type string matches /official|league|team|statsapi|espn/i
+Freshness: max 10
+Contradiction penalty: max −40
+
+Score = sum of positives minus contradiction penalty, capped at 100.
+There is no weighted averaging of multiple agent opinions. "Consensus" in the current system means: a single signal's source count contributes to the independent_confirmations factor. There is no moment where Agent A and Agent B independently score the same event and their outputs are compared or blended.
+
+4. Polling vs Real Time
+Everything is polling. Nothing is event-driven.
+
+Main ingestion cycle: every 15 minutes (odds, injuries, transactions, processing — all in one batch)
+SiteWatch: every 5 minutes
+Distribution draft: every 30 minutes
+Daily ops: once per day at 06:00 UTC
+
+The fastest a signal can move from source detection to board display end-to-end is approximately 15 minutes (the ingestion interval) plus processor execution time, plus however long it takes the client to refresh. In practice, a signal published by a source at T+0 will not appear on the board until the next ingestion cycle fires — potentially 14 minutes and 59 seconds later.
+The initial delay after server start is 45 seconds before the first ingestion cycle runs.
+
+5. Outlier Handling
+There is no outlier detection in the live pipeline. A single source flagging a signal that no other source has reported will either (a) pass through with a low confidence score if it's a tier3–5 source, or (b) pass through with a 92% confidence score if it's a tier1 source with corroboration. There is no "minority signal" surface — it either publishes or it doesn't.
+The replay-forensic-report.ts and replay-divergence.ts files contain divergence detection logic, but these modules are part of the replay/audit system and are not wired into the live pipeline (processor.ts only imports computeCanonicalHash from replay-archive.ts). Divergence data from the replay system does not affect live signal scoring or surfacing.
+
+6. Fault Tolerance
+Adapter failures are caught individually in ingestion.ts with .catch() blocks that return zero-count defaults. An NBA odds failure does not stop MLB processing. Errors are logged to agent_logs and recorded in recordPipelineHealth(). The cycle completes even with partial failures.
+Processor failures on individual raw events are caught per-event — a bad event is marked processed and skipped, errors are counted but execution continues.
+The _running mutex prevents concurrent ingestion cycles from overlapping. If a cycle is still running when the next interval fires, the new cycle is skipped entirely with a log message.
+Situations processing failures are caught with a try/catch in processCanonicalSituationSafe() — a failure in the situations engine silently warns and continues, so a situation error will never block a signal from being published.
+No agent-level redundancy. There is no concept of a backup agent, a fallback path, or a health check that degrades gracefully. If the pipeline DB is unavailable, findCorroboratingEvents returns an empty result (no corroboration found, not an error) — the signal continues with lower confidence.
+
+7. Historical Pattern Matching
+Historical data adapters exist (balldontlie-historical.ts, espn-nfl-historical.ts, espn-cfb-historical.ts, mlb-statsapi-historical.ts) and are used by the backfill engine (backfill.ts). They are not connected to the live scoring pipeline. processor.ts and scorer.ts have no imports from any historical adapter. There are no queries against historical outcomes in scoreSignal() or computeSituationConfidence().
+The situations calibration system (situations-calibration.ts) exists and can analyze historical situation patterns, but it is a reporting tool — it does not feed adjusted weights back into scoreSignal() or computeSituationConfidence() at runtime.
+
+8. Impact Window Awareness
+Partial. The scorer has game-time proximity logic:
+typescriptconst minutesToGame = gameMs ? (gameMs - now) / 60000 : null;
+const decisionWindowOpen = minutesToGame === null || minutesToGame > 60;
+If a game is less than 60 minutes away, decisionWindowOpen is false, which suppresses URGENT urgency label — the signal becomes NOTE or WATCH instead. This prevents showing actionable urgency after the decision window has passed.
+However, this only affects the urgency label. It does not affect the confidence score, the verdict, or whether the signal surfaces at all. The situations lifecycle uses a stale_tick trigger with hour-based decay, but this decay only fires when the trigger is explicitly set — there is no automatic stale-tick scheduler running against open situations.
+
+9. Current Weaknesses — The Three Biggest Gaps
+Gap 1: The school SID feeds are defined but never polled.
+cfb-school-sources.ts is an elaborate manifest of 35+ school SID Twitter accounts and press release feeds. Zero files import it. The Sorsby detection failure that created this manifest has not been resolved — the manifest exists but no adapter fetches from it. The CFB pipeline still ingests only from ESPN (which picks up SID posts 20–60 minutes late). The timing advantage the North Star promises for CFB eligibility rulings cannot be delivered with the current ingestion topology.
+Gap 2: The Verifier hard-caps confirmed events at 92%, and high-impact events at 70%.
+A tier1-sourced, fully corroborated event with no conflicting signals scores 92% — never 100%/VERIFIED. Worse, anything touching the HIGH_RISK_TOPICS list (injury, draft, coaching, trade) or HIGH_RISK_KEYWORDS (QB, playoff, coaching change) is forced to review and capped at 70%. These are precisely the high-impact events EdgeSetter is built to surface fastest. The current Verifier logic produces the opposite result: the more important the story, the lower its confidence ceiling. A confirmed public QB injury would display at 70% in the agents pipeline, directly violating the North Star rule that settled facts must show 100%/VERIFIED.
+Gap 3: There is no real consensus — there is only one pipeline that scores signals once.
+The North Star describes "agents reaching consensus." The architecture has seven sequential steps that run once per signal, not N independent agents that evaluate the same signal and vote. The validator_agreement confidence factor — worth up to 14 points in the situations formula — is always 0 in production because no agent sets it. Source count contributes to independent_confirmations, but that counts API data sources, not agent evaluations. The "timing advantage" display (detectionLeadTime) is wired up in the client and computes correctly when firstSeenAt and stateHistoryPreview are populated — but it requires the situations system to have tracked a situation from watching through to official or confirmed, which in turn requires the 15-minute polling cycle to have caught the signal early enough to be ahead of public confirmation. Given the polling interval, the timing advantage is only realizable for slow-moving stories; anything that breaks and confirms within a single 15-minute window will show no lead time at all.

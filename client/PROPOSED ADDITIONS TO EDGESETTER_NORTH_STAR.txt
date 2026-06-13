@@ -1,0 +1,134 @@
+
+
+
+
+PROPOSED ADDITIONS TO EDGESETTER_NORTH_STAR.md
+
+THE TIMING ADVANTAGE DISPLAY — LANGUAGE REQUIREMENTS
+The timing advantage callout must distinguish between source types. Generic "EdgeSetter flagged X minutes before public confirmation" is good. But the most powerful version names the source type:
+
+"EdgeSetter detected via SID post — wire pickup 34 min later"
+"Primary source confirmed — national media 47 min behind"
+"School athletic department post — ESPN picked up 61 min later"
+
+This language directly addresses why On3 and 247Sports subscribers cancel. They already know SID posts are the real signal. When EdgeSetter names the primary source and shows the gap to wire pickup, it speaks directly to the power user who is already frustrated and already looking for exactly this.
+Rule: When publicConfirmationSource is a wire service (ESPN, AP, Rotoworld) and the original detection source was a primary source (SID, team official, athletic department), the timing advantage callout must reflect that distinction. Never collapse this to a generic label.
+
+SOURCE TRANSPARENCY IS A PRODUCT FEATURE, NOT A PIPELINE DETAIL
+Users are rejecting ESPN's opaque AI recommendations specifically because there is no "why." EdgeSetter's agent count, source agreement status, and conflict detection already exist in the pipeline. They must be surfaced as a visible, readable feature — not buried in an overlay that requires a click to find.
+Rule: Every story card must show in plain sight, without requiring any interaction:
+
+How many sources are tracking this situation
+Whether sources agree or conflict
+What type of source first detected it (primary vs wire)
+
+This is not optional UI. It is the trust layer that differentiates EdgeSetter from every competitor. A user who sees "3 sources — 2 agree, 1 conflicting" understands immediately that EdgeSetter is doing something no other platform does.
+Rule: Source agreement status must never be hidden behind a collapsed panel on the lead story. On rail and compact cards it may be condensed to a single badge. On the lead card it must be readable without interaction.
+
+THE CONFIDENCE JOURNEY MUST BE VISIBLE
+Competitors show a static score or label. That communicates a destination but not a story. EdgeSetter's entire value proposition is that it detected something before public confirmation — which means there was a journey from first detection to verified. That journey is proof the agents are working.
+Rule: Every verified story where detectionLeadMinutes exists must show the confidence path — not just the final VERIFIED state, but at minimum: when it was first detected, what confidence was at detection, and when it reached verified. A mini-timeline or confidence progression indicator (even two data points: detected at X% → verified) is required on the lead story detail view.
+Rule: A static "VERIFIED" badge with no journey context is better than showing doubt on a settled fact — but it is not the full product. The journey is what proves the agents work. The destination alone proves nothing.
+
+THE HIERARCHY RULE — REINFORCED WITH COMPETITIVE CONTEXT
+ESPN partnered with IBM to serve AI-powered fantasy recommendations to 14 million users. The user backlash was immediate and public. Users do not want to be told what to think. They want to see the evidence and reach their own conclusions.
+EdgeSetter must never become that product.
+The hierarchy is:
+
+The sports story
+The evidence and sources
+The agent consensus and confidence journey
+The timing advantage
+Fantasy / betting / DFS impact
+
+Rule: Any feature proposal that puts fantasy impact, betting lines, or DFS recommendations above items 1-4 in the visual hierarchy must be rejected regardless of how it is framed. This is the ESPN mistake. Do not make it.
+
+WHAT "SUBSCRIBER-READY" NOW MEANS — UPDATED
+The original four criteria stand. Add these:
+
+A new user can see, without clicking anything, how many sources are tracking the lead story and whether they agree
+At least one verified story shows the confidence journey — not just the VERIFIED badge, but the path that got there
+The timing advantage callout on at least one story names the source type — primary source vs wire pickup — not just the time gap
+
+Until all seven criteria are true, the product is not ready for the attention campaign.
+
+THE COMPETITIVE WINDOW — WHY SPEED MATTERS NOW
+On3 and 247Sports subscribers are publicly canceling and saying out loud that Twitter beats the platform every time. ESPN users are publicly rejecting opaque AI recommendations. PrizePicks users distrust a $1.6B platform because it never explains why outcomes happened.
+These are not abstract market observations. These are active, frustrated users who have already been trained to want exactly what EdgeSetter does. They are looking for a product that proves it was first, shows its work, and treats them as intelligent adults who want evidence not recommendations.
+This window will not stay open indefinitely. The attention campaign should launch as soon as the seven subscriber-ready criteria are met — not after additional features are built.
+Rule: No new features are justified before the seven subscriber-ready criteria are met. The competitive window is a reason to move faster on what is already built, not a reason to expand scope..md
+
+THE TIMING ADVANTAGE DISPLAY — LANGUAGE REQUIREMENTS
+The timing advantage callout must distinguish between source types. Generic "EdgeSetter flagged X minutes before public confirmation" is good. But the most powerful version names the source type:
+
+"EdgeSetter detected via SID post — wire pickup 34 min later"
+"Primary source confirmed — national media 47 min behind"
+"School athletic department post — ESPN picked up 61 min later"
+
+This language directly addresses why On3 and 247Sports subscribers cancel. They already know SID posts are the real signal. When EdgeSetter names the primary source and shows the gap to wire pickup, it speaks directly to the power user who is already frustrated and already looking for exactly this.
+Rule: When publicConfirmationSource is a wire service (ESPN, AP, Rotoworld) and the original detection source was a primary source (SID, team official, athletic department), the timing advantage callout must reflect that distinction. Never collapse this to a generic label.
+
+SOURCE TRANSPARENCY IS A PRODUCT FEATURE, NOT A PIPELINE DETAIL
+Users are rejecting ESPN's opaque AI recommendations specifically because there is no "why." EdgeSetter's agent count, source agreement status, and conflict detection already exist in the pipeline. They must be surfaced as a visible, readable feature — not buried in an overlay that requires a click to find.
+Rule: Every story card must show in plain sight, without requiring any interaction:
+
+How many sources are tracking this situation
+Whether sources agree or conflict
+What type of source first detected it (primary vs wire)
+
+This is not optional UI. It is the trust layer that differentiates EdgeSetter from every competitor. A user who sees "3 sources — 2 agree, 1 conflicting" understands immediately that EdgeSetter is doing something no other platform does.
+Rule: Source agreement status must never be hidden behind a collapsed panel on the lead story. On rail and compact cards it may be condensed to a single badge. On the lead card it must be readable without interaction.
+
+THE CONFIDENCE JOURNEY MUST BE VISIBLE
+Competitors show a static score or label. That communicates a destination but not a story. EdgeSetter's entire value proposition is that it detected something before public confirmation — which means there was a journey from first detection to verified. That journey is proof the agents are working.
+Rule: Every verified story where detectionLeadMinutes exists must show the confidence path — not just the final VERIFIED state, but at minimum: when it was first detected, what confidence was at detection, and when it reached verified. A mini-timeline or confidence progression indicator (even two data points: detected at X% → verified) is required on the lead story detail view.
+Rule: A static "VERIFIED" badge with no journey context is better than showing doubt on a settled fact — but it is not the full product. The journey is what proves the agents work. The destination alone proves nothing.
+
+THE HIERARCHY RULE — REINFORCED WITH COMPETITIVE CONTEXT
+ESPN partnered with IBM to serve AI-powered fantasy recommendations to 14 million users. The user backlash was immediate and public. Users do not want to be told what to think. They want to see the evidence and reach their own conclusions.
+EdgeSetter must never become that product.
+The hierarchy is:
+
+The sports story
+The evidence and sources
+The agent consensus and confidence journey
+The timing advantage
+Fantasy / betting / DFS impact
+
+Rule: Any feature proposal that puts fantasy impact, betting lines, or DFS recommendations above items 1-4 in the visual hierarchy must be rejected regardless of how it is framed. This is the ESPN mistake. Do not make it.
+
+WHAT "SUBSCRIBER-READY" NOW MEANS — UPDATED
+The original four criteria stand. Add these:
+
+A new user can see, without clicking anything, how many sources are tracking the lead story and whether they agree
+At least one verified story shows the confidence journey — not just the VERIFIED badge, but the path that got there
+The timing advantage callout on at least one story names the source type — primary source vs wire pickup — not just the time gap
+
+Until all seven criteria are true, the product is not ready for the attention campaign.
+
+THE COMPETITIVE WINDOW — WHY SPEED MATTERS NOW
+On3 and 247Sports subscribers are publicly canceling and saying out loud that Twitter beats the platform every time. ESPN users are publicly rejecting opaque AI recommendations. PrizePicks users distrust a $1.6B platform because it never explains why outcomes happened.
+These are not abstract market observations. These are active, frustrated users who have already been trained to want exactly what EdgeSetter does. They are looking for a product that proves it was first, shows its work, and treats them as intelligent adults who want evidence not recommendations.
+This window will not stay open indefinitely. The attention campaign should launch as soon as the seven subscriber-ready criteria are met — not after additional features are built.
+Rule: No new features are justified before the seven subscriber-ready criteria are met. The competitive window is a reason to move faster on what is already built, not a reason to expand scope.
+
+
+8. Every story card, lead card, and board page meets a minimum visual standard:
+
+No broken or missing team logos — every team that appears on a card has a resolved logo, not a fallback initial or empty circle
+No placeholder imagery — the sports visual behind every lead story reflects the correct league and context, not a generic fallback
+Board pages (NBA, NFL, MLB, CFB) match the homepage visual treatment — story-first layout, consistent badge and confidence display, league-appropriate imagery
+No story card anywhere on the site looks unfinished, incomplete, or like a development placeholder
+
+Rule: A user who questions whether the product is finished based on visual presentation will not trust the intelligence layer. Visual completeness is not a polish pass — it is a prerequisite for trust. The boards and homepage must feel like the same product built to the same standard.
+
+That makes eight. The full subscriber-ready list now covers:
+
+"This system knows things before other sites do" within 5 seconds
+Visible timing advantage callout on at least one story
+Confidence scores that make intuitive sense
+Trust the logos, copy, and data enough not to question if it's finished
+Source count and agreement visible without clicking
+Confidence journey visible on at least one verified story
+Timing advantage names source type, not just time gap
+Visual standard met across all boards and story cards — no broken logos, no placeholders, uniform treatment

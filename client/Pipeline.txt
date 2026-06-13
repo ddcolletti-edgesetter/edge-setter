@@ -1,0 +1,1170 @@
+
+I'm building EdgeSetter, a sports intelligence platform. 
+I need you to install an insider signal detection system 
+across several files. Here's the full context:
+
+NORTH STAR: EdgeSetter's agents are the verification authority. 
+A local beat writer who is first to file, uses insider language, 
+and has a strong team-specific accuracy record should be treated 
+as effectively tier1 for that specific claim — even if their 
+global tier is tier3.
+
+INSTALL ORDER — read each file before editing it:
+
+1. CREATE server/pipeline/insider-signals.ts (new file)
+2. ADD two columns to source_scores table in shared/schema.ts: 
+   team_accuracies (text, default "{}") and insider_score (numeric, default 0)
+3. ADD to server/storage.ts: getSourceTeamAccuracy(), 
+   updateSourceTeamAccuracy(), countRecentSignalsForPlayerTopic()
+4. UPDATE server/pipeline/dst-confidence.ts: add insiderMassBoost 
+   to EvidenceSource interface, add effectiveMass() function, 
+   update combination loop to use effectiveMass()
+5. UPDATE server/agents.ts verifierAgent: import detectInsiderSignals, 
+   build InsiderContext from rawEvent + source data, pass insiderMassBoost 
+   into dstSources
+6. UPDATE server/agents.ts sourceScorerOnOutcome: add teamKey parameter, 
+   call updateSourceTeamAccuracy when teamKey is present
+7. UPDATE server/pipeline/processor.ts: pass rawEvent.team into 
+   sourceScorerOnOutcome call
+8. RUN migration after schema change
+
+After each file edit, confirm what changed and what the 
+next step is. Do not edit multiple files in one step.
+
+I'll paste the full implementation spec now:
+Claude finished the responseYou said: Session summary — completed today:ES Diagnostic.txt85 linestxtEDGESETTER_NORTH_STAR.md248 linesmdSession summary — completed today:Source scorer rewritten with real accuracy tracking (no more Math.random)sourceScorerOnOutcome feedback loop wired into processor.tsOn3 RSS adapter live (server/pipeline/adapters/on3.ts)247Sports RSS adapter live (server/pipeline/adapters/247sports.ts)Sports RSS adapter live (server/pipeline/adapters/sports-rss.ts) — PFF all 32 teams, ESPN, Rotowire, official NFL team sites, LockedOn verified Simplecast feedsX Twitter adapter built (server/pipeline/adapters/x-twitter.ts) — blocked by API 402, needs Pro tier or alternativeNFL + CFB source manifest built (server/pipeline/adapters/x-source-manifest.ts)coaching_change event type added to types.ts and processor.ts handlerAll wired into ingestion.ts cyclePipeline running: ~115 sports RSS + ~655 LockedOn + 4 CFB SID per cycle
+Next priorities:Historical bootstrap to seed source scoresRemaining LockedOn Simplecast IDsReddit adapterX API solutionShow more6:02 AMClaude responded: I have a clear picture from both documents.I have a clear picture from both documents. Let me map out the gaps between current state and North Star, then help you prioritize what to tackle next.Here's a clear picture of where the system stands against the North Star, and a prioritized roadmap.
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.25s;
+    animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+  }
+VvisualizeVvisualize show_widgetThe two most urgent fixes are both in the agents pipeline, and they're both relatively surgical.
+The Verifier cap is the biggest single trust issue. Right now the system is architecturally designed to fail its own North Star: the logic that forces HIGH_RISK_TOPICS to review and caps at 70% was probably added as a conservative safety measure, but it inverts the product promise. A QB injury that's been confirmed by three tier1 sources should be the thing that shows VERIFIED first — instead it gets held at 70% indefinitely. The fix is to add a post-confirmation escape hatch: once publicConfirmation is populated and no conflicting signals exist, the Verifier should override to 100/VERIFIED regardless of topic sensitivity.
+The CFB SID wire is the biggest single timing gap. Everything else about eligibility_ruling is correct — the confidence floor, the multipliers, the bypass flags are all there. The manifest exists. It's just not connected to anything. This is probably a half-day fix that directly delivers the exact scenario (Sorsby-style ruling) that motivated building all that infrastructure.
+The historical bootstrap is next because without it, your source scorer rewrite doesn't have meaningful starting values — tier-based priors will hold for a few cycles but real differentiation between sources requires historical seeding.
+Which of these do you want to dig into first? Happy to walk through the Verifier logic changes in detail, or sketch out the SID adapter wiring.You said: what is ever is bestwhat is ever is best6:07 AMClaude responded: That's pretty open-ended — happy to help, just need a bit more context.That's pretty open-ended — happy to help, just need a bit more context.
+What are you deciding between? Are you asking about the next coding priority for EdgeSetter, something else in the project, or something entirely different?You said: if there is a best choice for edge setter between the 2 options you just gave meif there is a best choice for edge setter between the 2 options you just gave me6:08 AMClaude responded: The Verifier fix.The Verifier fix.
+It's the more impactful of the two because it's a North Star violation on every sport, every story — not just CFB. Right now your product literally cannot show VERIFIED/100% on anything, which means a user who opens EdgeSetter today has no way to see the core proof point the North Star document says must be visible within 5 seconds.
+The SID wire is high-leverage but narrow — it fixes one signal type on one sport. The Verifier fix unlocks the trust layer across the entire product.
+Do you want to walk through the exact code changes needed in agents.ts?You said: yesyes6:09 AMClaude responded: Let me pull up the diagnostic details and sketch the exact changes needed.Let me pull up the diagnostic details and sketch the exact changes needed.
+The Verifier has two problems to fix:
+Problem 1 — HIGH_RISK_TOPICS forces review and caps at 70%
+The logic currently says: if topic is in [injury, draft, coaching, trade] OR keyword matches [QB, playoff, coaching change] → force status to review, cap confidence at 70. This needs to become a flag for extra scrutiny, not a ceiling.
+Problem 2 — Confirmed tier1 events cap at 92, never reach 100
+92 is the max for "confirmed + tier1 + corroboration." There's no path to 100/VERIFIED in the current formula.
+Here's the logic change:
+typescript// BEFORE (current Verifier logic — simplified)
+if (HIGH_RISK_TOPICS.includes(topic) || HIGH_RISK_KEYWORDS.some(k => text.includes(k))) {
+  verdict = 'review';
+  confidence = Math.min(confidence, 70);
+}
+
+// AFTER
+// Step 1: score normally, let confidence reach up to 92 via existing formula
+// Step 2: high-risk flag = extra scrutiny, not a ceiling
+if (HIGH_RISK_TOPICS.includes(topic) || HIGH_RISK_KEYWORDS.some(k => text.includes(k))) {
+  // Only force review if evidence is weak
+  if (confidence < 75 || sourceTier > 2) {
+    verdict = 'review';
+    confidence = Math.min(confidence, 70);
+  }
+  // Strong evidence on high-risk topics → escalate, don't suppress
+}
+
+// Step 3: post-confirmation override — this is the 100/VERIFIED escape hatch
+const isPubliclyConfirmed = !!claim.publicConfirmation;
+const hasNoConflicts = !evidence.some(e => e.verdict === 'contradicted');
+const isStrongSource = sourceTier === 1 || corroborationCount >= 2;
+
+if (isPubliclyConfirmed && hasNoConflicts && isStrongSource) {
+  verdict = 'confirmed';
+  confidence = 100;
+  verificationState = 'verified';
+}
+The third piece is the situations layer. Once verificationState = 'verified' and confidence = 100 come out of the Verifier, situations-confidence.ts needs to respect that rather than recompute downward. You'll want a short-circuit at the top of computeSituationConfidence():
+typescript// In situations-confidence.ts
+export function computeSituationConfidence(payload: SituationConfidencePayload): number {
+  // If the agents pipeline has already reached verified, don't recompute downward
+  if (payload.verificationState === 'verified' && payload.agentConfidence === 100) {
+    return 100;
+  }
+  // ... existing formula below
+}
+What you need from the codebase to finalize this:
+
+The exact shape of the claim / evidence objects the Verifier receives — specifically whether publicConfirmation and corroborationCount are already on the payload or need to be passed in
+Whether verificationState is set by the Verifier or downstream in the Publisher
+The exact variable names for sourceTier and the corroboration count in the current Verifier
+
+Can you paste the relevant section of agents.ts — specifically the Verifier agent function? That'll let me write the exact diff rather than pseudocode.// ─── Verifier Agent ──────────────────────────────────────────────────────────
+// Assigns verdict and confidence based on evidence quality and source tier.
+//
+// North Star rules enforced here:
+//   1. Confirmed fact + no conflicting sources = 100% confidence. Not 92%. Not 70%. 100%.
+//   2. High-impact topic (injury, QB, draft, etc.) is NOT a reason to downgrade confidence.
+//      It is a reason to surface faster. The old HIGH_RISK override has been removed.
+//   3. Review verdict is reserved for genuine signal conflict (contradictCount > 0).
+//      A claim with zero contradictions never routes to review.
+export async function verifierAgent(claim_id: string): Promise<{ verdict: Verdict; needs_review: boolean }> {
+  const claim = storage.getClaim(claim_id);
+  if (!claim) throw new Error(`Claim ${claim_id} not found`);
+
+  const evidenceItems = storage.getEvidenceForClaim(claim_id);
+  const source = claim.source_id ? storage.getSource(claim.source_id) : null;
+  const tier = source?.trust_tier ?? "tier3";
+
+  const supportCount    = evidenceItems.filter(e => e.stance === "support").length;
+  const contradictCount = evidenceItems.filter(e => e.stance === "contradict").length;
+
+  // isHighRisk is informational only — used for rationale and logging.
+  // It no longer gates confidence or forces review.
+  const HIGH_RISK_TOPICS   = ["injury", "draft", "coaching", "trade"];
+  const HIGH_RISK_KEYWORDS = ["QB", "quarterback", "first round", "playoff", "coaching change", "fired", "released"];
+  const rawText = claim.raw_claim_text ?? "";
+  const isHighRisk =
+    HIGH_RISK_KEYWORDS.some(k => rawText.toLowerCase().includes(k.toLowerCase())) ||
+    HIGH_RISK_TOPICS.includes(claim.claim_type ?? "");
+
+  let verdict: Verdict;
+  let confidence: number;
+  let needsReview = false;
+
+  if (contradictCount > 0 && supportCount > 0) {
+    // Genuine conflict: sources disagree. Route to review regardless of tier.
+    verdict     = "review";
+    confidence  = Math.max(40, 30 + supportCount * 5);
+    needsReview = true;
+  } else if (contradictCount > supportCount) {
+    // More sources contradicting than supporting.
+    verdict    = "contradicted";
+    confidence = 30;
+  } else if (tier === "tier1" && supportCount > 0) {
+    // Elite source, corroborated, no contradictions — this is VERIFIED.
+    // North Star: "A confirmed event with no conflicting sources is 100%."
+    verdict    = "confirmed";
+    confidence = 100;
+  } else if ((tier === "tier2" || tier === "tier1") && supportCount > 0) {
+    verdict    = "likely";
+    confidence = 78;
+  } else if (supportCount > 0) {
+    verdict    = "likely";
+    confidence = 60;
+  } else {
+    verdict    = "rumor";
+    confidence = 35;
+  }
+
+  const v = storage.createVerdict({
+    id: uuid(),
+    claim_id,
+    verdict,
+    confidence_score: confidence.toString(),
+    rationale: buildRationale(tier, supportCount, contradictCount, isHighRisk),
+    needs_human_review: needsReview ? 1 : 0,
+  });
+
+  storage.updateClaimStatus(claim_id, "complete");
+
+  await log(
+    "Verifier",
+    claim_id,
+    v.id,
+    `Verdict: ${verdict} (${confidence}% confidence), review: ${needsReview}, high-impact: ${isHighRisk}`
+  );
+
+  return { verdict, needs_review: needsReview };
+}Show more6:13 AMClaude responded: Good news — someone already made significant progress on this.Good news — someone already made significant progress on this. The HIGH_RISK override is gone, and there's a path to 100. But there are three remaining gaps:
+Gap 1: tier1 with zero corroboration gets 100%
+typescript} else if (tier === "tier1" && supportCount > 0) {
+  verdict    = "confirmed";
+  confidence = 100;
+}
+supportCount > 0 means a single piece of supporting evidence from a tier1 source hits 100. That's too aggressive — a lone tier1 report with no corroboration isn't a settled fact, it's a strong signal. This will produce false VERIFIEDs and erode trust faster than showing 92% would.
+Gap 2: tier2 with corroboration is stuck at 78%
+A tier2 source with 3+ supporting signals is more reliable than a lone tier1, but it's capped at 78% with no path upward regardless of corroboration depth.
+Gap 3: publicConfirmation is never checked
+The North Star says "a confirmed, publicly announced event with no conflicting sources is 100%." The current code reaches 100 via source tier alone — it never checks whether the event has actually been publicly confirmed. That means the confidence journey (detecting → escalating → verified) collapses: everything from tier1 jumps straight to VERIFIED without traveling the path.
+Here's the corrected Verifier:
+typescriptexport async function verifierAgent(claim_id: string): Promise<{ verdict: Verdict; needs_review: boolean }> {
+  const claim = storage.getClaim(claim_id);
+  if (!claim) throw new Error(`Claim ${claim_id} not found`);
+
+  const evidenceItems = storage.getEvidenceForClaim(claim_id);
+  const source = claim.source_id ? storage.getSource(claim.source_id) : null;
+  const tier = source?.trust_tier ?? "tier3";
+
+  const supportCount    = evidenceItems.filter(e => e.stance === "support").length;
+  const contradictCount = evidenceItems.filter(e => e.stance === "contradict").length;
+
+  const HIGH_RISK_TOPICS   = ["injury", "draft", "coaching", "trade"];
+  const HIGH_RISK_KEYWORDS = ["QB", "quarterback", "first round", "playoff", "coaching change", "fired", "released"];
+  const rawText = claim.raw_claim_text ?? "";
+  const isHighRisk =
+    HIGH_RISK_KEYWORDS.some(k => rawText.toLowerCase().includes(k.toLowerCase())) ||
+    HIGH_RISK_TOPICS.includes(claim.claim_type ?? "");
+
+  // Public confirmation = the event has been announced by an official/league/
+  // mainstream source and is no longer just agent-detected.
+  const isPubliclyConfirmed = !!(
+    claim.public_confirmation_url ||
+    claim.public_confirmation_at ||
+    evidenceItems.some(e => e.source_type && /official|league|team|statsapi|espn/i.test(e.source_type))
+  );
+
+  let verdict: Verdict;
+  let confidence: number;
+  let needsReview = false;
+
+  if (contradictCount > 0 && supportCount > 0) {
+    // Genuine conflict — route to review.
+    verdict     = "review";
+    confidence  = Math.max(40, 30 + supportCount * 5);
+    needsReview = true;
+
+  } else if (contradictCount > supportCount) {
+    verdict    = "contradicted";
+    confidence = 30;
+
+  } else if (isPubliclyConfirmed && contradictCount === 0) {
+    // Publicly confirmed, no conflicting signals = settled fact.
+    // North Star rule 1: this is exactly 100. Not 92. Not 95.
+    verdict    = "confirmed";
+    confidence = 100;
+
+  } else if (tier === "tier1" && supportCount >= 2) {
+    // Elite source + corroborated but not yet publicly confirmed.
+    // Agent consensus is strong — show 92, not 100. The journey is still live.
+    verdict    = "confirmed";
+    confidence = 92;
+
+  } else if (tier === "tier1" && supportCount === 1) {
+    // Single tier1 report, unconfirmed. Strong but not settled.
+    verdict    = "likely";
+    confidence = 80;
+
+  } else if (tier === "tier2" && supportCount >= 3) {
+    // Deep corroboration from solid sources can approach tier1 single territory.
+    verdict    = "likely";
+    confidence = 78;
+
+  } else if ((tier === "tier1" || tier === "tier2") && supportCount > 0) {
+    verdict    = "likely";
+    confidence = 65;
+
+  } else if (supportCount > 0) {
+    verdict    = "likely";
+    confidence = 50;
+
+  } else {
+    verdict    = "rumor";
+    confidence = 35;
+  }
+
+  const v = storage.createVerdict({
+    id: uuid(),
+    claim_id,
+    verdict,
+    confidence_score: confidence.toString(),
+    rationale: buildRationale(tier, supportCount, contradictCount, isHighRisk),
+    needs_human_review: needsReview ? 1 : 0,
+  });
+
+  storage.updateClaimStatus(claim_id, "complete");
+
+  await log(
+    "Verifier",
+    claim_id,
+    v.id,
+    `Verdict: ${verdict} (${confidence}% confidence), review: ${needsReview}, high-impact: ${isHighRisk}, publicly-confirmed: ${isPubliclyConfirmed}`
+  );
+
+  return { verdict, needs_review: needsReview };
+}
+The confidence journey now looks like this:
+StateConfidenceDisplaySingle rumor source35%DevelopingTier1/2 source, no corroboration50–65%EscalatingSingle tier1 report80%EscalatingTier1 + corroborated, unconfirmed92%EscalatingPublicly confirmed, no conflicts100%VERIFIED
+One thing you'll need to verify before shipping: does claim have public_confirmation_url or public_confirmation_at fields on your actual type, or does public confirmation live somewhere else in your schema? If it's on the situation rather than the claim, the isPubliclyConfirmed check needs to reach up to the parent situation instead. What does that part of your types look like?You said: I dont know what you are asking me.I dont know what you are asking me. But I have a push back. 100% is Publicly confirmed? Am i missing something. I have addressed this. Agents should be verifying not public. If we are using public verification then we are no different than any other site. The Agents are the deteremining factor. We are not giving human opinion we are having agents using Yuma consensus and learning from past and present to get better. Please explain6:19 AMClaude responded: You're absolutely right.You're absolutely right. I misread the North Star. Let me restate it clearly:
+The North Star says:
+
+"EdgeSetter's consensus engine is the verification authority. Adam Schefter is not. ESPN is not. Public announcement is not."
+
+Public confirmation is a data point that adds signal weight — not the trigger for 100/VERIFIED. When agent consensus reaches the verified threshold, that IS the confirmation. The agents call it first. Public sources catching up later is the proof of the timing advantage, not the prerequisite for VERIFIED.
+So my isPubliclyConfirmed check was wrong. It recreates the ESPN model inside EdgeSetter's own pipeline.
+The correct logic is:
+100/VERIFIED should be reached when:
+
+Tier1 source + sufficient corroboration + zero contradictions
+
+That's it. The agents determined it. Public confirmation happening after is what triggers the timing advantage display — "EdgeSetter detected this 47 min before public confirmation" — not the gate to VERIFIED.
+Which means the version you already had was closer to correct:
+typescript} else if (tier === "tier1" && supportCount > 0) {
+  verdict    = "confirmed";
+  confidence = 100;
+}
+The only real question is whether supportCount > 0 is the right corroboration threshold for tier1 to reach 100, or whether it should be supportCount >= 2. That's a product calibration call — how much corroboration do you want before the agents call something VERIFIED?
+What's your instinct on that threshold?You said: Ummm, I going  to need some help on this.Ummm, I going  to need some help on this. Of course I am looking for the highest most consistant accuaracy. I there something we can leverage? Maybe something else out that that has shown to deliver? What's your opinion?6:34 AMClaude responded: Great question.Great question. This is essentially a threshold calibration problem — how much evidence does an agent system need before it calls something verified with high confidence? There's real research on this.Searched the webSearched the webHere's my honest opinion, grounded in both the research and your specific situation.
+The framework you want is Dempster-Shafer Theory (DST).
+It's a general framework for reasoning with uncertainty — specifically designed to combine evidence from multiple independent sources into a single degree of belief. It was built for exactly your problem: you have N independent signals of varying quality, and you want to combine them into a single confidence score that gets stronger as evidence accumulates. Wikipedia
+Here's why it fits EdgeSetter better than a hardcoded threshold:
+Instead of asking "did we get 2 supporting signals from tier1?" it asks "what is the combined belief mass across all evidence, weighted by source reliability?" Each piece of evidence — a tier1 report, a tier3 rumor, a corroborating API result — contributes a belief mass between 0 and 1. They combine multiplicatively, not additively. A single strong source gets you to maybe 0.80. Two independent strong sources get you to 0.96. Three get you to 0.99. The math handles the threshold question for you.
+The key property for EdgeSetter: DST separates belief (confidence the hypothesis is true), plausibility (how likely it might still be true), and doubt (how likely it is false). That maps directly onto your verdict states — rumor, likely, confirmed — with confidence being the belief mass. GeeksforGeeks
+In practice for your Verifier, it looks like this:
+typescriptfunction dempsterCombine(sources: Array<{ beliefMass: number }>): number {
+  // Each source contributes a belief mass based on its tier + stance
+  // Sources combine multiplicatively — two independent 0.8s = 0.96
+  let combined = sources[0].beliefMass;
+  for (let i = 1; i < sources.length; i++) {
+    combined = 1 - (1 - combined) * (1 - sources[i].beliefMass);
+  }
+  return combined;
+}
+
+// Source belief masses by tier
+const TIER_BELIEF_MASS = {
+  tier1: 0.85,  // single tier1 source → 85% belief
+  tier2: 0.65,
+  tier3: 0.45,
+  tier4: 0.25,
+  tier5: 0.15,
+};
+
+// Two tier1 sources: 1 - (0.15 * 0.15) = 0.9775 → VERIFIED
+// One tier1 + one tier2: 1 - (0.15 * 0.35) = 0.9475 → confirmed
+// One tier1 alone: 0.85 → likely/escalating
+// Three tier3: 1 - (0.55^3) = 0.834 → approaching confirmed
+Research on multi-agent verification shows that pooling independent evaluations and using weighted fusion — down-weighting sources whose signals show internal contradictions — significantly improves accuracy over single-source scoring. That's exactly what DST gives you structurally. arxiv
+The practical benefit for your threshold question: You stop arguing about whether supportCount >= 1 or >= 2 is right for tier1. The math tells you. One tier1 source at 0.85 belief mass doesn't reach your VERIFIED threshold (say 0.95). Two do. You just tune the tier belief masses against your historical data once the bootstrap runs, and the system self-calibrates from there.
+Research on ensemble consensus thresholds confirms that tailoring thresholds to specific detection objectives — rather than applying uniform criteria — is essential to balance robustness and adaptability. DST gives you the framework to do that tuning systematically rather than by gut feel. arxiv
+Want me to write out the full DST-based Verifier replacement? It's not a massive rewrite — it replaces the if/else ladder with the combination formula and a clean threshold check.You said: yes lets make that happen.yes lets make that happen. Im leaning on you to tell me that is the best approach and system to accomplish what we are trying to achieve6:38 AMClaude responded: I'll be straight with you before we write a line of code.I'll be straight with you before we write a line of code.
+DST is the right combining mechanism — it's mathematically sound for fusing independent evidence sources. But it's not a complete answer on its own for EdgeSetter. Here's the full honest picture:
+What DST solves well:
+
+Combining N evidence sources of different quality into one belief score
+Handling contradicting signals gracefully (conflict mass)
+Self-calibrating as you tune tier belief masses against historical outcomes
+Eliminating the arbitrary if/else threshold debate
+
+What DST doesn't solve by itself:
+
+Your agents still run sequentially, not in parallel. DST assumes independent evaluations. Right now your "evidence" is one pipeline's output, not N independent agent opinions. DST will make the math better immediately, but the architecture is still one path.
+Source tier belief masses start as educated guesses until the historical bootstrap runs. The formula is only as good as those priors.
+
+My honest recommendation: Ship DST now as the scoring engine. It's strictly better than the current if/else ladder even with estimated priors. When the historical bootstrap runs, you tune the tier masses against real outcomes and it gets dramatically better. The architecture improvement (true parallel agents) is a later phase — DST will slot right into it when you get there.
+That's the full picture. Now let's build it.Here's how DST works visually before we write the code — this is the mental model you need to hold while reviewing what follows.
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.25s;
+    animation-timing-function: cubic-bezier(0.19, 1, 0.22, 1);
+  }
+VvisualizeVvisualize show_widgetPlay with that — add and remove sources and watch the belief accumulate. Notice that two tier 1 sources alone cross the VERIFIED threshold. Three tier 3 sources don't quite make it alone, but combine them with a tier 2 and they do. That's the behavior you want — the math enforces the right outcome without any if/else guesswork.
+Now here's the complete production code. This is a drop-in replacement for the Verifier in agents.ts, plus a new standalone module dst-confidence.ts that the Verifier imports.
+First, the DST engine — create this as server/pipeline/dst-confidence.ts:
+typescript// ─── Dempster-Shafer Confidence Engine ───────────────────────────────────────
+// Combines independent evidence sources into a single belief score using
+// Dempster's Rule of Combination:
+//   combined = 1 - (1 - m1)(1 - m2)...(1 - mN)
+//
+// Belief masses represent how much each source REDUCES remaining doubt.
+// They are multiplicative, not additive — two 0.85 sources combine to
+// 1 - (0.15 × 0.15) = 0.9775, not 1.70.
+//
+// Tier belief masses are calibrated starting priors. Once the historical
+// bootstrap runs, these should be replaced with real per-source accuracy
+// scores from the source scorer.
+
+export type SourceTier = "tier1" | "tier2" | "tier3" | "tier4" | "tier5";
+
+export interface EvidenceSource {
+  tier: SourceTier;
+  stance: "support" | "contradict" | "neutral";
+  sourceAccuracyOverride?: number; // 0-1, from source scorer if available
+}
+
+// Base belief masses by tier — starting priors.
+// Tune these against historical outcomes after bootstrap runs.
+const TIER_BELIEF_MASS: Record<SourceTier, number> = {
+  tier1: 0.85,
+  tier2: 0.65,
+  tier3: 0.40,
+  tier4: 0.22,
+  tier5: 0.12,
+};
+
+// Confidence thresholds that map to verdict states.
+// These drive the if/else verdict assignment — the only hardcoded thresholds.
+export const CONFIDENCE_THRESHOLDS = {
+  VERIFIED:    0.95,  // agent consensus is definitive — show VERIFIED / 100%
+  CONFIRMED:   0.85,  // strong consensus, still escalating
+  LIKELY:      0.65,  // meaningful signal, multiple sources
+  DEVELOPING:  0.45,  // early detection, single or weak sources
+  // below DEVELOPING = rumor
+};
+
+export interface DSTResult {
+  belief: number;         // 0-1 combined belief mass
+  confidence: number;     // 0-100 integer for display + storage
+  conflictMass: number;   // 0-1 how much evidence is in conflict
+  supportCount: number;
+  contradictCount: number;
+}
+
+export function computeDSTConfidence(sources: EvidenceSource[]): DSTResult {
+  const supporting   = sources.filter(s => s.stance === "support");
+  const contradicting = sources.filter(s => s.stance === "contradict");
+
+  const supportCount    = supporting.length;
+  const contradictCount = contradicting.length;
+
+  if (supportCount === 0 && contradictCount === 0) {
+    return { belief: 0, confidence: 0, conflictMass: 0, supportCount: 0, contradictCount: 0 };
+  }
+
+  // Combine supporting evidence using Dempster's rule
+  let supportBelief = 0;
+  if (supporting.length > 0) {
+    // Use sourceAccuracyOverride from source scorer if available,
+    // otherwise fall back to tier-based prior
+    const firstMass = supporting[0].sourceAccuracyOverride
+      ?? TIER_BELIEF_MASS[supporting[0].tier];
+    supportBelief = firstMass;
+
+    for (let i = 1; i < supporting.length; i++) {
+      const mass = supporting[i].sourceAccuracyOverride
+        ?? TIER_BELIEF_MASS[supporting[i].tier];
+      supportBelief = 1 - (1 - supportBelief) * (1 - mass);
+    }
+  }
+
+  // Combine contradicting evidence the same way
+  let contradictBelief = 0;
+  if (contradicting.length > 0) {
+    const firstMass = contradicting[0].sourceAccuracyOverride
+      ?? TIER_BELIEF_MASS[contradicting[0].tier];
+    contradictBelief = firstMass;
+
+    for (let i = 1; i < contradicting.length; i++) {
+      const mass = contradicting[i].sourceAccuracyOverride
+        ?? TIER_BELIEF_MASS[contradicting[i].tier];
+      contradictBelief = 1 - (1 - contradictBelief) * (1 - mass);
+    }
+  }
+
+  // Conflict mass: how much support and contradiction directly oppose each other
+  const conflictMass = supportBelief * contradictBelief;
+
+  // Net belief after conflict is subtracted and renormalized
+  // Classic DST normalization: K = 1 - conflictMass
+  const K = 1 - conflictMass;
+  const netBelief = K > 0 ? (supportBelief * (1 - contradictBelief)) / K : 0;
+
+  const confidence = Math.round(Math.min(netBelief, 1) * 100);
+
+  return {
+    belief: netBelief,
+    confidence,
+    conflictMass,
+    supportCount,
+    contradictCount,
+  };
+}
+
+// Map a DST result to a verdict string + needsReview flag
+export function verdictFromDST(result: DSTResult): {
+  verdict: "confirmed" | "likely" | "rumor" | "contradicted" | "review";
+  needsReview: boolean;
+  displayConfidence: number;
+} {
+  const { belief, conflictMass, confidence, contradictCount } = result;
+
+  // High conflict mass = genuine signal war — route to review
+  if (conflictMass > 0.30) {
+    return { verdict: "review", needsReview: true, displayConfidence: confidence };
+  }
+
+  // Net contradicted — more doubt mass than belief mass
+  if (contradictCount > 0 && belief < 0.35) {
+    return { verdict: "contradicted", needsReview: false, displayConfidence: confidence };
+  }
+
+  if (belief >= CONFIDENCE_THRESHOLDS.VERIFIED) {
+    // Agent consensus is definitive. North Star: this IS verification.
+    return { verdict: "confirmed", needsReview: false, displayConfidence: 100 };
+  }
+
+  if (belief >= CONFIDENCE_THRESHOLDS.CONFIRMED) {
+    return { verdict: "confirmed", needsReview: false, displayConfidence: confidence };
+  }
+
+  if (belief >= CONFIDENCE_THRESHOLDS.LIKELY) {
+    return { verdict: "likely", needsReview: false, displayConfidence: confidence };
+  }
+
+  if (belief >= CONFIDENCE_THRESHOLDS.DEVELOPING) {
+    return { verdict: "likely", needsReview: false, displayConfidence: confidence };
+  }
+
+  return { verdict: "rumor", needsReview: false, displayConfidence: confidence };
+}
+Now the updated Verifier in agents.ts — replace the existing verifierAgent function:
+typescriptimport { computeDSTConfidence, verdictFromDST, type EvidenceSource } from "./dst-confidence.js";
+
+// ─── Verifier Agent ──────────────────────────────────────────────────────────
+// Assigns verdict and confidence using Dempster-Shafer Theory of Evidence.
+//
+// North Star rules:
+//   1. Agent consensus IS verification. Public announcement is a downstream
+//      data point, not the gate. When DST belief >= 0.95, verdict = VERIFIED.
+//   2. High-impact topic (injury, QB, draft) is NOT a confidence penalty.
+//      It is a reason to surface faster, never slower.
+//   3. Review verdict is reserved for genuine evidence conflict (conflictMass > 0.30).
+//      Zero-conflict claims never route to review regardless of topic.
+export async function verifierAgent(claim_id: string): Promise<{ verdict: Verdict; needs_review: boolean }> {
+  const claim = storage.getClaim(claim_id);
+  if (!claim) throw new Error(`Claim ${claim_id} not found`);
+
+  const evidenceItems = storage.getEvidenceForClaim(claim_id);
+  const claimSource   = claim.source_id ? storage.getSource(claim.source_id) : null;
+
+  // Build evidence source list for DST engine.
+  // Include the claim's own source as the first evidence item,
+  // then all corroborating/contradicting evidence items.
+  const dstSources: EvidenceSource[] = [];
+
+  if (claimSource) {
+    // Pull real accuracy score from source scorer if available
+    const accuracyRecord = storage.getSourceAccuracy(claimSource.id);
+    dstSources.push({
+      tier: (claimSource.trust_tier as SourceTier) ?? "tier3",
+      stance: "support", // the originating source always supports its own claim
+      sourceAccuracyOverride: accuracyRecord?.accuracy_score ?? undefined,
+    });
+  }
+
+  // Add all evidence items
+  for (const e of evidenceItems) {
+    const evidenceSource = e.source_id ? storage.getSource(e.source_id) : null;
+    const accuracyRecord = evidenceSource
+      ? storage.getSourceAccuracy(evidenceSource.id)
+      : null;
+
+    dstSources.push({
+      tier: (evidenceSource?.trust_tier as SourceTier) ?? "tier3",
+      stance: e.stance === "contradict" ? "contradict" : "support",
+      sourceAccuracyOverride: accuracyRecord?.accuracy_score ?? undefined,
+    });
+  }
+
+  // Run DST combination
+  const dstResult  = computeDSTConfidence(dstSources);
+  const { verdict, needsReview, displayConfidence } = verdictFromDST(dstResult);
+
+  // isHighRisk = informational only, for rationale + logging.
+  // Never gates confidence or forces review.
+  const HIGH_RISK_TOPICS   = ["injury", "draft", "coaching", "trade"];
+  const HIGH_RISK_KEYWORDS = ["QB", "quarterback", "first round", "playoff", "coaching change", "fired", "released"];
+  const rawText  = claim.raw_claim_text ?? "";
+  const isHighRisk =
+    HIGH_RISK_KEYWORDS.some(k => rawText.toLowerCase().includes(k.toLowerCase())) ||
+    HIGH_RISK_TOPICS.includes(claim.claim_type ?? "");
+
+  const v = storage.createVerdict({
+    id: uuid(),
+    claim_id,
+    verdict,
+    confidence_score: displayConfidence.toString(),
+    rationale: buildRationale(
+      claimSource?.trust_tier ?? "tier3",
+      dstResult.supportCount,
+      dstResult.contradictCount,
+      isHighRisk,
+      dstResult.belief,
+      dstResult.conflictMass,
+    ),
+    needs_human_review: needsReview ? 1 : 0,
+  });
+
+  storage.updateClaimStatus(claim_id, "complete");
+
+  await log(
+    "Verifier",
+    claim_id,
+    v.id,
+    `DST belief: ${(dstResult.belief * 100).toFixed(1)}% → display: ${displayConfidence}% | ` +
+    `verdict: ${verdict} | conflict mass: ${(dstResult.conflictMass * 100).toFixed(1)}% | ` +
+    `support: ${dstResult.supportCount} contradict: ${dstResult.contradictCount} | ` +
+    `high-impact: ${isHighRisk} review: ${needsReview}`
+  );
+
+  return { verdict, needs_review: needsReview };
+}
+You'll also want to update buildRationale to accept the new DST parameters:
+typescriptfunction buildRationale(
+  tier: string,
+  supportCount: number,
+  contradictCount: number,
+  isHighRisk: boolean,
+  belief?: number,
+  conflictMass?: number,
+): string {
+  const parts: string[] = [];
+  parts.push(`Source tier: ${tier}`);
+  parts.push(`${supportCount} supporting, ${contradictCount} contradicting`);
+  if (belief !== undefined) parts.push(`DST belief: ${(belief * 100).toFixed(1)}%`);
+  if (conflictMass !== undefined && conflictMass > 0) {
+    parts.push(`Conflict mass: ${(conflictMass * 100).toFixed(1)}%`);
+  }
+  if (isHighRisk) parts.push("High-impact signal — surfaced with priority");
+  return parts.join(" | ");
+}
+Three things to verify before you push this:
+
+Does storage.getSourceAccuracy(sourceId) exist and return an accuracy_score field? If the source scorer stores accuracy under a different key, update the accuracyRecord?.accuracy_score references accordingly.
+Does e.stance on your evidence items use the exact strings "support" and "contradict"? The DST engine filters on those exact values.
+The TIER_BELIEF_MASS priors in dst-confidence.ts are educated starting points. After the historical bootstrap runs, you'll want to run a calibration pass — compare DST output against known outcomes and tune those four numbers. Even a rough calibration against 50-100 historical events will materially improve accuracy.
+
+Once this is in, your Verifier logs will show the raw DST belief score separately from the display confidence — that's intentional, so you can audit the math directly without inferring it from the verdict.You said: Okay.Okay. So just to make sure we're on the same page and that we're not missing some critical elements, I've described before how some small beat writer, uh, local writer, reporter can have some internal information because he's in the mix. He's there. He's local. He's got connections. He knows people. Sometimes can be the biggest story over the big networks, the national networks. And I wanna capture that even though they're a small reporter, don't have the the span that other reporters or other agency have. they still produce the significant impactful lead or data that makes a difference, that turns things, that's a game changer. So how does this system deal with that or recognize that? And, also, uh, earlier in the build for EdgeSetter, I reflected or mentioned about pulling previous seasons of the leagues to be accessible to the agents. So an... so they are able to learn and have a higher level of accuracy and efficiency before the season starts, so they're not building their knowledge base right when the season starts and we go live. I want this to be ready to go when we hit the ground. I think I hitShow more6:45 AMClaude responded: Both of these are critical and you're right to flag them.Both of these are critical and you're right to flag them. Let me address each directly.
+
+The beat writer problem
+The current DST system would undervalue a beat writer because it assigns confidence based on trust_tier, and a local beat writer is probably tier3 or tier4 by default — low mass, low influence on the final belief score. That's wrong for exactly the reason you described.
+What you're describing is a concept called source reputation disaggregated from source reach. A national network has huge reach but sometimes breaks stories after the local guy who was in the locker room. The current tier system conflates those two things.
+The fix is already partially wired — look at this line in the DST engine:
+typescriptsourceAccuracyOverride: accuracyRecord?.accuracy_score ?? undefined,
+That sourceAccuracyOverride bypasses the tier-based prior entirely and uses the source's actual historical accuracy. So if that beat writer has been right 11 out of 12 times when he breaks a story, his accuracy score becomes ~0.88 — higher than a tier2 national outlet that's been right 7 out of 12. The math rewards him correctly.
+But that only works once the source scorer has history on him. Out of the gate, he starts at tier3 defaults and gets underweighted. That's the gap.
+The additional fix needed is an insider signal detector — a separate flag that recognizes when a source is demonstrably close to the story, regardless of tier. Things like:
+
+First reporter to file on this player/team combination
+Source has a track record of scoops on this specific team
+Source text contains insider language patterns ("per sources," "told me," "I'm told," "confirmed with")
+Source geographic proximity to the team market
+
+When those flags fire, the source gets a temporary belief mass boost — essentially treating them as tier2 for this specific claim even if their global tier is 3. Here's what that looks like in dst-confidence.ts:
+typescriptexport interface EvidenceSource {
+  tier: SourceTier;
+  stance: "support" | "contradict" | "neutral";
+  sourceAccuracyOverride?: number;
+  insiderSignals?: {
+    isFirstReporter: boolean;        // first to file on this player/topic
+    hasTeamSpecificTrack: boolean;   // historically accurate on THIS team
+    hasInsiderLanguage: boolean;     // "per sources", "I'm told", etc.
+    isMarketLocal: boolean;          // geo-proximate to the team
+  };
+}
+
+function effectiveMass(source: EvidenceSource): number {
+  // Start with accuracy override or tier prior
+  let mass = source.sourceAccuracyOverride
+    ?? TIER_BELIEF_MASS[source.tier];
+
+  // Insider signal boost — additive, capped so it can't exceed tier1 ceiling
+  if (source.insiderSignals) {
+    const { isFirstReporter, hasTeamSpecificTrack, hasInsiderLanguage, isMarketLocal } = source.insiderSignals;
+    let boost = 0;
+    if (isFirstReporter)        boost += 0.08;
+    if (hasTeamSpecificTrack)   boost += 0.10;
+    if (hasInsiderLanguage)     boost += 0.06;
+    if (isMarketLocal)          boost += 0.04;
+    mass = Math.min(mass + boost, 0.88); // never exceeds a strong tier1
+  }
+
+  return mass;
+}
+The hasTeamSpecificTrack flag is the most powerful one — it's where the historical data pays off. If your source scorer tracks accuracy per team not just globally, a beat writer who covers the Cowboys exclusively and has been right 90% of the time on Cowboys stories gets that reflected even before he becomes globally tier1.
+
+The historical season data / pre-season readiness problem
+You're describing what's called a cold start problem — the system needs to be smart on day one, not learning from scratch when real users are watching.
+The historical adapters already exist (balldontlie-historical.ts, espn-nfl-historical.ts, mlb-statsapi-historical.ts, espn-cfb-historical.ts). They're just not connected to anything that feeds the scoring system. Here's what needs to happen before launch:
+Phase 1 — Event history bootstrap. Pull 2-3 prior seasons of injury reports, transactions, trades, draft moves, coaching changes per league. Store them in the same schema the live pipeline uses. This gives the situations engine a baseline of what normal looks like — what kinds of signals preceded confirmed events, how long confirmation typically takes by signal type, what the false positive rate is by source tier.
+Phase 2 — Source accuracy bootstrap. For every historical event, identify which sources reported it and when. Compare their report timestamps against the official confirmation timestamp. Sources that consistently reported early and accurately get high starting accuracy scores. Sources that reported late or incorrectly get low ones. This is what seeds sourceAccuracyOverride with real numbers instead of tier priors.
+Phase 3 — Team-specific source mapping. For each team, identify which sources have historically been accurate on that team's stories specifically. This seeds the hasTeamSpecificTrack flag above. A beat writer who covered the Rams for three seasons and broke 8 stories correctly gets flagged as a Rams insider before the new season starts.
+Phase 4 — Signal pattern calibration. Run the historical events through the DST engine with known outcomes and tune the TIER_BELIEF_MASS priors so the output belief scores match real-world accuracy rates. If tier2 sources historically convert to confirmed events 72% of the time, their mass should reflect that.
+The practical question is sequencing. The bootstrap runner (backfill.ts) exists — what it needs is a calibration pass that writes results back into the source scorer tables rather than just archiving them. That's the missing connection.
+Want to tackle the beat writer insider signal detection first since it's directly in the Verifier pipeline, or start on the historical bootstrap connection since that's what makes everything else accurate?You said: i guess insider signal detectioni guess insider signal detection6:51 AMClaude responded: Let's build it properly.Let's build it properly. Before writing code I need to understand what data is actually available to detect these signals.
+A few quick questions:You said: Q: Does the source scorer currently track accuracy per team, or only globally per source?Q: Does the source scorer currently track accuracy per team, or only globally per source?
+A: Not sureQ: Where do sources currently get their tier assigned?
+A: Not sure6:53 AMClaude responded: No problem — let's find the answers directly from the code rather than guessing.No problem — let's find the answers directly from the code rather than guessing.
+Can you paste the contents of these two files:
+
+server/pipeline/scorer.ts — specifically the scoreSignal() function and whatever source accuracy tracking exists
+server/sources.ts (or wherever sources are defined/stored) — just the type definition and wherever trust_tier gets assigned
+
+That'll tell us exactly what's available and we can build the insider detection on top of what's actually there rather than what we assume is there./**
+ * Edge Setter — Server-side Scorer  (Sprint 7)
+ *
+ * This is a direct port of the frontend signalScorer.ts logic to Node.js.
+ * The scoring algorithm is identical — all changes to the scoring model
+ * happen in signalScorer.ts; this file stays in sync but lives on the server
+ * so the propasted6:55 AMClaude responded: This tells me a lot.This tells me a lot. A few things stand out immediately.
+The good news: beat_reporter and insider are already defined as source types with weights of 2.5 and 3.0 respectively. And there's already a named insider premium system — the INSIDER_NAMES array with Woj, Schefter, etc. That's the national names list.
+The gap: that named insider list is hardcoded national names only. There's no mechanism for a local beat writer to earn that same premium based on their track record with a specific team. And source accuracy isn't tracked per team anywhere in this file — it's all global.
+Before I write anything, I need to see one more file. Can you paste server/pipeline/source-scorer.ts (or whatever file was rewritten this session to replace the Math.random() scoring)? Specifically I need to see:
+
+What the source accuracy record looks like in storage — what fields are stored per source
+Whether there's any team or player association on the accuracy record
+How sourceScorerOnOutcome is structured — what it receives when an outcome is confirmed
+
+That file is the critical missing piece because the insider signal detection I want to build needs to write into the source accuracy system, not alongside it. If the source scorer already has a shape for per-team accuracy, we build on it. If it doesn't, we extend it at the same time we add insider detection — one pass, not two.You said: falsepositiverate: numeric("falsepositiverate").# Source Scorer Changes — Apply In Order
+
+## Files in this folder
+
+| File | What it is |
+|------|-----------|
+| `1-schema-change.ts` | 3 new columns for `source_scores` table in `shared/schema.ts` |
+| `2-storage-additions.ts` | 2 new functions to add to `server/storage.ts` |
+| `3-processor-wirein.ts` | Update `processCanonicalSituationSafe` in `server/pipeline/processor.ts` |
+| `4-updated-source-scorer-agent.ts` | Replace `sourceScorerAgent` + add `sourceScorerOnOutcome` in `server/agents.ts` |
+
+---
+
+## Step 1 — `shared/schema.ts`
+
+Open `shared/schema.ts`. Find the `source_scores` table.
+
+The last three lines of the table currently look like this:
+
+```ts
+  false_positive_rate: numeric("false_positive_rate").default("0"),
+  updated_at: text("updated_at").default(new Date().toISOString()),
+});Replace those with what's in 1-schema-change.ts. You're adding three lines
+between false_positive_rate and updated_at.After saving, run your migration command (e.g. npm run db:push or drizzle-kit push)
+to add the columns to the live database.---## Step 2 — server/storage.tsOpen server/storage.ts — the Drizzle-backed one, **not** server/pipeline/store.ts.Find the function upsertSourceScore. Add the two functions from
+2-storage-additions.ts directly below it.The file shows two versions of each function — one for Drizzle syntax, one for
+raw SQLite. Use whichever matches how the rest of your storage.ts is written.
+Delete the version you don't need.---## Step 3 — server/pipeline/processor.tsTwo changes:**Change 3a — import at top of file.**
+In the import block, add:
+ts
+import { sourceScorerOnOutcome } from "../agents";
+**Change 3b — update processCanonicalSituationSafe.**
+Find the function (it's near the bottom). Replace the entire function body
+with the version in 3-processor-wirein.ts.Read the NOTE at the bottom of that file — if evolveCanonicalSituation
+currently returns void, use the simpler fallback version shown there to
+avoid touching situations-engine.ts right now.---## Step 4 — server/agents.tsFind the // ─── Source Scorer Agent ─── section. Replace the entire
+sourceScorerAgent function with the contents of 4-updated-source-scorer-agent.ts.
+That file contains both sourceScorerAgent (the replacement) and
+sourceScorerOnOutcome (new function). Add both.---## What to test afterRun the pipeline on a known signal. In agent_logs, the SourceScorer entry
+should now say Skipped: only N resolved claim(s) if there's no history yet —
+that means it's working correctly (not writing fake data).Manually create a claim, run it through to a confirmed verdict, then call
+sourceScorerAgent(source_id) again. The log entry should now show real
+accuracy numbers.Check source_scores in the DB. The sample_size column should be populated
+and average_lead_time_minutes should be NULL (not 0 or a random number)
+until getSignalLeadTimesForClaims is implemented.---## What's deferred (lead time)Lead time computation needs one more storage method:
+getSignalLeadTimesForClaims(claim_ids[]) — joins claims → live_signals →
+signal_state_history, finds VERIFIED state changes, and returns the delta
+from signal_time to the VERIFIED timestamp in minutes.This is the timing advantage metric. It's deferred to avoid scope creep here.
+Until it's added, average_lead_time_minutes stores NULL, which the leaderboard
+should render as —. That's correct — null is honest, fake is not.```Show more6:56 AMClaude responded: This is exactly what I needed to see.This is exactly what I needed to see. A few things are now clear:
+The source scorer was rewritten correctly — real accuracy tracking, no fake data, honest nulls for lead time. But it's tracking accuracy globally per source, not per team. And there's no insider signal detection anywhere in the pipeline yet.
+Here's what I want to build and where each piece lives before writing a line:
+
+server/pipeline/insider-signals.ts — the detector module, standalone, importable anywhere
+shared/schema.ts — two new columns on source_scores: team_accuracies (JSON) and insider_score (numeric)
+server/storage.ts — one new function getSourceTeamAccuracy(sourceId, teamKey)
+server/agents.ts — update sourceScorerOnOutcome to write team-specific accuracy when an outcome is confirmed
+server/pipeline/dst-confidence.ts — update EvidenceSource to accept insider signals and use effectiveMass()
+
+But before I write all of that — one critical question. When a claim comes in, does the raw event or claim record have a team field, or is team only derivable from the player name / event text? That determines whether team-specific accuracy tracking is straightforward or requires a lookup step.
+Can you paste the Claim and RawEvent type definitions from shared/types.ts or wherever those are defined?/**
+ * Edge Setter — Live Pipeline Types  (Sprint 7)
+ *
+ * These are the server-side canonical types for the ingestion &
+ * processing pipeline.  They live in server/pipeline/ and are
+ * intentionally kept independent of the Drizzle schema so they
+ * can be adapted to Supabase or any other stopasted6:58 AMClaude responded: This is everything I needed.This is everything I needed. The RawEvent has team, player, league, and source_id directly on it. That means team-specific accuracy tracking is straightforward — no lookup step needed.
+Here's the complete build, in apply order.
+
+File 1 — server/pipeline/insider-signals.ts (new file)
+typescript// ─── Insider Signal Detector ──────────────────────────────────────────────────
+// Detects whether a source is behaving like an insider on a specific claim,
+// regardless of their global tier. A tier3 beat writer who is first to file
+// on his specific team, uses insider language, and has a strong team-specific
+// accuracy record should be treated as tier1 for that claim.
+//
+// This module is pure computation — no storage reads. All context is passed in.
+// The caller (Verifier) is responsible for fetching the data and passing it.
+
+export interface InsiderContext {
+  sourceId: string;
+  sourceName: string;           // display name / byline
+  sourceType: string;           // from SOURCE_TYPE_WEIGHT keys
+  league: string;
+  team: string | null;          // from RawEvent.team
+  player: string | null;        // from RawEvent.player
+  claimText: string;            // raw_claim_text for language analysis
+  isFirstReporterOnStory: boolean;    // caller checks: no prior signal for same player+topic in last 4h
+  teamAccuracyScore: number | null;   // from source_scores, null if no history yet
+  globalAccuracyScore: number | null; // from source_scores, null if no history yet
+  teamSampleSize: number;             // how many outcomes on this team we have
+}
+
+export interface InsiderSignalResult {
+  isInsider: boolean;
+  insiderScore: number;         // 0-1, how strong the insider signal is
+  effectiveMassBoost: number;   // additive boost to apply to DST belief mass
+  reasons: string[];            // human-readable rationale for logs
+}
+
+// Language patterns that indicate a source has direct access,
+// not just republishing what someone else reported.
+const INSIDER_LANGUAGE_PATTERNS = [
+  /\bi('m| am) told\b/i,
+  /\bper (my |a |multiple )?sources?\b/i,
+  /\bsources? (tell|told|confirm|say|indicate)/i,
+  /\blearned that\b/i,
+  /\bexclusively\b/i,
+  /\bbreaking\b/i,
+  /\bfirst (to report|reported)\b/i,
+  /\bconfirmed (with|by|to me)\b/i,
+  /\bsource(s)? with (direct|knowledge|access|inside)\b/i,
+];
+
+// Source types that indicate geographic or organizational proximity
+const PROXIMITY_SOURCE_TYPES = new Set([
+  "beat_reporter",
+  "insider",
+  "local",
+  "team_official",
+  "practice_observation",
+]);
+
+export function detectInsiderSignals(ctx: InsiderContext): InsiderSignalResult {
+  const reasons: string[] = [];
+  let insiderScore = 0;
+
+  // ── 1. Source type proximity ──────────────────────────────────────────────
+  // beat_reporter and insider types already signal proximity.
+  // These are worth a base boost before any other signals fire.
+  if (PROXIMITY_SOURCE_TYPES.has(ctx.sourceType.toLowerCase())) {
+    insiderScore += 0.15;
+    reasons.push(`source type "${ctx.sourceType}" indicates proximity`);
+  }
+
+  // ── 2. Insider language patterns ─────────────────────────────────────────
+  // Direct-access language is the strongest single signal.
+  // "Per sources", "I'm told", "confirmed with" — these indicate
+  // the reporter has a direct channel, not a retweet chain.
+  const matchedPatterns = INSIDER_LANGUAGE_PATTERNS.filter(p =>
+    p.test(ctx.claimText)
+  );
+  if (matchedPatterns.length >= 2) {
+    insiderScore += 0.18;
+    reasons.push("multiple insider language patterns detected");
+  } else if (matchedPatterns.length === 1) {
+    insiderScore += 0.10;
+    reasons.push("insider language pattern detected");
+  }
+
+  // ── 3. First reporter on story ────────────────────────────────────────────
+  // If no other source has filed on this player+topic in the last 4 hours,
+  // this source is the originator — not an echo.
+  if (ctx.isFirstReporterOnStory) {
+    insiderScore += 0.12;
+    reasons.push("first reporter on this story");
+  }
+
+  // ── 4. Team-specific accuracy track record ────────────────────────────────
+  // This is the most powerful signal long-term. A beat writer who has been
+  // right 85% of the time on Cowboys stories is effectively tier1 for Cowboys,
+  // regardless of their global tier. Requires at least 5 outcomes to trust.
+  if (ctx.teamAccuracyScore !== null && ctx.teamSampleSize >= 5) {
+    if (ctx.teamAccuracyScore >= 0.80) {
+      insiderScore += 0.25;
+      reasons.push(
+        `team accuracy ${(ctx.teamAccuracyScore * 100).toFixed(0)}% on ${ctx.team} (n=${ctx.teamSampleSize})`
+      );
+    } else if (ctx.teamAccuracyScore >= 0.65) {
+      insiderScore += 0.15;
+      reasons.push(
+        `solid team accuracy ${(ctx.teamAccuracyScore * 100).toFixed(0)}% on ${ctx.team} (n=${ctx.teamSampleSize})`
+      );
+    }
+  } else if (ctx.teamAccuracyScore !== null && ctx.teamSampleSize >= 2) {
+    // Small sample — apply cautiously
+    if (ctx.teamAccuracyScore >= 0.80) {
+      insiderScore += 0.10;
+      reasons.push(
+        `early team accuracy ${(ctx.teamAccuracyScore * 100).toFixed(0)}% on ${ctx.team} (n=${ctx.teamSampleSize}, small sample)`
+      );
+    }
+  }
+
+  // ── 5. Global accuracy as floor check ────────────────────────────────────
+  // If global accuracy is strong, give a small additional boost.
+  // This catches reporters who cover multiple teams well.
+  if (ctx.globalAccuracyScore !== null && ctx.globalAccuracyScore >= 0.75) {
+    insiderScore += 0.08;
+    reasons.push(
+      `strong global accuracy ${(ctx.globalAccuracyScore * 100).toFixed(0)}%`
+    );
+  }
+
+  // ── Cap and finalize ──────────────────────────────────────────────────────
+  // insiderScore is capped at 0.60 — even the strongest local insider
+  // shouldn't exceed a well-corroborated tier1 source on their own.
+  insiderScore = Math.min(insiderScore, 0.60);
+
+  // Translate insider score into a DST mass boost.
+  // A tier3 source has base mass 0.40. With a full insider boost of 0.60,
+  // their effective mass reaches 0.88 — just under a lone tier1 (0.85).
+  // That's the right ceiling: a local insider alone isn't VERIFIED,
+  // but they're close enough to push a second supporting source over the threshold.
+  const effectiveMassBoost = insiderScore * 0.50;
+
+  const isInsider = insiderScore >= 0.20;
+
+  return {
+    isInsider,
+    insiderScore,
+    effectiveMassBoost,
+    reasons,
+  };
+}
+
+// Convenience: check if a claim text contains first-reporter language
+// without building a full InsiderContext. Used by ingestion layer.
+export function hasInsiderLanguage(text: string): boolean {
+  return INSIDER_LANGUAGE_PATTERNS.some(p => p.test(text));
+}
+
+File 2 — Schema additions (shared/schema.ts)
+Find the source_scores table. Add two columns alongside the existing ones:
+typescript// Add these two lines to the source_scores table definition
+team_accuracies: text("team_accuracies").default("{}"),
+// Stores JSON: { "DAL": { accuracy: 0.87, sample_size: 12 }, "NYG": {...} }
+// Keyed by team short code matching RawEvent.team
+
+insider_score: numeric("insider_score").default("0"),
+// Cached composite insider score 0-1, recomputed on each outcome.
+// Reflects how reliably this source behaves as an insider across all history.
+Run your migration after saving.
+
+File 3 — Storage additions (server/storage.ts)
+Add these two functions below upsertSourceScore:
+typescript// Get team-specific accuracy for a source on a given team.
+// Returns null if no history exists for this source+team combination.
+export async function getSourceTeamAccuracy(
+  sourceId: string,
+  teamKey: string,
+): Promise<{ accuracy: number; sampleSize: number } | null> {
+  const row = await db
+    .select({ team_accuracies: sourceScores.team_accuracies })
+    .from(sourceScores)
+    .where(eq(sourceScores.source_id, sourceId))
+    .limit(1);
+
+  if (!row.length || !row[0].team_accuracies) return null;
+
+  try {
+    const parsed = JSON.parse(row[0].team_accuracies as string);
+    const entry = parsed[teamKey];
+    if (!entry) return null;
+    return { accuracy: entry.accuracy, sampleSize: entry.sample_size };
+  } catch {
+    return null;
+  }
+}
+
+// Update team-specific accuracy for a source after an outcome is confirmed.
+// Called by sourceScorerOnOutcome when a claim resolves.
+export async function updateSourceTeamAccuracy(
+  sourceId: string,
+  teamKey: string,
+  wasCorrect: boolean,
+): Promise<void> {
+  const row = await db
+    .select({ team_accuracies: sourceScores.team_accuracies })
+    .from(sourceScores)
+    .where(eq(sourceScores.source_id, sourceId))
+    .limit(1);
+
+  let parsed: Record<string, { accuracy: number; sample_size: number }> = {};
+
+  if (row.length && row[0].team_accuracies) {
+    try { parsed = JSON.parse(row[0].team_accuracies as string); } catch { /* start fresh */ }
+  }
+
+  const existing = parsed[teamKey] ?? { accuracy: 0, sample_size: 0 };
+  const newSampleSize = existing.sample_size + 1;
+  // Running average
+  const newAccuracy =
+    (existing.accuracy * existing.sample_size + (wasCorrect ? 1 : 0)) / newSampleSize;
+
+  parsed[teamKey] = { accuracy: newAccuracy, sample_size: newSampleSize };
+
+  await db
+    .update(sourceScores)
+    .set({ team_accuracies: JSON.stringify(parsed) })
+    .where(eq(sourceScores.source_id, sourceId));
+}
+
+File 4 — Update sourceScorerOnOutcome (server/agents.ts)
+Find sourceScorerOnOutcome and add the team accuracy update call:
+typescriptexport async function sourceScorerOnOutcome(
+  sourceId: string,
+  claimId: string,
+  wasCorrect: boolean,
+  teamKey: string | null,  // add this parameter — pass RawEvent.team
+): Promise<void> {
+  // ... existing global accuracy update logic stays unchanged ...
+
+  // NEW: update team-specific accuracy if we have a team
+  if (teamKey) {
+    await updateSourceTeamAccuracy(sourceId, teamKey, wasCorrect);
+  }
+}
+You'll need to pass rawEvent.team when calling sourceScorerOnOutcome from processor.ts. That's the only change to the processor.
+
+File 5 — Update the Verifier (server/agents.ts)
+Update verifierAgent to build the InsiderContext and pass it into the DST engine:
+typescriptimport { detectInsiderSignals } from "./pipeline/insider-signals.js";
+import { getSourceTeamAccuracy } from "../storage.js";
+
+export async function verifierAgent(
+  claim_id: string,
+): Promise<{ verdict: Verdict; needs_review: boolean }> {
+  const claim    = storage.getClaim(claim_id);
+  if (!claim) throw new Error(`Claim ${claim_id} not found`);
+
+  const evidenceItems  = storage.getEvidenceForClaim(claim_id);
+  const claimSource    = claim.source_id ? storage.getSource(claim.source_id) : null;
+  const rawEvent       = claim.raw_event_id
+    ? storage.getRawEvent(claim.raw_event_id)
+    : null;
+
+  // Check if this source was first to file on this player+topic
+  // within the last 4 hours — no other signal for same player+event_type
+  const isFirstReporter = rawEvent
+    ? storage.countRecentSignalsForPlayerTopic(
+        rawEvent.player,
+        rawEvent.event_type,
+        rawEvent.league,
+        240, // minutes
+      ) <= 1  // 1 = only this one
+    : false;
+
+  const dstSources: EvidenceSource[] = [];
+
+  if (claimSource && rawEvent) {
+    const accuracyRecord  = storage.getSourceAccuracy(claimSource.id);
+    const teamAccuracy    = rawEvent.team
+      ? await getSourceTeamAccuracy(claimSource.id, rawEvent.team)
+      : null;
+
+    // Detect insider signals for the originating source
+    const insiderResult = detectInsiderSignals({
+      sourceId:              claimSource.id,
+      sourceName:            claimSource.name ?? "",
+      sourceType:            claimSource.source_type ?? "social",
+      league:                rawEvent.league,
+      team:                  rawEvent.team,
+      player:                rawEvent.player,
+      claimText:             claim.raw_claim_text ?? "",
+      isFirstReporterOnStory: isFirstReporter,
+      teamAccuracyScore:     teamAccuracy?.accuracy ?? null,
+      globalAccuracyScore:   accuracyRecord?.accuracy_score
+        ? parseFloat(accuracyRecord.accuracy_score)
+        : null,
+      teamSampleSize:        teamAccuracy?.sampleSize ?? 0,
+    });
+
+    // Log insider detection result for transparency
+    if (insiderResult.isInsider) {
+      await log(
+        "Verifier",
+        claim_id,
+        claimSource.id,
+        `Insider detected: score=${insiderResult.insiderScore.toFixed(2)} ` +
+        `boost=+${insiderResult.effectiveMassBoost.toFixed(2)} | ` +
+        insiderResult.reasons.join(", ")
+      );
+    }
+
+    const baseMass = accuracyRecord?.accuracy_score
+      ? parseFloat(accuracyRecord.accuracy_score)
+      : undefined;
+
+    dstSources.push({
+      tier:                   (claimSource.trust_tier as SourceTier) ?? "tier3",
+      stance:                 "support",
+      sourceAccuracyOverride: baseMass,
+      insiderMassBoost:       insiderResult.effectiveMassBoost,
+    });
+  }
+
+  // Add corroborating/contradicting evidence items — no insider detection
+  // on these since they're secondary sources, not the originating reporter
+  for (const e of evidenceItems) {
+    const evidenceSource  = e.source_id ? storage.getSource(e.source_id) : null;
+    const accuracyRecord  = evidenceSource
+      ? storage.getSourceAccuracy(evidenceSource.id)
+      : null;
+
+    dstSources.push({
+      tier:                   (evidenceSource?.trust_tier as SourceTier) ?? "tier3",
+      stance:                 e.stance === "contradict" ? "contradict" : "support",
+      sourceAccuracyOverride: accuracyRecord?.accuracy_score
+        ? parseFloat(accuracyRecord.accuracy_score)
+        : undefined,
+      insiderMassBoost:       0,
+    });
+  }
+
+  // ... rest of verifierAgent unchanged (DST computation, verdict, logging)
+}
+
+File 6 — Update dst-confidence.ts
+Add insiderMassBoost to EvidenceSource and update effectiveMass:
+typescriptexport interface EvidenceSource {
+  tier: SourceTier;
+  stance: "support" | "contradict" | "neutral";
+  sourceAccuracyOverride?: number;
+  insiderMassBoost?: number;  // additive boost from insider signal detection
+}
+
+function effectiveMass(source: EvidenceSource): number {
+  const base = source.sourceAccuracyOverride ?? TIER_BELIEF_MASS[source.tier];
+  const boost = source.insiderMassBoost ?? 0;
+  // Cap at 0.88 — a lone insider should never hit VERIFIED on their own.
+  // VERIFIED requires either two strong sources or one source + corroboration.
+  return Math.min(base + boost, 0.88);
+}
+Then update the DST combination loop to use effectiveMass() instead of reading mass directly:
+typescript// In computeDSTConfidence, replace:
+const firstMass = supporting[0].sourceAccuracyOverride ?? TIER_BELIEF_MASS[supporting[0].tier];
+
+// With:
+const firstMass = effectiveMass(supporting[0]);
+
+// And similarly for the loop:
+const mass = effectiveMass(supporting[i]);
+
+One storage method you'll need to add — the first-reporter check:
+typescript// server/storage.ts
+export async function countRecentSignalsForPlayerTopic(
+  player: string | null,
+  eventType: string,
+  league: string,
+  withinMinutes: number,
+): Promise<number> {
+  if (!player) return 0;
+  const since = new Date(Date.now() - withinMinutes * 60 * 1000).toISOString();
+
+  const result = await db
+    .select({ count: count() })
+    .from(rawEvents)
+    .where(
+      and(
+        eq(rawEvents.player, player),
+        eq(rawEvents.event_type, eventType),
+        eq(rawEvents.league, league),
+        gte(rawEvents.created_at, since),
+      )
+    );
+
+  return result[0]?.count ?? 0;
+}
+
+That's the complete system. Here's what it delivers end to end:
+A local Cowboys beat writer with beat_reporter source type, who writes "per my sources, Dak Prescott is being ruled out Sunday," is first to file, and has gone 9-for-11 on Cowboys injury stories gets: base mass 0.40 (tier3) + 0.15 (source type) + 0.10 (insider language) + 0.12 (first reporter) + 0.25 (team accuracy 82%, n=11) = 0.62 insider score → 0.31 mass boost → effective mass 0.71. That's tier2 territory. Add one corroborating tier3 source and the combined DST belief hits 0.83 — confirmed, not rumor. Add a tier2 and it crosses 0.95 — VERIFIED.
+The system learned he's reliable on Cowboys stories. It rewards him for it. That's exactly what you described.

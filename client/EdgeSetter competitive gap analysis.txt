@@ -1,0 +1,66 @@
+EdgeSetter competitive gap analysis
+What competitors' users are loudest about
+
+ESPN / Yahoo Sports
+
+Generic, non-transparent AI
+
+Users are angry that ESPN added AI-driven "recommended players" and "trending up" bars with zero explanation. They want to do their own research — not be told what to think. Source transparency is zero.
+
+PrizePicks
+
+No signal trail, no context
+
+Users feel cheated when lines move or results feel wrong. There's no "why" — no source attribution, no history of how a line formed. They're left guessing if the system is even working.
+
+On3 / 247Sports
+
+Insiders beat the platform
+
+Users say Twitter/X beats On3 for speed every time. Subscribers cancel because the platform never shows news before it's public. Paying feels pointless when the SID post is already on X.
+
+Underdog Fantasy
+
+Frictionless but shallow
+
+Clean UI earns praise but users want context behind picks — why is this prop set here, what's the injury situation, what are the signals? Pure pick interface with no intelligence layer.
+
+Gaps that map directly to EdgeSetter's North Star
+
+1
+North Star aligned
+Nobody shows "we knew before them." On3/247Sports users explicitly say they cancel because the platform never proves it beat public sources. This is the exact vacuum EdgeSetter's timing advantage display fills. Every verified story needs a callout. This is your single strongest differentiator and no competitor is doing it. On3 Reddit
+2
+New opportunity
+Source transparency is a white space. ESPN users hate opaque AI recommendations. PrizePicks users suspect the system is rigged because they can never see why a line is where it is. Users want to see the evidence chain — what sources, how many, do they agree. EdgeSetter's agent transparency layer (sources, agent count, conflict status) is something nobody offers. Make it a visible feature, not a back-panel detail. ESPN SIPrizePicks Trustpilot
+3
+New opportunity
+Confidence journey is unused territory. PrizePicks and ESPN both show a static number or label with no backstory. Users want to know: was this 40% confidence at 8am and now it's 90%? Showing confidence movement over time (the journey from DETECTED → ESCALATING → VERIFIED) is novel and directly proves EdgeSetter's agents are working in real time. A mini timeline or confidence sparkline per story would be unlike anything in the market. PrizePicks Reddit
+4
+Watch: North Star risk
+ESPN is moving toward AI recommendations — but doing it wrong. IBM Watson + ESPN now surfaces "Buy Low / Sell High" and "Diamond in the Rough" AI picks to 14M fantasy players. The user backlash was strong: people don't want the app to do their thinking for them. EdgeSetter must not fall into the same trap — fantasy/betting impact must stay downstream of the intelligence layer (story → evidence → consensus → timing → then impact). Inverting that hierarchy puts EdgeSetter in ESPN's failing lane. ESPN/IBM announcement
+5
+New opportunity
+SID/primary source monitoring is a proven edge nobody is monetizing. The On3/247Sports community explicitly complains that school SID posts on X hit public timelines 20–60 minutes before those sites report it. EdgeSetter already identified this gap with the eligibility_ruling signal type. Worth considering whether the timing advantage display specifically calls out "primary source" vs "wire pickup" — that language resonates with the power user who already knows SID posts are the real signal. On3 Tiger Droppings
+6
+New opportunity
+Personalized alert tiers are a feature users actively request but never get right. Yahoo Sports added granular notification controls (game start, score change, injury, big moment) and it's a selling point. Every competitor has generic push alerts. EdgeSetter's agents could power something more specific: "alert me when confidence on this player situation crosses 70%," or "alert me when agents detect conflict on a story I'm tracking." That's not a news alert — it's an intelligence alert. Nobody offers that. Yahoo Sports App Store
+7
+Watch: trust hazard
+The market is growing fast but trust is fragile. PrizePicks was acquired for $1.6B and dominates DFS downloads, but their review boards are full of users who feel cheated and can't understand why outcomes happened. The #1 complaint is "no explanation." EdgeSetter's confidence model is the antidote — but only if the VERIFIED state is genuinely unambiguous (100%, not 95%) and the evidence is surfaced. Any fuzziness on settled facts kills trust faster than a bad prediction. PrizePicks Trustpilot
+One thing to not build yet
+
+Not a priority
+
+League management / roster tools
+
+ESPN's biggest complaints are about league management, roster settings, and draft UX. That's not EdgeSetter's lane. The North Star is intelligence speed, not fantasy league operations. Building tools in that direction before the trust layer is complete would be the wrong move — and there's no gap to fill that ESPN/Yahoo/Sleeper don't already own.
+
+Here's the full read after reviewing the North Star and going through user complaints and reviews across ESPN, PrizePicks, Underdog, On3/247Sports, and the broader DFS market.
+The single most important takeaway: nobody in the market proves they were first. On3 and 247Sports are losing paying subscribers specifically because the platform can't show it beat the public SID post. That exact pain point is EdgeSetter's entire value proposition. The timing advantage display isn't just a UI nicety — it's the reason people pay.
+A few things worth acting on:
+Source transparency as a visible feature. ESPN users were furious when the app introduced "trending up" and "recommended players" bars with no explanation — users want to do their own research, not be told what to think. EdgeSetter already has the agent evidence layer built. Surfacing it plainly (how many sources, do they agree, what type of sources) turns a technical pipeline detail into a trust signal that competitors literally don't have. Sports Illustrated
+Confidence journey, not just a score. PrizePicks users on Reddit want to understand how lines and outcomes formed — but the app gives them a static label and nothing else. A confidence sparkline or mini-timeline showing the path from detection to verification would be something genuinely new in this space. Gambling 911
+Intelligence-tier alerts. Yahoo Sports recently made personalized alerts a marquee feature — but their alerts are still generic (game starts, score changes). An alert that fires when a specific player situation crosses 70% confidence, or when agents detect a new conflicting source, is a fundamentally different product. Nobody offers that yet. App Store
+One risk to flag: ESPN partnered with IBM watsonx to serve AI-powered "Buy Low / Sell High" and fantasy recommendations to their 14 million players. The user backlash was sharp. That's a warning about inverting the hierarchy — if betting/fantasy impact surfaces before the sports story and evidence, EdgeSetter starts looking like the thing users are already rejecting. stocktitan
+The competitive window is real. On3 subscribers are openly canceling, saying there's "zero reason to pay for information about recruiting" because Twitter beats the platform every time. That's an audience that's already been trained to want what EdgeSetter does — they just haven't found a product that delivers it yet. Tiger Droppings

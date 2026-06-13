@@ -154,10 +154,18 @@ export async function fetchMLBTransactions(days = 1): Promise<MLBTransaction[]> 
     const today = new Date().toISOString().slice(0, 10);
     const from  = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
     const url = `${BASE_URL}/transactions?sportId=1&startDate=${from}&endDate=${today}`;
+    console.log(`[mlb-statsapi] Fetching transactions: ${from} → ${today} (${url})`);
     const resp = await fetch(url);
-    if (!resp.ok) { console.error(`[mlb-statsapi] HTTP ${resp.status} transactions`); return []; }
-    const data = await resp.json() as { transactions: MLBTransaction[] };
-    return data.transactions ?? [];
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => "(unreadable)");
+      console.error(`[mlb-statsapi] HTTP ${resp.status} transactions — body: ${body.slice(0, 300)}`);
+      return [];
+    }
+    const data = await resp.json() as Record<string, unknown>;
+    const topLevelKeys = Object.keys(data);
+    const txns = (data.transactions ?? []) as MLBTransaction[];
+    console.log(`[mlb-statsapi] Transactions response: keys=${topLevelKeys.join(",")} total=${txns.length}${txns.length > 0 ? ` typeCodes=${[...new Set(txns.map(t => t.typeCode))].join(",")}` : ""}`);
+    return txns;
   } catch (err: any) {
     console.error("[mlb-statsapi] Transactions fetch error:", err.message);
     return [];
@@ -170,12 +178,17 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
   const txns = await fetchMLBTransactions(1);
   let created = 0;
 
-  // Build dedup set from unprocessed raw events so we skip duplicates within a batch
-  // but re-insert (and refresh updated_at on the signal) in subsequent cycles.
-  const recentEvents = getRawEvents({ league: "MLB", processed: false, limit: 500 });
+  // Dedup against events received in the last 24h (matches the fetch window).
+  // Keyed on received_at, not processed status — events that stay unprocessed
+  // would otherwise block the same transaction IDs forever via the old approach.
+  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const db = getPipelineDb();
+  const recentRows = db.prepare(
+    "SELECT payload FROM raw_events WHERE source_id='mlb_statsapi' AND received_at >= ? LIMIT 500"
+  ).all(cutoff) as Array<{ payload: string }>;
   const seenTxIds = new Set<number>(
-    recentEvents
-      .map(e => (e.payload as any)?.mlb_transaction_id)
+    recentRows
+      .map(r => { try { return (JSON.parse(r.payload) as any)?.mlb_transaction_id; } catch { return null; } })
       .filter((id): id is number => id != null)
   );
 
@@ -186,6 +199,7 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
     t.typeCode === "CU" ||
     t.typeCode === "DES"
   );
+  console.log(`[mlb-statsapi] Transactions pre-filter=${txns.length} post-filter=${relevant.length} (seenDedup=${seenTxIds.size})`);
 
   for (const tx of relevant) {
     if (seenTxIds.has(tx.id)) continue;
