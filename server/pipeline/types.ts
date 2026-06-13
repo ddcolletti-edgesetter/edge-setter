@@ -66,12 +66,13 @@ export type RawEventType =
   | "transaction"         // roster moves, IL activations, trades
   | "eligibility_ruling"  // NCAA/transfer eligibility decisions
   | "odds_open"           // opening line for a new game
-  | "manual";             // operator-entered
+  | "manual"              // operator-entered
+  | "coaching_change";    // coaching hires, fires, resignations
 
 export interface RawEvent {
   id: string;                       // UUID
   source_id: string;                // e.g. "the_odds_api", "balldontlie", "mlb_statsapi", "operator"
-  source_type: "api" | "manual" | "scrape";
+  source_type: "api" | "manual" | "scrape" | "rss";
   league: League;
   game_id: string | null;           // FK → Game.id (if applicable)
   team: string | null;              // short code
@@ -172,6 +173,7 @@ export interface LiveSignal {
   raw_event_ids: string[];           // which RawEvents produced this Signal
   // Timestamps
   signal_time: string;               // when the underlying event happened
+  first_seen_at?: string;            // when signal was first created (for lead-time tracking)
   created_at: string;
   updated_at: string;
   // Outcome hook

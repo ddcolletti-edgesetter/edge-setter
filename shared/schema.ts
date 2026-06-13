@@ -98,6 +98,11 @@ export const source_scores = sqliteTable("source_scores", {
   injury_accuracy: numeric("injury_accuracy").default("0"),
   portal_accuracy: numeric("portal_accuracy").default("0"),
   false_positive_rate: numeric("false_positive_rate").default("0"),
+  team_accuracies: text("team_accuracies").default("{}"),
+  insider_score: numeric("insider_score").default("0"),
+  sample_size: integer("sample_size"),
+  window_days: integer("window_days").default(90),
+  last_computed_at: text("last_computed_at"),
   updated_at: text("updated_at").default(new Date().toISOString()),
 });
 
@@ -154,6 +159,8 @@ export const signals = sqliteTable("signals", {
   published_at: text("published_at").default(new Date().toISOString()),
   is_featured: integer("is_featured", { mode: "boolean" }).default(false),
   is_public: integer("is_public", { mode: "boolean" }).default(true),
+  first_seen_at: text("first_seen_at"),
+  verified_at: text("verified_at"),
   created_at: text("created_at").default(new Date().toISOString()),
   updated_at: text("updated_at").default(new Date().toISOString()),
 });
@@ -161,6 +168,21 @@ export const signals = sqliteTable("signals", {
 export const insertSignalSchema = createInsertSchema(signals).omit({ id: true, created_at: true, updated_at: true });
 export type InsertSignal = z.infer<typeof insertSignalSchema>;
 export type Signal = typeof signals.$inferSelect;
+
+// ─── Signal State History ─────────────────────────────────────────────────────
+export const signal_state_history = sqliteTable("signal_state_history", {
+  id: text("id").primaryKey(),
+  signal_id: text("signal_id").notNull(),
+  verdict: text("verdict").notNull(),
+  confidence_score: numeric("confidence_score").notNull(),
+  transitioned_at: text("transitioned_at").notNull(),
+  triggered_by: text("triggered_by"),
+  is_verified_transition: integer("is_verified_transition").default(0),
+});
+
+export const insertSignalStateHistorySchema = createInsertSchema(signal_state_history);
+export type InsertSignalStateHistory = z.infer<typeof insertSignalStateHistorySchema>;
+export type SignalStateHistory = typeof signal_state_history.$inferSelect;
 
 // ─── Source Notes ─────────────────────────────────────────────────────────────
 export const source_notes = sqliteTable("source_notes", {

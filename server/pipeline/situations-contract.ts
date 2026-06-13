@@ -64,7 +64,7 @@ export interface NormalizedEvent {
   readonly normalized_event_id: string;
   readonly raw_event_id: string | null;
   readonly source_id: string;
-  readonly source_type: "api" | "manual" | "scrape" | "validator" | "market";
+  readonly source_type: "api" | "manual" | "scrape" | "rss" | "validator" | "market";
   readonly sport: SituationSport;
   readonly league: League;
   readonly game_id: string | null;
@@ -258,6 +258,16 @@ export interface SituationStateHistory {
   readonly trigger_event_id: string | null;
   readonly metadata: Record<string, unknown>;
   readonly replay_hash: string;
+  readonly created_at: string;
+}
+
+export interface SituationPublicConfirmation {
+  readonly situation_id: string;
+  readonly confirmed_at: string;             // when a mainstream source picked the story up
+  readonly detection_lead_minutes: number;   // confirmed_at − situation.created_at, in minutes
+  readonly source_name: string;
+  readonly confirmation_reason: "official" | "tier1_wire";
+  readonly raw_event_id: string | null;
   readonly created_at: string;
 }
 
