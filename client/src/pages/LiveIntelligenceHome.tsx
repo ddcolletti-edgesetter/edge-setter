@@ -1517,18 +1517,46 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
   const marketPhrase = situation.marketReaction ? " Books, fantasy markets, and team context are already reacting." : "";
 
   if (isAvailabilitySituation(situation)) {
-    const subject = hasPlayer ? `${player} availability` : `${team} availability`;
+    const rawText = `${situation.raw.signal_type} ${situation.headline} ${situation.currentRead} ${situation.raw.body ?? ""} ${situation.raw.action_note ?? ""}`.toLowerCase();
+    const injuryPart = rawText.match(INJURY_TYPE_PATTERN)?.[1] ?? null;
+    const lastName = player ? player.split(" ").slice(-1)[0] : null;
+
+    let deck: string;
+    if (hasPlayer) {
+      if (status === "OUT") {
+        const injurySuffix = injuryPart ? ` (${injuryPart})` : "";
+        deck = `${player}${injurySuffix} is out. ${team} will need to adjust rotation and minutes distribution. Monitor practice reports for timeline.`;
+      } else if (status === "DOUBTFUL") {
+        deck = `${player} is listed doubtful. ${team} should plan around a likely absence. Watch final injury reports before lock.`;
+      } else if (status === "QUESTIONABLE") {
+        deck = `${player} is questionable and could miss time. ${team} situations and matchup prep are in flux until a final call.`;
+      } else {
+        deck = `${player}'s availability is under review. ${team} usage, roles, and matchup prep could shift if the status changes.`;
+      }
+    } else {
+      deck = `${team} has a key availability update. Role distribution and matchup prep could shift until the situation clarifies.`;
+    }
+
+    let detail: string;
+    if (status && lastName) {
+      detail = injuryPart
+        ? `${lastName} listed ${status} — ${injuryPart.charAt(0).toUpperCase() + injuryPart.slice(1)}`
+        : `${lastName} listed ${status}`;
+    } else if (status && team) {
+      detail = `${team} — ${status}`;
+    } else {
+      detail = `${team} availability update`;
+    }
+
     const headline = specificHeadline ?? (hasPlayer
       ? `${player} availability puts ${team} ${teamContextNoun(situation)} in focus`
       : `${team} availability puts ${teamContextNoun(situation)} in focus`);
     return {
       headline,
       shortHeadline: headline,
-      deck: hasPlayer
-        ? `${player}'s status changes how ${teamPossessive(team)} usage, opponent prep, and fantasy exposure should be read. Watch for more sources to confirm.`
-        : `${team}'s availability picture can change roles, opponent prep, and fantasy exposure. Watch for more sources to confirm.`,
+      deck,
       shortDeck: hasPlayer ? `${player}'s status brings ${teamContext} into focus.` : `${team}'s availability picture remains under review.`,
-      detail: status ? `Player status changed to ${status}` : "Availability status updated",
+      detail,
       whatHappened: hasPlayer
         ? `${player}'s availability status changed, putting ${teamPossessive(team)} role and matchup plan back on the board.`
         : `${team}'s availability context changed and remains the team situation to monitor.`,
