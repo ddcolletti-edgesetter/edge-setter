@@ -1114,10 +1114,8 @@ function selectHomepageLead(situations: IntelligenceSituation[], games: LiveGame
 
   if (eligible.length === 0) return null;
 
-  const hasFreshConfident = eligible.some(
-    (entry) => entry.ageHours <= 24 && entry.situation.confidence.current >= 60,
-  );
-  const pool = hasFreshConfident ? eligible.filter((entry) => entry.ageHours <= 24) : eligible;
+  const freshPool = eligible.filter((entry) => entry.ageHours <= 24);
+  const pool = freshPool.length > 0 ? freshPool : eligible;
 
   return [...pool].sort((a, b) => b.ranking - a.ranking)[0]?.situation ?? null;
 }
