@@ -440,6 +440,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       );
       processCanonicalSituationSafe(raw, signal, consensus.validatorAgreement);
       markRawEventProcessed(raw.id);
+      console.log(`[processor] marked processed: id=${raw.id.slice(0, 8)} league=${raw.league}`);
       console.log(`[processor] ${raw.league}/${raw.event_type} → ${signal.signal_type} conf:${signal.confidence} verdict:${signal.verdict} id:${signal.id.slice(0, 8)}`);
       processed++;
     } catch (err: any) {
@@ -447,6 +448,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       errors++;
       // Still mark processed so we don't loop on bad data
       markRawEventProcessed(raw.id);
+      console.log(`[processor] marked processed (error path): id=${raw.id.slice(0, 8)} league=${raw.league}`);
     }
   }
 

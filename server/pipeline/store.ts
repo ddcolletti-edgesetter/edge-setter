@@ -2020,9 +2020,17 @@ export function insertRawEvent(
 
 export function getUnprocessedRawEvents(limit = 100): RawEvent[] {
   const db = getPipelineDb();
-  const rows = db.prepare(
-    "SELECT * FROM raw_events WHERE processed=0 ORDER BY received_at ASC LIMIT ?"
-  ).all(limit);
+  // League-balanced fetch: cap each league at floor(limit/4) rows so a single
+  // league with a large backlog (e.g. NFL) cannot starve all others each cycle.
+  const perLeague = Math.max(1, Math.floor(limit / 4));
+  const rows = db.prepare(`
+    WITH ranked AS (
+      SELECT *, ROW_NUMBER() OVER (PARTITION BY league ORDER BY received_at ASC) AS rn
+      FROM raw_events
+      WHERE processed = 0
+    )
+    SELECT * FROM ranked WHERE rn <= ? ORDER BY received_at ASC LIMIT ?
+  `).all(perLeague, limit);
   return rows.map(deserializeRawEvent);
 }
 

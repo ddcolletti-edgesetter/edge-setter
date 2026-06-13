@@ -71,7 +71,8 @@
       "Bash(echo \"VITEST_EXIT=$?\")",
       "Read(//tmp/**)",
       "Bash(tasklist)",
-      "Bash(npx jest *)"
+      "Bash(npx jest *)",
+      "Bash(npm test *)"
     ]
   }
 }
