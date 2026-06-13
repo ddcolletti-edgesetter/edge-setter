@@ -21,8 +21,12 @@ import {
   upsertLiveSignal, getLiveSignal,
 } from "./store";
 import { scoreSignal } from "./scorer";
+import { runConsensus } from "./consensus-engine";
 import { rawEventToNormalizedEvent, confidenceInputFromRawEvent } from "./situations-adapter";
 import { evolveCanonicalSituation } from "./situations-engine";
+import { matchConfirmationSource, maybeRecordPublicConfirmation } from "./public-confirmation";
+import { sourceScorerOnOutcome } from "../agents";
+import { storage } from "../storage";
 import type { RawEvent, LiveSignal, League, SignalType, LineMovement } from "./types";
 
 /* ─── Helper ────────────────────────────────────────────── */
@@ -163,6 +167,32 @@ function handleSchemeNote(raw: RawEvent): Partial<LiveSignal> {
   };
 }
 
+/* ─── Handler: coaching_change ──────────────────────────────── */
+
+function handleCoachingChange(raw: RawEvent): Partial<LiveSignal> {
+  const p = raw.payload as any;
+  const team = raw.team ?? p.team ?? "Team";
+  const player = raw.player ?? p.player ?? null;
+  const isHire = /hired|named|joins/i.test(p.headline ?? "");
+  const isFire = /fired|parts\s+ways|resign/i.test(p.headline ?? "");
+  const changeType = isHire ? "hire" : isFire ? "firing" : "change";
+
+  return {
+    signal_type: "transaction",
+    headline: player
+      ? `${player} (${team}) — coaching ${changeType}`
+      : `${team} — coaching ${changeType}`,
+    body: p.notes ?? p.headline ?? `${team} coaching staff change reported.`,
+    action_note: p.action_note ?? `Coaching changes affect scheme, depth chart, and team context. Monitor for downstream roster impact.`,
+    why_it_matters: p.why_it_matters ?? `Coaching changes have direct impact on player roles, usage, and team betting context.`,
+    betting_relevance: true,
+    fantasy_relevance: true,
+    confidence: p.confidence ?? 82,
+    verdict: p.verdict ?? "confirmed",
+    confirmation_strength: p.confirmation ?? "Corroborated",
+  };
+}
+
 /* ─── Handler: eligibility_ruling ──────────────────────── */
 
 function handleEligibilityRuling(raw: RawEvent): Partial<LiveSignal> {
@@ -260,6 +290,7 @@ export function routeEventToFields(raw: RawEvent): Partial<LiveSignal> {
     case "weather_update":     return handleWeather(raw);
     case "scheme_note":        return handleSchemeNote(raw);
     case "transaction":        return handleTransaction(raw);
+    case "coaching_change":    return handleCoachingChange(raw);
     case "eligibility_ruling": return handleEligibilityRuling(raw);
     case "odds_open":          return handleOddsOpen(raw);
     case "manual":             return handleManual(raw);
@@ -331,8 +362,14 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       const league = raw.league as League;
       const p = raw.payload as any;
 
+      // Consensus evaluation — N independent evaluators score the same event
+    const mutableFields = { ...fields };
+    const consensus = runConsensus(raw, mutableFields);
+    mutableFields.confidence = consensus.blendedConfidence;
+    mutableFields.confirmation_strength = consensus.confirmationStrength;
+
       // Score the signal
-      const scoreInputs = buildScoreInputs(league, fields, raw);
+      const scoreInputs = buildScoreInputs(league, mutableFields, raw);
       const scoreResult = scoreSignal(scoreInputs, p.game_time ?? undefined);
 
       // Derive sources array
@@ -376,13 +413,20 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         breakdown: scoreResult.breakdown,
         raw_event_ids: [raw.id],
         signal_time: raw.received_at,
+        first_seen_at: now(),
         created_at: now(),
         updated_at: now(),
         outcome_id: null,
       };
 
       upsertLiveSignal(signal);
-      processCanonicalSituationSafe(raw, signal);
+      storage.recordSignalStateTransition(
+        signal.id,
+        signal.verdict,
+        signal.confidence,
+        raw.source_id ?? null,
+      );
+      processCanonicalSituationSafe(raw, signal, consensus.validatorAgreement);
       markRawEventProcessed(raw.id);
       processed++;
     } catch (err: any) {
@@ -401,9 +445,15 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
 export async function processOne(raw: RawEvent): Promise<LiveSignal | null> {
   try {
     const fields = routeEventToFields(raw);
-    const league = raw.league as League;
-    const p = raw.payload as any;
-    const scoreInputs = buildScoreInputs(league, fields, raw);
+const league = raw.league as League;
+const p = raw.payload as any;
+
+const mutableFields = { ...fields };
+const consensus = runConsensus(raw, mutableFields);
+mutableFields.confidence = consensus.blendedConfidence;
+mutableFields.confirmation_strength = consensus.confirmationStrength;
+
+const scoreInputs = buildScoreInputs(league, mutableFields, raw);
     const scoreResult = scoreSignal(scoreInputs, p.game_time ?? undefined);
 
     const sources = (p.sources as Array<{ name: string; type: string }> | undefined) ?? [
@@ -443,13 +493,20 @@ export async function processOne(raw: RawEvent): Promise<LiveSignal | null> {
       breakdown: scoreResult.breakdown,
       raw_event_ids: [raw.id],
       signal_time: raw.received_at,
+      first_seen_at: now(),
       created_at: now(),
       updated_at: now(),
       outcome_id: null,
     };
 
     upsertLiveSignal(signal);
-    processCanonicalSituationSafe(raw, signal);
+    storage.recordSignalStateTransition(
+      signal.id,
+      signal.verdict,
+      signal.confidence,
+      raw.source_id ?? null,
+    );
+    processCanonicalSituationSafe(raw, signal, consensus.validatorAgreement);
     markRawEventProcessed(raw.id);
     return signal;
   } catch (err: any) {
@@ -458,13 +515,29 @@ export async function processOne(raw: RawEvent): Promise<LiveSignal | null> {
   }
 }
 
-function processCanonicalSituationSafe(raw: RawEvent, signal: LiveSignal): void {
+function processCanonicalSituationSafe(raw: RawEvent, signal: LiveSignal, validatorAgreement = 0): void {
   try {
     const normalized = rawEventToNormalizedEvent(raw, signal);
-    evolveCanonicalSituation({
+    // Confirmation sources (official feeds, tier1 wires) close the verification
+    // loop — drive the lifecycle to "official" instead of generic evidence_added.
+    const confirmationSource = matchConfirmationSource(raw);
+    const evolution = evolveCanonicalSituation({
       event: normalized,
-      confidence_input: confidenceInputFromRawEvent(raw, signal),
+      confidence_input: confidenceInputFromRawEvent(raw, signal, validatorAgreement),
+      lifecycle_trigger: confirmationSource ? "official_confirmation" : undefined,
     });
+
+    // North Star timing advantage: if this situation was detected earlier by
+    // EdgeSetter and this event is its first mainstream pickup, stamp
+    // publicConfirmation + detectionLeadMinutes (insert-once, never overwritten).
+    maybeRecordPublicConfirmation(raw, evolution);
+
+    // Non-blocking source rescore after every situation update.
+    // When scores accumulate, the scorer will naturally compute higher
+    // accuracy for sources whose signals reach confirmed/verified.
+    sourceScorerOnOutcome(signal.id, raw.team ?? null).catch((err: Error) =>
+      console.warn("[pipeline/processor] Source rescore failed — non-blocking:", err.message)
+    );
   } catch (err: any) {
     console.warn(`[pipeline/processor] Canonical situation processing skipped for raw event ${raw.id}:`, err.message);
   }

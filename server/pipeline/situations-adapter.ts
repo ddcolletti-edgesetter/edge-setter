@@ -78,7 +78,7 @@ export function rawEventToNormalizedEvent(raw: RawEvent, signal: LiveSignal): No
   };
 }
 
-export function confidenceInputFromRawEvent(raw: RawEvent, signal: LiveSignal): SituationConfidenceInput {
+export function confidenceInputFromRawEvent(raw: RawEvent, signal: LiveSignal, validatorAgreement = 0): SituationConfidenceInput {
   const payload = raw.payload as Record<string, any>;
   const sourceCount = Math.max(signal.source_count, Number(payload.source_count ?? 1));
   const confirmation = String(signal.confirmation_strength ?? payload.confirmation ?? "").toLowerCase();
@@ -90,11 +90,12 @@ export function confidenceInputFromRawEvent(raw: RawEvent, signal: LiveSignal): 
   const freshness = freshnessScore(raw.received_at, new Date(raw.received_at).toISOString());
   const confidenceBase = Math.max(0, Math.min(100, signal.confidence));
 
+ 
   return {
     source_reliability: Math.min(22, Math.max(8, confidenceBase * 0.22)),
     independent_confirmations: Math.min(18, Math.max(0, (sourceCount - 1) * 6 + (confirmation.includes("corroborated") ? 4 : 0))),
     market_alignment: Math.min(16, Math.abs(lineDelta) * 4 + (signal.betting_relevance ? 2 : 0)),
-    validator_agreement: Math.min(14, Number(payload.validator_agreement ?? 0)),
+    validator_agreement: validatorAgreement,
     official_confirmation: official ? Math.min(20, confirmation.includes("consensus") ? 18 : 12) : 0,
     freshness,
     contradiction_penalty: signal.verdict === "contradicted" ? 30 : Number(payload.contradiction_penalty ?? 0),

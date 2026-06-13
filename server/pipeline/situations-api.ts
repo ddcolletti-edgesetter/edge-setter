@@ -16,6 +16,7 @@ import {
 } from "./situations-comparable-corpus";
 import {
   type CanonicalSituationRecord,
+  getSituationPublicConfirmation,
   listCanonicalSituations,
   listSituationConfidenceHistory,
   listSituationEvents,
@@ -68,6 +69,9 @@ export interface CanonicalSituationApiResponse {
   readonly operationalVisibilityScore: number;
   readonly lastUpdatedAt: string;
   readonly firstSeenAt: string;
+  readonly publicConfirmation?: string;
+  readonly detectionLeadMinutes?: number;
+  readonly publicConfirmationSource?: string;
   readonly evidenceCount: number;
   readonly sourceCount: number;
   readonly latestEvidence: readonly CanonicalSituationEvidencePreview[];
@@ -166,6 +170,7 @@ export function mapCanonicalSituationToApiResponse(
     .map((event) => event.source_id)
     .filter(Boolean)).size;
   const lastUpdatedAt = snapshot?.created_at ?? record.created_at;
+  const publicConfirmation = getSituationPublicConfirmation(record.situation_id);
   const historicalCalibration = deriveSituationHistoricalCalibration({
     record,
     snapshot,
@@ -203,6 +208,9 @@ export function mapCanonicalSituationToApiResponse(
     operationalVisibilityScore,
     lastUpdatedAt,
     firstSeenAt: record.created_at,
+    publicConfirmation: publicConfirmation?.confirmed_at,
+    detectionLeadMinutes: publicConfirmation?.detection_lead_minutes,
+    publicConfirmationSource: publicConfirmation?.source_name,
     evidenceCount: events.length,
     sourceCount,
     latestEvidence,
