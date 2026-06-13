@@ -173,10 +173,10 @@ describe("homepage public story render", () => {
     expect(screen.getByText("Latest Verified Notes")).toBeInTheDocument();
     expect(domText).toContain("Brandon Aiyuk's availability status changed, putting 49ers' role and matchup plan back on the board.");
     expect(domText).toContain("Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.");
-    expect(domText).toContain("Source trail reviewed. Timing reviewed. Impact still developing.");
+    expect(domText).toContain("Sources checked. Timing tracked. Still developing.");
 
     const watchNextIndex = domText.indexOf("Watch next:");
-    const supportIndex = domText.indexOf("Source trail reviewed. Timing reviewed. Impact still developing.");
+    const supportIndex = domText.indexOf("Sources checked. Timing tracked. Still developing.");
     const moreContextIndex = domText.indexOf("More impact context");
     const fantasyIndex = domText.indexOf("Fantasy impact");
     const bettingIndex = domText.indexOf("Betting/market impact");

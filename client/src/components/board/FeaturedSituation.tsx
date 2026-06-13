@@ -258,9 +258,9 @@ function EditorialLeadBlock({ story, onOpen }: { story: SituationStoryCardData; 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span className="data-label mr-1 text-primary">EdgeSetter Intelligence</span>
           <ProofPill label="Evidence strength" value={story.confidence ?? "Monitoring"} />
-          <ProofPill label="Reports" value={story.sourceCount ? `${story.sourceCount} report${story.sourceCount === 1 ? "" : "s"}` : story.verification ?? "Check pending"} />
+          <ProofPill label="Reports" value={story.sourceCount ? `${story.sourceCount} report${story.sourceCount === 1 ? "" : "s"}` : story.verification ?? "Checking sources"} />
           <ProofPill label="Timing" value={story.timing ?? "Monitoring"} />
-          <ProofPill label="Evidence" value={story.evidence ?? "No elevated story yet"} />
+          <ProofPill label="Evidence" value={story.evidence ?? "Nothing verified yet"} />
           <AgentCalibrationBadge
             compact
             copyVariant="editorial"
@@ -374,7 +374,7 @@ function quietStoryCardData({
     market: eyebrow,
     statusLabel: "Monitoring",
     lifecycleLabel: "Quiet slate",
-    sourceProgressLabel: "Check pending",
+    sourceProgressLabel: "Checking sources",
     sourceCount: undefined,
     sportsIdentity,
   };
@@ -398,8 +398,8 @@ function quietStoryCardData({
     primaryTeam: undefined,
     storyType: "Slate watch",
     lifecycle: "Monitoring",
-    verification: "Check pending",
-    evidence: "No elevated story yet",
+    verification: "Checking sources",
+    evidence: "Nothing verified yet",
     timing,
     row,
   };

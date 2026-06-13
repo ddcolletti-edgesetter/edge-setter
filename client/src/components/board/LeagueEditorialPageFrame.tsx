@@ -217,7 +217,7 @@ export function EditorialLeadStory({ story, quiet, onOpen, onEvidence }: Editori
           <span className="data-label mr-1 text-primary">EdgeSetter Intelligence</span>
           <ProofPill label="Source trail" value={story.sourceCount ? `${story.sourceCount} reports` : story.verification ?? "Monitoring"} />
           <ProofPill label="Timing" value={story.timing ?? "Monitoring"} />
-          <ProofPill label="Evidence" value={story.evidence ?? (quiet ? "No elevated story yet" : "Review attached")} />
+          <ProofPill label="Evidence" value={story.evidence ?? (quiet ? "Nothing verified yet" : "Review attached")} />
           {!quiet && (
             <AgentCalibrationBadge
               compact

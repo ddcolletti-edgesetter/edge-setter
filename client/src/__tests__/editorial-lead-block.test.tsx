@@ -21,7 +21,7 @@ describe("Editorial league lead block", () => {
     expect(screen.getAllByText("Today's MLB watch: lineups, pitchers, weather, and late scratches").length).toBeGreaterThan(0);
     expect(screen.getByText("Lineup cards posting before first pitch")).toBeInTheDocument();
     expect(screen.getByText("EdgeSetter Intelligence")).toBeInTheDocument();
-    expect(screen.getByText("No elevated story yet")).toBeInTheDocument();
+    expect(screen.getByText("Nothing verified yet")).toBeInTheDocument();
     expect(screen.queryByText("Top Developing Story")).not.toBeInTheDocument();
     expect(screen.queryByText("No developing story is above the monitoring threshold yet.")).not.toBeInTheDocument();
   });

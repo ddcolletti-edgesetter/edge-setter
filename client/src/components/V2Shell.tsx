@@ -5,7 +5,7 @@ import { NBA_LOGOS, MLB_LOGOS } from "@/lib/espnAssets";
 import {
   Activity, BarChart2, Bell, ChevronDown, ChevronRight,
   Database, Home, LayoutGrid, List, Menu, Moon, Sun,
-  Star, TrendingUp, Wrench, Zap, CreditCard, LogOut,
+  Star, TrendingUp, Wrench, Zap, CreditCard, LogOut, Radar,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/AuthContext";
@@ -252,7 +252,9 @@ function Sidebar({
   const intelligenceNav = [
     { label: "My Edge", path: "/my-edge", icon: <Star size={16} />, active: location.startsWith("/my-edge") },
     { label: "Alerts", path: "/alerts", icon: <Bell size={16} />, active: location.startsWith("/alerts") },
-    { label: "Sources", path: "/sources", icon: <Database size={16} />, active: location.startsWith("/sources") },
+    // Radar reads as "intelligence scanning" for the sources board rather than a
+    // generic database cylinder.
+    { label: "Sources", path: "/sources", icon: <Radar size={16} />, active: location.startsWith("/sources") },
     { label: "Pro", path: "/pro", icon: <CreditCard size={16} />, active: location.startsWith("/pro") },
   ];
   const sidebarNav = [...leaguesNav, ...intelligenceNav];

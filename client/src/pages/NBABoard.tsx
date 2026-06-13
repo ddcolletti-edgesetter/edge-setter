@@ -470,7 +470,7 @@ function SparseOperationalState({ title, detail, checks }: { title: string; deta
           <p className="mt-0.5 break-words text-[0.8rem] font-medium leading-snug text-muted-foreground sm:text-sm">{detail}</p>
         </div>
         <span className="max-w-full basis-full whitespace-normal break-words rounded border border-border/80 bg-muted/10 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-widest text-muted-foreground/85 sm:basis-auto sm:shrink-0">
-          No elevated story yet
+          Nothing verified yet
         </span>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">

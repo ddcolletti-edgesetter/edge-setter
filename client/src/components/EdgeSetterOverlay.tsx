@@ -39,12 +39,12 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
     : "Awaiting verification";
   const deltaLabel = typeof delta === "number" && delta !== 0 ? `${delta > 0 ? "+" : ""}${Math.round(delta)}` : "Hold";
   const sourceCount = data.sourceSummary?.count ?? 0;
-  const sourceLabel = publicSourceLabel(data.sourceSummary?.convergence) ?? (sourceCount > 1 ? "Multiple reports supporting" : sourceCount === 1 ? "Single report under review" : "Report watch");
+  const sourceLabel = publicSourceLabel(data.sourceSummary?.convergence) ?? (sourceCount > 1 ? "Multiple reports supporting" : sourceCount === 1 ? "One source flagged so far" : "Report watch");
   const sourcePosture = sourcePostureLabel(sourceCount, sourceLabel);
   const timingWindow = publicCopy ? publicTimingLabel(data.timing?.window) : data.timing?.window;
   const timingLabel = [timingWindow, data.timing?.freshnessLabel].filter(Boolean).join(" / ") || "Timing watch";
   const replay = publicCopy
-    ? ["Source trail reviewed", "Timing reviewed", "Impact still developing"].slice(0, compact ? 2 : 3)
+    ? ["Sources checked", "Timing tracked", "Still developing"].slice(0, compact ? 2 : 3)
     : data.replay?.filter(Boolean).slice(0, compact ? 2 : 3) ?? [];
   const calibrationInput = {
     confidence,
@@ -123,8 +123,8 @@ function publicSourceLabel(value?: string | null) {
   if (!value) return null;
   const normalized = value.toLowerCase();
   if (normalized.includes("official")) return "Official trail checked";
-  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Supported by multiple signals and reports";
-  if (normalized.includes("single")) return "Single report under review";
+  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Multiple sources tracking";
+  if (normalized.includes("single")) return "One source flagged so far";
   if (normalized.includes("awaiting")) return "Source trail still developing";
   return value;
 }

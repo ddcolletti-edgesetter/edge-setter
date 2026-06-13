@@ -58,7 +58,7 @@ describe("LeagueEditorialPageFrame", () => {
     expect(screen.getByText("Watch next")).toBeInTheDocument();
     expect(screen.getByText("EdgeSetter Intelligence")).toBeInTheDocument();
     expect(screen.getByText("Source trail")).toBeInTheDocument();
-    expect(screen.getByText("No elevated story yet")).toBeInTheDocument();
+    expect(screen.getByText("Nothing verified yet")).toBeInTheDocument();
     expect(screen.queryByText("Top Developing Story")).not.toBeInTheDocument();
     expect(screen.getByRole("article")).toHaveClass("editorial-lead-story-quiet");
   });

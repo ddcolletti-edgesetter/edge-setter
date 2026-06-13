@@ -252,7 +252,7 @@ export function toQuietLeagueLeadStory(league: "MLB" | "NBA"): SituationStoryCar
     league,
     statusLabel: "Monitoring",
     lifecycleLabel: "Quiet slate",
-    sourceProgressLabel: "Check pending",
+    sourceProgressLabel: "Checking sources",
     sportsIdentity: { sport: league.toLowerCase() as "mlb" | "nba" },
   };
 
@@ -274,8 +274,8 @@ export function toQuietLeagueLeadStory(league: "MLB" | "NBA"): SituationStoryCar
     ctaLabel: "Open Watch Board",
     storyType: "Slate watch",
     lifecycle: "Monitoring",
-    verification: "Check pending",
-    evidence: "No elevated story yet",
+    verification: "Checking sources",
+    evidence: "Nothing verified yet",
     timing: isMlb ? "Before first pitch" : "Before tip",
     row,
   };

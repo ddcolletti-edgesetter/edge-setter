@@ -131,7 +131,7 @@ export default function LiveIntelligenceHome() {
       .sort((a, b) => b.priority - a.priority);
   }, [publicSituations, activeLeague]);
 
-  const featured = selectHomepageLead(visibleSituations) ?? selectHomepageLead(publicSituations);
+  const featured = selectHomepageLead(visibleSituations, games) ?? selectHomepageLead(publicSituations, games);
   const heroSituation = featured;
   const backdropLeague: typeof LEAGUES[number] = activeLeague === "ALL"
     ? (featured && (LEAGUES as readonly string[]).includes(featured.league) ? featured.league as typeof LEAGUES[number] : "NFL")
@@ -418,7 +418,7 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
         convergence: publicSourceSummary(situation.sourceSummary.convergence),
       },
       timing: situation.timing,
-      replay: ["Source trail reviewed", "Timing reviewed", "Impact still developing"],
+      replay: ["Sources checked", "Timing tracked", "Still developing"],
       status: "Story support",
     },
     situation,
@@ -467,14 +467,14 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
         convergence: publicSourceSummary(sameLeagueSituation.sourceSummary.convergence),
       },
       timing: sameLeagueSituation.timing,
-      replay: ["Source trail reviewed", "Timing reviewed", "Impact still developing"],
+      replay: ["Sources checked", "Timing tracked", "Still developing"],
       status: "Story support",
     } : {
       escalationState: game.topEscalation,
       confidence: { current: null, delta: null, explanation: "No agent confidence score until a verified story attaches." },
       sourceSummary: { count: 0, convergence: "Awaiting confirmed source" },
       timing: { window: game.status, freshnessLabel: score },
-      replay: ["Game window", "Source watch", "Impact still developing"],
+      replay: ["Game window", "Source watch", "Still developing"],
       status: game.topEscalation ? "Story attached" : "Coverage watch",
     },
     situation: sameLeagueSituation,
@@ -530,7 +530,7 @@ function quietNetworkStory(activeLeague: "ALL" | typeof LEAGUES[number], loading
         convergence: publicSourceSummary(watched.sourceSummary.convergence),
       },
       timing: watched.timing,
-      replay: ["Coverage scan", "Source trail reviewed", "Continue watch"],
+      replay: ["Coverage scan", "Sources checked", "Continue watch"],
       status: "Most developed watch",
     } : {
       escalationState: "Monitoring",
@@ -1092,12 +1092,54 @@ function LiveTicker({ items }: { items: string[] }) {
   );
 }
 
-function selectHomepageLead(situations: IntelligenceSituation[]) {
-  const ranked = situations
-    .map((situation) => ({ situation, score: homepageStoryScore(situation) }))
-    .sort((a, b) => b.score - a.score);
-  const lead = ranked[0];
-  return lead && lead.score >= 60 ? lead.situation : null;
+// North Star lead selection: a fresh story from an active league outranks a
+// stale one. homepageStoryScore stays the editorial weight (it already filters
+// routine roster/IL noise); recency and league-activity multipliers layer on
+// top, plus a hard rule that a story older than 24h cannot lead while a fresh
+// (<24h), confident (>=60%) story exists. The verification pipeline, confidence
+// scoring, and timing-advantage recording are untouched — only selection moves.
+function selectHomepageLead(situations: IntelligenceSituation[], games: LiveGameSituation[] = []) {
+  const eligible = situations
+    .map((situation) => {
+      const base = homepageStoryScore(situation);
+      const ageHours = situationAgeHours(situation);
+      return {
+        situation,
+        base,
+        ageHours,
+        ranking: base * recencyMultiplier(ageHours) * leagueActivityMultiplier(situation.league, games),
+      };
+    })
+    .filter((entry) => entry.base >= 60);
+
+  if (eligible.length === 0) return null;
+
+  const hasFreshConfident = eligible.some(
+    (entry) => entry.ageHours <= 24 && entry.situation.confidence.current >= 60,
+  );
+  const pool = hasFreshConfident ? eligible.filter((entry) => entry.ageHours <= 24) : eligible;
+
+  return [...pool].sort((a, b) => b.ranking - a.ranking)[0]?.situation ?? null;
+}
+
+function situationAgeHours(situation: IntelligenceSituation) {
+  const firstSeenMs = new Date(situation.timing.firstSeen).getTime();
+  if (!Number.isFinite(firstSeenMs)) return Number.POSITIVE_INFINITY;
+  return (Date.now() - firstSeenMs) / 3_600_000;
+}
+
+// Detection recency: a break in the last hour leads over an all-day-old story.
+function recencyMultiplier(ageHours: number) {
+  if (ageHours <= 1) return 2.0;
+  if (ageHours <= 6) return 1.5;
+  if (ageHours <= 24) return 1.0;
+  return 0.6;
+}
+
+// A league is active when today's slate has any game for it. June NFL has no
+// games (offseason → 0.7); NBA Finals and MLB regular season do (active → 1.3).
+function leagueActivityMultiplier(league: string, games: LiveGameSituation[]) {
+  return games.some((game) => game.league === league) ? 1.3 : 0.7;
 }
 
 function selectEditorialDevelopment(situations: IntelligenceSituation[], exclude?: IntelligenceSituation | null) {
@@ -1485,8 +1527,8 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
       headline,
       shortHeadline: headline,
       deck: hasPlayer
-        ? `${player}'s status changes how ${teamPossessive(team)} usage, opponent prep, and fantasy exposure should be read. EdgeSetter is watching whether ${sourcePhrase}, roster movement, or market response creates a larger downstream shift.`
-        : `${team}'s availability picture can change roles, opponent prep, and fantasy exposure. EdgeSetter is watching whether source support, roster movement, or market response creates a larger downstream shift.`,
+        ? `${player}'s status changes how ${teamPossessive(team)} usage, opponent prep, and fantasy exposure should be read. Watch for more sources to confirm.`
+        : `${team}'s availability picture can change roles, opponent prep, and fantasy exposure. Watch for more sources to confirm.`,
       shortDeck: hasPlayer ? `${player}'s status brings ${teamContext} into focus.` : `${team}'s availability picture remains under review.`,
       detail: status ? `Player status changed to ${status}` : "Availability status updated",
       whatHappened: hasPlayer
@@ -1503,7 +1545,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     return {
       headline,
       shortHeadline: headline,
-      deck: `${team}'s roster picture changed, which can alter depth, roles, and next-man usage. EdgeSetter is watching whether this turns into a larger team-context shift.`,
+      deck: `${team}'s roster picture changed, which can alter depth, roles, and next-man usage. Watch for this to develop into a larger team-context shift.`,
       shortDeck: `${team}'s roster picture changed and the role impact is still developing.`,
       detail: "Roster context changed",
       whatHappened: `${subject} is tied to a roster update that changes the ${team} context.`,
@@ -1518,7 +1560,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     return {
       headline,
       shortHeadline: headline,
-      deck: `${team}'s lineup context is active, and one confirmed change can move roles, matchup plans, and market assumptions. EdgeSetter is watching for the next official card or report trail.`,
+      deck: `${team}'s lineup context is active, and one confirmed change can move roles, matchup plans, and market assumptions. Watch for the next official card or report trail.`,
       shortDeck: `${team}'s lineup context remains active before the next confirmation.`,
       detail: "Lineup context updated",
       whatHappened: `${team}'s lineup or pitcher context changed enough to keep the slate under review.`,
@@ -1533,7 +1575,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     return {
       headline,
       shortHeadline: headline,
-      deck: `${team}'s depth chart is still developing. EdgeSetter is watching whether reports, practice usage, or roster signals confirm a real role change.`,
+      deck: `${team}'s depth chart is still developing. Watch for reports, practice usage, or roster signals to confirm a real role change.`,
       shortDeck: `${team}'s depth chart is still developing.`,
       detail: "Depth chart context updated",
       whatHappened: `${team}'s depth or role context changed enough to keep monitoring.`,
@@ -1548,7 +1590,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     return {
       headline,
       shortHeadline: headline,
-      deck: `Market context is reacting around ${subject}. EdgeSetter is watching whether the move is backed by team news, source support, or a broader downstream shift.`,
+      deck: `Market context is reacting around ${subject}. Watch for team news or source support to back the move.`,
       shortDeck: `Market reaction is moving around ${subject}.`,
       detail: "Books/fantasy/team context reacting",
       whatHappened: `${subject} is tied to movement that changed the ${team} read.`,
@@ -1562,7 +1604,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     return {
       headline,
       shortHeadline: headline,
-      deck: `Game environment is part of the current ${team} read. EdgeSetter is watching whether weather, field conditions, or timing changes alter projections.`,
+      deck: `Game environment is part of the current ${team} read. Watch for weather, field conditions, or timing changes to alter projections.`,
       shortDeck: `${team} game environment remains part of the live read.`,
       detail: "Game environment updated",
       whatHappened: `${team}'s game environment has a weather or conditions note attached.`,
@@ -1589,7 +1631,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
   return {
     headline,
     shortHeadline: headline,
-    deck: `${situation.league} context is still developing around ${subject}. EdgeSetter is watching the source trail, timing, and downstream impact before elevating the read further.`,
+    deck: `${situation.league} context is still developing around ${subject}. Watch for the source trail, timing, and impact to develop before the read elevates further.`,
     shortDeck: `${situation.league} context is still developing around ${subject}.`,
     detail: "Story context updated",
     whatHappened: `${subject} is attached to a developing ${situation.league} story read.`,
@@ -1642,8 +1684,8 @@ function publicAvailabilityStatus(value?: string | null) {
 function publicSourceSummary(value?: string | null) {
   const normalized = (value ?? "").toLowerCase();
   if (normalized.includes("official")) return "Official trail checked";
-  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Supported by multiple signals and reports";
-  if (normalized.includes("single")) return "Single report under review";
+  if (normalized.includes("corroborated") || normalized.includes("confirmed") || normalized.includes("consensus")) return "Multiple sources tracking";
+  if (normalized.includes("single")) return "One source flagged so far";
   if (normalized.includes("awaiting")) return "Source trail still developing";
   return "Source trail checked";
 }

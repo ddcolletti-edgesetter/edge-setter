@@ -138,13 +138,13 @@ function calibrationTone(input: AgentCalibrationInput): CalibrationTone {
 
 function calibrationDetail(input: AgentCalibrationInput) {
   if (input.storyType === "public-homepage") {
-    return "Source trail reviewed. Timing reviewed. Impact still developing.";
+    return "Sources checked. Timing tracked. Still developing.";
   }
 
   const pieces = [
-    "Source trail reviewed",
+    "Sources checked",
     input.sourceCount ? "Source support attached" : "Source support pending",
-    input.timingLabel ? "Timing reviewed" : "Timing pending",
+    input.timingLabel ? "Timing tracked" : "Timing pending",
   ];
   return publicStoryText(pieces.join(" / "));
 }
@@ -155,7 +155,7 @@ function patternLabel(input: AgentCalibrationInput) {
   if (/lineup|rotation|starter|scratch/.test(type)) return "Comparable lineup/rotation path";
   if (/roster|portal|depth|role/.test(type)) return "Comparable roster/role path";
   if (/market|line|movement|sharp/.test(type) || input.marketReaction) return "Comparable market-reaction path";
-  return "Comparable prior sports-movement path";
+  return "Similar situations have moved markets";
 }
 
 function chainReaction(input: AgentCalibrationInput) {
