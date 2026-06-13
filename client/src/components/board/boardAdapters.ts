@@ -90,7 +90,11 @@ export type AnyBoardGame = {
   conference?: string | null;
 };
 
-export function toLiveGamePillData(game: AnyBoardGame, relatedCount = 0): LiveGamePillData {
+export function toLiveGamePillData(
+  game: AnyBoardGame,
+  relatedCount = 0,
+  sport?: LiveGamePillData["sport"],
+): LiveGamePillData {
   const status = game.statusDescription ?? game.status ?? "Scheduled";
   const awayName = game.awayTeam ?? game.away_team ?? game.away ?? game.awayFull ?? "TBD";
   const homeName = game.homeTeam ?? game.home_team ?? game.home ?? game.homeFull ?? "TBD";
@@ -98,6 +102,8 @@ export function toLiveGamePillData(game: AnyBoardGame, relatedCount = 0): LiveGa
 
   return {
     id: String(game.id ?? `${awayName}-${homeName}`),
+    // League-qualifies the logo lookup so KC → Royals on the MLB board, not Chiefs.
+    sport,
     away: {
       abbreviation: abbreviateTeam(awayName),
       score: game.awayScore ?? game.away_score ?? undefined,

@@ -197,7 +197,7 @@ export default function MLBBoard() {
       story: toSituationStoryCardData(row),
     };
   }).filter(isRenderableMlbStoryItem), [cleanSituations]);
-  const livePills = useMemo(() => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, allSignals))), [allSignals, liveGames]);
+  const livePills = useMemo(() => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, allSignals), "mlb")), [allSignals, liveGames]);
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const hasSituations = cleanSituations.length > 0;
   const isInitialBoardLoading = !hasSituations && (isLoading || canonicalLoading || gamesLoading);

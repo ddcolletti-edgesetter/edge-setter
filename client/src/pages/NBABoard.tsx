@@ -182,7 +182,7 @@ export default function NBABoard() {
       story: toSituationStoryCardData(row),
     };
   }), [situations]);
-  const livePills = useMemo(() => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, allSignals))), [allSignals, liveGames]);
+  const livePills = useMemo(() => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, allSignals), "nba")), [allSignals, liveGames]);
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const hasSituations = situations.length > 0;
   const isInitialBoardLoading = !hasSituations && (isLoading || canonicalLoading || gamesLoading);

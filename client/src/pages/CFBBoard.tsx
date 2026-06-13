@@ -117,7 +117,7 @@ function CFBBoardInner() {
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "CFB");
-  const livePills = CFB_SLATE.map((game) => toLiveGamePillData(game, game.signals));
+  const livePills = CFB_SLATE.map((game) => toLiveGamePillData(game, game.signals, "cfb"));
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const confirmed = rankedCFB.filter((signal) => signal.verdict === "confirmed").length;
   const topUrgentSituations = situations.filter((situation) => situation.lane === "escalating").slice(0, 2);

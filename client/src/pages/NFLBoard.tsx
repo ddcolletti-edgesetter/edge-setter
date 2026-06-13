@@ -109,7 +109,7 @@ function NFLBoardInner() {
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "NFL");
-  const livePills = NFL_SLATE.map((game) => toLiveGamePillData(game, game.signals));
+  const livePills = NFL_SLATE.map((game) => toLiveGamePillData(game, game.signals, "nfl"));
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const storyItems = situations.map((situation) => {
     const row = toSituationRowData(situation);
