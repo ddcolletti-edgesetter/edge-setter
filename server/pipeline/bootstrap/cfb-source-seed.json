@@ -1,0 +1,610 @@
+[
+  { "team_key": "ALA", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_ala", "name": "Alabama Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @AlabamaFTBL press release feed" },
+    { "source_id": "x_joshvitale_247", "name": "Josh Vitale (247Sports)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Primary 247Sports Alabama beat" },
+    { "source_id": "x_tedgreenath", "name": "Ted Green (The Athletic)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Alabama beat, The Athletic" },
+    { "source_id": "x_larsandersonsi", "name": "Lars Anderson (SI)", "type": "national_reporter", "prior_accuracy": 0.75, "prior_sample_size": 12, "notes": "Sports Illustrated national CFB with Alabama focus" }
+  ]},
+  { "team_key": "UGA", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_uga", "name": "Georgia Bulldogs SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @GeorgiaFootball press release feed" },
+    { "source_id": "x_chip_towers_ajc", "name": "Chip Towers (AJC)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Atlanta Journal-Constitution UGA beat" },
+    { "source_id": "x_seth_emerson", "name": "Seth Emerson (The Athletic)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Athletic UGA beat" },
+    { "source_id": "x_danwolken_usa", "name": "Dan Wolken (USA Today)", "type": "national_reporter", "prior_accuracy": 0.75, "prior_sample_size": 12, "notes": "USA Today national, frequent UGA coverage" }
+  ]},
+  { "team_key": "LSU", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_lsu", "name": "LSU Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @LSUfootball press release feed" },
+    { "source_id": "x_briankallmeyer", "name": "Brian Kallmeyer (247Sports)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "247Sports LSU beat" },
+    { "source_id": "x_stefashby", "name": "Stef Ashby (The Advocate)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Baton Rouge Advocate LSU beat" }
+  ]},
+  { "team_key": "TENN", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_tenn", "name": "Tennessee Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @Vol_Football press release feed" },
+    { "source_id": "x_erikbacharach_kns", "name": "Erik Bacharach (Knoxville News Sentinel)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "KNS Tennessee Vols beat" },
+    { "source_id": "x_terrymccormick", "name": "Terry McCormick (VolQuest)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "VolQuest/247Sports Tennessee beat" }
+  ]},
+  { "team_key": "MISS", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_miss", "name": "Ole Miss Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @OleMissFB press release feed" },
+    { "source_id": "x_nicksuss_cm", "name": "Nick Suss (Clarion-Ledger)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Mississippi Clarion-Ledger Ole Miss beat" },
+    { "source_id": "x_gsiegel_clarionledger", "name": "Grayson Siegel (Clarion-Ledger)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Clarion-Ledger Ole Miss secondary coverage" }
+  ]},
+  { "team_key": "TAMU", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_tamu", "name": "Texas A&M Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @AggieFootball press release feed" },
+    { "source_id": "x_brent_zwerneman", "name": "Brent Zwerneman (Houston Chronicle)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Houston Chronicle Texas A&M beat" },
+    { "source_id": "x_chrisramirez_tamu", "name": "Chris Ramirez (247Sports/TAMU)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "247Sports Texas A&M beat" }
+  ]},
+  { "team_key": "FLA", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_fla", "name": "Florida Gators SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @GatorsFB press release feed" },
+    { "source_id": "x_saturdaydownsouth", "name": "Saturday Down South", "type": "local_news", "prior_accuracy": 0.68, "prior_sample_size": 8, "notes": "SEC-focused digital outlet, Florida coverage" },
+    { "source_id": "x_douglasbyrne_gators", "name": "Douglas Byrne (GatorsOnline)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "247Sports/GatorsOnline Florida beat" }
+  ]},
+  { "team_key": "AUB", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_aub", "name": "Auburn Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @AuburnFootball press release feed" },
+    { "source_id": "x_evancoombs_au", "name": "Evan Coombs (AU247)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "247Sports Auburn beat" },
+    { "source_id": "cfb_beat_opelikanews_aub", "name": "Opelika-Auburn News", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Local paper Auburn beat" }
+  ]},
+  { "team_key": "ARK", "conference": "SEC", "primary_sources": [
+    { "source_id": "cfb_sid_ark", "name": "Arkansas Razorbacks SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Razorbacks athletics press release feed" },
+    { "source_id": "cfb_beat_hawgbeat_ark", "name": "Scottie Bordelon (HawgBeat/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Primary 247Sports Arkansas beat" },
+    { "source_id": "cfb_beat_democracygazette_ark", "name": "Dudley Dawson (Arkansas Democrat-Gazette)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Democrat-Gazette Razorbacks beat" }
+  ]},
+  { "team_key": "MSST", "conference": "SEC", "primary_sources": [
+    { "source_id": "cfb_sid_msst", "name": "Mississippi State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official MSU athletics press release feed" },
+    { "source_id": "cfb_beat_247_msst", "name": "Jon Sokoloff (247Sports MSST)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "247Sports Mississippi State beat" },
+    { "source_id": "cfb_beat_clarionledger_msst", "name": "Tyler Cleveland (Clarion-Ledger)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Clarion-Ledger MSU beat" }
+  ]},
+  { "team_key": "MIZ", "conference": "SEC", "primary_sources": [
+    { "source_id": "cfb_sid_miz", "name": "Missouri Tigers SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Mizzou athletics press release feed" },
+    { "source_id": "cfb_beat_postdispatch_miz", "name": "Dave Matter (St. Louis Post-Dispatch)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Post-Dispatch Missouri beat" },
+    { "source_id": "cfb_beat_columbiatribune_miz", "name": "Gabe DeArmond (PowerMizzou)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "PowerMizzou 247Sports beat" }
+  ]},
+  { "team_key": "SC", "conference": "SEC", "primary_sources": [
+    { "source_id": "cfb_sid_sc", "name": "South Carolina Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Gamecocks athletics press release feed" },
+    { "source_id": "cfb_beat_thestate_sc", "name": "David Cloninger (The State)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The State newspaper South Carolina beat" },
+    { "source_id": "cfb_beat_247_sc", "name": "Wes Dove (GamecockCentral/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "247Sports South Carolina beat" }
+  ]},
+  { "team_key": "UK", "conference": "SEC", "primary_sources": [
+    { "source_id": "cfb_sid_uk", "name": "Kentucky Wildcats SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official UK athletics press release feed" },
+    { "source_id": "cfb_beat_ksr_uk", "name": "Nick Roush (KentuckySportsRadio.com)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "KSR primary Kentucky football beat" },
+    { "source_id": "cfb_beat_herald_uk", "name": "Ben Roberts (Lexington Herald-Leader)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Herald-Leader Kentucky beat" }
+  ]},
+  { "team_key": "VAN", "conference": "SEC", "primary_sources": [
+    { "source_id": "cfb_sid_van", "name": "Vanderbilt Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Commodores athletics press release feed" },
+    { "source_id": "cfb_beat_tennesseean_van", "name": "Adam Sparks (The Tennessean)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "USA Today/Tennessean Vanderbilt beat" },
+    { "source_id": "cfb_beat_247_van", "name": "Zach Franklin (VandySports/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Vanderbilt beat" }
+  ]},
+  { "team_key": "TEX", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_tex", "name": "Texas Longhorns SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @TexasLonghorns press release feed" },
+    { "source_id": "x_chrishaney_ut", "name": "Chris Haney (Rivals)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Rivals Texas Longhorns beat" },
+    { "source_id": "x_nickmoyle_sa", "name": "Nick Moyle (San Antonio Express-News)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "San Antonio Express-News Texas beat" }
+  ]},
+  { "team_key": "OU", "conference": "SEC", "primary_sources": [
+    { "source_id": "sid_ou", "name": "Oklahoma Sooners SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @OU_Football press release feed" },
+    { "source_id": "x_dankoob_sn", "name": "Dan Koob (SoonerScoop)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "SoonerScoop 247Sports Oklahoma beat" },
+    { "source_id": "x_guerin_emig", "name": "Guerin Emig (Tulsa World)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Tulsa World Oklahoma beat" }
+  ]},
+  { "team_key": "OSU", "conference": "BigTen", "primary_sources": [
+    { "source_id": "sid_osu", "name": "Ohio State Buckeyes SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @OhioStateFB press release feed" },
+    { "source_id": "x_petesampson_", "name": "Pete Sampson (The Athletic)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Athletic Ohio State beat" },
+    { "source_id": "x_tommcculloughkfj", "name": "Tom McCullough (Land-Grant Holy Land)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Ohio State 247Sports/local beat" }
+  ]},
+  { "team_key": "MICH", "conference": "BigTen", "primary_sources": [
+    { "source_id": "sid_mich", "name": "Michigan Wolverines SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @UMichFootball press release feed" },
+    { "source_id": "x_nicklang247", "name": "Nick Lang (247Sports Michigan)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "247Sports Michigan football beat" },
+    { "source_id": "x_joshtejada_mich", "name": "Josh Tejada (The Michigan Daily)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Michigan Daily student coverage" }
+  ]},
+  { "team_key": "PSU", "conference": "BigTen", "primary_sources": [
+    { "source_id": "sid_psu", "name": "Penn State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @PennStateFball press release feed" },
+    { "source_id": "x_ryanmcfadden_psu", "name": "Ryan McFadden (Centre Daily Times)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Centre Daily Times Penn State beat" },
+    { "source_id": "x_greg_pickel", "name": "Greg Pickel (PennLive)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "PennLive Penn State beat" }
+  ]},
+  { "team_key": "USC", "conference": "BigTen", "primary_sources": [
+    { "source_id": "sid_usc", "name": "USC Trojans SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @USCFootball press release feed" },
+    { "source_id": "x_lindseythiry", "name": "Lindsey Thiry (LA Times)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "LA Times USC Trojans beat" },
+    { "source_id": "x_jeffmiller_usc", "name": "Jeff Miller (LA Times)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "LA Times secondary USC coverage" }
+  ]},
+  { "team_key": "UCLA", "conference": "BigTen", "primary_sources": [
+    { "source_id": "sid_ucla", "name": "UCLA Bruins SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @UCLAFootball press release feed" },
+    { "source_id": "x_brucefeldmancfb", "name": "Bruce Feldman (Fox/The Athletic)", "type": "national_reporter", "prior_accuracy": 0.75, "prior_sample_size": 12, "notes": "National CFB insider with UCLA coverage" },
+    { "source_id": "cfb_beat_latimes_ucla", "name": "Ryan Kartje (LA Times)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "LA Times UCLA beat writer" }
+  ]},
+  { "team_key": "MSU", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_msu", "name": "Michigan State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @MSU_Football press release feed" },
+    { "source_id": "cfb_beat_freep_msu", "name": "Chris Solari (Detroit Free Press)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Detroit Free Press MSU beat" },
+    { "source_id": "cfb_beat_247_msu", "name": "Matt Wenzel (247Sports MSU)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Michigan State beat" }
+  ]},
+  { "team_key": "WIS", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_wis", "name": "Wisconsin Badgers SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Wisconsin athletics press release feed" },
+    { "source_id": "cfb_beat_journalsentinel_wis", "name": "Jeff Potrykus (Milwaukee Journal Sentinel)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Milwaukee Journal Sentinel Wisconsin beat" },
+    { "source_id": "cfb_beat_badgerscountry_wis", "name": "Jesse Temple (The Athletic)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Athletic Wisconsin beat" }
+  ]},
+  { "team_key": "IOWA", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_iowa", "name": "Iowa Hawkeyes SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Iowa athletics press release feed" },
+    { "source_id": "cfb_beat_gazette_iowa", "name": "Marc Morehouse (The Gazette)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Gazette Iowa Hawkeyes beat" },
+    { "source_id": "cfb_beat_pressci_iowa", "name": "Scott Dochterman (The Athletic)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Athletic Iowa beat" }
+  ]},
+  { "team_key": "MINN", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_minn", "name": "Minnesota Gophers SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Minnesota athletics press release feed" },
+    { "source_id": "cfb_beat_startribune_minn", "name": "Marcus Fuller (Star Tribune/The Athletic)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Star Tribune/Athletic Minnesota beat" },
+    { "source_id": "cfb_beat_247_minn", "name": "Evan Tyler (GopherIllustrated/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Minnesota beat" }
+  ]},
+  { "team_key": "NEB", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_neb", "name": "Nebraska Cornhuskers SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Nebraska athletics press release feed" },
+    { "source_id": "cfb_beat_worldherald_neb", "name": "Sam McKewon (Omaha World-Herald)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Omaha World-Herald Nebraska beat" },
+    { "source_id": "cfb_beat_journalstar_neb", "name": "Parker Gabriel (Lincoln Journal Star)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Lincoln Journal Star Nebraska beat" }
+  ]},
+  { "team_key": "NU", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_nu", "name": "Northwestern Wildcats SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Northwestern athletics press release feed" },
+    { "source_id": "cfb_beat_chicagotrib_nu", "name": "Colleen Kane (Chicago Tribune)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Chicago Tribune Northwestern beat" },
+    { "source_id": "cfb_beat_247_nu", "name": "Tom Dienhart (BTN/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Big Ten Network/247Sports Northwestern coverage" }
+  ]},
+  { "team_key": "IND", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_ind", "name": "Indiana Hoosiers SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Indiana athletics press release feed" },
+    { "source_id": "cfb_beat_indistar_ind", "name": "Dustin Dopirak (Indianapolis Star)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Indianapolis Star Indiana football beat" },
+    { "source_id": "cfb_beat_herald_ind", "name": "Chad Lindskog (Herald-Times)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Bloomington Herald-Times IU beat" }
+  ]},
+  { "team_key": "PUR", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_pur", "name": "Purdue Boilermakers SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Purdue athletics press release feed" },
+    { "source_id": "cfb_beat_journalcourier_pur", "name": "Nathan Baird (The Athletic)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Athletic Purdue beat" },
+    { "source_id": "cfb_beat_journalandcourier_pur", "name": "Tom Kubat (Journal & Courier)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Lafayette Journal & Courier Purdue beat" }
+  ]},
+  { "team_key": "ILL", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_ill", "name": "Illinois Fighting Illini SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Illinois athletics press release feed" },
+    { "source_id": "cfb_beat_newsgazette_ill", "name": "Bob Asmussen (News-Gazette)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Champaign News-Gazette Illinois beat" },
+    { "source_id": "cfb_beat_247_ill", "name": "Jeremy Werner (IlliniBoard/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Illinois beat" }
+  ]},
+  { "team_key": "RUT", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_rut", "name": "Rutgers Scarlet Knights SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Rutgers athletics press release feed" },
+    { "source_id": "cfb_beat_njcom_rut", "name": "Steve Politi (NJ.com)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "NJ.com / The Star-Ledger Rutgers beat" },
+    { "source_id": "cfb_beat_247_rut", "name": "Chris Nalwasky (On the Banks/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Rutgers beat" }
+  ]},
+  { "team_key": "MD", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_md", "name": "Maryland Terrapins SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Maryland athletics press release feed" },
+    { "source_id": "cfb_beat_washpost_md", "name": "Adam Kilgore (Washington Post)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Washington Post Maryland Terrapins beat" },
+    { "source_id": "cfb_beat_baltimoresun_md", "name": "Brian Wacker (Baltimore Sun)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Baltimore Sun Maryland beat" }
+  ]},
+  { "team_key": "WASH", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_wash", "name": "Washington Huskies SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Washington athletics press release feed" },
+    { "source_id": "cfb_beat_seattletimes_wash", "name": "Mike Vorel (Seattle Times)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Seattle Times Washington Huskies beat" },
+    { "source_id": "cfb_beat_247_wash", "name": "Trevor Hansen (UW Dawg Pound/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Washington beat" }
+  ]},
+  { "team_key": "ORE", "conference": "BigTen", "primary_sources": [
+    { "source_id": "cfb_sid_ore", "name": "Oregon Ducks SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Oregon athletics press release feed" },
+    { "source_id": "cfb_beat_oregonian_ore", "name": "Andrew Nemec (The Oregonian)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Oregonian Oregon Ducks beat" },
+    { "source_id": "cfb_beat_247_ore", "name": "Charles Fischer (FishDuck/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Oregon beat" }
+  ]},
+  { "team_key": "TTU", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_ttu", "name": "Texas Tech Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @TTUAthletics press release feed" },
+    { "source_id": "x_cannonsports", "name": "Cannon Sports (Lubbock Avalanche-Journal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Avalanche-Journal Texas Tech beat" },
+    { "source_id": "x_maxmcnabb_ttu", "name": "Max McNabb (247Sports TTU)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Texas Tech beat" }
+  ]},
+  { "team_key": "OKST", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_okst", "name": "Oklahoma State Cowboys SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @CowboyFB press release feed" },
+    { "source_id": "x_scottrudeau", "name": "Scott Rudeau (PokesReport)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "PokesReport Oklahoma State beat" },
+    { "source_id": "x_pokesreport", "name": "PokesReport (247Sports OKST)", "type": "local_news", "prior_accuracy": 0.68, "prior_sample_size": 8, "notes": "247Sports Oklahoma State fan site" }
+  ]},
+  { "team_key": "TCU", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_tcu", "name": "TCU Horned Frogs SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @TCUFootball press release feed" },
+    { "source_id": "x_maxolson_espn", "name": "Max Olson (ESPN)", "type": "national_reporter", "prior_accuracy": 0.75, "prior_sample_size": 12, "notes": "ESPN national CFB, Big 12 beat" },
+    { "source_id": "cfb_beat_startelegram_tcu", "name": "Charean Williams (Fort Worth Star-Telegram)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Star-Telegram TCU beat" }
+  ]},
+  { "team_key": "BAY", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_bay", "name": "Baylor Bears SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @BaylorFootball press release feed" },
+    { "source_id": "x_brucefeldmancfb", "name": "Bruce Feldman (Fox/The Athletic)", "type": "national_reporter", "prior_accuracy": 0.75, "prior_sample_size": 12, "notes": "National CFB insider, Baylor coverage" },
+    { "source_id": "cfb_beat_wacotrib_bay", "name": "John Werner (Waco Tribune-Herald)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Waco Tribune-Herald Baylor beat" }
+  ]},
+  { "team_key": "KSU", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_ksu", "name": "Kansas State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @KStateFB press release feed" },
+    { "source_id": "x_aaronkaiserkns", "name": "Aaron Kaiser (KSN News)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "KSN Wichita Kansas State coverage" },
+    { "source_id": "x_craigmlahr", "name": "Craig Lahr (KStateOnline/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Kansas State beat" }
+  ]},
+  { "team_key": "KU", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_ku", "name": "Kansas Jayhawks SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @KUFootball press release feed" },
+    { "source_id": "x_matttait_ljw", "name": "Matt Tait (Lawrence Journal-World)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "LJW primary Kansas football beat" },
+    { "source_id": "x_petegoble_ku", "name": "Pete Goble (HawkZone/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Kansas beat" }
+  ]},
+  { "team_key": "ISU", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_isu", "name": "Iowa State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @CycloneFB press release feed" },
+    { "source_id": "x_chriswilliams_is", "name": "Chris Williams (Cyclone Fanatic)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Cyclone Fanatic Iowa State beat" },
+    { "source_id": "x_sethaabergisu", "name": "Seth Aaberg (247Sports ISU)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Iowa State beat" }
+  ]},
+  { "team_key": "WVU", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_wvu", "name": "West Virginia Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @WVUfootball press release feed" },
+    { "source_id": "x_metronewssports", "name": "Metro News Sports (WV MetroNews)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "WV MetroNews radio network West Virginia beat" },
+    { "source_id": "x_dhomeier_wvu", "name": "D. Homeier (WVUSports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports West Virginia beat" }
+  ]},
+  { "team_key": "CIN", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_cin", "name": "Cincinnati Bearcats SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @GoBearcatsFB press release feed" },
+    { "source_id": "x_fletcher_page", "name": "Fletcher Page (Cincinnati Enquirer)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Cincinnati Enquirer Bearcats beat" },
+    { "source_id": "x_brendanking_cin", "name": "Brendan King (247Sports CIN)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Cincinnati beat" }
+  ]},
+  { "team_key": "UCF", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_ucf", "name": "UCF Knights SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @UCF_Football press release feed" },
+    { "source_id": "x_kassidyhill", "name": "Kassidy Hill (Orlando Sentinel)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Orlando Sentinel UCF beat" },
+    { "source_id": "x_davidschofieldos", "name": "David Schofield (Orlando Sentinel)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Orlando Sentinel secondary UCF coverage" }
+  ]},
+  { "team_key": "HOU", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_hou", "name": "Houston Cougars SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @UHCougarFB press release feed" },
+    { "source_id": "x_chrisdurso_hou", "name": "Chris Durso (Houston Chronicle)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Houston Chronicle Cougars beat" },
+    { "source_id": "x_markberman_fox26", "name": "Mark Berman (FOX 26 Houston)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "FOX 26 Houston local sports coverage" }
+  ]},
+  { "team_key": "BYU", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_byu", "name": "BYU Cougars SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @BYUfootball press release feed" },
+    { "source_id": "x_zachsandersds", "name": "Zach Sanders (Deseret News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Deseret News BYU beat" },
+    { "source_id": "x_kslsports", "name": "KSL Sports (KSL.com)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "KSL Salt Lake City BYU coverage" }
+  ]},
+  { "team_key": "COL", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_col", "name": "Colorado Buffaloes SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @CUBuffsFootball press release feed" },
+    { "source_id": "x_tomkensler_dp", "name": "Tom Kensler (Denver Post)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Denver Post Colorado Buffs beat" },
+    { "source_id": "x_markkiszla", "name": "Mark Kiszla (Denver Post)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Denver Post Colorado secondary coverage" }
+  ]},
+  { "team_key": "ARIZ", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_ariz", "name": "Arizona Wildcats SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @ArizonaFBall press release feed" },
+    { "source_id": "x_thewildcatauthority", "name": "The Wildcat Authority (247Sports ARIZ)", "type": "local_news", "prior_accuracy": 0.68, "prior_sample_size": 8, "notes": "247Sports Arizona beat site" },
+    { "source_id": "cfb_beat_azstar_ariz", "name": "Michael Lev (Arizona Daily Star)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Arizona Daily Star Wildcats beat" }
+  ]},
+  { "team_key": "ASU", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_asu", "name": "Arizona State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @ASUFootball press release feed" },
+    { "source_id": "x_steveatorre_asu", "name": "Steve Torre (Arizona Republic/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Arizona Republic / 247Sports ASU beat" },
+    { "source_id": "x_doug_haller", "name": "Doug Haller (The Athletic)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Athletic Arizona State beat" }
+  ]},
+  { "team_key": "UTAH", "conference": "Big12", "primary_sources": [
+    { "source_id": "sid_utah", "name": "Utah Utes SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @Utah_Football press release feed" },
+    { "source_id": "x_gordonmonson_slt", "name": "Gordon Monson (Salt Lake Tribune)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Salt Lake Tribune Utah Utes beat" },
+    { "source_id": "x_chrisamorton", "name": "Chrisa Morton (Deseret News)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Deseret News Utah Utes coverage" }
+  ]},
+  { "team_key": "CLEM", "conference": "ACC", "primary_sources": [
+    { "source_id": "sid_clem", "name": "Clemson Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @ClemsonFB press release feed" },
+    { "source_id": "x_timkiblerherald", "name": "Tim Kibler (Herald Online)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Herald Online Clemson beat" },
+    { "source_id": "x_andrewcitracfb", "name": "Andrew Citra (247Sports Clemson)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Clemson beat" }
+  ]},
+  { "team_key": "FSU", "conference": "ACC", "primary_sources": [
+    { "source_id": "sid_fsu", "name": "Florida State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @FSUFootball press release feed" },
+    { "source_id": "x_tomdnbc6", "name": "Tom D'Angelo (NBC6/Rivals FSU)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "NBC South Florida / Rivals Florida State beat" },
+    { "source_id": "x_imamoulesft", "name": "Curt Weiler (Tallahassee Democrat)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Tallahassee Democrat FSU beat" }
+  ]},
+  { "team_key": "MIA", "conference": "ACC", "primary_sources": [
+    { "source_id": "sid_mia", "name": "Miami Hurricanes SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @CanesFootball press release feed" },
+    { "source_id": "x_craigmisssun", "name": "Craig Davis (South Florida Sun Sentinel)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Sun Sentinel Miami Hurricanes beat" },
+    { "source_id": "x_zach_meltzer_miami", "name": "Zach Meltzer (247Sports Miami)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Miami beat" }
+  ]},
+  { "team_key": "UNC", "conference": "ACC", "primary_sources": [
+    { "source_id": "sid_unc", "name": "North Carolina Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official @TarHeelFootball press release feed" },
+    { "source_id": "x_jimkreager_dhill", "name": "Jim Kreager (Durham Herald-Sun)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Durham Herald-Sun UNC beat" },
+    { "source_id": "x_steve_wiseman_dnt", "name": "Steve Wiseman (Durham News & Tribune)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "News & Observer / Durham UNC beat" }
+  ]},
+  { "team_key": "NCST", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_ncst", "name": "NC State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official NC State athletics press release feed" },
+    { "source_id": "cfb_beat_newsobs_ncst", "name": "Joe Giglio (The News & Observer)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "News & Observer NC State beat" },
+    { "source_id": "cfb_beat_247_ncst", "name": "Travis Reier (PackPride/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports NC State beat" }
+  ]},
+  { "team_key": "VT", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_vt", "name": "Virginia Tech Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Virginia Tech athletics press release feed" },
+    { "source_id": "cfb_beat_roanoke_vt", "name": "Andy Bitter (The Roanoke Times)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Roanoke Times / The Athletic Virginia Tech beat" },
+    { "source_id": "cfb_beat_247_vt", "name": "Michael Kidd (HokieVision/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Virginia Tech beat" }
+  ]},
+  { "team_key": "UVA", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_uva", "name": "Virginia Cavaliers SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official UVA athletics press release feed" },
+    { "source_id": "cfb_beat_cavalierscorner_uva", "name": "Jerry Ratcliffe (CavsCorner)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "CavsCorner / Rivals UVA beat" },
+    { "source_id": "cfb_beat_dailyprogress_uva", "name": "Sean O'Brien (Daily Progress)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Charlottesville Daily Progress UVA beat" }
+  ]},
+  { "team_key": "DUKE", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_duke", "name": "Duke Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Duke athletics press release feed" },
+    { "source_id": "cfb_beat_newsobs_duke", "name": "Steve Wiseman (News & Observer)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "News & Observer Duke beat" },
+    { "source_id": "cfb_beat_herald_duke", "name": "Durham Herald-Sun Duke Coverage", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Local Durham coverage of Duke football" }
+  ]},
+  { "team_key": "GT", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_gt", "name": "Georgia Tech Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Georgia Tech athletics press release feed" },
+    { "source_id": "cfb_beat_ajc_gt", "name": "Ken Sugiura (Atlanta Journal-Constitution)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "AJC Georgia Tech beat" },
+    { "source_id": "cfb_beat_247_gt", "name": "Jake Reuse (From The Rumble Seat/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Georgia Tech beat" }
+  ]},
+  { "team_key": "WAKE", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_wake", "name": "Wake Forest Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Wake Forest athletics press release feed" },
+    { "source_id": "cfb_beat_wsjournalwake", "name": "Brian Hall (Winston-Salem Journal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Winston-Salem Journal Wake Forest beat" },
+    { "source_id": "cfb_beat_247_wake", "name": "Michael Niziolek (247Sports Wake Forest)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Wake Forest beat" }
+  ]},
+  { "team_key": "PITT", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_pitt", "name": "Pittsburgh Panthers SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Pitt athletics press release feed" },
+    { "source_id": "cfb_beat_pittpostgazette_pitt", "name": "Craig Meyer (Pittsburgh Post-Gazette)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Pittsburgh Post-Gazette Pitt Panthers beat" },
+    { "source_id": "cfb_beat_247_pitt", "name": "John McGonigal (Pittsburgh Post-Gazette/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Pittsburgh beat" }
+  ]},
+  { "team_key": "LOU", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_lou", "name": "Louisville Cardinals SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Louisville athletics press release feed" },
+    { "source_id": "cfb_beat_courierjournal_lou", "name": "Jeff Greer (Courier-Journal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Louisville Courier-Journal Cardinals beat" },
+    { "source_id": "cfb_beat_247_lou", "name": "Tyler Mansfield (CardGame/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Louisville beat" }
+  ]},
+  { "team_key": "BC", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_bc", "name": "Boston College Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official BC athletics press release feed" },
+    { "source_id": "cfb_beat_bostonglobe_bc", "name": "Michael Connolly (Boston Globe)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Boston Globe Boston College beat" },
+    { "source_id": "cfb_beat_247_bc", "name": "Jerod MacDonald-Evoy (EagleAction/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Boston College beat" }
+  ]},
+  { "team_key": "SYR", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_syr", "name": "Syracuse Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Syracuse athletics press release feed" },
+    { "source_id": "cfb_beat_syracusecom_syr", "name": "Nate Mink (Syracuse.com)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Syracuse.com Orange beat" },
+    { "source_id": "cfb_beat_247_syr", "name": "Mike McAllister (247Sports SYR)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Syracuse beat" }
+  ]},
+  { "team_key": "CAL", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_cal", "name": "Cal Bears Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Cal athletics press release feed" },
+    { "source_id": "cfb_beat_sfchronicle_cal", "name": "Connor Letourneau (San Francisco Chronicle)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "SF Chronicle Cal Bears beat" },
+    { "source_id": "cfb_beat_247_cal", "name": "Brock Miller (CalBearsMaven/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Cal beat" }
+  ]},
+  { "team_key": "STAN", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_stan", "name": "Stanford Cardinal Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Stanford athletics press release feed" },
+    { "source_id": "cfb_beat_mercurynews_stan", "name": "Darren Sabedra (San Jose Mercury News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Mercury News Stanford beat" },
+    { "source_id": "cfb_beat_sfchronicle_stan", "name": "Kerry Crowley (The Athletic/San Jose Mercury)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Athletic Stanford beat" }
+  ]},
+  { "team_key": "SMU", "conference": "ACC", "primary_sources": [
+    { "source_id": "cfb_sid_smu", "name": "SMU Mustangs Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official SMU athletics press release feed" },
+    { "source_id": "cfb_beat_dallasnews_smu", "name": "Brandon Summervill (Dallas Morning News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Dallas Morning News SMU beat" },
+    { "source_id": "cfb_beat_247_smu", "name": "Niko Karamitsos (PonyFans/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports SMU beat" }
+  ]},
+  { "team_key": "MEM", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_mem", "name": "Memphis Tigers Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Memphis athletics press release feed" },
+    { "source_id": "cfb_beat_ca_mem", "name": "Jason Munz (Memphis Commercial Appeal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Commercial Appeal Memphis Tigers beat" },
+    { "source_id": "cfb_beat_247_mem", "name": "Clint Cosgrove (247Sports Memphis)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Memphis beat" }
+  ]},
+  { "team_key": "NAVY", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_navy", "name": "Navy Midshipmen Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Naval Academy athletics press release feed" },
+    { "source_id": "cfb_beat_capitalgazette_navy", "name": "Don Markus (Baltimore Sun/Capital Gazette)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Capital Gazette / Baltimore Sun Navy coverage" }
+  ]},
+  { "team_key": "TUL", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_tul", "name": "Tulane Green Wave Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Tulane athletics press release feed" },
+    { "source_id": "cfb_beat_nola_tul", "name": "Jimmy Smith (New Orleans Times-Picayune)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Times-Picayune/NOLA.com Tulane beat" },
+    { "source_id": "cfb_beat_247_tul", "name": "Michael Signorelli (247Sports Tulane)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Tulane beat" }
+  ]},
+  { "team_key": "TULSA", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_tulsa", "name": "Tulsa Golden Hurricane SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Tulsa athletics press release feed" },
+    { "source_id": "cfb_beat_tulsaworld_tulsa", "name": "Bill Haisten (Tulsa World)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Tulsa World Golden Hurricane beat" },
+    { "source_id": "cfb_beat_247_tulsa", "name": "Matt Sargen (247Sports Tulsa)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Tulsa beat" }
+  ]},
+  { "team_key": "ECU", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_ecu", "name": "East Carolina Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official ECU athletics press release feed" },
+    { "source_id": "cfb_beat_witn_ecu", "name": "David Tucker (WITN News)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "WITN Greenville ECU coverage" },
+    { "source_id": "cfb_beat_247_ecu", "name": "Evan Moesta (247Sports ECU)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports East Carolina beat" }
+  ]},
+  { "team_key": "USF", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_usf", "name": "South Florida Bulls Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official USF athletics press release feed" },
+    { "source_id": "cfb_beat_tbt_usf", "name": "Matt Baker (Tampa Bay Times)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Tampa Bay Times USF Bulls beat" },
+    { "source_id": "cfb_beat_247_usf", "name": "Josh Newberg (247Sports USF)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports USF beat" }
+  ]},
+  { "team_key": "TEMP", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_temp", "name": "Temple Owls Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Temple athletics press release feed" },
+    { "source_id": "cfb_beat_phillyinquirer_temp", "name": "Josh Tolentino (Philadelphia Inquirer)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Philadelphia Inquirer Temple beat" },
+    { "source_id": "cfb_beat_247_temp", "name": "Owls Daily (247Sports Temple)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Temple beat" }
+  ]},
+  { "team_key": "FAU", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_fau", "name": "FAU Owls Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official FAU athletics press release feed" },
+    { "source_id": "cfb_beat_sunsent_fau", "name": "Omar Kelly (South Florida Sun Sentinel)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Sun Sentinel FAU Owls beat" },
+    { "source_id": "cfb_beat_247_fau", "name": "Bret Strelow (247Sports FAU)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports FAU beat" }
+  ]},
+  { "team_key": "UTSA", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_utsa", "name": "UTSA Roadrunners Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official UTSA athletics press release feed" },
+    { "source_id": "cfb_beat_expressnews_utsa", "name": "Tim Griffin (San Antonio Express-News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Express-News UTSA beat" },
+    { "source_id": "cfb_beat_247_utsa", "name": "Mike Craven (RunnerSports/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports UTSA beat" }
+  ]},
+  { "team_key": "UNT", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_unt", "name": "North Texas Mean Green SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official North Texas athletics press release feed" },
+    { "source_id": "cfb_beat_startel_unt", "name": "Stefan Stevenson (Fort Worth Star-Telegram)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Star-Telegram North Texas beat" },
+    { "source_id": "cfb_beat_247_unt", "name": "Derek Duke (MeanGreenSports/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports North Texas beat" }
+  ]},
+  { "team_key": "RICE", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_rice", "name": "Rice Owls Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Rice athletics press release feed" },
+    { "source_id": "cfb_beat_houstonchronicle_rice", "name": "David Barron (Houston Chronicle)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Houston Chronicle Rice Owls coverage" },
+    { "source_id": "cfb_beat_247_rice", "name": "Brandon Strange (247Sports Rice)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Rice beat" }
+  ]},
+  { "team_key": "ARMY", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_army", "name": "Army Black Knights Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Army athletics press release feed" },
+    { "source_id": "cfb_beat_journalnews_army", "name": "Steve Kiggins (Poughkeepsie Journal)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Poughkeepsie Journal / Journal News Army beat" }
+  ]},
+  { "team_key": "UAB", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_uab", "name": "UAB Blazers Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official UAB athletics press release feed" },
+    { "source_id": "cfb_beat_alcom_uab", "name": "Michael Casagrande (AL.com)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "AL.com UAB Blazers beat" },
+    { "source_id": "cfb_beat_247_uab", "name": "Tommy Hicks (247Sports UAB)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports UAB beat" }
+  ]},
+  { "team_key": "CHAR", "conference": "AAC", "primary_sources": [
+    { "source_id": "cfb_sid_char", "name": "Charlotte 49ers Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Charlotte athletics press release feed" },
+    { "source_id": "cfb_beat_charlotteobserver_char", "name": "Jonathan Jones (Charlotte Observer)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Charlotte Observer 49ers beat" }
+  ]},
+  { "team_key": "BSU", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_bsu", "name": "Boise State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Boise State athletics press release feed" },
+    { "source_id": "cfb_beat_idahostatesman_bsu", "name": "Colby Cotton (Idaho Statesman)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Idaho Statesman Boise State beat" },
+    { "source_id": "cfb_beat_247_bsu", "name": "Jay Tust (KTVB 7/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports/KTVB Boise State beat" }
+  ]},
+  { "team_key": "FRES", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_fres", "name": "Fresno State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Fresno State athletics press release feed" },
+    { "source_id": "cfb_beat_fresnobee_fres", "name": "Jeff Barker (Fresno Bee)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Fresno Bee Bulldogs beat" },
+    { "source_id": "cfb_beat_247_fres", "name": "Michael DeWald (247Sports Fresno)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Fresno State beat" }
+  ]},
+  { "team_key": "SDSU", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_sdsu", "name": "San Diego State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official SDSU athletics press release feed" },
+    { "source_id": "cfb_beat_sduniontrib_sdsu", "name": "Mark Zeigler (San Diego Union-Tribune)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Union-Tribune SDSU Aztecs beat" },
+    { "source_id": "cfb_beat_247_sdsu", "name": "Ryan Dyrud (247Sports SDSU)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports San Diego State beat" }
+  ]},
+  { "team_key": "UNLV", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_unlv", "name": "UNLV Rebels Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official UNLV athletics press release feed" },
+    { "source_id": "cfb_beat_reviewjournal_unlv", "name": "Adam Hill (Las Vegas Review-Journal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Review-Journal UNLV Rebels beat" },
+    { "source_id": "cfb_beat_247_unlv", "name": "Jake Pavorsky (247Sports UNLV)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports UNLV beat" }
+  ]},
+  { "team_key": "CSU", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_csu", "name": "Colorado State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Colorado State athletics press release feed" },
+    { "source_id": "cfb_beat_coloradoan_csu", "name": "Matt Stephens (Fort Collins Coloradoan)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Coloradoan Colorado State beat" },
+    { "source_id": "cfb_beat_247_csu", "name": "Kyle Ringo (247Sports CSU)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports Colorado State beat" }
+  ]},
+  { "team_key": "NEV", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_nev", "name": "Nevada Wolf Pack Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Nevada athletics press release feed" },
+    { "source_id": "cfb_beat_rgjnev", "name": "Chris Murray (Reno Gazette-Journal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Reno Gazette-Journal Nevada Wolf Pack beat" }
+  ]},
+  { "team_key": "USU", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_usu", "name": "Utah State Aggies Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Utah State athletics press release feed" },
+    { "source_id": "cfb_beat_heraldjournal_usu", "name": "Zach Ostler (Herald Journal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Logan Herald Journal Utah State beat" },
+    { "source_id": "cfb_beat_deseretnews_usu", "name": "Mark Thompson (Deseret News)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Deseret News Utah State coverage" }
+  ]},
+  { "team_key": "AFA", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_afa", "name": "Air Force Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Air Force athletics press release feed" },
+    { "source_id": "cfb_beat_gazette_afa", "name": "Jon Anderson (Colorado Springs Gazette)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Colorado Springs Gazette Air Force Falcons beat" }
+  ]},
+  { "team_key": "WYO", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_wyo", "name": "Wyoming Cowboys Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Wyoming athletics press release feed" },
+    { "source_id": "cfb_beat_casperstartrib_wyo", "name": "Ryan Thorburn (Casper Star-Tribune)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Casper Star-Tribune Wyoming Cowboys beat" }
+  ]},
+  { "team_key": "HAW", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_haw", "name": "Hawaii Rainbow Warriors Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Hawaii athletics press release feed" },
+    { "source_id": "cfb_beat_staradvertiser_haw", "name": "Dave Reardon (Honolulu Star-Advertiser)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Honolulu Star-Advertiser Hawaii beat" }
+  ]},
+  { "team_key": "UNM", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_unm", "name": "New Mexico Lobos Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official New Mexico athletics press release feed" },
+    { "source_id": "cfb_beat_abqjournal_unm", "name": "Brian Pauling (Albuquerque Journal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Albuquerque Journal UNM Lobos beat" }
+  ]},
+  { "team_key": "SJSU", "conference": "MountainWest", "primary_sources": [
+    { "source_id": "cfb_sid_sjsu", "name": "San Jose State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official SJSU athletics press release feed" },
+    { "source_id": "cfb_beat_mercurynews_sjsu", "name": "Daniel Emerson (San Jose Mercury News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Mercury News San Jose State beat" }
+  ]},
+  { "team_key": "APP", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_app", "name": "App State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official App State athletics press release feed" },
+    { "source_id": "cfb_beat_wataugadem_app", "name": "Jamie Justice (Watauga Democrat)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Watauga Democrat App State beat" },
+    { "source_id": "cfb_beat_247_app", "name": "Chris Marler (AppStateNation/247Sports)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "247Sports App State beat" }
+  ]},
+  { "team_key": "GASO", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_gaso", "name": "Georgia Southern Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Georgia Southern athletics press release feed" },
+    { "source_id": "cfb_beat_savannahmorning_gaso", "name": "Brandon Adams (Savannah Morning News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Savannah Morning News Georgia Southern beat" }
+  ]},
+  { "team_key": "GAST", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_gast", "name": "Georgia State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Georgia State athletics press release feed" },
+    { "source_id": "cfb_beat_ajc_gast", "name": "Ken Sugiura (Atlanta Journal-Constitution)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "AJC Georgia State secondary coverage" }
+  ]},
+  { "team_key": "SOAL", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_soal", "name": "South Alabama Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official South Alabama athletics press release feed" },
+    { "source_id": "cfb_beat_alcom_soal", "name": "Bill Britt (AL.com / Press-Register)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "AL.com South Alabama Jaguars beat" }
+  ]},
+  { "team_key": "ULL", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_ull", "name": "Louisiana Ragin' Cajuns Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Louisiana athletics press release feed" },
+    { "source_id": "cfb_beat_acadianaadvocate_ull", "name": "Tim Buckley (The Acadiana Advocate)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Acadiana Advocate ULL beat" }
+  ]},
+  { "team_key": "ULM", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_ulm", "name": "Louisiana Monroe Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official ULM athletics press release feed" },
+    { "source_id": "cfb_beat_newsstar_ulm", "name": "Cory Diaz (Monroe News-Star/USA Today)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "News-Star ULM Warhawks beat" }
+  ]},
+  { "team_key": "ARKST", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_arkst", "name": "Arkansas State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Arkansas State athletics press release feed" },
+    { "source_id": "cfb_beat_jonesborosun_arkst", "name": "Michael Hutchinson (Jonesboro Sun)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Jonesboro Sun Arkansas State beat" }
+  ]},
+  { "team_key": "TROY", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_troy", "name": "Troy Trojans Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Troy athletics press release feed" },
+    { "source_id": "cfb_beat_alcom_troy", "name": "Joe Goodman (AL.com / Birmingham News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "AL.com Troy Trojans beat" }
+  ]},
+  { "team_key": "USM", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_usm", "name": "Southern Miss Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Southern Miss athletics press release feed" },
+    { "source_id": "cfb_beat_hattiesburgamerican_usm", "name": "Nick Suss (Hattiesburg American)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Hattiesburg American Southern Miss beat" }
+  ]},
+  { "team_key": "TXST", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_txst", "name": "Texas State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Texas State athletics press release feed" },
+    { "source_id": "cfb_beat_sanmarcosrec_txst", "name": "Mikala Compton (San Marcos Daily Record)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "San Marcos Daily Record Texas State beat" }
+  ]},
+  { "team_key": "ODU", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_odu", "name": "Old Dominion Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official ODU athletics press release feed" },
+    { "source_id": "cfb_beat_dailypress_odu", "name": "David Teel (Daily Press)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Daily Press / Virginian-Pilot ODU beat" }
+  ]},
+  { "team_key": "JMU", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_jmu", "name": "James Madison Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official JMU athletics press release feed" },
+    { "source_id": "cfb_beat_dnr_jmu", "name": "Justin Faulconer (Daily News-Record)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Harrisonburg Daily News-Record JMU beat" }
+  ]},
+  { "team_key": "CCU", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_ccu", "name": "Coastal Carolina Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Coastal Carolina athletics press release feed" },
+    { "source_id": "cfb_beat_thestate_ccu", "name": "Andrew Carter (The State)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The State Coastal Carolina Chanticleers beat" }
+  ]},
+  { "team_key": "MARS", "conference": "SunBelt", "primary_sources": [
+    { "source_id": "cfb_sid_mars", "name": "Marshall Thundering Herd Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Marshall athletics press release feed" },
+    { "source_id": "cfb_beat_heralddispatch_mars", "name": "Cory Giger (The Herald-Dispatch)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Herald-Dispatch Marshall Herd beat" }
+  ]},
+  { "team_key": "UTEP", "conference": "CUSA", "primary_sources": [
+    { "source_id": "cfb_sid_utep", "name": "UTEP Miners Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official UTEP athletics press release feed" },
+    { "source_id": "cfb_beat_elpasotimes_utep", "name": "Aaron Montes (El Paso Times)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "El Paso Times UTEP Miners beat" }
+  ]},
+  { "team_key": "FIU", "conference": "CUSA", "primary_sources": [
+    { "source_id": "cfb_sid_fiu", "name": "FIU Panthers Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official FIU athletics press release feed" },
+    { "source_id": "cfb_beat_sunsent_fiu", "name": "Scott Wyland (South Florida Sun Sentinel)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Sun Sentinel FIU Panthers beat" }
+  ]},
+  { "team_key": "LT", "conference": "CUSA", "primary_sources": [
+    { "source_id": "cfb_sid_lt", "name": "Louisiana Tech Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Louisiana Tech athletics press release feed" },
+    { "source_id": "cfb_beat_shreveporttimes_lt", "name": "David Pearson (Monroe News-Star / Shreveport Times)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "USA Today Louisiana Tech beat" }
+  ]},
+  { "team_key": "MTSU", "conference": "CUSA", "primary_sources": [
+    { "source_id": "cfb_sid_mtsu", "name": "Middle Tennessee Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official MTSU athletics press release feed" },
+    { "source_id": "cfb_beat_dnj_mtsu", "name": "Cecil Joyce (Murfreesboro Daily News Journal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Daily News Journal MTSU Blue Raiders beat" }
+  ]},
+  { "team_key": "WKU", "conference": "CUSA", "primary_sources": [
+    { "source_id": "cfb_sid_wku", "name": "Western Kentucky Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official WKU athletics press release feed" },
+    { "source_id": "cfb_beat_bgdailynews_wku", "name": "Justin Lucas (Bowling Green Daily News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Bowling Green Daily News WKU Hilltoppers beat" }
+  ]},
+  { "team_key": "LIB", "conference": "CUSA", "primary_sources": [
+    { "source_id": "cfb_sid_lib", "name": "Liberty Flames Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Liberty athletics press release feed" },
+    { "source_id": "cfb_beat_newsadvance_lib", "name": "Ben Spier (Lynchburg News & Advance)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "News & Advance Liberty Flames beat" }
+  ]},
+  { "team_key": "NMSU", "conference": "CUSA", "primary_sources": [
+    { "source_id": "cfb_sid_nmsu", "name": "New Mexico State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official NMSU athletics press release feed" },
+    { "source_id": "cfb_beat_lcsunnews_nmsu", "name": "George Adler (Las Cruces Sun-News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Las Cruces Sun-News NMSU Aggies beat" }
+  ]},
+  { "team_key": "SHSU", "conference": "CUSA", "primary_sources": [
+    { "source_id": "cfb_sid_shsu", "name": "Sam Houston Bearkats Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Sam Houston athletics press release feed" },
+    { "source_id": "cfb_beat_huntsvilleitem_shsu", "name": "Seth Cooper (Huntsville Item)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Huntsville Item Sam Houston beat" }
+  ]},
+  { "team_key": "JSU", "conference": "CUSA", "primary_sources": [
+    { "source_id": "cfb_sid_jsu", "name": "Jacksonville State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Jacksonville State athletics press release feed" },
+    { "source_id": "cfb_beat_annistonstar_jsu", "name": "Steve Gillespie (Anniston Star)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Anniston Star Jacksonville State beat" }
+  ]},
+  { "team_key": "OHIO", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_ohio", "name": "Ohio Bobcats Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Ohio University athletics press release feed" },
+    { "source_id": "cfb_beat_athensmessenger_ohio", "name": "Jim Naveau (The Athens Messenger)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Athens Messenger Ohio Bobcats beat" }
+  ]},
+  { "team_key": "CMU", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_cmu", "name": "Central Michigan Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official CMU athletics press release feed" },
+    { "source_id": "cfb_beat_morningsun_cmu", "name": "Morning Sun Staff (Mount Pleasant Morning Sun)", "type": "local_news", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "Morning Sun Central Michigan beat" }
+  ]},
+  { "team_key": "EMU", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_emu", "name": "Eastern Michigan Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official EMU athletics press release feed" },
+    { "source_id": "cfb_beat_annarborcom_emu", "name": "Matt Mosel (AnnArbor.com)", "type": "beat_reporter", "prior_accuracy": 0.72, "prior_sample_size": 10, "notes": "AnnArbor.com Eastern Michigan coverage" }
+  ]},
+  { "team_key": "WMU", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_wmu", "name": "Western Michigan Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official WMU athletics press release feed" },
+    { "source_id": "cfb_beat_battlecreekenquirer_wmu", "name": "David Drew (Battle Creek Enquirer)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Battle Creek Enquirer Western Michigan beat" }
+  ]},
+  { "team_key": "BALL", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_ball", "name": "Ball State Cardinals Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Ball State athletics press release feed" },
+    { "source_id": "cfb_beat_munciestarpress_ball", "name": "Chris Dorman (Muncie Star Press)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Star Press Ball State Cardinals beat" }
+  ]},
+  { "team_key": "NIU", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_niu", "name": "Northern Illinois Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official NIU athletics press release feed" },
+    { "source_id": "cfb_beat_shawlocal_niu", "name": "Kevin Haas (Shaw Local News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Daily Chronicle / Shaw Local NIU beat" }
+  ]},
+  { "team_key": "BUFF", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_buff", "name": "Buffalo Bulls Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official UB athletics press release feed" },
+    { "source_id": "cfb_beat_buffalonews_buff", "name": "Mike Petro (Buffalo News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Buffalo News UB Bulls beat" }
+  ]},
+  { "team_key": "KENT", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_kent", "name": "Kent State Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Kent State athletics press release feed" },
+    { "source_id": "cfb_beat_recordcourier_kent", "name": "Alan Ashby (Record-Courier)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Record-Courier Kent State beat" }
+  ]},
+  { "team_key": "AKR", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_akr", "name": "Akron Zips Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Akron athletics press release feed" },
+    { "source_id": "cfb_beat_akronbeacon_akr", "name": "Steve Doerschuk (Akron Beacon Journal)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Akron Beacon Journal Zips beat" }
+  ]},
+  { "team_key": "TOL", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_tol", "name": "Toledo Rockets Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Toledo athletics press release feed" },
+    { "source_id": "cfb_beat_toledobladebl_tol", "name": "Kyle Rowland (Toledo Blade)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Toledo Blade Rockets beat" }
+  ]},
+  { "team_key": "MIOH", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_mioh", "name": "Miami (OH) RedHawks Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Miami Ohio athletics press release feed" },
+    { "source_id": "cfb_beat_daytondailynews_mioh", "name": "Marcus Hartman (Dayton Daily News)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Dayton Daily News Miami OH RedHawks beat" }
+  ]},
+  { "team_key": "BGS", "conference": "MAC", "primary_sources": [
+    { "source_id": "cfb_sid_bgs", "name": "Bowling Green Falcons Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official BGSU athletics press release feed" },
+    { "source_id": "cfb_beat_sentineltribune_bgs", "name": "Brent Mayotte (Sentinel-Tribune)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Sentinel-Tribune BGSU Falcons beat" }
+  ]},
+  { "team_key": "ND", "conference": "Independent", "primary_sources": [
+    { "source_id": "cfb_sid_nd", "name": "Notre Dame Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official Notre Dame athletics press release feed" },
+    { "source_id": "cfb_beat_southbendtrib_nd", "name": "Tom Noie (South Bend Tribune)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "South Bend Tribune Notre Dame beat" },
+    { "source_id": "cfb_beat_athletic_nd", "name": "Pete Sampson (The Athletic Notre Dame)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "The Athletic Notre Dame beat" }
+  ]},
+  { "team_key": "UCONN", "conference": "Independent", "primary_sources": [
+    { "source_id": "cfb_sid_uconn", "name": "UConn Huskies Athletics SID", "type": "sid", "prior_accuracy": 0.92, "prior_sample_size": 20, "notes": "Official UConn athletics press release feed" },
+    { "source_id": "cfb_beat_hartfordcourant_uconn", "name": "Dom Amore (Hartford Courant)", "type": "beat_reporter", "prior_accuracy": 0.78, "prior_sample_size": 15, "notes": "Hartford Courant UConn beat" }
+  ]}
+]
