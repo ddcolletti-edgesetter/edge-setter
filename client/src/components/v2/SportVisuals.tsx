@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { deterministicTeamColors, teamColorsFor } from "@/lib/teamColors";
+
 /**
  * Edge Setter v2 — Sport Visual Component System
  * LFL Master Design — War Room Aesthetic
@@ -72,8 +74,10 @@ export const TEAM_COLORS: Record<string, { primary: string; secondary: string }>
   DEFAULT: { primary: "#101827", secondary: "#94A3B8" },
 };
 
-export function getTeamColors(abbr: string) {
-  return TEAM_COLORS[abbr?.toUpperCase()] ?? TEAM_COLORS.DEFAULT;
+export function getTeamColors(abbr: string, sport?: TeamLogoSport) {
+  // Full league manifest first (32 NFL + 30 NBA + 30 MLB + 130 CFB),
+  // then the legacy in-file map, then neutral.
+  return teamColorsFor(abbr, sport) ?? TEAM_COLORS[abbr?.toUpperCase()] ?? TEAM_COLORS.DEFAULT;
 }
 
 const TEAM_NAME_TO_ABBR: Record<string, string> = {
@@ -120,7 +124,13 @@ const TEAM_NAME_TO_ABBR: Record<string, string> = {
 export function toTeamAbbr(name?: string): string {
   if (!name) return "";
   if (name.length <= 4) return name.toUpperCase();
-  return TEAM_NAME_TO_ABBR[name.toLowerCase()] ?? name.slice(0, 3).toUpperCase();
+  const mapped = TEAM_NAME_TO_ABBR[name.toLowerCase()];
+  if (mapped) return mapped;
+  // Recognize longer known abbreviations (ARKST, TULSA, UCONN) before slicing
+  // would corrupt them (ARKST → "ARK" is Arkansas, not Arkansas State).
+  const upper = name.trim().toUpperCase();
+  if (!/\s/.test(upper) && upper.length <= 6 && teamColorsFor(upper)) return upper;
+  return name.slice(0, 3).toUpperCase();
 }
 
 export function isUnknownTeamAbbr(value?: string | null): boolean {
@@ -316,7 +326,7 @@ export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: T
   const unknownTeam = isUnknownTeamAbbr(normalizedAbbr);
   const logoUrl = unknownTeam ? "" : src ?? getTeamLogoUrl(normalizedAbbr, sport);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const showFallback = !logoUrl || (Boolean(src) && failedUrl === logoUrl);
+  const showFallback = !logoUrl || failedUrl === logoUrl;
   const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "4px";
   const fallback = teamFallbackVisual(normalizedAbbr, sport);
   const padding = Math.max(3, Math.round(size * 0.11));
@@ -327,21 +337,21 @@ export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: T
 
   if (showFallback) {
     if (unknownTeam) return <NeutralTeamPlaceholder size={size} shape={shape} />;
+    // Team-color fallback: solid primary circle, abbreviation in white, centered.
+    const label = normalizedAbbr?.slice(0, 4).toUpperCase() ?? "";
+    const fontSize = size * (label.length >= 4 ? 0.26 : 0.34);
     return (
-      <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, position: "relative", background: fallback.bg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span aria-hidden="true" style={{ position: "absolute", inset: "18% 12% auto auto", width: "42%", height: "2px", background: fallback.stripe, opacity: 0.72, transform: "rotate(-24deg)" }} />
-        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: size * 0.34, fontWeight: 900, color: fallback.text, letterSpacing: "0.01em", lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,0.65)" }}>
-          {normalizedAbbr?.slice(0, 3).toUpperCase()}
+      <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, background: fallback.bg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize, fontWeight: 800, color: "#FFFFFF", letterSpacing: "0.02em", lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,0.45)" }}>
+          {label}
         </span>
       </div>
     );
   }
   return (
-    <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, position: "relative", background: fallback.bg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow }}>
+    <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, position: "relative", background: fallback.imgBg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow }}>
       <img src={logoUrl} alt={normalizedAbbr || abbr} width={size} height={size} style={{ position: "relative", zIndex: 1, width: "100%", height: "100%", objectFit: "contain", display: "block", padding, boxSizing: "border-box", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.45))" }}
-        onError={() => {
-          if (src) setFailedUrl(logoUrl);
-        }}
+        onError={() => setFailedUrl(logoUrl)}
       />
     </div>
   );
@@ -374,14 +384,21 @@ function NeutralTeamPlaceholder({ size, shape }: { size: number; shape: TeamLogo
 }
 
 function teamFallbackVisual(abbr: string, sport?: TeamLogoSport) {
-  const colors = getTeamColors(abbr);
-  const sportAccent = sport === "nfl" ? "#00B7FF" : sport === "cfb" ? "#B06EFF" : sport === "mlb" ? "#00E676" : sport === "nba" ? "#F5B841" : colors.secondary;
+  // Known team → brand colors. Unknown team → deterministic dark palette
+  // keyed by abbreviation. Either way the circle is colored, never gray.
+  const colors = teamColorsFor(abbr, sport)
+    ?? TEAM_COLORS[abbr?.toUpperCase()]
+    ?? deterministicTeamColors(abbr);
   return {
-    bg: `radial-gradient(circle at 28% 18%, ${colors.secondary}55, transparent 36%), linear-gradient(145deg, ${colors.primary}EE, rgba(8,13,20,0.96) 68%), linear-gradient(135deg, ${sportAccent}26, transparent)`,
+    // Fallback circle: solid team primary — never a gray circle.
+    bg: colors.primary,
+    // Backdrop behind a successfully loaded logo image: keep the original
+    // dark gradient so working NBA/MLB logo renders are unchanged.
+    imgBg: `radial-gradient(circle at 28% 18%, ${colors.secondary}55, transparent 36%), linear-gradient(145deg, ${colors.primary}EE, rgba(8,13,20,0.96) 68%)`,
     border: `${colors.secondary}66`,
-    text: colors.secondary === "#000000" ? "#F8FAFC" : colors.secondary,
+    text: "#FFFFFF",
     shadow: `0 0 0 1px rgba(248,250,252,0.035), 0 6px 16px ${colors.primary}55`,
-    stripe: sportAccent,
+    stripe: colors.secondary,
   };
 }
 

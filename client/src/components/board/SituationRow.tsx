@@ -78,6 +78,7 @@ export interface SituationRowData {
   sourceSummary?: string;
   timingAdvantage?: string;
   detectionLeadTime?: string;
+  detectionLeadKind?: "confirmation" | "pickup";
   marketReaction?: string;
   replayChain?: string[];
 }

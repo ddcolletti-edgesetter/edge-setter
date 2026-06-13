@@ -57,8 +57,10 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           {story.headline}
         </h3>
         {story.row.detectionLeadTime && (
-          <div className="mt-1.5 inline-flex items-center gap-1 rounded border border-[rgba(24,212,123,0.3)] bg-[rgba(24,212,123,0.06)] px-2 py-0.5 text-[0.64rem] font-bold text-[var(--es-green)]">
-            ⚡ Flagged {story.row.detectionLeadTime} before confirmation
+          <div className="mt-1.5 inline-flex max-w-full flex-wrap items-center gap-1 rounded border border-[rgba(45,212,191,0.35)] bg-[rgba(45,212,191,0.08)] px-2 py-0.5 text-[0.68rem] font-extrabold leading-snug text-[#2DD4BF]">
+            {story.row.detectionLeadKind === "pickup"
+              ? <>⚡ Detected {story.row.detectionLeadTime} before national pickup</>
+              : <>⚡ EdgeSetter flagged {story.row.detectionLeadTime} before public confirmation</>}
           </div>
         )}
         <SituationProgressBar state={story.row.lifecycleVisualState} />

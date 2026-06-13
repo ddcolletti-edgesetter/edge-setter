@@ -83,6 +83,7 @@ export type SignalDetailLike = {
   calibrationSummary?: string | null;
   calibrationLimitations?: string[] | null;
   detectionLeadTime?: string | null;
+  detectionLeadKind?: "confirmation" | "pickup" | null;
 };
 
 type SignalDetailDrawerProps = {
@@ -187,7 +188,7 @@ function timingProfile(ageMinutes: number | null) {
   if (ageMinutes <= 720) {
     return { label: "Widely Known", tone: "gold" as Tone, adoption: clamp(68 + ageMinutes * 0.03), description: "Most of the story may already be reflected publicly." };
   }
-  return { label: "Late", tone: "red" as Tone, adoption: 92, description: "Treat as background context unless a new confirmation changes the story." };
+  return { label: "Closing", tone: "red" as Tone, adoption: 92, description: "Treat as background context unless a new confirmation changes the story." };
 }
 
 function edgeStrength(confidence: number) {
@@ -226,7 +227,7 @@ function actionWindow(signal: SignalDetailLike, timing: ReturnType<typeof timing
   if (timing.label === "Early") return "Early development; confirmation is still spreading.";
   if (timing.label === "Developing") return "Developing story; compare current market reaction to the latest verification state.";
   if (timing.label === "Widely Known") return "Widely known; timing advantage may already be fully priced.";
-  if (timing.label === "Late") return "Cooling story unless a new source or market reset changes the read.";
+  if (timing.label === "Closing") return "Cooling story unless a new source or market reset changes the read.";
   return "Monitoring until the story gains stronger confirmation.";
 }
 
@@ -464,7 +465,7 @@ function adoptionBand(value: number) {
   if (value < 40) return "Low public pickup";
   if (value < 70) return "Moderate public pickup";
   if (value < 90) return "Broad public pickup";
-  return "Late public pickup";
+  return "Saturated public pickup";
 }
 
 function StatCard({ label, value, detail, tone = "gray" }: { label: string; value: string; detail: string; tone?: Tone }) {
@@ -632,6 +633,30 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
         </header>
 
         <div className="signal-detail-sections">
+          {/* North Star: timing advantage callout — THIS DISPLAY MUST NEVER BE REMOVED.
+              Verified story + measurable lead time → the proof of EdgeSetter's edge. */}
+          {signal.detectionLeadTime && (
+            <div
+              data-testid="timing-advantage-callout"
+              style={{
+                padding: "10px 14px",
+                marginBottom: 4,
+                borderRadius: 6,
+                border: "1px solid rgba(45,212,191,0.4)",
+                background: "rgba(45,212,191,0.10)",
+                color: "#2DD4BF",
+                fontWeight: 800,
+                fontSize: 14,
+                lineHeight: 1.35,
+                letterSpacing: "0.02em",
+                textAlign: "center",
+              }}
+            >
+              {signal.detectionLeadKind === "pickup"
+                ? <>⚡ Detected {signal.detectionLeadTime} before national pickup</>
+                : <>⚡ EdgeSetter flagged {signal.detectionLeadTime} before public confirmation</>}
+            </div>
+          )}
           <SportsStoryVisual
             className="signal-detail-media-slot"
             league={sport}
@@ -673,7 +698,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
 
           <Section title="What to watch next" icon={<Clock3 size={14} />}>
             <div className={`signal-action-window is-${model.timing.tone}`}>
-              <strong>{model.timing.label === "Late" ? "Cooling story" : model.timing.label === "Widely Known" ? "Diminishing timing advantage" : "Window open"}</strong>
+              <strong>{model.timing.label === "Closing" ? "Cooling story" : model.timing.label === "Widely Known" ? "Diminishing timing advantage" : "Window open"}</strong>
               <p>{actionWindow(signal, model.timing)}</p>
             </div>
             <WhatToWatchNext confirm={nextRows[0].value} weaken={nextRows[1].value} next={nextRows[2].value} />
@@ -690,8 +715,10 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   />
 </div>
 {signal.detectionLeadTime && (
-  <div style={{ textAlign: "center", color: "#18D47B", fontSize: 13, marginBottom: 12, letterSpacing: "0.03em" }}>
-    ⚡ EdgeSetter flagged this {signal.detectionLeadTime} before public confirmation
+  <div style={{ textAlign: "center", color: "#2DD4BF", fontWeight: 700, fontSize: 13, marginBottom: 12, letterSpacing: "0.03em" }}>
+    {signal.detectionLeadKind === "pickup"
+      ? <>⚡ Detected {signal.detectionLeadTime} before national pickup</>
+      : <>⚡ EdgeSetter flagged this {signal.detectionLeadTime} before public confirmation</>}
   </div>
 )}
             <div className="signal-detail-stat-grid">

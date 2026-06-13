@@ -61,6 +61,7 @@ export type BoardSituation = {
   sourceSummary?: string;
   timingAdvantage?: string;
   detectionLeadTime?: string;
+  detectionLeadKind?: "confirmation" | "pickup";
   marketReaction?: string;
   replayChain?: string[];
   isLive: boolean;

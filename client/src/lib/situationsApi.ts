@@ -87,6 +87,9 @@ export interface CanonicalSituation {
   operationalVisibilityScore: number;
   lastUpdatedAt: string;
   firstSeenAt: string;
+  publicConfirmation?: string;
+  detectionLeadMinutes?: number;
+  publicConfirmationSource?: string;
   evidenceCount: number;
   sourceCount: number;
   latestEvidence: CanonicalSituationEvidencePreview[];

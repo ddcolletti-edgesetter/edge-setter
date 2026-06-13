@@ -55,12 +55,20 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
     sourceSummary: sourcePosture,
   };
 
+  // Utility classes replicate the homepage's .edge-overlay <style> rules so the
+  // overlay renders correctly on pages without that stylesheet (My Edge, boards).
+  // On the homepage its body-mounted <style> wins cascade ties, so nothing shifts.
+  const cellClass = "grid min-w-0 gap-[3px]";
+  const labelClass = "text-[0.6rem] font-bold uppercase tracking-[0.07em] text-[#64748b]";
+  const valueClass = "overflow-hidden text-ellipsis text-[0.72rem] leading-[1.28] text-[#dbe7f4]";
+  const iconClass = "shrink-0 text-[#6fa4bf]";
+
   return (
-    <div className={compact ? "edge-overlay is-compact" : "edge-overlay"}>
-      <div className="edge-overlay-top">
+    <div className={`${compact ? "edge-overlay is-compact" : "edge-overlay"} grid w-full gap-1.5 border-t border-[#6fa4bf]/20 pt-2`}>
+      <div className="edge-overlay-top flex items-center gap-2 text-[0.68rem] font-extrabold text-[#94a3b8]">
         {publicCopy
-          ? <span className="edge-overlay-status">{publicStatusLabel(data.escalationState, data.status)}</span>
-          : data.escalationState ? <EscalationBadge state={data.escalationState} /> : <span className="edge-overlay-status">{data.status ?? "Monitoring"}</span>}
+          ? <span className="edge-overlay-status inline-flex w-fit items-center rounded-full border border-[#94a3b8]/30 px-2 py-1 text-[0.64rem] font-black uppercase tracking-[0.08em] text-[#94a3b8]">{publicStatusLabel(data.escalationState, data.status)}</span>
+          : data.escalationState ? <EscalationBadge state={data.escalationState} /> : <span className="edge-overlay-status inline-flex w-fit items-center rounded-full border border-[#94a3b8]/30 px-2 py-1 text-[0.64rem] font-black uppercase tracking-[0.08em] text-[#94a3b8]">{data.status ?? "Monitoring"}</span>}
         <span>{publicCopy ? "EdgeSetter review" : "EdgeSetter evidence"}</span>
       </div>
 
@@ -70,28 +78,28 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
           <SourceChainMini situation={situation} />
         </div>
       ) : (
-        <div className="edge-overlay-grid">
-          <div>
-            <ShieldCheck size={13} />
-            <span>Confidence support</span>
-            <strong>{confidenceLabel}</strong>
+        <div className="edge-overlay-grid grid grid-cols-1 gap-1.5">
+          <div className={cellClass}>
+            <ShieldCheck size={13} className={iconClass} />
+            <span className={labelClass}>Confidence support</span>
+            <strong className={valueClass}>{confidenceLabel}</strong>
           </div>
-          <div>
-            <ShieldCheck size={13} />
-            <span>Source support</span>
-            <strong>{sourcePosture}</strong>
+          <div className={cellClass}>
+            <ShieldCheck size={13} className={iconClass} />
+            <span className={labelClass}>Source support</span>
+            <strong className={valueClass}>{sourcePosture}</strong>
           </div>
-          <div>
-            <Clock3 size={13} />
-            <span>Timing</span>
-            <strong>{timingLabel}</strong>
+          <div className={cellClass}>
+            <Clock3 size={13} className={iconClass} />
+            <span className={labelClass}>Timing</span>
+            <strong className={valueClass}>{timingLabel}</strong>
           </div>
         </div>
       )}
 
-      <div className="edge-overlay-replay">
-        <History size={13} />
-        <span>{replay.length ? replay.join(" -> ") : `Verification ${deltaLabel} / ${sourcePosture}`}</span>
+      <div className="edge-overlay-replay flex items-center gap-2 text-[0.68rem] font-extrabold text-[#94a3b8]">
+        <History size={13} className={iconClass} />
+        <span className={valueClass}>{replay.length ? replay.join(" -> ") : `Verification ${deltaLabel} / ${sourcePosture}`}</span>
       </div>
       <div className="mt-1 flex min-w-0 flex-wrap gap-1.5">
         <AgentCalibrationBadge input={calibrationInput} compact={compact} copyVariant={copyVariant} />
@@ -135,7 +143,7 @@ function publicTimingLabel(value?: string | null) {
   if (normalized === "widely known") return "Public context";
   if (normalized === "early") return "Early window";
   if (normalized === "developing") return "Developing window";
-  if (normalized === "closing") return "Late window";
+  if (normalized === "closing") return "Closing window";
   if (normalized === "stale") return "Old update";
   return value;
 }

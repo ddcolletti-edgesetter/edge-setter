@@ -168,6 +168,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     sourceSummary: situation.sourceSummary,
     timingAdvantage: situation.timingAdvantage,
     detectionLeadTime: situation.detectionLeadTime,
+    detectionLeadKind: situation.detectionLeadKind,
     marketReaction: situation.marketReaction,
     replayChain: situation.replayChain,
   };
@@ -706,6 +707,8 @@ function storyWhyItMatters(row: SituationRowData): string | undefined {
 function storyWatchNext(row: SituationRowData): string | undefined {
   if (row.uncertaintyLabel) return cleanStoryLine(row.uncertaintyLabel);
   if (row.timingStageLabel) return cleanStoryLine(row.timingStageLabel);
+  if (row.league === "NBA") return "Watch for the next official status update, warmup/report confirmation, and role impact.";
+  if (row.league === "MLB") return "Watch for lineup confirmation, pitching updates, weather, and market response.";
   return undefined;
 }
 

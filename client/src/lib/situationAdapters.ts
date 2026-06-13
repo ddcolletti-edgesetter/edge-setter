@@ -59,7 +59,8 @@ export function canonicalSituationToBoardSituation(situation: CanonicalSituation
     confidenceJourney: computeConfidenceJourney(situation),
     sourceSummary: convergence,
     timingAdvantage: cooling ? quietTimingCopy(situation.lifecycleState) : timingPressureCopy(situation.timingPressure),
-    detectionLeadTime: computeDetectionLeadTime(situation),
+    detectionLeadTime: computeDetectionLeadDisplay(situation)?.lead,
+    detectionLeadKind: computeDetectionLeadDisplay(situation)?.kind,
     marketReaction: situation.latestEvidence.find((event) => event.marketImpact)?.marketImpact ?? canonicalUncertaintySummary(situation) ?? latestEvidence,
     replayChain: [
       "First seen",
@@ -218,7 +219,8 @@ export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) 
     weakeningSignals: situation.weakeningSignals,
     calibrationSummary: situation.calibrationSummary,
     calibrationLimitations: situation.calibrationLimitations,
-    detectionLeadTime: computeDetectionLeadTime(situation),
+    detectionLeadTime: computeDetectionLeadDisplay(situation)?.lead,
+    detectionLeadKind: computeDetectionLeadDisplay(situation)?.kind,
   };
 }
 
@@ -245,6 +247,13 @@ function computeConfidenceJourney(situation: CanonicalSituation): string | undef
   return `Confidence reached ${peak}% within ${m > 0 ? `${h}h ${m}m` : `${h}h`}`;
 }
 
+export function formatLeadGap(gapMinutes: number): string {
+  if (gapMinutes < 60) return `${gapMinutes}m`;
+  const h = Math.floor(gapMinutes / 60);
+  const m = gapMinutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
 function computeDetectionLeadTime(situation: CanonicalSituation): string | undefined {
   if (situation.lifecycleState !== "official" && situation.lifecycleState !== "confirmed" && situation.lifecycleState !== "cooling") return undefined;
   const confirmEntry = situation.stateHistoryPreview.find(
@@ -257,8 +266,42 @@ function computeDetectionLeadTime(situation: CanonicalSituation): string | undef
   const detectedMs = new Date(situation.firstSeenAt).getTime();
   const gapMinutes = Math.round((confirmTime - detectedMs) / 60_000);
   if (gapMinutes < 15) return undefined;
-  if (gapMinutes < 60) return `${gapMinutes}m`;
-  const h = Math.floor(gapMinutes / 60);
-  const m = gapMinutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+  return formatLeadGap(gapMinutes);
+}
+
+export type DetectionLeadKind = "confirmation" | "pickup";
+
+/**
+ * North Star timing advantage. Primary: the recorded publicConfirmation gap —
+ * the pipeline stamps detectionLeadMinutes when a wire/official source picks up
+ * a story EdgeSetter detected first, so this is the exact minute gap.
+ * Secondary: detection → confirmed/official state transition.
+ * Fallback: detection → first tier2/aggregator source that picked the story up.
+ */
+export function computeDetectionLeadDisplay(
+  situation: CanonicalSituation,
+): { lead: string; kind: DetectionLeadKind } | undefined {
+  if (
+    situation.publicConfirmation &&
+    typeof situation.detectionLeadMinutes === "number" &&
+    situation.detectionLeadMinutes >= 1
+  ) {
+    return { lead: formatLeadGap(situation.detectionLeadMinutes), kind: "confirmation" };
+  }
+
+  const confirmed = computeDetectionLeadTime(situation);
+  if (confirmed) return { lead: confirmed, kind: "confirmation" };
+
+  if (!situation.firstSeenAt) return undefined;
+  const detectedMs = new Date(situation.firstSeenAt).getTime();
+  if (!Number.isFinite(detectedMs)) return undefined;
+  const pickupMs = situation.latestEvidence
+    .filter((event) => /espn|wire|aggregat|rss|national|broadcast|news|247|on3/i.test(event.sourceType ?? ""))
+    .map((event) => new Date(event.timestamp).getTime())
+    .filter((ms) => Number.isFinite(ms) && ms > detectedMs)
+    .sort((a, b) => a - b)[0];
+  if (!pickupMs) return undefined;
+  const gapMinutes = Math.round((pickupMs - detectedMs) / 60_000);
+  if (gapMinutes < 15) return undefined;
+  return { lead: formatLeadGap(gapMinutes), kind: "pickup" };
 }
