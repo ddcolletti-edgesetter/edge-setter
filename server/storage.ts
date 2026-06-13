@@ -362,6 +362,44 @@ sqlite.exec(`
   }
 })();
 
+// Migration: add team_accuracies and insider_score to source_scores if missing.
+(function migrateSourceScoreInsider() {
+  try {
+    const cols = (sqlite.prepare("PRAGMA table_info(source_scores)").all() as any[]).map((c: any) => c.name);
+    if (!cols.includes("team_accuracies")) {
+      sqlite.exec("ALTER TABLE source_scores ADD COLUMN team_accuracies TEXT DEFAULT '{}';");
+      console.log("[db] migrated: source_scores.team_accuracies added");
+    }
+    if (!cols.includes("insider_score")) {
+      sqlite.exec("ALTER TABLE source_scores ADD COLUMN insider_score NUMERIC DEFAULT 0;");
+      console.log("[db] migrated: source_scores.insider_score added");
+    }
+  } catch (e: any) {
+    console.warn("[db] source_scores insider migration skipped:", e.message);
+  }
+})();
+
+// Migration: add sample_size, window_days, last_computed_at to source_scores if missing.
+(function migrateSourceScoreSampleSize() {
+  try {
+    const cols = (sqlite.prepare("PRAGMA table_info(source_scores)").all() as any[]).map((c: any) => c.name);
+    if (!cols.includes("sample_size")) {
+      sqlite.exec("ALTER TABLE source_scores ADD COLUMN sample_size INTEGER;");
+      console.log("[db] migrated: source_scores.sample_size added");
+    }
+    if (!cols.includes("window_days")) {
+      sqlite.exec("ALTER TABLE source_scores ADD COLUMN window_days INTEGER DEFAULT 90;");
+      console.log("[db] migrated: source_scores.window_days added");
+    }
+    if (!cols.includes("last_computed_at")) {
+      sqlite.exec("ALTER TABLE source_scores ADD COLUMN last_computed_at TEXT;");
+      console.log("[db] migrated: source_scores.last_computed_at added");
+    }
+  } catch (e: any) {
+    console.warn("[db] source_scores sample_size migration skipped:", e.message);
+  }
+})();
+
 // Sprint 10 migration: add beta_until to users if it doesn't exist yet.
 // SQLite does not support IF NOT EXISTS on ALTER TABLE, so we check PRAGMA.
 // This is safe to run on every startup.
@@ -374,6 +412,42 @@ sqlite.exec(`
     }
   } catch (e: any) {
     console.warn("[db] beta_until migration skipped:", e.message);
+  }
+})();
+
+(function migrateSignalStateHistory() {
+  try {
+    sqlite.exec(`
+      CREATE TABLE IF NOT EXISTS signal_state_history (
+        id TEXT PRIMARY KEY,
+        signal_id TEXT NOT NULL,
+        verdict TEXT NOT NULL,
+        confidence_score NUMERIC NOT NULL,
+        transitioned_at TEXT NOT NULL,
+        triggered_by TEXT,
+        is_verified_transition INTEGER DEFAULT 0
+      );
+    `);
+    sqlite.exec(`
+      CREATE INDEX IF NOT EXISTS idx_ssh_signal_id
+      ON signal_state_history(signal_id, transitioned_at);
+    `);
+    const cols = (sqlite.prepare("PRAGMA table_info(signals)").all() as any[])
+      .map((c: any) => c.name);
+    if (!cols.includes("first_seen_at")) {
+      sqlite.exec("ALTER TABLE signals ADD COLUMN first_seen_at TEXT;");
+      sqlite.exec(`
+        UPDATE signals SET first_seen_at = datetime('now')
+        WHERE first_seen_at IS NULL;
+      `);
+      console.log("[db] migrated: signals.first_seen_at added");
+    }
+    if (!cols.includes("verified_at")) {
+      sqlite.exec("ALTER TABLE signals ADD COLUMN verified_at TEXT;");
+      console.log("[db] migrated: signals.verified_at added");
+    }
+  } catch (e: any) {
+    console.warn("[db] signal_state_history migration skipped:", e.message);
   }
 })();
 
@@ -584,6 +658,113 @@ export class SqliteStorage implements IStorage {
     const row = { ...data, id: uuid(), updated_at: now() };
     return db.insert(source_scores).values(row).returning().get();
   }
+  getClaimsBySourceId(source_id: string, sinceDate?: string): any[] {
+    if (sinceDate) {
+      return sqlite.prepare(
+        `SELECT * FROM claims WHERE source_id = ? AND created_at >= ?`
+      ).all(source_id, sinceDate) as any[];
+    }
+    return sqlite.prepare(
+      `SELECT * FROM claims WHERE source_id = ?`
+    ).all(source_id) as any[];
+  }
+
+  getSourceIdsForSignal(signal_id: string): string[] {
+    // Claims table path — works for both pipelines
+    const rows = sqlite.prepare(
+      `SELECT DISTINCT source_id FROM claims WHERE event_id = ? AND source_id IS NOT NULL`
+    ).all(signal_id) as { source_id: string }[];
+    return rows.map(r => r.source_id);
+  }
+  getSignalLeadTimesForClaims(claimIds: string[]): Array<{
+    claim_id: string;
+    signal_id: string;
+    lead_time_minutes: number | null;
+  }> {
+    if (claimIds.length === 0) return [];
+    const placeholders = claimIds.map(() => "?").join(",");
+    const rows = sqlite.prepare(`
+      SELECT
+        c.id as claim_id,
+        s.id as signal_id,
+        s.first_seen_at,
+        s.verified_at
+      FROM claims c
+      JOIN events e ON e.id = c.event_id
+      JOIN signals s ON s.player_name = e.player
+        AND s.team = e.team
+      WHERE c.id IN (${placeholders})
+        AND s.first_seen_at IS NOT NULL
+    `).all(...claimIds) as any[];
+
+    return rows.map(r => ({
+      claim_id: r.claim_id,
+      signal_id: r.signal_id,
+      lead_time_minutes: r.first_seen_at && r.verified_at
+        ? Math.round(
+            (new Date(r.verified_at).getTime() - new Date(r.first_seen_at).getTime()) / 60000
+          )
+        : null,
+    }));
+  }
+  
+  getSourceTeamAccuracy(
+    sourceId: string,
+    teamKey: string,
+  ): { accuracy: number; sampleSize: number } | null {
+    const row = sqlite.prepare(
+      `SELECT team_accuracies FROM source_scores WHERE source_id = ? LIMIT 1`
+    ).get(sourceId) as { team_accuracies: string | null } | undefined;
+    if (!row?.team_accuracies) return null;
+    try {
+      const parsed = JSON.parse(row.team_accuracies);
+      const entry = parsed[teamKey];
+      if (!entry) return null;
+      return { accuracy: entry.accuracy, sampleSize: entry.sample_size };
+    } catch {
+      return null;
+    }
+  }
+
+  updateSourceTeamAccuracy(
+    sourceId: string,
+    teamKey: string,
+    wasCorrect: boolean,
+  ): void {
+    const row = sqlite.prepare(
+      `SELECT team_accuracies FROM source_scores WHERE source_id = ? LIMIT 1`
+    ).get(sourceId) as { team_accuracies: string | null } | undefined;
+
+    let parsed: Record<string, { accuracy: number; sample_size: number }> = {};
+    if (row?.team_accuracies) {
+      try { parsed = JSON.parse(row.team_accuracies); } catch { /* start fresh */ }
+    }
+
+    const existing = parsed[teamKey] ?? { accuracy: 0, sample_size: 0 };
+    const newSampleSize = existing.sample_size + 1;
+    const newAccuracy =
+      (existing.accuracy * existing.sample_size + (wasCorrect ? 1 : 0)) / newSampleSize;
+    parsed[teamKey] = { accuracy: newAccuracy, sample_size: newSampleSize };
+
+    sqlite.prepare(
+      `UPDATE source_scores SET team_accuracies = ? WHERE source_id = ?`
+    ).run(JSON.stringify(parsed), sourceId);
+  }
+
+  countRecentSignalsForPlayerTopic(
+    player: string | null,
+    eventType: string,
+    league: string,
+    withinMinutes: number,
+  ): number {
+    if (!player) return 0;
+    const since = new Date(Date.now() - withinMinutes * 60 * 1000).toISOString();
+    const row = sqlite.prepare(`
+      SELECT COUNT(*) AS cnt FROM events
+      WHERE player = ? AND topic = ? AND league = ? AND created_at >= ?
+    `).get(player, eventType, league, since) as { cnt: number } | undefined;
+    return row?.cnt ?? 0;
+  }
 
   cleanSourceScoreDuplicates(): { duplicateSourceIds: any[]; deletedRows: number; finalCount: number } {
     const dupRows = sqlite.prepare(`
@@ -701,6 +882,59 @@ export class SqliteStorage implements IStorage {
   signalExists(): boolean {
     const row = db.select().from(signals).get();
     return !!row;
+  }
+
+  recordSignalStateTransition(
+    signalId: string,
+    verdict: string,
+    confidenceScore: number,
+    triggeredBy: string | null,
+  ): void {
+    const VERIFIED_THRESHOLD = 95;
+    const isVerified = confidenceScore >= VERIFIED_THRESHOLD ? 1 : 0;
+    const ts = new Date().toISOString();
+
+    sqlite.prepare(`
+      INSERT INTO signal_state_history
+        (id, signal_id, verdict, confidence_score, transitioned_at, triggered_by, is_verified_transition)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(crypto.randomUUID(), signalId, verdict, confidenceScore, ts, triggeredBy, isVerified);
+
+    if (isVerified) {
+      sqlite.prepare(`
+        UPDATE signals SET verified_at = ?
+        WHERE id = ? AND verified_at IS NULL
+      `).run(ts, signalId);
+    }
+  }
+
+  getSignalStateHistory(signalId: string): Array<{
+    verdict: string;
+    confidence_score: number;
+    transitioned_at: string;
+    triggered_by: string | null;
+    is_verified_transition: number;
+  }> {
+    return sqlite.prepare(`
+      SELECT verdict, confidence_score, transitioned_at, triggered_by, is_verified_transition
+      FROM signal_state_history
+      WHERE signal_id = ?
+      ORDER BY transitioned_at ASC
+    `).all(signalId) as any[];
+  }
+
+  getSignalLeadTime(signalId: string): number | null {
+    const row = sqlite.prepare(`
+      SELECT first_seen_at, verified_at FROM signals WHERE id = ? LIMIT 1
+    `).get(signalId) as { first_seen_at: string | null; verified_at: string | null } | undefined;
+
+    if (!row?.first_seen_at || !row?.verified_at) return null;
+
+    const firstMs    = new Date(row.first_seen_at).getTime();
+    const verifiedMs = new Date(row.verified_at).getTime();
+    if (isNaN(firstMs) || isNaN(verifiedMs)) return null;
+
+    return Math.round((verifiedMs - firstMs) / 60000);
   }
 
   // ─── Source Notes ──────────────────────────────────────────────────────────

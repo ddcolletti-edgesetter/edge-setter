@@ -8,6 +8,7 @@ import type {
   SituationConfidenceExplanation,
   SituationConfidenceHistory,
   SituationEvent,
+  SituationPublicConfirmation,
   SituationRelationship,
   SituationSnapshot,
   SituationStateHistory,
@@ -20,6 +21,7 @@ const APPEND_ONLY_TABLES = [
   "situation_confidence_history",
   "situation_state_history",
   "situation_relationships",
+  "situation_public_confirmations",
 ] as const;
 
 export function ensureSituationSchema(db: Database.Database = getPipelineDb()): void {
@@ -131,6 +133,16 @@ export function ensureSituationSchema(db: Database.Database = getPipelineDb()): 
 
     CREATE INDEX IF NOT EXISTS idx_situation_relationships_target
       ON situation_relationships(target_situation_id, relationship_type, created_at ASC);
+
+    CREATE TABLE IF NOT EXISTS situation_public_confirmations (
+      situation_id            TEXT PRIMARY KEY,
+      confirmed_at            TEXT NOT NULL,
+      detection_lead_minutes  INTEGER NOT NULL,
+      source_name             TEXT NOT NULL,
+      confirmation_reason     TEXT NOT NULL,
+      raw_event_id            TEXT,
+      created_at              TEXT NOT NULL
+    );
   `);
 
   installAppendOnlyGuards(db);
@@ -282,6 +294,54 @@ export function appendSituationRelationship(
   );
   assertIdempotentInsert(db, "situation_relationships", "relationship_id", relationship.relationship_id, "replay_hash", relationship.replay_hash, result.changes);
   return relationship;
+}
+
+/**
+ * Insert-once record of the first mainstream pickup of a situation.
+ * PRIMARY KEY on situation_id + INSERT OR IGNORE means the first
+ * confirmation is canonical — later pickups never overwrite it.
+ * Returns true only when this call recorded the confirmation.
+ */
+export function insertSituationPublicConfirmation(
+  confirmation: SituationPublicConfirmation,
+  db: Database.Database = getPipelineDb(),
+): boolean {
+  ensureSituationSchema(db);
+  const result = db.prepare(`
+    INSERT OR IGNORE INTO situation_public_confirmations (
+      situation_id, confirmed_at, detection_lead_minutes, source_name,
+      confirmation_reason, raw_event_id, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    confirmation.situation_id,
+    confirmation.confirmed_at,
+    confirmation.detection_lead_minutes,
+    confirmation.source_name,
+    confirmation.confirmation_reason,
+    confirmation.raw_event_id,
+    confirmation.created_at,
+  );
+  return result.changes > 0;
+}
+
+export function getSituationPublicConfirmation(
+  situationId: string,
+  db: Database.Database = getPipelineDb(),
+): SituationPublicConfirmation | null {
+  ensureSituationSchema(db);
+  const row = db.prepare(`
+    SELECT * FROM situation_public_confirmations WHERE situation_id = ?
+  `).get(situationId) as any;
+  if (!row) return null;
+  return {
+    situation_id: row.situation_id,
+    confirmed_at: row.confirmed_at,
+    detection_lead_minutes: row.detection_lead_minutes,
+    source_name: row.source_name,
+    confirmation_reason: row.confirmation_reason,
+    raw_event_id: row.raw_event_id,
+    created_at: row.created_at,
+  };
 }
 
 export function listSituationsForMatching(opts: {
