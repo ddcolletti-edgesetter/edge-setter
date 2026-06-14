@@ -138,6 +138,23 @@ function extractPlayer(title: string): string | null {
   return m ? m[1] : null;
 }
 
+const CFB_TEAM_PATTERNS: [RegExp, string][] = [
+  [/\bAlabama\b/i, "ALA"], [/\bGeorgia\b/i, "UGA"], [/\bOhio\s+State\b/i, "OSU"],
+  [/\bMichigan\b/i, "MICH"], [/\bTexas\b(?!\s+Tech)/i, "TEX"], [/\bTexas\s+Tech\b/i, "TTU"],
+  [/\bLSU\b/i, "LSU"], [/\bClemson\b/i, "CLEM"], [/\bNotre\s+Dame\b/i, "ND"],
+  [/\bOklahoma\b/i, "OU"], [/\bPenn\s+State\b/i, "PSU"], [/\bOregon\b/i, "ORE"],
+  [/\bFlorida\b/i, "FLA"], [/\bTennessee\b/i, "TENN"], [/\bUSC\b/i, "USC"],
+  [/\bWashington\b/i, "WASH"], [/\bMiami\b/i, "MIA"], [/\bAuburn\b/i, "AUB"],
+  [/\bArkansas\b/i, "ARK"], [/\bMississippi\b|\bOle\s+Miss\b/i, "MISS"],
+];
+
+function extractTeamFromText(text: string): string | null {
+  for (const [pattern, abbr] of CFB_TEAM_PATTERNS) {
+    if (pattern.test(text)) return abbr;
+  }
+  return null;
+}
+
 // ─── RSS parsing ──────────────────────────────────────────────────────────────
 
 interface RSSItem { title: string; link: string; description: string; pubDate: string; }
@@ -218,6 +235,7 @@ async function processFeed(
     if (!classified) { skipped++; continue; }
 
     const player = extractPlayer(item.title);
+    const extractedTeam = team ?? extractTeamFromText(combined);
 
     try {
       insertRawEvent({
@@ -225,7 +243,7 @@ async function processFeed(
         source_type: "rss",
         league,
         game_id:     null,
-        team:        team ?? null,
+        team:        extractedTeam,
         player:      player ?? null,
         event_type:  classified.eventType,
         payload: {

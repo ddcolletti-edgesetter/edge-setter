@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import { fetchSignals, type LiveSignal } from "@/lib/signalsApi";
 import { fetchLiveGamesForSituations } from "@/lib/intelligenceSituationsApi";
 import type { LiveGameSituation } from "@/lib/intelligenceSituationsApi";
+import userEvent from "@testing-library/user-event";
 
 vi.mock("@/context/AuthContext", () => ({
   useAuth: vi.fn(),
@@ -112,6 +113,57 @@ function unkMlbSignal(): LiveSignal {
   };
 }
 
+// NBA offseason availability watch signal — high confidence, no active game
+function nbaOffseasonInjurySignal(): LiveSignal {
+  return {
+    ...aiyukSignal(),
+    id: "nba-tatum-offseason",
+    league: "NBA",
+    game_id: null,
+    signal_type: "injury_update",
+    headline: "Tatum left ankle — recovery timeline under evaluation",
+    body: "Jayson Tatum remains on injury watch. Boston monitoring ankle recovery ahead of any summer activity.",
+    action_note: "Watch for any official timeline update from the team.",
+    why_it_matters: "Tatum availability affects Boston offseason roster planning.",
+    team: "BOS",
+    player: "Jayson Tatum",
+    matchup: null,
+    injury_designation: "OUT",
+    lineup_status: null,
+    score: 92,
+    confidence: 88,
+    // betting_relevance and fantasy_relevance inherited true from aiyukSignal
+  };
+}
+
+// MLB lineup signal — lower confidence, active game tonight, signal 2 hours old
+function mlbLineupScratchSignal(): LiveSignal {
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+  return {
+    ...aiyukSignal(),
+    id: "mlb-skenes-scratch",
+    league: "MLB",
+    game_id: "mlb-pit-game",
+    signal_type: "lineup",
+    headline: "Skenes rotation update — Pittsburgh pitching plan for tonight",
+    body: "Paul Skenes is not in the starting rotation. Pittsburgh adjusting pitcher order for the evening game.",
+    action_note: "Monitor for lineup confirmation and starting pitcher update.",
+    why_it_matters: "Pittsburgh pitching rotation shift reshapes the game environment.",
+    team: "PIT",
+    player: "Paul Skenes",
+    matchup: null,
+    injury_designation: null,
+    lineup_status: "scratched",
+    score: 78,
+    confidence: 75,
+    betting_relevance: false,
+    fantasy_relevance: false,
+    signal_time: twoHoursAgo,
+    created_at: twoHoursAgo,
+    updated_at: twoHoursAgo,
+  };
+}
+
 const bannedHomepagePhrases = [
   "LEAD DESK READ",
   "Lead Desk Read",
@@ -150,13 +202,14 @@ describe("homepage public story render", () => {
     mockFetchLiveGamesForSituations.mockResolvedValue([]);
 
     render(<LiveIntelligenceHome />);
-
     await waitFor(() => {
-      expect(screen.getByRole("heading", {
-        name: "Brandon Aiyuk — OUT",
-      })).toBeInTheDocument();
-    });
+  expect(screen.getByRole("heading", {
+    name: "Brandon Aiyuk — OUT",
+  })).toBeInTheDocument();
+});
 
+await userEvent.click(screen.getByTestId("story-intel-toggle"));
+    
     const domText = document.body.textContent ?? "";
     for (const phrase of bannedHomepagePhrases) {
       expect(domText).not.toContain(phrase);
@@ -253,5 +306,44 @@ describe("homepage public story render", () => {
     expect(domText).not.toContain("SEA @ DET: 49ers");
     expect(domText).not.toContain("MLB / SEA @ DET / Brandon Aiyuk");
     expect(domText).not.toContain("MLB / SEA @ DET / passing-game");
+  });
+
+  it("offseason NBA injury does not lead over an active-league lineup signal when that league has games today", async () => {
+    mockUseAuth.mockReturnValue(signedOutAuth());
+
+    const mlbGame: LiveGameSituation = {
+      id: "mlb-pit-game-tonight",
+      league: "MLB",
+      awayTeam: "PIT",
+      homeTeam: "CHC",
+      gameTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+      status: "Scheduled",
+      awayScore: null,
+      homeScore: null,
+      activeSituations: 1,
+      topEscalation: "Escalating",
+    };
+
+    // NBA signal arrives first (higher confidence, fresher) but NBA has no games.
+    // MLB signal is 2 hours old, lower confidence, but Pittsburgh has a game tonight.
+    mockFetchSignals.mockResolvedValue([nbaOffseasonInjurySignal(), mlbLineupScratchSignal()]);
+    mockFetchLiveGamesForSituations.mockImplementation(async (league: string) =>
+      league === "MLB" ? [mlbGame] : [],
+    );
+
+    render(<LiveIntelligenceHome />);
+
+    await waitFor(() => {
+      // MLB lineup signal should be the homepage lead — the 0.4 offseason
+      // injury penalty (vs 0.7 for other offseason types) ensures that NBA
+      // injury_update at 88% STRONG does not outscore an active-league signal
+      // with a game on tonight's slate.
+      expect(screen.getByRole("heading", { name: "Paul Skenes scratched for Pirates" })).toBeInTheDocument();
+    });
+
+    const leadHeading = screen.getByRole("heading", { name: "Paul Skenes scratched for Pirates" });
+    const leadArticle = leadHeading.closest("article");
+    const leadImage = leadArticle?.querySelector<HTMLImageElement>("[data-testid='homepage-story-image']");
+    expect(leadImage?.getAttribute("src")).toBe("/sports/mlb/hero.jpg");
   });
 });

@@ -196,8 +196,7 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
           </div>
           <button
             type="button"
-           className={`story-intel-teaser-toggle${intelExpanded ? " is-open" : ""}`}
-data-testid="story-intel-toggle"
+            className={`story-intel-teaser-toggle${intelExpanded ? " is-open" : ""}`}
             onClick={toggleIntel}
             aria-expanded={intelExpanded}
             aria-label="EdgeSetter intelligence details"

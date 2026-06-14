@@ -313,3 +313,11 @@ No story card on any page looks unfinished or like a development placeholder
 7. See a timing advantage callout on at least one CFB story that names the source type (primary source vs wire pickup), not just the time gap. Non-CFB stories use the generic timing gap callout until source taxonomy is production-ready for those leagues.
 8. Open any league board and see the same intelligence-first layout as the homepage — no board should feel like a different product.
 Until all eight criteria are true, the product is not ready for the attention campaign.
+
+Signal-type-aware offseason suppression:
+
+Injury, rotation, and lineup signals in leagues with no active games receive a 0.4 activity multiplier (not the standard 0.7). These signal types are designed to surface game-affecting information. When there is no game, the editorial boost they carry (+28 availability/injury text bonus in homepageStoryScore) inflates their rank beyond what the league-level multiplier corrects for. The 0.4 value is calibrated against that boost specifically.
+
+Test coverage requirement:
+
+Any change to leagueActivityMultiplier() must include a test asserting that an NBA injury_update at 88% confidence with no active NBA games does not outscore an MLB signal at 62%+ confidence with 15 active games.

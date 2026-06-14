@@ -321,13 +321,13 @@ export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
 }
 
 interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: TeamLogoSport; }
-export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: TeamLogoImgProps) {
+export function TeamLogoImg({ abbr, size = 32, shape = "square", src, sport }: TeamLogoImgProps) {
   const normalizedAbbr = toTeamAbbr(abbr);
   const unknownTeam = isUnknownTeamAbbr(normalizedAbbr);
   const logoUrl = unknownTeam ? "" : src ?? getTeamLogoUrl(normalizedAbbr, sport);
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const showFallback = !logoUrl || failedUrl === logoUrl;
-  const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "4px";
+  const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "0";
   const fallback = teamFallbackVisual(normalizedAbbr, sport);
   const padding = Math.max(3, Math.round(size * 0.11));
 
@@ -341,7 +341,7 @@ export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: T
     const label = normalizedAbbr?.slice(0, 4).toUpperCase() ?? "";
     const fontSize = size * (label.length >= 4 ? 0.26 : 0.34);
     return (
-      <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, background: fallback.bg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: size, height: size, borderRadius: 0, overflow: "hidden", flexShrink: 0, background: fallback.bg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize, fontWeight: 800, color: "#FFFFFF", letterSpacing: "0.02em", lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,0.45)" }}>
           {label}
         </span>
@@ -349,12 +349,12 @@ export function TeamLogoImg({ abbr, size = 32, shape = "circle", src, sport }: T
     );
   }
   return (
-    <div style={{ width: size, height: size, borderRadius, overflow: "hidden", flexShrink: 0, position: "relative", background: fallback.imgBg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow }}>
-      <img src={logoUrl} alt={normalizedAbbr || abbr} width={size} height={size} style={{ position: "relative", zIndex: 1, width: "100%", height: "100%", objectFit: "contain", display: "block", padding, boxSizing: "border-box", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.45))" }}
-        onError={() => setFailedUrl(logoUrl)}
-      />
-    </div>
-  );
+  <div style={{ width: size, height: size, borderRadius: 0, overflow: "visible", flexShrink: 0, position: "relative", background: "transparent", border: "none", boxShadow: "none" }}>
+    <img src={logoUrl} alt={normalizedAbbr || abbr} width={size} height={size} style={{ position: "relative", zIndex: 1, width: "100%", height: "100%", objectFit: "contain", display: "block", padding: 0, boxSizing: "border-box", filter: "drop-shadow(0 0 12px rgba(255,255,255,0.15)) drop-shadow(0 2px 8px rgba(0,0,0,0.6))" }}
+      onError={() => setFailedUrl(logoUrl)}
+    />
+  </div>
+);
 }
 
 function NeutralTeamPlaceholder({ size, shape }: { size: number; shape: TeamLogoProps["shape"] }) {
