@@ -224,7 +224,8 @@ await userEvent.click(screen.getByTestId("story-intel-toggle"));
     expect(screen.getByText("Source Trail")).toBeInTheDocument();
     expect(screen.getByText("Quiet Board Context")).toBeInTheDocument();
     expect(screen.getByText("Latest Verified Notes")).toBeInTheDocument();
-    expect(domText).toContain("Brandon Aiyuk's availability status changed, putting 49ers' role and matchup plan back on the board.");
+    console.log(domText);
+    expect(domText).toContain("Brandon Aiyuk won't play. 49ers has to account for the absence and the plan adjusts from here.");
     expect(domText).toContain("Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.");
     expect(domText).toContain("Sources checked. Timing tracked. Still developing.");
 

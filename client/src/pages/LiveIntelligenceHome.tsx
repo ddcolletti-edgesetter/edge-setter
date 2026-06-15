@@ -1534,20 +1534,144 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     const injuryPart = rawText.match(INJURY_TYPE_PATTERN)?.[1] ?? null;
     const lastName = player ? player.split(" ").slice(-1)[0] : null;
 
+    const injuryIsLoadBearing = injuryPart ? /hamstring|achilles|knee|acl|mcl|ucl/i.test(injuryPart) : false;
+    const injuryIsConcussion = injuryPart ? /concussion/i.test(injuryPart) : false;
+    const injuryIsIllness = injuryPart ? /illness/i.test(injuryPart) : false;
+    const injuryIsArm = injuryPart ? /shoulder|elbow|wrist|forearm/i.test(injuryPart) : false;
+    const injuryIsBack = injuryPart ? /back/i.test(injuryPart) : false;
+    const injuryIsMobility = injuryPart ? /ankle|foot|toe|calf/i.test(injuryPart) : false;
+    const injuryIsCore = injuryPart ? /oblique|rib|abdominal/i.test(injuryPart) : false;
+    const isStar = Boolean(situation.marketReaction || situation.raw.betting_relevance || situation.raw.fantasy_relevance);
+    const lg = situation.league;
+
     let deck: string;
+    let shortDeck: string;
+    let whatHappened: string;
+    let whyItMatters: string;
+
     if (hasPlayer) {
       if (status === "OUT") {
-        const injurySuffix = injuryPart ? ` (${injuryPart})` : "";
-        deck = `${player}${injurySuffix} is out. ${team} will need to adjust rotation and minutes distribution. Monitor practice reports for timeline.`;
+        if (injuryIsConcussion) {
+          deck = `${player} is in concussion protocol and out. There's no reliable return window until he clears every evaluation step — treat this as open-ended.`;
+        } else if (injuryIsIllness) {
+          if (lg === "NBA") {
+            deck = `${player} is out sick. Rotation coverage activates now — illness designations can clear fast, but there's no reliable timeline until the next practice report.`;
+          } else if (lg === "MLB") {
+            deck = `${player} is out with an illness. Watch for a roster move if this extends into tomorrow — teams rarely carry inactive players without adjusting the roster.`;
+          } else {
+            deck = `${player} is out sick. These can flip quickly, but until there's a confirmed return the depth chart reads as active.`;
+          }
+        } else if (injuryIsLoadBearing) {
+          if (lg === "NBA") {
+            deck = `${player} is out — ${injuryPart} injuries in the NBA rarely resolve in days. Minute redistribution across the rotation starts now, and the back-to-back schedule is the next variable.`;
+          } else if (lg === "MLB") {
+            deck = `${player} is out with a ${injuryPart} issue. This type of injury almost always means an IL move — watch for the roster transaction within 24 to 48 hours.`;
+          } else if (lg === "NFL") {
+            deck = `${player} is out — a ${injuryPart} designation means at least a week in the NFL. Target share and snap redistribution start with the next practice report.`;
+          } else {
+            deck = `${player} is out with a ${injuryPart} issue. Depth at the position in ${team}'s program is the immediate read.`;
+          }
+        } else if (injuryIsArm) {
+          if (lg === "MLB") {
+            deck = `${player} is out — a ${injuryPart} injury for a pitcher draws immediate long-term scrutiny. Watch for an IL designation and a timeline from the club within the day.`;
+          } else if (lg === "NFL") {
+            deck = `${player} is out with a ${injuryPart} issue. This directly affects the passing game — the depth chart reshuffles and scheme adjustments follow.`;
+          } else {
+            deck = `${player} is out — ${injuryPart} issues affect shooting and ball-handling directly. Usage redistribution is the immediate read.`;
+          }
+        } else if (injuryIsBack) {
+          deck = `${player} is out. Back injuries are rest-dependent and can recur unpredictably — the day-to-day label doesn't mean a quick resolution.`;
+        } else if (injuryIsMobility) {
+          if (lg === "NBA") {
+            deck = `${player} is out. Mobility-based injuries in the NBA often come with workload limits on return — check the back-to-back schedule before projecting full minutes.`;
+          } else if (lg === "NFL") {
+            deck = `${player} is out with a ${injuryPart} injury. These can linger through a full week even on the active roster — practice participation is the real indicator.`;
+          } else {
+            deck = `${player} is out — ${injuryPart} injuries affect movement and rarely clear faster than they appear. Watch the daily status.`;
+          }
+        } else if (injuryIsCore) {
+          deck = `${player} is out — ${injuryPart} injuries end swings and throws quickly and resist being played through. An IL move is worth monitoring within the next 24 hours.`;
+        } else {
+          deck = injuryPart
+            ? `${player} is out with a ${injuryPart} issue. The ${team} ${teamContextNoun(situation)} resets until a return window is confirmed.`
+            : `${player} is out. No timeline has surfaced — the ${team} ${teamContextNoun(situation)} stays under active watch until that changes.`;
+        }
+        shortDeck = `${player} is out — ${team} coverage activates.`;
+        whatHappened = `${player} won't play. ${team} has to account for the absence${injuryPart ? ` — ${injuryPart} flag` : ""} and the plan adjusts from here.`;
       } else if (status === "DOUBTFUL") {
-        deck = `${player} is listed doubtful. ${team} should plan around a likely absence. Watch final injury reports before lock.`;
+        if (injuryIsConcussion) {
+          deck = `${player} is doubtful in concussion protocol. Until cleared at every stage, the doubtful tag is effectively an out — plan the ${team} ${teamContextNoun(situation)} without him.`;
+        } else if (injuryIsIllness) {
+          deck = `${player} is listed doubtful with an illness. These break in either direction — final reports and pregame warmups are the real signal, not the listing.`;
+        } else if (injuryIsLoadBearing) {
+          deck = `${player} is doubtful — ${injuryPart} injuries rarely clear from a doubtful tag by game time. The working assumption for ${team} is absence until the final report says otherwise.`;
+        } else if (injuryIsArm) {
+          const posLabel = lg === "MLB" ? "a pitcher" : lg === "NFL" ? "a quarterback" : "a player";
+          deck = `${player} is listed doubtful with a ${injuryPart} issue. For ${posLabel}, that's an arm flag — watch whether he goes through a full warmup before trusting the designation.`;
+        } else {
+          deck = `${player} is listed doubtful. From this designation, absence is the working plan until the final ${team} practice report changes the read.`;
+        }
+        shortDeck = `${player} is doubtful — plan around the absence.`;
+        whatHappened = `${player} is listed doubtful, putting the ${team} ${teamContextNoun(situation)} in a holding pattern until the final injury report drops.`;
       } else if (status === "QUESTIONABLE") {
-        deck = `${player} is questionable and could miss time. ${team} situations and matchup prep are in flux until a final call.`;
+        if (injuryIsConcussion) {
+          deck = `${player} is questionable in concussion protocol. There's no reliable timeline from this designation — status can flip in either direction before game time.`;
+        } else if (injuryIsIllness) {
+          deck = `${player} is questionable, listed with an illness. Day-to-day — the pregame window is typically when this resolves, not before.`;
+        } else if (injuryIsLoadBearing) {
+          deck = `${player} is questionable with a ${injuryPart} issue. Players rarely sit out on questionable from this injury type — but watch for workload limits and a minutes ceiling on return.`;
+        } else if (injuryIsArm) {
+          const posLabel = lg === "MLB" ? "pitcher" : lg === "NFL" ? "quarterback" : "player";
+          deck = `${player} is questionable with a ${injuryPart} problem. For a ${posLabel}, arm health is the primary watch — pregame warmup and any workload restriction are the read.`;
+        } else if (injuryIsMobility) {
+          deck = `${player} is questionable — ${injuryPart} injuries often get played through at this level, but workload limits are common. Watch the pregame availability report.`;
+        } else {
+          deck = `${player} is questionable. The ${team} ${teamContextNoun(situation)} stays in two-scenario mode until a confirmed pregame read comes in.`;
+        }
+        shortDeck = `${player} is questionable — pregame reports are the signal.`;
+        whatHappened = `${player} got a questionable tag — not out yet, but the ${team} ${teamContextNoun(situation)} adjusts to cover both scenarios.`;
       } else {
-        deck = `${player}'s availability is under review. ${team} usage, roles, and matchup prep could shift if the status changes.`;
+        deck = isStar
+          ? `${player}'s status is being tracked without a formal designation. ${team} context is shifting — the next confirmed report is the one that matters.`
+          : `${player}'s availability is under the watch — no designation yet, but the situation is active. Monitor the ${team} practice report.`;
+        shortDeck = `${player}'s status is being monitored — no designation confirmed yet.`;
+        whatHappened = `${player}'s status surfaced without a formal designation. ${team} planning is active until the situation resolves.`;
+      }
+
+      if (lg === "NBA") {
+        if (injuryIsLoadBearing || injuryIsBack) {
+          whyItMatters = `Missing minutes cascade in the NBA — another guard or forward picks up usage, fantasy lines shift, and the back-to-back schedule adds complexity to every projection.${marketPhrase}`;
+        } else if (injuryIsArm) {
+          whyItMatters = `Shooting volume and ball-handling responsibility shift quickly around arm injuries in the NBA — rotation usage and fantasy exposure realign within a game or two.${marketPhrase}`;
+        } else {
+          whyItMatters = `The ${team} rotation plan adjusts, usage numbers shift, and anyone absorbing the vacated minutes gets a short-term fantasy and DFS boost.${marketPhrase}`;
+        }
+      } else if (lg === "MLB") {
+        if (injuryIsCore) {
+          whyItMatters = `Oblique and abdominal injuries end swings and throws suddenly in baseball — IL time is common even when teams manage them in-game. Lineup order and roster depth both change.${marketPhrase}`;
+        } else if (injuryIsArm) {
+          whyItMatters = `Arm injuries for pitchers trigger bullpen restructuring and almost always lead to a roster move within 24 hours. Watch the IL deadline and bullpen usage across the series.${marketPhrase}`;
+        } else {
+          whyItMatters = `Lineup disruption in baseball compounds across a series — batting order, defensive alignment, and platoon usage can all shift from a single absence.${marketPhrase}`;
+        }
+      } else if (lg === "NFL") {
+        if (injuryIsLoadBearing) {
+          whyItMatters = `A load-bearing injury in the NFL changes snap share, target distribution, and the opponent's game plan. The downstream effect runs through at least the current week.${marketPhrase}`;
+        } else if (injuryIsArm) {
+          whyItMatters = `An arm injury on the offensive side changes throw volume, target share, and pass-protection assignments. Role redistribution in the NFL moves fast.${marketPhrase}`;
+        } else {
+          whyItMatters = `Role and snap redistribution in the NFL moves quickly. Fantasy and DFS exposure at adjacent positions changes before the week is out.${marketPhrase}`;
+        }
+      } else if (lg === "CFB") {
+        whyItMatters = `Depth at this position in CFB is thinner than the pros. A key absence can change schematic identity — not just a single matchup read, but how the unit operates.${marketPhrase}`;
+      } else {
+        whyItMatters = `The ${teamContext}, distribution of responsibilities, and opponent prep shift if the status holds or changes.${marketPhrase}`;
       }
     } else {
-      deck = `${team} has a key availability update. Role distribution and matchup prep could shift until the situation clarifies.`;
+      deck = `${team} has a developing availability situation. Role distribution and ${teamContextNoun(situation)} could shift until the picture clarifies.`;
+      shortDeck = `${team}'s availability picture is under active watch.`;
+      whatHappened = `${team}'s availability context changed — the specifics are still coming into focus.`;
+      whyItMatters = `Availability changes at the team level can alter role distribution, matchup prep, and market assumptions before a final read is in.${marketPhrase}`;
     }
 
     let detail: string;
@@ -1561,19 +1685,20 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
       detail = `${team} availability update`;
     }
 
-    const headline = specificHeadline ?? (hasPlayer
-      ? `${player} availability puts ${team} ${teamContextNoun(situation)} in focus`
-      : `${team} availability puts ${teamContextNoun(situation)} in focus`);
+    const headline =
+      specificHeadline ??
+      (hasPlayer
+        ? `${player} availability puts ${team} ${teamContextNoun(situation)} in focus`
+        : `${team} availability puts ${teamContextNoun(situation)} in focus`);
+
     return {
       headline,
       shortHeadline: headline,
       deck,
-      shortDeck: hasPlayer ? `${player}'s status brings ${teamContext} into focus.` : `${team}'s availability picture remains under review.`,
+      shortDeck,
       detail,
-      whatHappened: hasPlayer
-        ? `${player}'s availability status changed, putting ${teamPossessive(team)} role and matchup plan back on the board.`
-        : `${team}'s availability context changed and remains the team situation to monitor.`,
-      whyItMatters: `The ${teamContext}, target distribution, and opponent prep can shift if the status holds or changes again.${marketPhrase}`.trim(),
+      whatHappened,
+      whyItMatters,
       watchNext: `Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.`,
     };
   }
