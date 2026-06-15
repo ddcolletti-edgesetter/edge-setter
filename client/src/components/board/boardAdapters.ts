@@ -659,19 +659,28 @@ function editorialHeadline(row: SituationRowData, matchup?: string) {
 }
 
 function editorialDeck(row: SituationRowData, headline: string) {
-  const summary = cleanStoryLine(row.subtitle ?? row.marketReaction ?? row.market);
-  if (summary && summary.toLowerCase() !== headline.toLowerCase()) return summary;
+  const candidates = [
+    row.subtitle,
+    row.body,
+    row.detail,
+    row.marketReaction,
+    row.market,
+  ].map((v) => cleanStoryLine(v)).filter(Boolean) as string[];
+  const summary = candidates.find((s) => s.toLowerCase() !== headline.toLowerCase());
+  if (summary) return summary;
   if (row.league === "MLB") return "EdgeSetter is tracking lineup, pitching, bullpen, weather, roster, and market context as the slate develops.";
-  if (row.league === "NBA") return "EdgeSetter is tracking starter, injury, rotation, late-scratch, and pre-tip movement context as the board develops.";
-  return summary;
+  if (row.league === "NBA") return "EdgeSetter is tracking starter confirmations, injury context, rotation changes, late scratches, and pre-tip movement.";
+  if (row.league === "NFL") return "EdgeSetter is tracking depth chart, injury designations, snap share, target distribution, and game-week context.";
+  if (row.league === "CFB") return "EdgeSetter is tracking roster depth, QB room status, transfer impact, and scheme context.";
+  return "EdgeSetter is tracking source support, timing, and sports context as this situation develops.";
 }
 
 function relatedWatchItems(row: SituationRowData, lines: { headline: string; whatHappened: string; whyItMatters: string; watchNext: string }) {
   const items = [
     conciseHeadline(lines.headline, row.league),
     lines.watchNext,
-    row.sourceProgressLabel ? `Source check: ${cleanStoryLine(row.sourceProgressLabel)}` : undefined,
-    row.timingStageLabel ? `Timing: ${cleanStoryLine(row.timingStageLabel)}` : undefined,
+    row.sourceProgressLabel ? cleanStoryLine(row.sourceProgressLabel) : undefined,
+    row.timingStageLabel ? (row.timingStageLabel.toLowerCase().includes("public confirmation") ? "ES Agents verified" : cleanStoryLine(row.timingStageLabel)) : undefined,
   ].filter(Boolean) as string[];
   return Array.from(new Set(items.map((item) => tightenSentence(item)))).slice(0, 4);
 }

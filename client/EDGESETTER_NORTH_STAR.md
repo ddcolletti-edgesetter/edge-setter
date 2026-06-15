@@ -321,3 +321,16 @@ Injury, rotation, and lineup signals in leagues with no active games receive a 0
 Test coverage requirement:
 
 Any change to leagueActivityMultiplier() must include a test asserting that an NBA injury_update at 88% confidence with no active NBA games does not outscore an MLB signal at 62%+ confidence with 15 active games.
+
+LANGUAGE STANDARDS — AGENT VS SOURCE
+Source — an external human who published information EdgeSetter ingested. A beat writer, team official, SID account, wire service, athletic department post. Sources produce the raw information.
+EdgeSetter Agent (not "Agent") — EdgeSetter's proprietary automated monitor. ES Agents watch sources, cross-reference signals, build confidence scores, and reach consensus. ES Agents are EdgeSetter's layer on top of sources.
+The relationship every user must be able to understand in 3 seconds without documentation:
+
+Sources produce information → ES Agents analyze it → Agent consensus produces the confidence score.
+Rules:
+
+Never use "Agent" alone. Always "ES Agent" or "EdgeSetter Agent."
+Never use "Agent" and "Source" interchangeably. They are different things with different roles.
+When showing source count and agent count together, the label must make the relationship clear: "2 sources tracked / 4 ES Agents monitoring"
+"Public confirmation" is never a status milestone. It is a data point. The milestone is EdgeSetter agent consensus. Display "ES Agents verified" not "public confirmation."
