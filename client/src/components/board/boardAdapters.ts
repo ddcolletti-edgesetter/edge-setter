@@ -705,20 +705,40 @@ function storyWhyItMatters(row: SituationRowData): string | undefined {
       : "A move can point to lineup, pitcher, injury, weather, bullpen, or availability context that has not fully surfaced.";
   }
   if (text.includes("injury") || text.includes("out") || text.includes("questionable")) {
-    return row.league === "NBA"
-      ? "Availability changes can shift starters, rotations, usage, and pre-tip pricing."
-      : "Availability changes can shift lineups, defensive alignment, bullpen planning, and pricing.";
+    if (row.league === "NBA") return "Availability changes can shift starters, rotations, usage, and pre-tip pricing.";
+    if (row.league === "MLB") return "Availability changes can shift lineups, bullpen planning, pitcher usage, and pricing.";
+    if (row.league === "NFL") return "Availability changes can shift depth charts, snap share, target distribution, and game-week pricing.";
+    if (row.league === "CFB") return "Availability changes can shift depth charts, scheme reads, and how the program enters the week.";
+    return "Availability changes can shift lineups, defensive alignment, and pricing.";
   }
   if (row.evidenceGrowthLabel) return cleanStoryLine(row.evidenceGrowthLabel);
   return undefined;
 }
 
 function storyWatchNext(row: SituationRowData): string | undefined {
-  if (row.uncertaintyLabel) return cleanStoryLine(row.uncertaintyLabel);
-  if (row.timingStageLabel) return cleanStoryLine(row.timingStageLabel);
-  if (row.league === "NBA") return "Watch for the next official status update, warmup/report confirmation, and role impact.";
+  const SUPPRESSED_TIMING_VALUES = ["public confirmation", "cooling story", "quiet board", "fully priced"];
+  const timingRaw = row.uncertaintyLabel ?? row.timingStageLabel;
+  const timing = timingRaw ? cleanStoryLine(timingRaw) : undefined;
+  if (timing && !SUPPRESSED_TIMING_VALUES.some((v) => timing.toLowerCase().includes(v))) return timing;
+  if (row.league === "NFL") return "Watch for practice participation, official designation, and depth chart movement.";
+  if (row.league === "CFB") return "Watch for local source updates, depth chart movement, and official program confirmation.";
+  if (row.league === "NBA") return "Watch for the next official status update, warmup confirmation, and role impact.";
   if (row.league === "MLB") return "Watch for lineup confirmation, pitching updates, weather, and market response.";
   return undefined;
+}
+
+const SOURCE_NOISE_PATTERNS = [
+  /transfer your tickets/i,
+  /download tickets/i,
+  /how to transfer/i,
+  /&amp;/,
+  /roster move changes roster availability and may affect downstream/i,
+  /may affect downstream sports context/i,
+];
+
+export function isSourceNoise(value?: string | null): boolean {
+  if (!value) return false;
+  return SOURCE_NOISE_PATTERNS.some((pattern) => pattern.test(value));
 }
 
 function cleanRawReport(value?: string | null) {

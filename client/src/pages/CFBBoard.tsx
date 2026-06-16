@@ -22,12 +22,15 @@ import { SituationLane } from "../components/board/SituationLane";
 import { TopDevelopments } from "../components/board/TopDevelopments";
 import {
   featuredCopy,
+  isSourceNoise,
   situationMatchesPriority,
   sortModeFromPriority,
   toLiveGamePillData,
   toSituationRowData,
+  toSituationStoryCardData,
   type AnyBoardGame,
 } from "../components/board/boardAdapters";
+import { SituationStoryCard } from "../components/board/SituationStoryCard";
 import type { SituationLaneType } from "../components/board/SituationRow";
 
 const CFB_FILTERS = [
@@ -71,12 +74,15 @@ function CFBBoardInner() {
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
 
   const { signals: liveCFBSignals, loading, isLive, error, refresh } = useCFBSignals(CFB_SIGNALS);
-  const { situations: canonicalSituations, loading: canonicalLoading, error: canonicalError, refresh: refreshCanonical } = useCanonicalSituations({
-    league: "CFB",
+  const cfbSituationsOptions = useMemo(() => ({
+    league: "CFB" as const,
     activeOnly: false,
     limit: 100,
-    orderBy: "operational_visibility_score",
-  });
+    orderBy: "operational_visibility_score" as const,
+    poll: false,
+  }), []);
+
+  const { situations: canonicalSituations, loading: canonicalLoading, error: canonicalError, refresh: refreshCanonical } = useCanonicalSituations(cfbSituationsOptions);
   const profile = getLeagueBoardProfile("CFB");
   const hasLiveCFBData = canonicalSituations.length > 0 || isLive;
 
@@ -114,6 +120,16 @@ function CFBBoardInner() {
       .filter((situation) => showConfirmed || situation.lane !== "confirmed")
       .filter((situation) => situationMatchesPriority(situation, urgencyFilter));
   }, [canonicalSituations, showConfirmed, sidebarFilter, urgencyFilter, visibleSignals]);
+
+  const storyItems = situations
+    .filter((situation) => {
+      const signal = situation.signal as { headline?: string; detail?: string } | undefined;
+      return !isSourceNoise(signal?.headline) && !isSourceNoise(signal?.detail);
+    })
+    .map((situation) => {
+      const row = toSituationRowData(situation);
+      return { situation, row, story: toSituationStoryCardData(row) };
+    });
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "CFB");
@@ -250,32 +266,40 @@ function CFBBoardInner() {
 
         <ProBoardBanner freeCount={FREE_LIMIT} totalCount={visibleSignals.length} sport="CFB" darkMode={darkMode} />
 
-        <div className="grid gap-3 xl:grid-cols-2">
+        <div className="grid gap-3">
           {visibleLanes.map((lane, index) => {
-            const laneSituations = situations.filter((situation) => situation.lane === lane);
+            const laneItems = storyItems.filter((item) => item.situation.lane === lane);
+            if (!laneItems.length) return null;
             return (
-              <SituationLane
+              <section
                 key={lane}
-                lane={lane}
-                title={profile.laneLabels[lane]}
-                summary={laneSummary(lane)}
-                situations={laneSituations.map(toSituationRowData)}
-                compact={compact}
-                cadence={index === 0 ? "entry" : lane === "background" ? "quiet" : "default"}
-                emptyLabel={profile.emptyState}
-                copyVariant="editorial"
-                onSituationSelect={(row) => {
-                  const situation = laneSituations.find((item) => item.id === row.id);
-                  if (situation) openSituation(situation);
-                }}
-              />
+                className={`situation-lane situation-lane-${lane} max-w-full overflow-hidden rounded-md border border-border bg-card/80 ${index === 0 ? "bg-card/85" : lane === "background" ? "bg-card/70" : ""}`}
+              >
+                <header className="flex flex-wrap items-center gap-2 border-b border-border/70 bg-muted/10 px-3 py-2.5">
+                  <span className="data-label text-primary">{profile.laneLabels[lane]}</span>
+                  <strong className="min-w-0 flex-1 truncate text-sm text-foreground">{laneSummary(lane)}</strong>
+                  <span className="rounded border border-border bg-muted/20 px-2 py-1 text-[0.66rem] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
+                    {laneItems.length} stories
+                  </span>
+                </header>
+                <div className="grid gap-3 p-3">
+                  {laneItems.map(({ situation, story }) => (
+                    <SituationStoryCard
+                      key={situation.id}
+                      story={story}
+                      compact={compact && lane === "background"}
+                      onOpen={situation.kind === "signal" ? () => openSituation(situation) : undefined}
+                    />
+                  ))}
+                </div>
+              </section>
             );
           })}
         </div>
 
-        {situations.length > 0 && (
+        {storyItems.length > 0 && (
           <div className="flex items-center justify-between rounded border border-border/50 bg-muted/5 px-3 py-2 text-[0.7rem] font-semibold text-muted-foreground/70">
-            <span>{situations.length} CFB stories shown</span>
+            <span>{storyItems.length} CFB stories shown</span>
             <span>Board updated {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
           </div>
         )}

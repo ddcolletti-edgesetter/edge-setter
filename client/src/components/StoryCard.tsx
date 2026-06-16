@@ -185,7 +185,7 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
             </span>
             {agentsAgree > 0 && (
               <span className="story-intel-teaser-agents">
-                {agentsAgree}/4 agents
+                {agentsAgree}/4 ES Agents
               </span>
             )}
             {displayStory.timingAdvantageLead && (
@@ -231,11 +231,11 @@ data-testid="story-intel-toggle"
                 <strong>{lineImpactLabel(displayStory)}</strong>
               </div>
             </div>
-            <div className="story-intel-agents" aria-label={`${agentsAgree} of 4 agents in agreement`}>
+            <div className="story-intel-agents" aria-label={`${agentsAgree} of 4 ES Agents in agreement`}>
               {[0, 1, 2, 3].map((slot) => (
                 <i key={slot} className={slot < agentsAgree ? "is-filled" : ""} />
               ))}
-              <span>{agentsAgree} of 4 agents agree</span>
+              <span>{agentsAgree} of 4 ES Agents agree</span>
             </div>
             <div className="story-intel-actions">
               <button type="button" className={openPanel === "fantasy" ? "is-open" : ""} onClick={togglePanel("fantasy")}>Fantasy</button>
@@ -329,7 +329,7 @@ data-testid="story-intel-toggle"
         {variant === "rail" && (
           <div className="story-card-footer">
             <strong className={`story-card-conf is-${confidenceRead.tone}`}>{confidenceRead.text}</strong>
-            <span className="story-card-agents">{agentsAgree}/4 agents</span>
+            <span className="story-card-agents">{agentsAgree}/4 ES Agents</span>
             {/* North Star: timing advantage — THIS DISPLAY MUST NEVER BE REMOVED. */}
             {timingAdvantage && confidenceRead.tone === "verified" && (
               <span className="story-card-timing-advantage story-card-timing-pill">
@@ -419,8 +419,10 @@ function sanitizePublicStory(story: StoryCardData): StoryCardData {
     player: hasCleanPublicText(story.player) ? story.player : undefined,
     storyType: hasCleanPublicText(story.storyType) ? story.storyType : headlineFallback,
     detail: hasCleanPublicText(story.detail) ? story.detail : headlineFallback,
-    whatChanged: hasCleanPublicText(story.whatChanged) ? story.whatChanged : "A watch item changed enough to stay on the board.",
-    whyItMatters: hasCleanPublicText(story.whyItMatters) ? story.whyItMatters : "The sports impact is still developing.",
-    watchNext: hasCleanPublicText(story.watchNext) ? story.watchNext : "Watch for source support, official confirmation, and context movement.",
+    whatChanged: hasCleanPublicText(story.whatChanged) ? story.whatChanged : "ES Agents flagged a change — details still developing.",
+    whyItMatters: hasCleanPublicText(story.whyItMatters) ? story.whyItMatters : "Impact window is open. ES Agents are tracking.",
+    watchNext: hasCleanPublicText(story.watchNext) && story.watchNext !== "public confirmation"
+      ? story.watchNext
+      : "Watch for source convergence and official movement.",
   };
 }

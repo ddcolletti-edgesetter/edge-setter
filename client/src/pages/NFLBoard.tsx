@@ -66,12 +66,15 @@ function NFLBoardInner() {
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
 
   const { signals: liveNFLSignals, loading, isLive, error, refresh } = useNFLSignals(NFL_SIGNALS);
-  const { situations: canonicalSituations, loading: canonicalLoading, error: canonicalError, refresh: refreshCanonical } = useCanonicalSituations({
-    league: "NFL",
-    activeOnly: false,
-    limit: 100,
-    orderBy: "operational_visibility_score",
-  });
+  const nflSituationsOptions = useMemo(() => ({
+  league: "NFL" as const,
+  activeOnly: false,
+  limit: 100,
+  orderBy: "operational_visibility_score" as const,
+  poll: false,
+}), []);
+
+  const { situations: canonicalSituations, loading: canonicalLoading, error: canonicalError, refresh: refreshCanonical } = useCanonicalSituations(nflSituationsOptions);
   const profile = getLeagueBoardProfile("NFL");
 
   const rankedNFL = useMemo(() => {

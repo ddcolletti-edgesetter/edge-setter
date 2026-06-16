@@ -258,9 +258,21 @@ export function rankSignals<T extends BoardSignalLike>(signals: T[]): T[] {
   });
 }
 
+const FEATURED_BLOCKED_SIGNAL_TYPES = new Set([
+  "roster_move",
+  "transaction", 
+  "depth_chart_update",
+]);
+
 export function selectFeaturedSituation(situations: BoardSituation[]): BoardSituation | null {
   const ranked = rankBoardSituations(situations);
-  return ranked.find(situation => situation.lane !== "background") ?? ranked[0] ?? null;
+  // Prefer a non-background situation that isn't routine noise
+  const preferred = ranked.find(
+    s => s.lane !== "background" && !FEATURED_BLOCKED_SIGNAL_TYPES.has(s.signalType ?? "")
+  );
+  if (preferred) return preferred;
+  // Fall back to any non-background if everything is blocked signal type
+  return ranked.find(s => s.lane !== "background") ?? ranked[0] ?? null;
 }
 
 export function groupSituationsByLane(situations: BoardSituation[]) {

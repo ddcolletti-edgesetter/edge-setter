@@ -368,7 +368,7 @@ export function listSituationsForMatching(opts: {
     LIMIT ?
   `).all(...params);
 
-  return rows.map(deserializeSituationWithLatestSnapshot);
+  return rows.map(deserializeCanonicalSituationRecord).filter(isUsableSituation);
 }
 
 export function getLatestSituationSnapshot(
@@ -388,6 +388,30 @@ export function getLatestSituationSnapshot(
 
 export interface CanonicalSituationRecord extends Situation {
   readonly latest_snapshot: SituationSnapshot | null;
+}
+const SITUATION_NOISE_PATTERNS = [
+  /transfer your tickets/i,
+  /download tickets/i,
+  /how to transfer/i,
+  /&amp;/,
+  /roster move changes roster availability and may affect downstream/i,
+  /may affect downstream sports context/i,
+  /account transfer/i,
+  /operator.?note/i,
+];
+
+function isUsableSituation(record: CanonicalSituationRecord): boolean {
+  const summary = record.latest_snapshot?.summary ?? "";
+  const title = record.situation_type ?? "";
+  // Suppress situations with no snapshot at all
+  if (!record.latest_snapshot) return false;
+  // Suppress situations with noise content in summary
+  if (SITUATION_NOISE_PATTERNS.some((p) => p.test(summary))) return false;
+  // Suppress situations with confidence below 15 and only one evidence event
+  const confidence = record.latest_snapshot.confidence.score;
+  const evidenceCount = record.latest_snapshot.evidence_event_ids.length;
+  if (confidence < 15 && evidenceCount <= 1) return false;
+  return true;
 }
 
 export function listCanonicalSituations(opts: {
