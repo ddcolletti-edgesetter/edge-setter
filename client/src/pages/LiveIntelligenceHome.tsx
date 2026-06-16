@@ -699,16 +699,7 @@ function HomepageSidebar({ games, loading }: { games: LiveGameSituation[]; loadi
               <span>Avg lead time</span>
               <strong>{record.avgLeadMinutes ? `${record.avgLeadMinutes}m` : "—"}</strong>
             </div>
-            <div>
-              <span>Accuracy rate</span>
-              <strong>{record.confirmedPct !== null ? `${record.confirmedPct}%` : "—"}</strong>
-            </div>
-            <div className="is-amber">
-              <span>Revised or weakened</span>
-              <strong>{record.revised}</strong>
-            </div>
           </div>
-          <small>Revisions included</small>
           <Link href="/accuracy" className="sidebar-link">What is this? →</Link>
         </section>
       )}
