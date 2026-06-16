@@ -1329,6 +1329,26 @@ export function registerPipelineRoutes(app: Express) {
   });
 
   /**
+   * POST /api/internal/nfl-keepalive-a7x9k
+   *
+   * Unauthenticated ingest trigger for UptimeRobot keepalive.
+   * Obscured path is the only protection — do not publicize this URL.
+   * Triggers the same NFL ingest cycle as the admin route.
+   */
+  app.post("/api/internal/nfl-keepalive-a7x9k", async (req: Request, res: Response) => {
+    try {
+      const [odds, injuries] = await Promise.all([
+        ingestOdds("NFL").catch((e: any) => ({ games: 0, events: 0, error: e.message })),
+        ingestNFLInjuries().catch((e: any) => ({ created: 0, skipped: 0, error: e.message })),
+      ]);
+      const processed = await processRawEvents().catch((e: any) => ({ processed: 0, errors: 0 }));
+      return res.json({ success: true, source: "keepalive", odds, injuries, processed });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
    * POST /api/pipeline/ingest/cfb
    *
    * Manually trigger CFB odds + injury ingestion (bypasses season guard).
