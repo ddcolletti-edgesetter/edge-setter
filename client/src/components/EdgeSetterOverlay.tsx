@@ -44,7 +44,7 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
   const timingWindow = publicCopy ? publicTimingLabel(data.timing?.window) : data.timing?.window;
   const timingLabel = [timingWindow, data.timing?.freshnessLabel].filter(Boolean).join(" / ") || "Timing watch";
   const replay = publicCopy
-    ? ["Sources checked", "Timing tracked", "Still developing"].slice(0, compact ? 2 : 3)
+    ? ["ES Agents monitoring", "Developing"].slice(0, compact ? 2 : 3)
     : data.replay?.filter(Boolean).slice(0, compact ? 2 : 3) ?? [];
   const calibrationInput = {
     confidence,

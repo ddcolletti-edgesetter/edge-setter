@@ -138,7 +138,7 @@ function calibrationTone(input: AgentCalibrationInput): CalibrationTone {
 
 function calibrationDetail(input: AgentCalibrationInput) {
   if (input.storyType === "public-homepage") {
-    return "Sources checked. Timing tracked. Still developing.";
+    return "ES Agents monitoring — developing.";
   }
 
   const pieces = [
