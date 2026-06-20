@@ -1,5 +1,5 @@
-﻿# EdgeSetter North Star — Version 2.0
-**Date: June 19, 2026**
+﻿# EdgeSetter North Star — Version 2.1
+**Date: June 20, 2026**
 **Status: Active — read this at the start of every Claude Code session**
 
 This document is the single source of truth for EdgeSetter. It reflects what is
@@ -70,8 +70,15 @@ regardless of how it is framed.
 - SQLite databases via better-sqlite3:
   - `edge_setter.db` — main app DB, Drizzle ORM (users, legacy signals, sources)
   - `pipeline.db` — pipeline DB, raw SQL, append-only (situations, snapshots, events)
+  - NOTE: `pipeline.db` lives in `/tmp` on Render and is wiped on every dyno restart.
+    Situation data does not persist across server restarts on the live deployment.
+    This is a known infrastructure gap — persistent storage for pipeline.db is a
+    future requirement before subscriber launch.
 - Optional Supabase sync — falls back to SQLite if env vars absent
-- Ingestion scheduler runs on active hours (7am–1am ET)
+- Ingestion scheduler active hours: currently 7am–1am ET
+  OPEN QUESTION: These hours do not cover overnight trades, early morning injury
+  reports, or late-night roster moves. Whether to extend or run 24/7 is a product
+  decision to be made before subscriber launch.
 
 ### 3.2 Live data sources
 
@@ -136,15 +143,20 @@ not yet structurally prevented. The Critic Agent is a required build — see Par
 
 This function is live but has not yet fired on any situation in production. When it
 fires, it enables the timing gap callout. This is the most important feature to
-validate in the next active period of live data.
+validate in the next active sports period.
 
 ### 3.6 Known data gap — team resolution
 
-All 250 current live situations return `teams: ["UNK"]`. The ingestion adapters are
-not resolving team abbreviations from player transaction events. This is a pipeline
-gap, not a display gap. Team logos, team-contextual copy, and future team routing all
-depend on this being fixed. It is the highest-priority pipeline fix before subscriber
-launch.
+Transaction-type situations return `teams: ["UNK"]` because ingestion adapters do
+not resolve team abbreviations from player transaction event payloads. This is a
+pipeline gap, not a display gap.
+
+NOTE: Team logos DO resolve correctly when team identity exists — CFB matchup
+situations (e.g. Michigan vs Ohio State) render real team logos because the matchup
+adapter supplies team identity directly. The UNK problem is specific to
+transaction-type and injury-type situations where team must be derived from player
+name lookup. Team logos, team-contextual copy, and future team routing all depend
+on this being fixed for those situation types.
 
 ---
 
@@ -162,15 +174,11 @@ circumstances. Pipeline-internal states are mapped before rendering.
 | **Verified** | Success green | `confirmed`, `official` |
 
 **This mapping is the authoritative definition.** Any code that maps `confirmed` or
-`official` to "consensus-forming," "market-reacting," "confirming," or any other
-intermediate label is incorrect and must be fixed. Those internal visual states do not
-exist in the user-facing product.
+`official` to any other label is incorrect and must be fixed immediately.
 
 Verified stories never show a percentage. Display "Verified" and the timing advantage.
-The percentage is implicit — Verified means agent consensus was reached.
-
-Sub-100% percentages on a Verified story communicate doubt on a settled fact. This
-destroys trust. Never do it.
+Sub-100% percentages on a Verified story communicate doubt on a settled fact.
+This destroys trust. Never do it.
 
 ### 4.2 The timing advantage display
 
@@ -206,11 +214,16 @@ Examples:
 
 ### 4.3 The confidence journey
 
-Every verified story where a timing gap exists must show the confidence journey on the
-story detail view. Minimum viable implementation:
+The confidence journey timeline is partially built and rendering on the homepage.
+It currently shows DETECTED and ESCALATING with real timestamps. The VERIFIED segment
+exists but grays out until a story reaches confirmed/official state. The wire pickup
+third point requires `insertSituationPublicConfirmation()` to fire on a live story.
 
+This is correct behavior. What remains is connecting the third point.
+
+Full spec for story detail page:
 ```
-[First detected: 9:14am] ————————— [Verified: 9:58am] ————— [Wire pickup: 10:45am]
+[First detected: 9:14am] ————— [Verified: 9:58am] ————— [Wire pickup: 10:45am]
 ```
 
 - Always shown when both detection and verification timestamps exist
@@ -221,8 +234,7 @@ story detail view. Minimum viable implementation:
   not from `verifiedAt` to wire pickup
 
 **Confidence floor rule:** The journey never surfaces a sub-70% confidence number on
-a story that is currently Verified. Early detection confidence below 70% is not shown
-after verification — show the timing gap without the early number.
+a story that is currently Verified. Show the timing gap without the early number.
 
 ### 4.4 Agent transparency on every card
 
@@ -243,11 +255,6 @@ Every story card must show, without any user interaction:
 [N] ES Agents · [X] agree · [Y] conflicting
 ```
 Show the conflicting agent's source in the evidence narrative below.
-
-**Story detail view:**
-- Full source agreement breakdown
-- Conflict flag with reason if present
-- This is the most transparent surface in the product
 
 ### 4.5 Raw pipeline values that must never reach the UI
 
@@ -271,53 +278,81 @@ The following must be mapped before rendering. No exceptions:
 | `Stale signal` | suppress |
 | `No remaining edge` | suppress |
 
+NOTE: The NBA and MLB Watch Desk fallback cards still show raw "monitoring" in the
+Verification State field. This surface was not covered by the Priority 1 fix and
+requires a separate targeted pass — see Priority 2B below.
+
 ---
 
 ## PART 5 — WHAT NEEDS TO BE BUILT
 
 Listed in priority order. Do not build lower-priority items before higher-priority
-items are complete unless they are explicitly parallelizable.
+items are complete unless explicitly parallelizable.
 
-### Priority 1 — Fix display mapping (blocks subscriber-ready criteria 2, 3, 6)
+### Priority 1 — Fix display mapping ✓ COMPLETE
+`confirmed` and `official` now map to "verified" in `boardAdapters.ts`.
+`consensus-forming` no longer exists anywhere in the codebase.
+tsc and vitest both exit 0. Committed June 20, 2026.
 
-**Gap:** `confirmed` and `official` pipeline states map to "consensus-forming" in
-`boardAdapters.ts:421`. This means 250 live situations that have reached agent
-consensus display as neither Escalating nor Verified. The ticker shows "no verified
-breaks yet" on every board because VERIFIED never renders.
+### Priority 2 — Fix team resolution for transaction/injury situations
 
-**Fix:** Update `lifecycleVisualState()` in `boardAdapters.ts`:
-- `confirmed` → return "verified"
-- `official` → return "verified"
+**Gap:** Transaction-type and injury-type situations return `teams: ["UNK"]` because
+ingestion adapters do not resolve team from player name in those event types.
+Matchup-type situations already resolve correctly.
 
-Also audit every surface that renders a lifecycle label and apply the mapping table
-in section 4.5. Run `mapVerificationDisplayState()` on all board surfaces, not only
-the NBA board where it was originally applied.
+**Fix:** In each ingestion adapter that produces player transaction or injury events,
+add a player-to-team lookup step that resolves team abbreviation before the event
+is written to pipeline.db. Cross-reference against lookup tables in `espnAssets.ts`
+and `teamColors.ts`.
 
-**Test:** After fix, at least some of the 250 situations should render as Verified
-on the boards and ticker should show verified stories.
+**Test:** NFL injury and MLB transaction situations resolve to real team abbreviations.
+Team logos render without hitting the catch-all fallback square.
 
-### Priority 2 — Fix team resolution (blocks criteria 4, and all team display)
+### Priority 2B — Fix "monitoring" leak on NBA/MLB Watch Desk fallback cards
 
-**Gap:** All live situations return `teams: ["UNK"]`. The ingestion adapters are not
-resolving team abbreviations from transaction events.
+**Gap:** NBA and MLB boards show raw "monitoring" text in the Verification State field
+of their Watch Desk fallback cards. This is a different surface from canonical
+situation cards and was not covered by Priority 1.
 
-**Fix:** Audit each ingestion adapter (ESPN, MLB Stats API, X, RSS) to identify where
-team identity information is available in the raw payload and wire it into the
-`teams_json` field on situation records. Cross-reference against team lookup tables
-that already exist in `espnAssets.ts` and `teamColors.ts`.
+**Fix:** Apply `mapVerificationDisplayState()` to the Watch Desk fallback card
+template. "monitoring" → "Developing" per the mapping table in section 4.5.
 
-**Test:** After fix, at least NFL and MLB situations should resolve to real team
-abbreviations. Team logos should render from `teamLogoResolver.ts` without hitting
-the catch-all fallback.
+**Test:** NBA and MLB boards show no raw pipeline state strings anywhere.
 
-### Priority 3 — Build the Critic Agent (pipeline integrity, Sorsby prevention)
+### Priority 3 — Build story detail page (critical UX gap)
+
+**Gap:** Clicking a lead story on the homepage navigates to the league board, not to
+the story itself. The "Open Story" button on cards does not route correctly or the
+story detail page does not exist. This breaks the core user flow — a user who sees
+an interesting story has no way to get more information about it.
+
+**What the story detail page must contain (in order):**
+1. Full headline and story narrative — beat reporter voice, no template language
+2. Complete confidence journey timeline — detected → escalating → verified →
+   wire pickup (when available)
+3. Every source tracked — name, tier, what they reported, agreement status
+4. All ES Agent findings — what each agent detected and when
+5. Evidence trail — full, not truncated
+6. Timing advantage callout — mandatory when detectionLeadMinutes exists
+7. Fantasy / betting impact — below all of the above, never before
+8. Watch Next — what would change this story
+
+**Routing:**
+- Homepage lead story click → story detail page for that situation
+- "Open Story" button on any card → story detail page for that situation
+- URL pattern: `/story/[situation_id]`
+- Back navigation returns to the board or page the user came from
+
+**This is the most important UX gap before subscriber launch.** A product that
+generates verified intelligence but cannot show users the full story is incomplete.
+
+### Priority 4 — Build the Critic Agent (pipeline integrity)
 
 **Gap:** No code checks for primary source presence before confidence advances past
-Developing. The Sorsby failure class — publishing a situation without a primary source
-— is not structurally prevented.
+Developing. The Sorsby failure class is not structurally prevented.
 
 **Definition:** The Critic Agent runs before any situation advances from Developing to
-Escalating. It asks three questions in order:
+Escalating. It asks three questions:
 
 1. Is there a primary source (Tier 0 visual or Tier 1 text), or only wire/secondary?
    — If only wire: return "gap — no primary source"
@@ -333,79 +368,104 @@ Outcomes:
 The Critic Agent is architecturally separate from the ES Agents that detected the
 signal. It cannot be the same process reviewing its own output.
 
-**This is a required build. It cannot be skipped.**
+**This is a required build. It cannot be skipped under any circumstances.**
 
-### Priority 4 — Validate timing gap callout with live data
+### Priority 5 — Validate timing gap callout with live data
 
-**Gap:** `insertSituationPublicConfirmation()` is wired but has never fired in
-production. The timing advantage callout — the core proof of EdgeSetter's value — has
-never appeared on a real story.
+**Gap:** `insertSituationPublicConfirmation()` has never fired in production.
+The timing advantage callout has never appeared on a real story.
 
-**Action:** During the next active sports period (games running, transactions
-happening), monitor `processor.ts` logs to confirm `maybeRecordPublicConfirmation()`
-is being evaluated on incoming events. Identify why no qualifying wire pickup has been
-recorded. Check whether the guard conditions in `public-confirmation.ts` are too
-restrictive for current ingestion volume.
+**Action:** During next active sports period, monitor `processor.ts` logs to confirm
+`maybeRecordPublicConfirmation()` is being evaluated on incoming events. Check whether
+guard conditions in `public-confirmation.ts` are too restrictive for current ingestion
+volume.
 
-**Test:** One real situation where EdgeSetter detected first and wire confirmed later,
-with the timing gap displayed on the story card.
+**Test:** One real situation with EdgeSetter detection timestamp earlier than wire
+pickup timestamp, with the timing gap displayed on the story card and story detail page.
 
-### Priority 5 — Fix NBA/MLB board layout drift (criterion 8)
+### Priority 6 — Standardize all board and page layouts
 
-**Gap:** NBA and MLB boards use a Watch Desk layout with left-column tabs. NFL and CFB
-use the story-first board layout. All four boards must match.
+**The standard:** NBA board, MLB board, and Homepage define the visual standard.
+Dark navy background, amber/gold accent color, story-first center layout, signal feed
+right rail, ticker full-width at top.
 
-**Fix:** Rebuild NBA and MLB boards to use the same story-first layout pattern as NFL
-and CFB — featured situation center, signal feed right rail, ticker full-width top.
-The tab navigation (Today, Injuries, Lineup) moves to the board header row, not a
-left column. No board gets its own layout pattern.
+**Editorial structure on every page (matches ESPN/On3 familiarity):**
+- Headline first — large, clear, immediately readable
+- Brief story intro — one to two sentences of beat reporter context
+- EdgeSetter intelligence layer underneath — confidence state, agents, timing,
+  evidence. This layer is what differentiates EdgeSetter. It follows the story,
+  never leads it.
 
-### Priority 6 — Kill V2Home stub data
+**Pages that need alignment to this standard:**
+- NFL board — currently uses split-panel layout (left card + right story). Move to
+  story-first center layout matching NBA/MLB pattern.
+- CFB board — conference tabs sit above the board header. Move tabs into header row.
+  Align color treatment and component patterns to standard.
+- Sources page — needs visual alignment to standard nav, header, and color treatment
+- Alerts page — needs visual alignment to standard
+- My Edge page — needs visual alignment to standard
 
-**Gap:** `V2Home.tsx` is still active and rendering mock data from `v2MockData.ts`
-including stub entries with placeholder team tokens. This page must be gated behind
-a dev flag or removed entirely before subscriber launch.
+**Rule:** Each league can have its own identity within the standard framework
+(CFB conference tabs, NBA Tonight branding, MLB Today branding). The skeleton,
+color treatment, nav pattern, and component hierarchy must be consistent across
+all pages. A user clicking between pages should feel they are on one product.
 
-### Priority 7 — Build confidence journey timeline component (criterion 6)
+### Priority 7 — Connect alerts delivery backend
 
-**Spec:** Amendment 6 of the previous North Star defines this. Horizontal timeline
-with labeled milestones. Minimum two points (detected, verified). Third point
-(wire pickup) when `public_confirmation` exists. Sits below headline, above evidence
-block, never behind a toggle.
+**Gap:** The Alerts page UI is complete and well-built. Users can set sport
+preferences, signal type filters, minimum confidence thresholds, and delivery
+channels. Email delivery and push notifications both show "PAUSED — not active yet."
+The preferences can be saved but alerts are never sent.
 
-### Priority 8 — Build CFB timing callout with source type naming (criterion 7)
+**What needs to be built:**
+- Email delivery: wire saved alert preferences to `server/email.ts` (Resend is already
+  imported). When a situation reaches Verified and matches a user's saved preferences,
+  send an alert email with the story headline, confidence state, and timing advantage.
+- Push notifications: implement web push or mobile push delivery channel.
+- Alert routing: on every verified situation, check all subscribed users whose
+  preferences match (league, signal type, confidence threshold) and trigger delivery.
 
-**Spec:** CFB verified stories must name the source type in the timing callout. Format:
+**Test:** A subscribed user with NBA + Injuries + 80+ confidence preference receives
+an email when an NBA injury situation reaches Verified.
+
+### Priority 8 — Complete My Edge page
+
+**What it is:** Personal intelligence layer. Users follow teams, players, and leagues.
+Their feed filters and prioritizes accordingly. Alert thresholds configurable and
+linked to the Alerts page delivery settings.
+
+**Why it matters:** This is the primary retention mechanism. A user who has
+customized EdgeSetter has a reason to return every day. It converts a curious visitor
+into a paying subscriber.
+
+**Build after:** Story detail page (Priority 3) and Alerts delivery (Priority 7) are
+complete. My Edge is only valuable when stories can be read in full and alerts fire.
+
+### Priority 9 — Build CFB timing callout with source type naming
+
+**Spec:** CFB verified stories must name the source type in the timing callout:
 ```
 [Source type] · [N] min before wire pickup
 ```
 Source taxonomy exists in `cfb-school-sources.ts`. Non-CFB leagues fall back to
-generic timing gap until equivalent taxonomy is built for those leagues.
+generic timing gap callout until equivalent source taxonomy is built for those leagues.
 
-### Priority 9 — Complete My Edge page
+### Priority 10 — Kill V2Home stub data
 
-**What it is:** Personal intelligence layer. Users follow teams, players, and leagues.
-Their feed filters and prioritizes accordingly. Alert thresholds configurable.
+**Gap:** `V2Home.tsx` renders mock data from `v2MockData.ts` including stub entries
+with placeholder team tokens. Must be gated behind a dev flag or removed entirely
+before subscriber launch. Stub data must never reach a user.
 
-**Why it matters:** This is the retention mechanism. A user who customizes EdgeSetter
-has a reason to come back every day. It converts a curious visitor into a paying
-subscriber.
+### Priority 11 — Manako visual signal integration
 
-**Build after:** Core pipeline gaps (Priorities 1–4) are closed. My Edge is only
-valuable when the underlying stories are real and verified.
+**What it is:** Vision Agents watching cameras detect physical events before any text
+signal exists. Visual signals enter the pipeline as the highest evidence tier.
 
-### Priority 10 — Manako visual signal integration
+**Status:** `manakoMapper.ts` and `visualIngest.ts` written. `ingestVisualSignal()`
+never called from `runIngestionCycle()`. Spec-complete, not live.
 
-**What it is:** Vision Agents watching cameras detect physical events (injury,
-player exit, press conference absence, practice attendance) before any text signal
-exists. Visual signals enter the pipeline as the highest evidence tier — above SID
-posts.
-
-**Status:** `manakoMapper.ts` and `visualIngest.ts` are written. `ingestVisualSignal()`
-is never called from `runIngestionCycle()`. Integration is spec-complete, not live.
-
-**Dependency:** Archie Grant call (scheduled) to confirm webhook format, camera
-access for US sports, and commercial terms. Build sprint begins after that call.
+**Dependency:** Archie Grant call (scheduled) to confirm webhook format, camera access
+for US sports, and commercial terms. Build sprint begins after that call.
 
 **Source tier when live:**
 ```
@@ -416,7 +476,7 @@ Tier 0 — primary_visual (sourceType: "vision_agent")
         Visual evidence alone is never sufficient for Verified.
 ```
 
-**Timing callout when Manako is live:**
+**Timing callout when live:**
 ```
 Visual feed detected 9:14am · First text report 9:41am · Wire pickup 10:45am
 ```
@@ -435,11 +495,8 @@ Every page, every card, every design decision must follow this order:
 6. Downstream context
 
 Fantasy and betting value belong in the product. They must never appear before the
-sports story is clear. A user who opens EdgeSetter and sees odds before context will
-not trust the intelligence layer.
-
-Any feature proposal that surfaces fantasy, betting, or DFS recommendations above
-items 1–4 must be rejected regardless of how it is framed.
+sports story is clear. Any feature proposal that surfaces fantasy, betting, or DFS
+recommendations above items 1–4 must be rejected regardless of how it is framed.
 
 ---
 
@@ -475,58 +532,60 @@ Rules:
 - Always "ES Agent" — never "Agent" alone
 - Never use "ES Agent" and "Source" interchangeably
 - When showing both: "2 sources tracked / 4 ES Agents monitoring"
-- Never name specific outlets in timing callouts. Use tier language:
+- Never name specific outlets in timing callouts. Tier language only:
   "wire pickup," "wire service," "national media," "public confirmation"
 
 ---
 
-## PART 8 — PRODUCT SURFACES (WHAT EXISTS AND WHAT IT DOES)
+## PART 8 — PRODUCT SURFACES (CURRENT STATE)
 
 ### Live and functional
-- **Homepage** — Lead story, signal feed, today's games, live ticker
-- **NFL board** — Story-first layout, signal feed, developing stories
-- **CFB board** — Story-first layout, conference tabs, signal stream
-- **NBA board** — Watch Desk layout (needs alignment with NFL/CFB — Priority 5)
-- **MLB board** — Watch Desk layout (needs alignment — Priority 5)
+- **Homepage** — Lead story, signal feed, today's games, live ticker. Visual standard.
+- **NBA board** — Watch Desk layout. Part of the visual standard.
+- **MLB board** — Watch Desk layout. Part of the visual standard.
+- **NFL board** — Story-first split-panel layout. Needs alignment to standard (P6).
+- **CFB board** — Story-first layout with conference tabs. Needs alignment to standard (P6).
 - **Sources page** — Source reliability tiers, tracked accuracy, timing edge, weakened
-  rate. This is a product feature, not a dev tool. Keep it.
-- **Pro page** — Subscription flow, $19/month
+  rate. Populates from live pipeline on deployed server. Empty locally — expected.
+  This is a product feature. Keep it.
+- **Pro page** — Subscription flow, $19/month.
 
 ### Built but incomplete
-- **My Edge page** — Placeholder UI exists, functionality not built (Priority 9)
-- **Alerts** — Icon present, navigates to homepage instead of alerts page. Not built.
+- **Story detail page** — "Open Story" button exists on cards but routing is broken
+  or page does not exist. Highest-priority UX gap (Priority 3).
+- **Alerts page** — UI complete. Sport, signal type, confidence threshold, delivery
+  channel preferences all built. Email and push delivery not connected (Priority 7).
+- **My Edge page** — Placeholder UI and example cards exist. Functionality not built
+  (Priority 8).
 
-### Not in scope until Priorities 1–4 are complete
+### Not in scope until Priorities 1–5 are complete
 - Team-level routing (/nba/teams/lakers etc.)
-- Manako visual signal integration (Priority 10)
+- Manako visual signal integration (Priority 11)
 - Self-improving monitor agent
 - Story clustering
 - Multi-panel power-user layout
 - Subnet 44 validator node
+- pipeline.db persistent storage on Render
 
 ---
 
 ## PART 9 — SUBSCRIBER-READY DEFINITION
 
-EdgeSetter is subscriber-ready for the attention campaign only when all eight criteria
-are true simultaneously. Do not launch until all eight are met.
+EdgeSetter is subscriber-ready for the attention campaign only when all criteria
+below are true simultaneously. Do not launch until all are met.
 
 | # | Criterion | Current status |
 |---|---|---|
 | 1 | User understands "knows things before other sites" within 5 seconds | Needs user test |
-| 2 | At least one story with visible timing advantage callout | **Blocked — timing gap never fired** |
-| 3 | Confidence scores display correctly (Developing/Escalating/Verified) | **Blocked — official maps to consensus-forming not Verified** |
-| 4 | No broken logos, no placeholder imagery, boards match homepage | **Blocked — teams all UNK, no logos resolving** |
+| 2 | At least one story with visible timing advantage callout | Blocked — timing gap never fired in production |
+| 3 | Confidence scores display correctly (Developing/Escalating/Verified) | **FIXED June 20** — monitor for regressions |
+| 4 | No broken logos, no placeholder imagery | Partial — matchup logos work, transaction/injury UNK |
 | 5 | Source count visible on lead story without clicking | Needs UI audit |
-| 6 | Verified story shows confidence journey, not just Verified badge | Not built |
-| 7 | CFB timing callout names source type (primary vs wire) | Not built |
-| 8 | All league boards match homepage layout | Partial — NBA/MLB drift |
-
-**Priority 1 (display mapping fix) unblocks criteria 3 immediately.**
-**Priority 2 (team resolution) unblocks criterion 4.**
-**Priority 4 (timing gap validation) unblocks criterion 2.**
-
-Criteria 1, 5, 6, 7, 8 can be worked in parallel once 2, 3, 4 are clear.
+| 6 | Verified story shows confidence journey with wire pickup point | Partial — detected/escalating render, verified + wire pickup not yet |
+| 7 | CFB timing callout names source type | Not built |
+| 8 | All league boards and pages match visual standard | Partial — NFL/CFB/Sources/Alerts/My Edge need alignment |
+| 9 | Story detail page opens from any card or lead story click | Not built / broken routing |
+| 10 | Alerts delivery fires on verified stories matching user preferences | Not built |
 
 ---
 
@@ -546,11 +605,10 @@ Criteria 1, 5, 6, 7, 8 can be worked in parallel once 2, 3, 4 are clear.
 5. Before building any new feature, confirm all higher-priority items in Part 5
    are complete. Do not add surface area before the foundation is solid.
 
-6. The Critic Agent (Priority 3) cannot be skipped under time pressure. It is a
-   required pipeline component. Any session that proposes skipping it must be
-   rejected.
+6. The Critic Agent (Priority 4) cannot be skipped under time pressure. It is a
+   required pipeline component. Any session that proposes skipping it must be rejected.
 
-7. V2Home.tsx stub data must never reach a user. Gate it or remove it.
+7. V2Home.tsx stub data must never reach a user. Gate it or remove it (Priority 10).
 
 8. Never name a specific outlet in timing advantage copy. Tier language only.
 
@@ -559,6 +617,13 @@ Criteria 1, 5, 6, 7, 8 can be worked in parallel once 2, 3, 4 are clear.
 
 10. Public confirmation is evidence, not authority. ES Agents verify. Wire pickup
     proves EdgeSetter was first. These are different things.
+
+11. The story detail page is the full intelligence dossier. It follows the hierarchy
+    in Part 6 without exception. Fantasy and betting impact are always last.
+
+12. Every "Open Story" button and every lead story click must route to the story
+    detail page for that specific situation. Navigation to a league board is not
+    acceptable as a substitute.
 
 ---
 
@@ -583,13 +648,14 @@ platform that never explains why. These are trained, frustrated users who alread
 want exactly what EdgeSetter does.
 
 This window will not stay open indefinitely. The attention campaign launches when all
-eight subscriber-ready criteria are met — not before, not after additional features
-are added.
+subscriber-ready criteria in Part 9 are met — not before, not after additional
+features are added.
 
 ---
 
-*EdgeSetter North Star — Version 2.0*
-*June 19, 2026*
-*Supersedes all previous North Star versions and amendments.*
+*EdgeSetter North Star — Version 2.1*
+*June 20, 2026*
+*Supersedes Version 2.0 and all previous versions and amendments.*
 *Update this document when pipeline architecture changes, display rules are revised,*
-*or subscriber-ready criteria change. Do not let the code diverge from this document.*
+*subscriber-ready criteria change, or priorities are completed.*
+*Do not let the code diverge from this document.*
