@@ -90,18 +90,18 @@ describe("MLB board render regressions", () => {
     render(<MLBBoard />);
 
     await waitFor(() => {
-      expect(screen.getByText("Top Watch Items")).toBeInTheDocument();
+      expect(screen.getByText("Signal Feed")).toBeInTheDocument();
     });
 
-    const rail = screen.getByText("Top Watch Items").closest("aside");
+    const rail = screen.getByText("Signal Feed").closest("aside");
     expect(rail).not.toBeNull();
     const railText = rail?.textContent ?? "";
     expect(railText).not.toMatch(/\bUNK\b/);
     expect(document.body.textContent ?? "").not.toContain("ARI-LAD-ARI");
     expect(document.body.textContent ?? "").not.toContain("market move leads MLB watch");
 
-    const headlineMatches = within(rail as HTMLElement).getAllByText(/Late LAD lineup update could change first-pitch plans/i);
-    expect(headlineMatches).toHaveLength(1);
+    // Two identical-type lineup signals deduplicate into one summarized rail entry
+    expect(within(rail as HTMLElement).queryAllByText(/2 lineups/i)).toHaveLength(1);
   });
 
   it("renders the no-story MLB state as a compact editorial watch board", async () => {
@@ -132,12 +132,12 @@ describe("MLB board render regressions", () => {
 
     render(<MLBBoard />);
 
-    expect(await screen.findByRole("heading", { name: "No clean high-impact MLB stories right now." })).toBeInTheDocument();
-    expect(screen.getByText("The slate is in watch-board mode while lineup cards, starters, weather, bullpen use, and late scratches settle.")).toBeInTheDocument();
-    expect(screen.getAllByText("Lineup cards posting before first pitch").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Probable and confirmed pitcher changes").length).toBeGreaterThan(0);
-    expect(screen.getByText("Watch confirmed lineups, pitcher changes, weather cells, late scratches, and source-backed market movement.")).toBeInTheDocument();
-    expect(screen.getByRole("article")).toHaveClass("editorial-lead-story-quiet");
+    expect(await screen.findByRole("heading", { name: "Watch next" })).toBeInTheDocument();
+    expect(screen.getByText("Lineup cards, probable and confirmed pitchers, weather cells, bullpen availability, late scratches, and source-backed market movement stay on the board.")).toBeInTheDocument();
+    expect(screen.getByText("Lineup cards")).toBeInTheDocument();
+    expect(screen.getByText("Pitcher status")).toBeInTheDocument();
+    expect(screen.getByText("Weather cells")).toBeInTheDocument();
+    expect(screen.getByText("Bullpen load")).toBeInTheDocument();
     expect(document.body.textContent ?? "").not.toContain("Today's MLB watch checklist");
     expect(document.body.textContent ?? "").not.toContain("Urgent Developing Stories");
   });

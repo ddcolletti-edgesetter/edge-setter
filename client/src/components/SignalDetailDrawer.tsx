@@ -741,7 +741,11 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
             </div>
             <div className="signal-source-stack">
               {model.rows.map((row) => (
-                <div className={row.status.toLowerCase() === "attached" ? "signal-source-row es-source-confirm" : "signal-source-row"} key={`${row.label}-${row.type}`}>
+                <div
+                  className={`source-row-item ${row.status.toLowerCase() === "attached" ? "signal-source-row es-source-confirm" : "signal-source-row"}`}
+                  data-tier={row.type}
+                  key={`${row.label}-${row.type}`}
+                >
                   <span>{row.label}</span>
                   <small>{row.type}</small>
                   <b>{row.status}</b>

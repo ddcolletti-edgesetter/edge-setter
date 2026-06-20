@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 import V2Shell, { useShellTheme } from "../components/V2Shell";
+import { LiveTicker, buildBoardTickerItems } from "../components/LiveTicker";
+import { BoardSignalRail } from "../components/BoardSignalRail";
 import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalDetailDrawer";
 import { ProBoardBanner } from "../components/ProGate";
 import TrackRecordStrip from "../components/TrackRecordStrip";
@@ -10,7 +12,8 @@ import { NFL_SIGNALS, NFL_SLATE, type NFLSignal, type NFLSignalType } from "../d
 import { useNFLSignals } from "../hooks/useSignals";
 import { scoreAndRankSignals } from "../lib/signalScorer";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "../lib/signalBoardUx";
-import { buildBoardSituations, rankBoardSituations, selectFeaturedSituation, type BoardSituation } from "../lib/boardSituations";
+import { buildBoardSituations, rankBoardSituations, type BoardSituation } from "../lib/boardSituations";
+import { selectFeaturedSituation } from "../lib/leadRanker";
 import { getLeagueBoardProfile } from "../lib/leagueBoardProfiles";
 import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations } from "../lib/situationAdapters";
 import { filterCanonicalSituations, useCanonicalSituations } from "../lib/situationsApi";
@@ -135,6 +138,7 @@ function NFLBoardInner() {
 
   return (
     <div className="league-board-shell es-league-nfl">
+      <LiveTicker items={buildBoardTickerItems(canonicalSituations)} />
       <main className="board-main-col mx-auto flex w-[calc(100vw-24px)] max-w-[calc(100vw-24px)] flex-col gap-3 overflow-x-hidden py-3 sm:w-full sm:max-w-7xl sm:gap-4 sm:px-6 sm:py-5">
         <BoardCommandBar
           kicker="NFL Story Board"
@@ -147,6 +151,24 @@ function NFLBoardInner() {
           actions={[{ label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { refresh(); refreshCanonical(); }, variant: "outline" }]}
         />
 
+        <div className="sm:grid sm:grid-cols-[minmax(0,1fr)_220px] sm:items-start sm:gap-4">
+          <FeaturedSituation
+            situation={featured ? toSituationRowData(featured) : undefined}
+            eyebrow={profile.featuredLabel}
+            title={featuredDetails.title}
+            summary={featuredDetails.summary}
+            primaryRead={featuredDetails.primaryRead}
+            secondaryRead={featuredDetails.secondaryRead}
+            metrics={featuredDetails.metrics}
+            presentation="story"
+            league="NFL"
+            mobileDensity="compact"
+            className="sm:mb-1"
+            actions={featured?.kind === "signal" ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
+          />
+          <BoardSignalRail situations={situations} />
+        </div>
+
         <TrackRecordStrip league="NFL" darkMode={darkMode} />
 
         <LiveGameStrip
@@ -156,21 +178,6 @@ function NFLBoardInner() {
           density="compact"
           activeGameId={activeGameId}
           onGameSelect={(game) => setActiveGameId(activeGameId === game.id ? undefined : game.id)}
-        />
-
-        <FeaturedSituation
-          situation={featured ? toSituationRowData(featured) : undefined}
-          eyebrow={profile.featuredLabel}
-          title={featuredDetails.title}
-          summary={featuredDetails.summary}
-          primaryRead={featuredDetails.primaryRead}
-          secondaryRead={featuredDetails.secondaryRead}
-          metrics={featuredDetails.metrics}
-          presentation="story"
-          league="NFL"
-          mobileDensity="compact"
-          className="sm:mb-1"
-          actions={featured?.kind === "signal" ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
         />
 
         <BoardPriorityControls

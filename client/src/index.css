@@ -92,6 +92,7 @@
     --es-brand-green-soft: rgba(24, 212, 123, 0.12);
     --es-gold: #D9A441;
     --es-amber: #E6B450;
+    --es-forming: #3B82F6;
     --es-gold-soft: rgba(217, 164, 65, 0.12);
     --es-green: #18D47B;
     --es-blue: #6FA4BF;
@@ -1394,6 +1395,45 @@
 .league-board-shell {
   position: relative;
   isolation: isolate;
+  overflow: clip;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.board-header-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--color-border, rgba(82,101,122,0.26));
+}
+
+.board-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  align-items: start;
+}
+
+.board-right-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  position: sticky;
+  top: 1rem;
+}
+
+@media (max-width: 768px) {
+  .board-content-grid {
+    grid-template-columns: 1fr;
+    padding: 1rem;
+    gap: 1rem;
+  }
+  .board-right-rail {
+    position: static;
+  }
 }
 
 .league-board-shell::before,
@@ -1552,7 +1592,7 @@
     0 0 24px rgba(245, 184, 65, 0.055) !important;
 }
 
-.board-featured-situation-visual-consensus-forming {
+.board-featured-situation-visual-verified {
   border-color: rgba(24, 212, 123, 0.3) !important;
   background:
     linear-gradient(135deg, rgba(24, 212, 123, 0.07), transparent 32%),
@@ -1719,7 +1759,7 @@
     rgba(5, 5, 5, 0.05);
 }
 
-.situation-row-visual-consensus-forming {
+.situation-row-visual-verified {
   box-shadow: inset 2px 0 0 rgba(24, 212, 123, 0.34);
   background:
     linear-gradient(90deg, rgba(24, 212, 123, 0.07), transparent 38%),
@@ -2569,7 +2609,7 @@
   background: rgba(245, 184, 65, 0.78);
 }
 
-.situation-row-visual-consensus-forming .situation-lifecycle-meter-step.is-active {
+.situation-row-visual-verified .situation-lifecycle-meter-step.is-active {
   background: rgba(24, 212, 123, 0.68);
 }
 
@@ -3859,7 +3899,9 @@
   .league-board-shell {
     width: 100% !important;
     max-width: 100%;
-    overflow: hidden;
+    /* overflow:clip contains board content without the scroll-container compositing
+       context that causes the left-edge artifact on the ticker mask-image. */
+    overflow: clip;
   }
 
   .league-board-shell::before {
@@ -4195,4 +4237,25 @@
   .label-premium {
     font-size: 0.75rem; /* 12px */
   }
+}
+
+/* ─── Manako Vision Agent display ───────────────────────────────────────── */
+.visual-signal-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--es-forming);
+  background: color-mix(in srgb, var(--es-forming) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--es-forming) 30%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 1px 5px;
+  line-height: 1.5;
+}
+
+.source-row-item[data-tier="primary_visual"] {
+  color: var(--es-forming);
+  font-weight: 700;
 }

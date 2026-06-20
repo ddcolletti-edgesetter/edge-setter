@@ -120,11 +120,9 @@ function sourcePostureLabel(count: number, label: string) {
 
 function publicStatusLabel(state?: EscalationState | null, status?: string | null) {
   if (status === "Quiet coverage") return "Coverage watch";
-  if (state === "Confirming") return "Being verified";
-  if (state === "Official") return "Official update";
-  if (state === "Significant" || state === "Escalating") return "Impact watch";
-  if (state === "Emerging") return "Developing story";
-  return "Monitoring";
+  if (state === "Official") return "Verified";
+  if (state === "Confirming" || state === "Significant" || state === "Escalating") return "Escalating";
+  return "Developing";
 }
 
 function publicSourceLabel(value?: string | null) {

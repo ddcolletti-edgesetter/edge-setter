@@ -64,7 +64,7 @@ export interface NormalizedEvent {
   readonly normalized_event_id: string;
   readonly raw_event_id: string | null;
   readonly source_id: string;
-  readonly source_type: "api" | "manual" | "scrape" | "rss" | "validator" | "market";
+  readonly source_type: "api" | "manual" | "scrape" | "rss" | "validator" | "market" | "vision_agent";
   readonly sport: SituationSport;
   readonly league: League;
   readonly game_id: string | null;

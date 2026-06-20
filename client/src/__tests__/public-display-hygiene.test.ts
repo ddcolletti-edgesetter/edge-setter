@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   filterPublicSignals,
+  isValidTeamToken,
   publicGamesForLeague,
   publicStatusLabel,
   sanitizeSignalForPublic,
@@ -19,7 +20,7 @@ function signal(overrides: Partial<LiveSignal> = {}): LiveSignal {
     headline: "Dodgers lineup change draws market attention",
     body: "Lineup reporting changed the pregame read.",
     action_note: "Watch for official lineup and market response.",
-    why_it_matters: "Lineup changes can alter run environment and late pricing.",
+    why_it_matters: "Lineup changes can alter run environment and player availability.",
     team: "LAD",
     player: null,
     matchup: "LAD @ NYY",
@@ -81,7 +82,17 @@ describe("public display hygiene", () => {
     expect(result).toEqual([]);
   });
 
-  it("dedupes MLB games and suppresses stale games from public slates", () => {
+  it("dedupes CFB games where team order is reversed (UGA @ BAMA vs BAMA @ UGA)", () => {
+    const games = publicGamesForLeague([
+      { id: "direction-a", league: "CFB", away_team: "UGA", home_team: "BAMA", game_time: "2026-11-29T19:00:00Z" },
+      { id: "direction-b", league: "CFB", away_team: "BAMA", home_team: "UGA", game_time: "2026-11-29T19:00:00Z", spread_line: -3 },
+    ], "CFB", new Date("2026-11-29T12:00:00Z"));
+
+    expect(games).toHaveLength(1);
+    expect(games[0].id).toBe("direction-b");
+  });
+
+  it("dedupes MLB games and suppresses stale games from today's board", () => {
     const games = publicGamesForLeague([
       { id: "stale", league: "MLB", away_team: "NYY", home_team: "ATH", game_time: "2026-05-30T01:00:00Z" },
       { id: "stats", league: "MLB", away_team: "SD", home_team: "PHI", game_time: "2026-06-04T17:05:00Z" },
@@ -133,5 +144,43 @@ describe("public display hygiene", () => {
     expect(publicStatusLabel("urgent")).toBe("Urgent");
     expect(publicStatusLabel("likely")).toBe("Watch");
     expect(publicStatusLabel("emerging")).toBe("Developing");
+  });
+
+  describe("isValidTeamToken — short-token guard", () => {
+    it("suppresses single and two-letter tokens that are not known CFB abbreviations", () => {
+      expect(isValidTeamToken("NO", "cfb")).toBe(false);  // NFL Saints leaking into CFB
+      expect(isValidTeamToken("N", "cfb")).toBe(false);   // single-char
+      expect(isValidTeamToken("AU", "cfb")).toBe(false);  // not in known CFB set
+    });
+
+    it("allows known two-letter CFB abbreviations", () => {
+      expect(isValidTeamToken("ND", "cfb")).toBe(true);   // Notre Dame
+      expect(isValidTeamToken("TX", "cfb")).toBe(true);   // Texas
+    });
+
+    it("allows NO and other short tokens in NFL context", () => {
+      expect(isValidTeamToken("NO", "nfl")).toBe(true);   // New Orleans Saints
+      expect(isValidTeamToken("GB", "nfl")).toBe(true);   // Green Bay Packers
+      expect(isValidTeamToken("KC", "nfl")).toBe(true);
+    });
+
+    it("allows longer tokens (3+ chars) regardless of sport", () => {
+      expect(isValidTeamToken("BAMA", "cfb")).toBe(true);
+      expect(isValidTeamToken("UGA", "cfb")).toBe(true);
+      expect(isValidTeamToken("LAL", "nba")).toBe(true);
+    });
+
+    it("suppresses standard invalid tokens", () => {
+      expect(isValidTeamToken("UNK", "cfb")).toBe(false);
+      expect(isValidTeamToken("TBD")).toBe(false);
+      expect(isValidTeamToken("")).toBe(false);
+      expect(isValidTeamToken(null)).toBe(false);
+    });
+
+    it("when no sport is given, allows any token that is known across all sports", () => {
+      expect(isValidTeamToken("NO")).toBe(true);   // valid NFL team
+      expect(isValidTeamToken("ND")).toBe(true);   // valid CFB team
+      expect(isValidTeamToken("N")).toBe(false);   // unknown in any sport
+    });
   });
 });

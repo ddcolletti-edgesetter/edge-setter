@@ -98,13 +98,33 @@ export function publicConfidenceLabel(value?: string | number | null) {
 }
 
 export function publicTimingLabel(value?: string | null, league?: string) {
+  if (value?.startsWith('visual:')) {
+    return value.replace('visual:', '').trim()
+  }
+  const raw = String(value ?? "").trim();
   const text = publicStoryText(value, league).toLowerCase();
   if (!text) return "Timing check pending";
-  if (text.includes("market")) return league?.toUpperCase() === "NBA" ? "Pre-tip market reaction" : "Early market reaction";
+  // Market signals — "market is reacting", "market reaction", any market reference
+  if (text.includes("market is reacting") || text.includes("market reaction") || text.includes("market"))
+    return league?.toUpperCase() === "NBA" ? "Pre-tip market reaction" : "Early market reaction";
   if (text.includes("early")) return "Early watch";
   if (text.includes("developing")) return "Developing window";
-  if (text.includes("confirmed") || text.includes("official")) return "Confirmed update";
-  if (text.includes("cooling") || text.includes("priced")) return "Cooling";
+  // Confirmed / officially settled
+  if (text.includes("confirmed") || text.includes("official") || text.includes("consensus forming") || text.includes("widely known"))
+    return "Confirmed update";
+  // Cooling / priced out / stale
+  if (text.includes("cooling") || text.includes("priced") || text.includes("stale signal") || text.includes("no remaining edge"))
+    return "Cooling";
+  // ES Agents verified
+  if (raw === "ES Agents verified") return "ES Agents verified";
+  // Internal pipeline labels that should not reach the UI as-is
+  if (
+    text.includes("context moving") ||
+    text.includes("source pressure") ||
+    text.includes("watch tightening") ||
+    text.includes("monitoring only") ||
+    text.includes("es agents")
+  ) return "ES Agents monitoring";
   return titleCase(text);
 }
 

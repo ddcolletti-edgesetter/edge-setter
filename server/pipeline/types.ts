@@ -72,7 +72,7 @@ export type RawEventType =
 export interface RawEvent {
   id: string;                       // UUID
   source_id: string;                // e.g. "the_odds_api", "balldontlie", "mlb_statsapi", "operator"
-  source_type: "api" | "manual" | "scrape" | "rss";
+  source_type: "api" | "manual" | "scrape" | "rss" | "vision_agent";
   league: League;
   game_id: string | null;           // FK → Game.id (if applicable)
   team: string | null;              // short code

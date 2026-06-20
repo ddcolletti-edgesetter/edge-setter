@@ -1,5 +1,29 @@
 import type { LiveSignal } from "./signalsApi";
 
+export type DisplayConfidenceState = "Developing" | "Escalating" | "Verified";
+
+export interface VerificationDisplayResult {
+  label: DisplayConfidenceState;
+  cssClass: "is-developing" | "is-escalating" | "is-verified";
+}
+
+export function mapVerificationDisplayState(
+  verificationState: string,
+  confidenceScore: number,
+): VerificationDisplayResult {
+  const normalized = verificationState.toLowerCase().trim();
+  if (normalized === "verified") return { label: "Verified", cssClass: "is-verified" };
+  if (normalized === "escalating") {
+    return confidenceScore >= 70
+      ? { label: "Escalating", cssClass: "is-escalating" }
+      : { label: "Developing", cssClass: "is-developing" };
+  }
+  if (normalized === "developing") return { label: "Developing", cssClass: "is-developing" };
+  return confidenceScore >= 70
+    ? { label: "Escalating", cssClass: "is-escalating" }
+    : { label: "Developing", cssClass: "is-developing" };
+}
+
 export type PublicGameLike = {
   id?: string | number;
   league?: string | null;
@@ -25,15 +49,63 @@ export type PublicGameLike = {
 };
 
 const INVALID_TEAM_TOKENS = new Set(["", "-", "—", "unk", "unknown", "tbd", "null", "undefined"]);
+
+// Known ≤2-char team abbreviations by sport.
+// Any 1–2 uppercase token not in the relevant sport's set is a pipeline artifact, not a real team identifier.
+const SHORT_TEAM_ABBRS: Record<string, ReadonlySet<string>> = {
+  cfb: new Set(["ND", "TX"]),
+  nfl: new Set(["GB", "KC", "LV", "NE", "NO", "SF", "TB"]),
+  mlb: new Set(["SD", "SF", "TB"]),
+  nba: new Set([]), // all NBA abbreviations are 3+ chars
+};
+const ALL_SHORT_TEAM_ABBRS: ReadonlySet<string> = new Set([
+  ...SHORT_TEAM_ABBRS.cfb,
+  ...SHORT_TEAM_ABBRS.nfl,
+  ...SHORT_TEAM_ABBRS.mlb,
+]);
 const PUBLIC_INVALID_TOKEN_RE = /(^|[^a-z0-9])unk([^a-z0-9]|$)/i;
 const MALFORMED_MATCHUP_RE = /\b([A-Z]{2,4})[-/@ ]+([A-Z]{2,4})[-/@ ]+\1\b|\b([A-Z]{2,4})[-/@ ]+([A-Z]{2,4})[-/@ ]+\4\b/;
 const ROUTINE_MLB_TRANSACTION = /\b(activated|recalled|optioned|assigned|designated|transferred|selected|claimed)\b/i;
 const HIGH_IMPACT_TERMS = /\b(star|starter|starting|lineup|scratch|pitcher|probable|closer|ace|qb|quarterback|injury|out|doubtful|weather|market|line moved|steam|sharp)\b/i;
 const HIGH_IMPACT_TRANSACTION_TERMS = /\b(star|starter|starting|lineup|scratch|pitcher|probable|closer|ace|out|doubtful|weather|line moved|steam|sharp)\b/i;
 
+const PLACEHOLDER_PLAYER_PATTERNS: RegExp[] = [
+  /\bPlayer\s*\([^)]{1,10}\)/i,
+  /^\s*Player\s*$/i,
+  /\bPlayer\s*\(Unknown\)/i,
+  /\bUnknown\s+Player\b/i,
+]
+
+export function isValidPlayerName(name: string | null | undefined): boolean {
+  if (!name || name.trim().length === 0) return false
+  for (const pattern of PLACEHOLDER_PLAYER_PATTERNS) {
+    if (pattern.test(name)) return false
+  }
+  return true
+}
+
+export function storyTitleHasValidPlayerName(title: string | null | undefined): boolean {
+  if (!title || title.trim().length === 0) return false
+  if (!title.includes('—') && !title.includes('–') && !title.includes(' - ')) return true
+  const playerSegment = title.split(/\s*[—–-]\s*/)[0].trim()
+  return isValidPlayerName(playerSegment)
+}
+
 export function isValidPublicTeam(value?: string | null) {
   const normalized = normalizeTeamToken(value);
   return !INVALID_TEAM_TOKENS.has(normalized);
+}
+
+export function isValidTeamToken(value: string | null | undefined, sport?: string): boolean {
+  if (!value || value.trim().length === 0) return false;
+  const normalized = normalizeTeamToken(value);
+  if (INVALID_TEAM_TOKENS.has(normalized)) return false;
+  const upper = value.trim().toUpperCase();
+  if (upper.length <= 2) {
+    const sportSet = sport ? SHORT_TEAM_ABBRS[sport.toLowerCase()] : undefined;
+    return sportSet ? sportSet.has(upper) : ALL_SHORT_TEAM_ABBRS.has(upper);
+  }
+  return true;
 }
 
 export function containsPublicInvalidToken(value?: string | null) {
@@ -211,7 +283,9 @@ function gameDedupeKey(game: PublicGameLike) {
   const home = normalizeTeamToken(game.home_team ?? game.homeTeam ?? game.home);
   const time = gameTimeMs(game);
   const day = time === null ? "unknown" : new Date(time).toISOString().slice(0, 10);
-  return [league, day, away, home].join(":");
+  // Sort team identifiers so "UGA @ BAMA" and "BAMA @ UGA" resolve to the same key.
+  const teams = [away, home].sort();
+  return [league, day, ...teams].join(":");
 }
 
 function gameCompletenessScore(game: PublicGameLike) {

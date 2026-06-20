@@ -260,19 +260,54 @@ export function rankSignals<T extends BoardSignalLike>(signals: T[]): T[] {
 
 const FEATURED_BLOCKED_SIGNAL_TYPES = new Set([
   "roster_move",
-  "transaction", 
+  "transaction",
   "depth_chart_update",
 ]);
 
+/**
+ * Shared lead-rank comparator: confidence descending, firstDetected descending.
+ * Used by both selectFeaturedSituation (board lead) and selectHomepageLead
+ * so both surfaces always agree on which situation leads.
+ */
+export function compareLeadRank(
+  aConf: number, aFirstDetectedMs: number,
+  bConf: number, bFirstDetectedMs: number,
+): number {
+  const confDiff = bConf - aConf;
+  if (confDiff) return confDiff;
+  return bFirstDetectedMs - aFirstDetectedMs;
+}
+
+function firstDetectedMs(situation: BoardSituation): number {
+  if (situation.kind === "canonical" && situation.canonicalSituation) {
+    const raw = (situation.canonicalSituation as { firstSeenAt?: string | null }).firstSeenAt;
+    if (raw) {
+      const ms = new Date(raw).getTime();
+      if (Number.isFinite(ms)) return ms;
+    }
+  }
+  if (situation.kind === "signal" && situation.signal) {
+    const sig = situation.signal as { signal_time?: string | null; created_at?: string | null; isoTimestamp?: string | null };
+    const raw = sig.signal_time ?? sig.created_at ?? sig.isoTimestamp;
+    if (raw) {
+      const ms = new Date(raw).getTime();
+      if (Number.isFinite(ms)) return ms;
+    }
+  }
+  return 0;
+}
+
 export function selectFeaturedSituation(situations: BoardSituation[]): BoardSituation | null {
-  const ranked = rankBoardSituations(situations);
-  // Prefer a non-background situation that isn't routine noise
-  const preferred = ranked.find(
+  const candidates = situations.filter(
     s => s.lane !== "background" && !FEATURED_BLOCKED_SIGNAL_TYPES.has(s.signalType ?? "")
   );
-  if (preferred) return preferred;
-  // Fall back to any non-background if everything is blocked signal type
-  return ranked.find(s => s.lane !== "background") ?? ranked[0] ?? null;
+  const pool = candidates.length > 0
+    ? candidates
+    : situations.filter(s => s.lane !== "background");
+  const ranked = [...(pool.length > 0 ? pool : situations)].sort((a, b) =>
+    compareLeadRank(a.confidence, firstDetectedMs(a), b.confidence, firstDetectedMs(b))
+  );
+  return ranked[0] ?? null;
 }
 
 export function groupSituationsByLane(situations: BoardSituation[]) {

@@ -10,6 +10,7 @@ export default defineConfig({
     setupFiles: ["./client/src/__tests__/setup.ts"],
     include: [
       "client/src/__tests__/**/*.test.{ts,tsx}",
+      "client/src/lib/__tests__/**/*.test.{ts,tsx}",
       "server/**/*.test.ts",
     ],
     alias: {

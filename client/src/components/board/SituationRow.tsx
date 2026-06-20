@@ -16,7 +16,7 @@ export type SituationLifecycleVisualState =
   | "developing"
   | "confirming"
   | "market-reacting"
-  | "consensus-forming"
+  | "verified"
   | "cooling"
   | "resolved"
   | "archived";
@@ -81,6 +81,8 @@ export interface SituationRowData {
   detectionLeadKind?: "confirmation" | "pickup";
   marketReaction?: string;
   replayChain?: string[];
+  body?: string;
+  detail?: string;
 }
 
 interface SituationRowProps extends Omit<HTMLAttributes<HTMLButtonElement>, "onSelect"> {
@@ -370,7 +372,7 @@ export function EvidenceChain({
 }
 
 function LifecycleMeter({ state }: { state: SituationLifecycleVisualState }) {
-  const steps: SituationLifecycleVisualState[] = ["emerging", "developing", "confirming", "market-reacting", "consensus-forming", "cooling", "resolved", "archived"];
+  const steps: SituationLifecycleVisualState[] = ["emerging", "developing", "confirming", "market-reacting", "verified", "cooling", "resolved", "archived"];
   const activeIndex = Math.max(0, steps.indexOf(state));
   return (
     <span className="situation-lifecycle-meter" aria-label={`Lifecycle: ${state.replace(/-/g, " ")}`}>

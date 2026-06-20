@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { RefreshCw } from "lucide-react";
 
 import V2Shell, { useShellTheme } from "../components/V2Shell";
+import { LiveTicker, buildBoardTickerItems } from "../components/LiveTicker";
+import { BoardSignalRail } from "../components/BoardSignalRail";
 import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalDetailDrawer";
 import { ProBoardBanner } from "../components/ProGate";
 import TrackRecordStrip from "../components/TrackRecordStrip";
@@ -10,7 +12,8 @@ import { CFB_SIGNALS, CFB_SLATE, type CFBSignal, type CFBSignalType } from "../d
 import { useCFBSignals } from "../hooks/useSignals";
 import { scoreAndRankSignals } from "../lib/signalScorer";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "../lib/signalBoardUx";
-import { buildBoardSituations, rankBoardSituations, selectFeaturedSituation, type BoardSituation } from "../lib/boardSituations";
+import { buildBoardSituations, rankBoardSituations, type BoardSituation } from "../lib/boardSituations";
+import { selectFeaturedSituation } from "../lib/leadRanker";
 import { getLeagueBoardProfile } from "../lib/leagueBoardProfiles";
 import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations } from "../lib/situationAdapters";
 import { filterCanonicalSituations, useCanonicalSituations } from "../lib/situationsApi";
@@ -19,7 +22,6 @@ import { BoardPriorityControls } from "../components/board/BoardPriorityControls
 import { FeaturedSituation } from "../components/board/FeaturedSituation";
 import { LiveGameStrip } from "../components/board/LiveGameStrip";
 import { SituationLane } from "../components/board/SituationLane";
-import { TopDevelopments } from "../components/board/TopDevelopments";
 import {
   featuredCopy,
   isSourceNoise,
@@ -154,6 +156,25 @@ function CFBBoardInner() {
 
   return (
     <div className="league-board-shell es-league-cfb">
+      <LiveTicker items={buildBoardTickerItems(canonicalSituations)} />
+      <div className="board-header-row">
+        <span className="shrink-0 text-[0.6rem] font-bold uppercase tracking-widest text-muted-foreground/70">Conference</span>
+        <div className="w-px self-stretch bg-border/60" />
+        <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {TAB_FILTERS.map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setTabFilter(tab)}
+              className={`ux-tab-interactive h-6 shrink-0 rounded border px-2 text-[0.62rem] font-bold uppercase tracking-widest sm:h-7 sm:px-2.5 sm:text-[0.66rem] ${
+                tabFilter === tab ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/20 text-muted-foreground"
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+      </div>
       <main className="board-main-col mx-auto flex w-[calc(100vw-24px)] max-w-[calc(100vw-24px)] flex-col gap-3 overflow-x-hidden py-3 sm:w-full sm:max-w-7xl sm:gap-4 sm:px-6 sm:py-5">
         <BoardCommandBar
           kicker="CFB Story Board"
@@ -169,21 +190,20 @@ function CFBBoardInner() {
           actions={[{ label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { refresh(); refreshCanonical(); }, variant: "outline" }]}
         />
 
-        <div className="flex max-w-full gap-1.5 overflow-x-auto overscroll-x-contain rounded border border-border/60 bg-muted/5 px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <span className="shrink-0 self-center text-[0.6rem] font-bold uppercase tracking-widest text-muted-foreground/70">Conference</span>
-          <div className="mx-1.5 w-px self-stretch bg-border/60" />
-          {TAB_FILTERS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setTabFilter(tab)}
-              className={`ux-tab-interactive h-6 shrink-0 rounded border px-2 text-[0.62rem] font-bold uppercase tracking-widest sm:h-7 sm:px-2.5 sm:text-[0.66rem] ${
-                tabFilter === tab ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/20 text-muted-foreground"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
+        <div className="sm:grid sm:grid-cols-[minmax(0,1fr)_220px] sm:items-start sm:gap-4">
+          <FeaturedSituation
+            situation={featured ? toSituationRowData(featured) : undefined}
+            eyebrow={hasLiveCFBData ? profile.featuredLabel : "Offseason Watch Context"}
+            title={featuredDetails.title}
+            summary={featuredDetails.summary}
+            primaryRead={featuredDetails.primaryRead}
+            secondaryRead={featuredDetails.secondaryRead}
+            metrics={featuredDetails.metrics}
+            mobileDensity="compact"
+            className="sm:mb-1"
+            actions={featured?.kind === "signal" ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
+          />
+          <BoardSignalRail situations={situations} />
         </div>
 
         <TrackRecordStrip league="CFB" darkMode={darkMode} />
@@ -196,21 +216,6 @@ function CFBBoardInner() {
           activeGameId={activeGameId}
           onGameSelect={(game) => setActiveGameId(activeGameId === game.id ? undefined : game.id)}
         />
-
-        <FeaturedSituation
-          situation={featured ? toSituationRowData(featured) : undefined}
-          eyebrow={hasLiveCFBData ? profile.featuredLabel : "Offseason Watch Context"}
-          title={featuredDetails.title}
-          summary={featuredDetails.summary}
-          primaryRead={featuredDetails.primaryRead}
-          secondaryRead={featuredDetails.secondaryRead}
-          metrics={featuredDetails.metrics}
-          mobileDensity="compact"
-          className="sm:mb-1"
-          actions={featured?.kind === "signal" ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
-        />
-
-        <TopDevelopments league="CFB" situations={situations} onSelect={openSituation} />
 
         <BoardPriorityControls
           className="sm:-mt-1"
@@ -306,9 +311,31 @@ function CFBBoardInner() {
 
         {(loading || canonicalLoading) && <div className="es-skeleton h-20 rounded border border-border" />}
 
-        <div className="rounded border border-[rgba(255,138,0,0.28)] bg-[rgba(255,138,0,0.08)] px-4 py-3 text-sm font-medium text-muted-foreground">
-          <strong className="text-[var(--es-amber)]">Limited coverage</strong> - {isLive ? "Live CFB story feed active." : error ?? "Showing CFB watch context from the current fallback set."}
-        </div>
+        {!isLive && !hasLiveCFBData && (
+          <section className="max-w-full overflow-hidden rounded-md border border-border bg-card/75 px-3 py-2.5 sm:px-4 sm:py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="min-w-0 flex-1">
+                <span className="data-label text-primary">CFB Watch Board</span>
+                <h3 className="mt-0.5 font-sans text-sm font-bold text-foreground sm:text-base">
+                  {error ? "Feed unavailable — showing offseason context" : "ES Agents on watch — no verified CFB breaks yet"}
+                </h3>
+                <p className="mt-0.5 break-words text-[0.8rem] font-medium leading-snug text-muted-foreground sm:text-sm">
+                  Roster movement, QB rooms, transfer portal, and conference context remain under limited watch.
+                </p>
+              </div>
+              <span className="max-w-full basis-full whitespace-normal break-words rounded border border-border/80 bg-muted/10 px-2 py-0.5 text-[0.62rem] font-bold uppercase tracking-widest text-muted-foreground/85 sm:basis-auto sm:shrink-0">
+                Nothing verified yet
+              </span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {["Transfer portal", "QB depth", "Eligibility rulings", "Offseason context"].map((check) => (
+                <span key={check} className="rounded border border-border/80 bg-muted/10 px-2 py-1 text-[0.68rem] font-bold text-muted-foreground">
+                  {check}
+                </span>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
 
       <SignalDetailDrawer open={!!selectedSig} signal={selectedSig} sport="CFB" onClose={() => setSelectedSig(null)} />

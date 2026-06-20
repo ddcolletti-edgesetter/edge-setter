@@ -36,7 +36,7 @@ describe("subscriber readiness render regressions", () => {
     const text = document.body.textContent ?? "";
     expect(text).not.toMatch(/\bUNK\b/);
     expect(screen.getByRole("heading", { name: "Availability watch" })).toBeInTheDocument();
-    expect(text).toContain("Watch for source support, official confirmation, and context movement.");
+    expect(text).toContain("Watch for source convergence and official movement.");
   });
 
   it("renders NFL game strip badges without Alert or Confirmed labels", () => {

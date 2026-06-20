@@ -3,32 +3,33 @@ import { RefreshCw } from "lucide-react";
 import { useSearch } from "wouter";
 
 import AppShell from "@/components/V2Shell";
+import { LiveTicker, buildBoardTickerItems } from "@/components/LiveTicker";
+import { BoardSignalRail } from "@/components/BoardSignalRail";
 import { SignalDetailDrawer, type SignalDetailLike } from "@/components/SignalDetailDrawer";
 import { BoardCommandBar } from "@/components/board/BoardCommandBar";
 import { BoardPriorityControls } from "@/components/board/BoardPriorityControls";
-import { EditorialLeadStory, LeagueEditorialPageFrame, type EditorialHeadlineItem, type EditorialQuickLink } from "@/components/board/LeagueEditorialPageFrame";
+import { FeaturedSituation } from "@/components/board/FeaturedSituation";
 import { LiveGameStrip } from "@/components/board/LiveGameStrip";
 import { SituationLane } from "@/components/board/SituationLane";
 import { SituationStoryCard } from "@/components/board/SituationStoryCard";
-import { TopDevelopments } from "@/components/board/TopDevelopments";
 import {
+  featuredCopy,
   situationMatchesPriority,
   sortModeFromPriority,
-  toQuietLeagueLeadStory,
   toLiveGamePillData,
   toSituationStoryCardData,
   toSituationRowData,
   type AnyBoardGame,
 } from "@/components/board/boardAdapters";
 import { useMLBSignals } from "@/hooks/useSignals";
-import { buildBoardSituations, rankBoardSituations, selectFeaturedSituation, type BoardSituation } from "@/lib/boardSituations";
+import { buildBoardSituations, rankBoardSituations, type BoardSituation } from "@/lib/boardSituations";
+import { selectFeaturedSituation } from "@/lib/leadRanker";
 import { getLeagueBoardProfile } from "@/lib/leagueBoardProfiles";
 import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations } from "@/lib/situationAdapters";
 import { filterCanonicalSituations, useCanonicalSituations } from "@/lib/situationsApi";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "@/lib/signalBoardUx";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { containsPublicInvalidToken, hasCleanPublicTeamIdentity, hasCleanPublicText, publicGamesForLeague } from "@/lib/publicDisplayHygiene";
-import { useAuth } from "@/context/AuthContext";
 import type { SituationLaneType } from "@/components/board/SituationRow";
 
 type Signal = {
@@ -79,7 +80,6 @@ const TAB_SIGNAL_TYPE: Record<string, string | null> = {
 const PRO_THRESHOLD = 10;
 
 export default function MLBBoard() {
-  const { isPro } = useAuth();
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
   const [drawerSignal, setDrawerSignal] = useState<Signal | SignalDetailLike | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
@@ -171,24 +171,7 @@ export default function MLBBoard() {
   const hasElevatedLeadStory = Boolean(featured && featured.escalation !== "Quiet" && featured.lane !== "background");
   const leadSituation = hasElevatedLeadStory ? featured : null;
   const featuredRow = useMemo(() => leadSituation ? toSituationRowData(leadSituation) : undefined, [leadSituation]);
-  const leadStory = useMemo(() => {
-    if (featuredRow) return toSituationStoryCardData(featuredRow);
-    const quiet = toQuietLeagueLeadStory("MLB");
-    return {
-      ...quiet,
-      headline: "No clean high-impact MLB stories right now.",
-      dek: "The slate is in watch-board mode while lineup cards, starters, weather, bullpen use, and late scratches settle.",
-      whatHappened: "No MLB item has enough team identity, source support, and sports impact to lead the board.",
-      whyItMatters: "Keeping the lead compact avoids turning routine slate monitoring or opening-line-only context into false urgency.",
-      watchNext: "Watch confirmed lineups, pitcher changes, weather cells, late scratches, and source-backed market movement.",
-      relatedItems: [
-        "Lineup cards posting before first pitch",
-        "Probable and confirmed pitcher changes",
-        "Weather cells affecting parks or totals",
-        "Late scratches, bullpen load, and roster moves",
-      ],
-    };
-  }, [featuredRow]);
+  const featuredDetails = useMemo(() => featuredCopy(leadSituation, "MLB"), [leadSituation]);
   const storyItems = useMemo(() => cleanSituations.map((situation) => {
     const row = toSituationRowData(situation);
     return {
@@ -202,31 +185,7 @@ export default function MLBBoard() {
   const hasSituations = cleanSituations.length > 0;
   const isInitialBoardLoading = !hasSituations && (isLoading || canonicalLoading || gamesLoading);
   const topUrgentItems = storyItems.filter((item) => item.situation.lane === "escalating" && (item.situation.kind === "signal" || item.situation.kind === "canonical")).slice(0, 2);
-  const quickLinks: EditorialQuickLink[] = [
-    { id: "today", label: "Today", detail: "Full slate", active: activeTab === "today", onClick: () => setActiveTab("today") },
-    { id: "lineup", label: "Lineups", detail: "Cards and scratches", active: activeTab === "lineup", onClick: () => setActiveTab("lineup") },
-    { id: "pitchers", label: "Pitchers", detail: "Starters and changes", active: activeTab === "pitchers", onClick: () => setActiveTab("pitchers") },
-    { id: "weather", label: "Weather", detail: "Parks and totals" },
-    { id: "bullpen", label: "Bullpen", detail: "Availability" },
-    { id: "injuries", label: "Injuries", detail: "Late scratches" },
-    { id: "line_moves", label: "Market", detail: "Movement", active: activeTab === "line_moves", onClick: () => setActiveTab("line_moves") },
-  ];
-  const headlineItems: EditorialHeadlineItem[] = storyItems.length
-    ? dedupeStoryItems(storyItems).slice(0, 6).map((item) => ({
-        id: item.row.id,
-        headline: item.story.headline,
-        meta: [item.story.storyType, item.story.timing ?? item.row.timestamp].filter(Boolean).join(" / "),
-        confidence: item.story.confidence,
-        onClick: (item.situation.kind === "signal" || item.situation.kind === "canonical") ? () => openSituation(item.situation) : undefined,
-      }))
-    : (leadStory.relatedItems ?? []).map((headline, index) => ({
-        id: `quiet-mlb-${index}`,
-        headline,
-        meta: index === 0 ? "Before first pitch" : "Watch item",
-      }));
-  const fallbackWatchCount = leadStory.relatedItems?.length || headlineItems.length || quickLinks.length;
-  const monitoredCount = cleanSituations.length || fallbackWatchCount;
-  const monitoredLabel = cleanSituations.length ? `${cleanSituations.length} stories monitored` : `${monitoredCount} watch items monitored`;
+  const monitoredLabel = cleanSituations.length ? `${cleanSituations.length} stories monitored` : "Desk active";
 
   const openSituation = (situation: BoardSituation) => {
     if (situation.kind !== "signal" && situation.kind !== "canonical") return;
@@ -238,21 +197,12 @@ export default function MLBBoard() {
     }
     setDrawerSignal(signal);
   };
-  const openWatchBoard = () => {
-    document.querySelector(".board-priority-controls, .situation-lane")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-  const openProPage = () => {
-    window.history.pushState({}, "", "/pro");
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
-  const openAlertSettings = () => {
-    window.history.pushState({}, "", "/alerts");
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
 
   return (
     <AppShell>
-      <main className="league-board-shell es-league-mlb board-main-col mx-auto flex w-[calc(100vw-24px)] max-w-[calc(100vw-24px)] flex-col gap-3 overflow-x-hidden py-3 sm:w-full sm:max-w-7xl sm:px-6 sm:py-5">
+      <div className="league-board-shell es-league-mlb">
+        <LiveTicker items={buildBoardTickerItems(canonicalSituations)} />
+        <main className="board-main-col mx-auto flex w-[calc(100vw-24px)] max-w-[calc(100vw-24px)] flex-col gap-3 overflow-x-hidden py-3 sm:w-full sm:max-w-7xl sm:px-6 sm:py-5">
           <BoardCommandBar
           kicker="MLB Watch Desk"
           title="MLB Today"
@@ -261,54 +211,32 @@ export default function MLBBoard() {
           actions={[{ label: "Refresh", icon: <RefreshCw className="h-4 w-4" />, onClick: () => { refresh(); refreshCanonical(); }, variant: "outline" }]}
         />
 
-        <LeagueEditorialPageFrame
-          league="MLB"
-          quickLinks={quickLinks}
-          headlines={headlineItems}
-          brandLine="Sports intelligence before the market catches up"
-          conversion={{
-            title: isPro ? "Manage MLB alerts before first pitch" : "Get MLB alerts before first pitch",
-            body: isPro
-              ? "Lineups, pitching changes, bullpen availability, weather, roster moves, and market movement alerts are available in your plan."
-              : "Follow lineups, pitching changes, bullpen availability, weather, roster moves, and market movement with source and timing context attached.",
-            bullets: isPro
-              ? ["Alert settings included in Pro", "Pitching, bullpen, and weather context", "Confidence and timing on developing stories"]
-              : ["Early lineup and scratch alerts", "Pitching, bullpen, and weather context", "Confidence and timing on developing stories"],
-            ctaLabel: isPro ? "Manage MLB alerts" : "Get MLB alerts",
-            onClick: isPro ? openAlertSettings : openProPage,
-          }}
-          lead={
-            <EditorialLeadStory
-              story={leadStory}
-              quiet={!hasElevatedLeadStory}
-              onOpen={hasElevatedLeadStory && featured ? () => openSituation(featured) : openWatchBoard}
-              onEvidence={hasElevatedLeadStory && featured ? () => openSituation(featured) : undefined}
-            />
-          }
-        >
-          <div className="mt-3">
+        <div className="board-content-grid">
+          <FeaturedSituation
+            situation={featuredRow}
+            eyebrow={hasElevatedLeadStory ? profile.featuredLabel : "MLB Watch"}
+            title={featuredDetails.title}
+            summary={featuredDetails.summary}
+            primaryRead={featuredDetails.primaryRead}
+            secondaryRead={featuredDetails.secondaryRead}
+            metrics={featuredDetails.metrics}
+            mobileDensity="compact"
+            className="sm:mb-1"
+            actions={hasElevatedLeadStory && featured ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
+          />
+          <div className="board-right-rail">
+            <BoardSignalRail situations={cleanSituations} />
             <LiveGameStrip
               title={profile.liveStripLabel}
               summary={gamesLoading ? "Slate context loading." : "Probable pitchers, lineup cards, weather, bullpen load, source agreement, and inning states stay on watch."}
               games={livePills}
               activeGameId={activeGameId}
-              watchStoryCount={monitoredCount}
               copyVariant="editorial"
               emptyLabel="Lineup cards, probable pitchers, weather, and bullpen context remain on watch before first pitch."
               onGameSelect={(game) => setActiveGameId(activeGameId === game.id ? undefined : game.id)}
             />
           </div>
-        </LeagueEditorialPageFrame>
-
-        {hasSituations && (
-          <section className="detailed-signal-view mt-1 rounded-md border border-border/70 bg-card/45 p-2.5">
-            <div className="mb-2 flex min-w-0 flex-wrap items-center gap-2">
-              <span className="data-label text-primary">Detailed Signal View</span>
-              <span className="text-[0.72rem] font-semibold text-muted-foreground">Source, timing, and lane detail below the editorial lead.</span>
-            </div>
-            <TopDevelopments league="MLB" situations={dedupeStoryItems(storyItems).map((item) => item.situation)} copyVariant="editorial" onSelect={openSituation} />
-          </section>
-        )}
+        </div>
 
         {topUrgentItems.length > 0 && (
           <div className="sm:hidden">
@@ -422,6 +350,7 @@ export default function MLBBoard() {
 
         {(isLoading || canonicalLoading) && hasSituations && <div className="es-skeleton h-16 rounded border border-border" />}
       </main>
+      </div>
 
       <SignalDetailDrawer open={!!drawerSignal} signal={drawerSignal} sport="MLB" onClose={() => setDrawerSignal(null)} />
     </AppShell>

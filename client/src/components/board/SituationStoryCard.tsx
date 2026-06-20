@@ -184,7 +184,7 @@ const PROGRESS_STAGES = ["Detected", "Signals aligning", "Consensus forming", "V
 
 function stageIndex(state?: string): number {
   if (!state) return 0;
-  if (state === "resolved" || state === "archived" || state === "consensus-forming" || state === "cooling") return 3;
+  if (state === "resolved" || state === "archived" || state === "verified" || state === "cooling") return 3;
   if (state === "confirming" || state === "market-reacting") return 2;
   if (state === "developing") return 1;
   return 0;

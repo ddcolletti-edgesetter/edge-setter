@@ -12,10 +12,14 @@ import {
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { fetchSignals } from "@/lib/signalsApi";
 import { containsPublicInvalidToken, hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
+import { compareLeadRank } from "@/lib/boardSituations";
+import { LEAD_MAX_AGE_HOURS, ageHoursFrom } from "@/lib/leadRanker";
 import { AlertTriangle, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
 const REFRESH_MS = 60_000;
+const BACKOFF_BASE_MS = 5_000;
+const BACKOFF_MAX_MS = 60_000;
 const LEAGUES = ["NBA", "MLB", "NFL", "CFB"] as const;
 const HERO_FALLBACK_TILES = [
   { league: "MLB", title: "Awaiting lineup confirmations", note: "Lineup impact still developing" },
@@ -91,8 +95,9 @@ export default function LiveIntelligenceHome() {
     return (LEAGUES as readonly string[]).includes(segment) ? (segment as typeof LEAGUES[number]) : "ALL";
   }, [location]);
   const previousConfidenceRef = useRef<Record<string, number>>({});
+  const retryCountRef = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean> => {
     try {
       const liveSignals = await fetchSignals();
       const nextSituations = adaptSignalsToSituations(liveSignals, previousConfidenceRef.current);
@@ -110,17 +115,30 @@ export default function LiveIntelligenceHome() {
         if (result.status !== "fulfilled") return [];
         return result.value.games.filter((game) => game.league === result.value.league);
       }));
+      return true;
     } catch {
       setError("Live feed unavailable. Showing the last loaded state.");
+      return false;
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    load();
-    const timer = window.setInterval(load, REFRESH_MS);
-    return () => window.clearInterval(timer);
+    let timer: number | undefined;
+
+    async function tick() {
+      const ok = await load();
+      if (ok) retryCountRef.current = 0;
+      else retryCountRef.current += 1;
+      const delay = retryCountRef.current > 0
+        ? Math.min(BACKOFF_BASE_MS * Math.pow(2, retryCountRef.current - 1), BACKOFF_MAX_MS)
+        : REFRESH_MS;
+      timer = window.setTimeout(tick, delay);
+    }
+
+    tick();
+    return () => { if (timer !== undefined) window.clearTimeout(timer); };
   }, [load]);
 
   const publicSituations = useMemo(() => situations.filter(isCleanHomepageSituation), [situations]);
@@ -229,9 +247,12 @@ export default function LiveIntelligenceHome() {
             <div className="media-homepage-main">
               <div className="media-section-label">
                 <span className="es-live-dot es-live-pulse" />
-                Lead story
+                {featured ? "Lead story" : "Coverage status"}
               </div>
-              <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" />
+              {featured
+                ? <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" />
+                : <HomepageQuietLead loading={loading} situations={publicSituations} />
+              }
               <HomepageSupportStack stories={homepageStories} pressure={livePressure} loading={loading} />
               {hasAssignmentRail && (
                 <>
@@ -245,7 +266,7 @@ export default function LiveIntelligenceHome() {
               )}
             </div>
 
-            <HomepageSidebar games={leadGames} loading={loading} />
+            <HomepageSidebar games={leadGames} loading={loading} signalFeed={dedupeSignalFeed(visibleSituations.filter((s) => s.id !== featured?.id)).slice(0, 6)} />
           </div>
 
           <div className="media-dive-deeper" aria-label="Dive deeper into league boards">
@@ -305,9 +326,10 @@ export function buildHomepageStoryModel({
   if (cleanFeatured) usedSituationIds.add(cleanFeatured.id);
 
   const railSource = uniqueSituations([
-  cleanEditorial,
+  cleanEditorial && ageHoursFrom(cleanEditorial.timing.firstSeen) <= LEAD_MAX_AGE_HOURS ? cleanEditorial : null,
   ...cleanSituations.filter((situation) =>
     situation.id !== cleanFeatured?.id &&
+    ageHoursFrom(situation.timing.firstSeen) <= LEAD_MAX_AGE_HOURS &&
     !(situation.raw.signal_type === "line_move" && !situation.subject.player && !situation.raw.injury_designation)
   ),
 ]);
@@ -394,7 +416,7 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
   const shortHeadline = hasCleanPublicText(storyCopy.shortHeadline) ? storyCopy.shortHeadline : fallbackHeadline;
   const deck = hasCleanPublicText(storyCopy.deck) ? storyCopy.deck : "EdgeSetter is monitoring source support, timing, and sports context before elevating this item.";
   const shortDeck = hasCleanPublicText(storyCopy.shortDeck) ? storyCopy.shortDeck : "Source support and timing remain under watch.";
-  const player = hasCleanPublicText(situation.subject.player) ? situation.subject.player ?? undefined : undefined;
+  const player = hasCleanPublicText(situation.subject.player) && isValidPlayerName(situation.subject.player) ? situation.subject.player ?? undefined : undefined;
   const detectionLead = detectionLeadForIntelligence(situation);
   return {
     id: situation.id,
@@ -413,6 +435,8 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
     whatChanged: hasCleanPublicText(storyCopy.whatHappened) ? storyCopy.whatHappened : "A watch item changed enough to stay on the board.",
     whyItMatters: hasCleanPublicText(storyCopy.whyItMatters) ? storyCopy.whyItMatters : "The sports impact is still developing.",
     watchNext: hasCleanPublicText(storyCopy.watchNext) ? storyCopy.watchNext : "Watch for source support, official confirmation, and context movement.",
+    fantasyRelevance: situation.raw.fantasy_relevance ?? null,
+    bettingRelevance: situation.raw.betting_relevance ?? null,
     overlay: {
       escalationState: situation.escalationState,
       confidence: situation.confidence,
@@ -515,14 +539,14 @@ function quietNetworkStory(activeLeague: "ALL" | typeof LEAGUES[number], loading
     league,
     headline,
     dek,
-    label: "Quiet slate watch",
+    label: "Quiet board watch",
     href: `/${league.toLowerCase()}`,
     primaryTeam: league,
     storyType: "Coverage watch",
     detail: count ? `${count} active situation${count === 1 ? "" : "s"} under watch` : "Agents on watch",
     whatChanged: count
       ? `EdgeSetter agents are tracking ${count} live situation${count === 1 ? "" : "s"} across ${leagueLabel}.`
-      : "EdgeSetter agents are scanning team news, lineups, and source agreement across the slate.",
+      : "EdgeSetter agents are scanning team news, lineups, and source agreement across today's games.",
     whyItMatters: "The first verified break lands here before public confirmation — and a quiet watch confirms what has not changed.",
     watchNext: leagueQuietNote(league),
     overlay: watched ? {
@@ -586,121 +610,86 @@ function HomepageSupportStack({
   );
 }
 
-type LeaderboardRow = {
-  source_id?: string | null;
-  source_name?: string | null;
-  trust_tier?: string | null;
-  overall_accuracy?: string | number | null;
-  average_lead_time_minutes?: string | number | null;
-};
-
-type SidebarTrackRecord = {
-  confirmedPct: number | null;
-  avgLeadMinutes: number | null;
-  verified: number;
-  revised: number;
-};
-
-function tierShortLabel(tier?: string | null) {
-  const match = /^tier(\d)$/.exec(String(tier ?? "").toLowerCase());
-  return match ? `T${match[1]}` : "T?";
+function bloombergConfText(situation: IntelligenceSituation): string {
+  const conf = situation.confidence?.current;
+  const state = situation.escalationState;
+  if (state === "Official" || (typeof conf === "number" && conf >= 100)) return "Verified";
+  if (typeof conf !== "number") return "Developing";
+  const r = Math.round(conf);
+  if (r >= 85) return `${r}%`;
+  if (r >= 70) return `${r}%`;
+  return `${r}%`;
 }
 
-function HomepageSidebar({ games, loading }: { games: LiveGameSituation[]; loading: boolean }) {
-  const [sources, setSources] = useState<LeaderboardRow[]>([]);
-  const [record, setRecord] = useState<SidebarTrackRecord | null>(null);
+function bloombergConfTone(situation: IntelligenceSituation): string {
+  const conf = situation.confidence?.current;
+  const state = situation.escalationState;
+  if (state === "Official" || (typeof conf === "number" && conf >= 100)) return "is-verified";
+  if (typeof conf !== "number") return "is-forming";
+  const r = Math.round(conf);
+  if (r >= 85) return "is-strong";
+  if (r >= 70) return "is-developing";
+  return "is-forming";
+}
 
-  useEffect(() => {
-    let cancelled = false;
+function bloombergStatusBadge(situation: IntelligenceSituation): string {
+  const state = situation.escalationState ?? "Monitoring";
+  if (state === "Official") return "Verified";
+  if (state === "Confirming" || state === "Significant" || state === "Escalating") return "Escalating";
+  if (state === "Emerging") return "Developing";
+  return "Watch";
+}
 
-    (async () => {
-      let leaderboard: LeaderboardRow[] = [];
-      try {
-        const res = await fetch("/api/leaderboard");
-        if (res.ok) {
-          const rows = await res.json();
-          if (Array.isArray(rows)) leaderboard = rows as LeaderboardRow[];
-        }
-      } catch {
-        // Sidebar keeps its quiet fallback state when the board API is unreachable.
-      }
+function bloombergStatusTone(situation: IntelligenceSituation): string {
+  const state = situation.escalationState ?? "Monitoring";
+  if (state === "Official") return "is-verified";
+  if (state === "Confirming" || state === "Significant" || state === "Escalating") return "is-escalating";
+  if (state === "Emerging") return "is-developing";
+  return "is-watch";
+}
 
-      let totals: SidebarTrackRecord | null = null;
-      try {
-        const results = await Promise.allSettled(LEAGUES.map(async (league) => {
-          const res = await fetch(`/api/stats/track-record?league=${league}`);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return (await res.json()) as { overall?: { wins?: number | null; losses?: number | null } };
-        }));
-        let wins = 0;
-        let losses = 0;
-        let sawRecord = false;
-        for (const result of results) {
-          if (result.status !== "fulfilled" || !result.value?.overall) continue;
-          sawRecord = true;
-          wins += Number(result.value.overall.wins ?? 0);
-          losses += Number(result.value.overall.losses ?? 0);
-        }
-        const leadTimes = leaderboard
-          .map((row) => Number(row.average_lead_time_minutes ?? 0))
-          .filter((minutes) => Number.isFinite(minutes) && minutes > 0);
-        const settled = wins + losses;
-        if (sawRecord) {
-          totals = {
-            confirmedPct: settled ? Math.round((wins / settled) * 100) : null,
-            avgLeadMinutes: leadTimes.length ? Math.round(leadTimes.reduce((sum, minutes) => sum + minutes, 0) / leadTimes.length) : null,
-            verified: wins,
-            revised: losses,
-          };
-        }
-      } catch {
-        // Track record stays in fallback state.
-      }
+function bloombergTimeAgo(iso: string): string {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+  if (!Number.isFinite(diff) || diff < 0) return "";
+  if (diff < 60) return `${diff}m`;
+  return `${Math.floor(diff / 60)}h`;
+}
 
-      if (!cancelled) {
-        setSources(leaderboard);
-        setRecord(totals);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, []);
-
-  const topSources = useMemo(() => {
-    const seen = new Map<string, LeaderboardRow>();
-    for (const row of sources) {
-      const key = String(row.source_id ?? row.source_name ?? "");
-      if (!key || !row.source_name) continue;
-      const existing = seen.get(key);
-      if (!existing || Number(row.overall_accuracy ?? 0) > Number(existing.overall_accuracy ?? 0)) {
-        seen.set(key, row);
-      }
-    }
-    return Array.from(seen.values())
-      .sort((a, b) => Number(b.overall_accuracy ?? 0) - Number(a.overall_accuracy ?? 0))
-      .slice(0, 5);
-  }, [sources]);
-
-  const upcomingGames = games.filter((game) => !game.status.toLowerCase().includes("final")).slice(0, 6);
-
-  // All three sidebar sections fail silently: when an API call comes back
-  // empty or errors, the section disappears — no placeholder or skeleton copy.
+function BloombergSignalRow({ situation }: { situation: IntelligenceSituation }) {
+  const sourceCount = situation.sources?.length ?? 0;
+  const timeAgo = situation.timing?.firstSeen ? bloombergTimeAgo(situation.timing.firstSeen) : "";
+  const topicRaw = situation.raw?.signal_type ?? situation.signalType ?? "";
+  const topic = /^\d/.test(topicRaw)
+    ? topicRaw.replace(/_/g, " ")
+    : topicRaw.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   return (
-    <aside className="media-homepage-sidebar" aria-label="Trust and slate context">
-      {record && (
-        <section className="sidebar-block" aria-label="EdgeSetter track record">
-          <header>EdgeSetter track record</header>
-          <div className="sidebar-stat-grid">
-            <div>
-              <span>Verified calls</span>
-              <strong>{record.verified}</strong>
-            </div>
-            <div>
-              <span>Avg lead time</span>
-              <strong>{record.avgLeadMinutes ? `${record.avgLeadMinutes}m` : "—"}</strong>
-            </div>
+    <div className="bloomberg-row">
+      <span className="bloomberg-league">{situation.league}</span>
+      <span className="bloomberg-topic">{topic}</span>
+      <span className={`bloomberg-status ${bloombergStatusTone(situation)}`}>{bloombergStatusBadge(situation)}</span>
+      <span className={`bloomberg-conf ${bloombergConfTone(situation)}`}>{bloombergConfText(situation)}</span>
+      <span className="bloomberg-sources">{sourceCount > 0 ? `${sourceCount}src` : ""}</span>
+      <span className="bloomberg-time">{timeAgo}</span>
+    </div>
+  );
+}
+
+function HomepageSidebar({ games, loading, signalFeed }: { games: LiveGameSituation[]; loading: boolean; signalFeed: IntelligenceSituation[] }) {
+  const upcomingGames = games.filter((game) => !game.status.toLowerCase().includes("final")).slice(0, 4);
+
+  return (
+    <aside className="media-homepage-sidebar" aria-label="Live signal feed">
+      {signalFeed.length > 0 && (
+        <section className="sidebar-block sidebar-block-bloomberg" aria-label="Signal feed">
+          <header className="bloomberg-header">
+            <span className="es-live-dot es-live-pulse" aria-hidden="true" />
+            Signal Feed
+          </header>
+          <div className="bloomberg-feed">
+            {signalFeed.map((situation) => (
+              <BloombergSignalRow key={situation.id} situation={situation} />
+            ))}
           </div>
-          <Link href="/accuracy" className="sidebar-link">What is this? →</Link>
         </section>
       )}
 
@@ -721,23 +710,52 @@ function HomepageSidebar({ games, loading }: { games: LiveGameSituation[]; loadi
         </section>
       )}
 
-      {topSources.length > 0 && (
-        <section className="sidebar-block" aria-label="Top sources">
-          <header>Top sources</header>
-          <div className="sidebar-sources">
-            {topSources.map((row, index) => (
-              <div key={String(row.source_id ?? row.source_name)} className="sidebar-source-row">
-                <span className="sidebar-source-rank">{index + 1}</span>
-                <strong>{row.source_name}</strong>
-                <i className={`sidebar-tier-badge is-${tierShortLabel(row.trust_tier).toLowerCase()}`}>{tierShortLabel(row.trust_tier)}</i>
-                <em>{Math.round(Number(row.overall_accuracy ?? 0))}%</em>
-              </div>
-            ))}
-          </div>
-          <Link href="/sources" className="sidebar-link">Full board →</Link>
+      {!signalFeed.length && !upcomingGames.length && !loading && (
+        <section className="sidebar-block" aria-label="Signal feed status">
+          <header className="bloomberg-header">
+            <span className="es-live-dot" aria-hidden="true" />
+            Signal Feed
+          </header>
+          <p className="bloomberg-empty">ES Agents monitoring — no active signals</p>
         </section>
       )}
     </aside>
+  );
+}
+
+function HomepageQuietLead({ loading, situations }: { loading: boolean; situations: IntelligenceSituation[] }) {
+  const leagueCounts = Object.fromEntries(
+    LEAGUES.map((league) => [league, situations.filter((s) => s.league === league).length]),
+  ) as Record<typeof LEAGUES[number], number>;
+
+  return (
+    <div className="homepage-quiet-lead">
+      <div className="homepage-quiet-lead-hd">
+        <ShieldCheck size={15} aria-hidden="true" />
+        <span>{loading ? "Checking coverage" : "ES Agents on watch — nothing verified yet"}</span>
+      </div>
+      <div className="homepage-quiet-lead-grid">
+        {HERO_FALLBACK_TILES.map((tile) => {
+          const meta = leagueWorld[tile.league];
+          const count = leagueCounts[tile.league] ?? 0;
+          return (
+            <Link key={tile.league} href={meta.href} className="homepage-quiet-league-tile">
+              <img src={meta.logo} alt="" aria-hidden="true" width={28} height={28} />
+              <div>
+                <strong>{tile.league}</strong>
+                <span>{count > 0 ? `${count} situation${count === 1 ? "" : "s"} tracked` : tile.title}</span>
+                <small>{tile.note}</small>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+      <p className="homepage-quiet-lead-note">
+        {loading
+          ? "Scanning team news, lineups, injury reports, and source agreement."
+          : "The first verified break lands here before wire pickup — a quiet board confirms what has not changed."}
+      </p>
+    </div>
   );
 }
 
@@ -855,7 +873,7 @@ function LiveOperationsBand({
           ))}
           {!games.length && (
             <div className="live-intel-ops-fallback">
-              <strong>{loading ? "Loading live slate" : "No major lineup or injury shift yet"}</strong>
+              <strong>{loading ? "Loading live board" : "No major lineup or injury shift yet"}</strong>
               <span>Games appear here when lineups, injuries, weather, or late movement matter.</span>
             </div>
           )}
@@ -1067,7 +1085,7 @@ function CfbChalkboardPattern() {
 }
 
 function LiveTicker({ items }: { items: string[] }) {
-  const visibleItems = items.length ? items : ["Agents monitoring — no verified breaks yet"];
+  const visibleItems = items.length ? items : ["ES Agents monitoring — no verified breaks yet"];
   const doubled = [...visibleItems, ...visibleItems];
   return (
     <div className="live-intel-ticker" aria-label="Live intelligence ticker">
@@ -1086,59 +1104,36 @@ function LiveTicker({ items }: { items: string[] }) {
   );
 }
 
-// North Star lead selection: a fresh story from an active league outranks a
-// stale one. homepageStoryScore stays the editorial weight (it already filters
-// routine roster/IL noise); recency and league-activity multipliers layer on
-// top, plus a hard rule that a story older than 24h cannot lead while a fresh
-// (<24h), confident (>=60%) story exists. The verification pipeline, confidence
-// scoring, and timing-advantage recording are untouched — only selection moves.
+// North Star lead selection: a fresh story outranks a stale one. LEAD_MAX_AGE_HOURS
+// and ageHoursFrom are imported from leadRanker (the canonical ranking authority).
+// The canonical selectHomepageLead in leadRanker works with CanonicalSituationRecord[].
+// This intelligence-pipeline version operates on IntelligenceSituation[] until
+// the homepage migrates fully to the canonical pipeline.
 function selectHomepageLead(situations: IntelligenceSituation[], games: LiveGameSituation[] = []) {
   const eligible = situations
-  .map((situation) => {
-    const base = homepageStoryScore(situation);
-    const ageHours = situationAgeHours(situation);
-    return {
-      situation,
-      base,
-      ageHours,
-      ranking: base * recencyMultiplier(ageHours) * leagueActivityMultiplier(situation.league, games, situation.signalType),
-    };
-  })
-  .filter((entry) => entry.base > -999);
+    .map((situation) => {
+      const rawScore = homepageStoryScore(situation, games);
+      const hasLeagueGames = games.some((g) => g.league === situation.league);
+      // Offseason penalty: no active games for this league today.
+      // injury_update signals (confidence-heavy, no urgency window) use a
+      // steeper multiplier than other offseason signal types so that active-
+      // league stories with a game on the slate can take the lead.
+      const base = hasLeagueGames
+        ? rawScore
+        : isAvailabilitySituation(situation) && situation.raw.signal_type === "injury_update"
+          ? rawScore * 0.4
+          : rawScore * 0.7;
+      const ageHours = ageHoursFrom(situation.timing.firstSeen);
+      return { situation, base, ageHours };
+    })
+    .filter((entry) => entry.base > -999 && entry.ageHours <= LEAD_MAX_AGE_HOURS);
 
   if (eligible.length === 0) return null;
 
   const freshPool = eligible.filter((entry) => entry.ageHours <= 24);
   const pool = freshPool.length > 0 ? freshPool : eligible;
 
-  return [...pool].sort((a, b) => b.ranking - a.ranking)[0]?.situation ?? null;
-}
-
-function situationAgeHours(situation: IntelligenceSituation) {
-  const firstSeenMs = new Date(situation.timing.firstSeen).getTime();
-  if (!Number.isFinite(firstSeenMs)) return Number.POSITIVE_INFINITY;
-  return (Date.now() - firstSeenMs) / 3_600_000;
-}
-
-// Detection recency: a break in the last hour leads over an all-day-old story.
-function recencyMultiplier(ageHours: number) {
-  if (ageHours <= 1) return 2.0;
-  if (ageHours <= 6) return 1.5;
-  if (ageHours <= 24) return 1.0;
-  return 0.6;
-}
-
-// A league is active when today's slate has any game for it. June NFL has no
-// games (offseason → 0.7); NBA Finals and MLB regular season do (active → 1.3).
-// Injury/availability-type signals in offseason leagues get a deeper 0.4 penalty:
-// homepageStoryScore applies a +28 "availability/injury" editorial boost that is
-// only contextually valid when a game exists to affect. Without that context the
-// boost inflates offseason stories past active-league signals with lower base scores.
-function leagueActivityMultiplier(league: string, games: LiveGameSituation[], signalType = "") {
-  const hasGames = games.some((game) => game.league === league);
-  if (hasGames) return 1.3;
-  if (/^(injury|injury_update|rotation|lineup)$/.test(signalType)) return 0.4;
-  return 0.7;
+  return [...pool].sort((a, b) => b.base - a.base)[0]?.situation ?? null;
 }
 
 function selectEditorialDevelopment(situations: IntelligenceSituation[], exclude?: IntelligenceSituation | null) {
@@ -1261,24 +1256,24 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
   const earlyCount = situations.filter((situation) => situation.timing.window === "Early").length;
   const sourceCount = situations.reduce((total, situation) => total + situation.sourceSummary.count, 0);
   const weatherCount = situations.filter((situation) => situation.raw.weather_note).length;
-  const league = mlbCount ? "MLB-led slate" : nbaCount ? "NBA watch" : "Cross-sport";
+  const league = mlbCount ? "MLB coverage active" : nbaCount ? "NBA watch" : "Cross-sport";
 
   if (loading && !games.length) {
     return {
       heroLeague: "Cross-sport",
       heroHeadline: "Sports desk is coming online",
       heroBody: "EdgeSetter is checking lineups, injuries, weather, game status, and public reports. No major development is promoted until the sports evidence is clear.",
-      timing: "Pre-slate",
+      timing: "Pre-game",
       market: "impact still developing",
       source: "Awaiting reports",
-      changed: "Agents monitoring — no verified breaks yet",
+      changed: "ES Agents monitoring — no verified breaks yet",
       whoReacts: "Lineup desks, fantasy players, and books are waiting for verified team news.",
       next: "A lineup confirmation, warmup note, weather update, or late movement may become relevant if verified.",
       sourceArcTitle: "Awaiting report support",
       sourceArcBody: "No lead story is promoted until reports, timing, or late movement reaches homepage weight.",
       escalationWatch: "No verified escalation",
       escalationStage: "Monitoring",
-      pressureWindows: ["Pre-slate desk", "Impact still developing", "Awaiting reports"],
+      pressureWindows: ["Pre-game desk", "Impact still developing", "Awaiting reports"],
       convergenceSteps: [
         { label: "Coverage online", state: "complete" },
         { label: "Reports scanning", state: "active" },
@@ -1307,7 +1302,7 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
   return {
     heroLeague: league,
     heroHeadline: marketCount
-      ? "Team and player updates are shaping the slate"
+      ? "Team and player updates are shaping tonight's board"
       : situations.length
         ? `Monitoring ${situations.length} active situation${situations.length === 1 ? "" : "s"}`
         : "Agents active across all leagues",
@@ -1315,23 +1310,52 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
     timing: timingLine,
     market: marketCount ? `${marketCount} sports shift${marketCount === 1 ? "" : "s"}` : "impact still developing",
     source: sourceCount ? `${sourceCount} report${sourceCount === 1 ? "" : "s"} attached` : "Awaiting reports",
-    changed: marketCount ? "Team or player news moving before public consensus" : upcoming.length ? "Games entering confirmation window" : buildingCount ? "Confidence building" : "Agents monitoring — no verified breaks yet",
+    changed: marketCount ? "Team or player news moving before public consensus" : upcoming.length ? "Games entering confirmation window" : buildingCount ? "Confidence building" : "ES Agents monitoring — no verified breaks yet",
     whoReacts: mlbCount ? "Clubhouses, lineup desks, fantasy players, and books are waiting on the same confirmations." : "Teams, report desks, and books are holding for firmer confirmation.",
     next: weatherCount ? "Weather, lineup, and external context may converge before first pitch." : "A late scratch, lineup confirmation, warmup note, or external movement could become the lead.",
-    sourceArcTitle: sourceCount ? "Reports active across the slate" : "Awaiting lineup or injury confirmation",
+    sourceArcTitle: sourceCount ? "Reports active across today's games" : "Awaiting lineup or injury confirmation",
     sourceArcBody: sourceCount
-      ? `${sourceCount} report${sourceCount === 1 ? "" : "s"} attached across the slate, but none have reached homepage escalation weight.`
+      ? `${sourceCount} report${sourceCount === 1 ? "" : "s"} attached across today's games, but none have reached homepage escalation weight.`
       : "No report chain has reached homepage weight yet. The page is holding for a meaningful break, not filler.",
     escalationWatch: earlyCount ? `${earlyCount} early read${earlyCount === 1 ? "" : "s"}` : "No verified escalation",
     escalationStage: marketCount ? "Escalating" : sourceCount ? "Emerging" : "Monitoring",
     pressureWindows: buildFallbackPressureWindows({ upcoming: upcoming.length, live: live.length, marketCount, earlyCount, weatherCount, mlbCount, nbaCount }),
     convergenceSteps: [
-      { label: "Slate context", state: "complete" },
+      { label: "Board context", state: "complete" },
       { label: sourceCount ? "Reports attached" : "Reports scanning", state: sourceCount ? "complete" : "active" },
       { label: marketCount ? "Market reacting" : "Impact still developing", state: marketCount ? "complete" : "active" },
       { label: "Official confirmation", state: "waiting" },
     ],
   };
+}
+
+function dedupeSignalFeed(situations: IntelligenceSituation[]): IntelligenceSituation[] {
+  const STALE_MS = 48 * 60 * 60 * 1000;
+  const fresh = situations.filter((s) => {
+    const ms = new Date(s.timing.firstSeen).getTime();
+    if (!Number.isFinite(ms)) return true;
+    return Date.now() - ms <= STALE_MS;
+  });
+  const groups = new Map<string, IntelligenceSituation[]>();
+  for (const s of fresh) {
+    const key = `${s.league}:${s.signalType}`;
+    const group = groups.get(key) ?? [];
+    group.push(s);
+    groups.set(key, group);
+  }
+  return [...groups.values()].map((group) => {
+    const best = group.sort((a, b) => b.confidence.current - a.confidence.current)[0];
+    if (group.length <= 1) return best;
+    const typeLabel = best.signalType.replace(/_/g, " ");
+    const summaryType = `${group.length} ${typeLabel}s`;
+    return {
+      ...best,
+      id: `summary-${best.league}-${best.signalType}`,
+      signalType: summaryType,
+      subject: { team: null, player: null, matchup: null },
+      raw: best.raw ? { ...best.raw, signal_type: summaryType } : best.raw,
+    };
+  });
 }
 
 // North Star ticker: real situations with real copy only — no generic filler.
@@ -1345,7 +1369,7 @@ function buildTickerItems({ situations, games }: { situations: IntelligenceSitua
       const headline = hasCleanPublicText(storyCopy.shortHeadline)
         ? storyCopy.shortHeadline
         : publicFallbackLabel(`${storyCopy.headline} ${situation.raw.signal_type}`, situation.league);
-      return `⚡ EdgeSetter verified ${headline} — ${detection!.lead} before public confirmation`;
+      return `⚡ ES Agents verified ${headline} — ${detection!.lead} before public confirmation`;
     });
   const market = situations
     .filter((situation) => situation.marketReaction)
@@ -1384,7 +1408,7 @@ function buildFallbackPressureWindows(counts: { upcoming: number; live: number; 
     counts.upcoming ? `${counts.upcoming} games entering confirmation window` : null,
     counts.live ? `${counts.live} live game${counts.live === 1 ? "" : "s"} with active desk read` : null,
     counts.marketCount ? `${counts.marketCount} sports shift${counts.marketCount === 1 ? "" : "s"} detected` : "impact still developing",
-    counts.weatherCount ? "Weather pressure in the slate model" : null,
+    counts.weatherCount ? "Weather pressure in the game model" : null,
     counts.mlbCount ? "MLB lineup and pitcher checks active" : null,
     counts.nbaCount ? "NBA availability window staged" : null,
     counts.earlyCount ? `${counts.earlyCount} early team-news read${counts.earlyCount === 1 ? "" : "s"}` : null,
@@ -1453,7 +1477,7 @@ function headlineSourceTier(situation: IntelligenceSituation) {
 // development whenever the pipeline carried one; returns null when the data
 // can't support a specific claim so editorial branch copy takes over.
 function generateHeadline(situation: IntelligenceSituation): string | null {
-  const player = situation.subject.player?.trim() || null;
+  const player = isValidPlayerName(situation.subject.player) ? (situation.subject.player?.trim() || null) : null;
   const matchupTeams = splitMatchup(situation.subject.matchup);
   const rawTeam = situation.subject.team ?? matchupTeams[0] ?? null;
   const team = rawTeam ? displayTeamName(rawTeam, situation.league) : null;
@@ -1510,7 +1534,7 @@ function generateHeadline(situation: IntelligenceSituation): string | null {
 }
 
 function buildPublicSituationStory(situation: IntelligenceSituation) {
-  const player = situation.subject.player?.trim();
+  const player = isValidPlayerName(situation.subject.player) ? situation.subject.player?.trim() : undefined;
   const team = displayTeamName(situation.subject.team ?? splitMatchup(situation.subject.matchup)[0] ?? situation.league, situation.league);
   const specificHeadline = generateHeadline(situation);
   const teamContext = team ? `${team} ${teamContextNoun(situation)}` : `${situation.league} context`;
@@ -1633,7 +1657,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
         if (injuryIsLoadBearing || injuryIsBack) {
           whyItMatters = `Missing minutes cascade in the NBA — another guard or forward picks up usage, fantasy lines shift, and the back-to-back schedule adds complexity to every projection.${marketPhrase}`;
         } else if (injuryIsArm) {
-          whyItMatters = `Shooting volume and ball-handling responsibility shift quickly around arm injuries in the NBA — rotation usage and fantasy exposure realign within a game or two.${marketPhrase}`;
+          whyItMatters = `Arm injuries affect shooting assignments and ball-handling responsibilities fast in the NBA — the rotation adjusts within a game or two as the team redistributes minutes.${marketPhrase}`;
         } else {
           whyItMatters = `The ${team} rotation plan adjusts, usage numbers shift, and anyone absorbing the vacated minutes gets a short-term fantasy and DFS boost.${marketPhrase}`;
         }
@@ -1651,7 +1675,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
         } else if (injuryIsArm) {
           whyItMatters = `An arm injury on the offensive side changes throw volume, target share, and pass-protection assignments. Role redistribution in the NFL moves fast.${marketPhrase}`;
         } else {
-          whyItMatters = `Role and snap redistribution in the NFL moves quickly. Fantasy and DFS exposure at adjacent positions changes before the week is out.${marketPhrase}`;
+          whyItMatters = `Role and snap redistribution in the NFL moves quickly. Adjacent positions see real changes in usage before the week is out.${marketPhrase}`;
         }
       } else if (lg === "CFB") {
         whyItMatters = `Depth at this position in CFB is thinner than the pros. A key absence can change schematic identity — not just a single matchup read, but how the unit operates.${marketPhrase}`;
@@ -1662,7 +1686,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
       deck = `${team} has a developing availability situation. Role distribution and ${teamContextNoun(situation)} could shift until the picture clarifies.`;
       shortDeck = `${team}'s availability picture is under active watch.`;
       whatHappened = `${team}'s availability context changed — the specifics are still coming into focus.`;
-      whyItMatters = `Availability changes at the team level can alter role distribution, matchup prep, and market assumptions before a final read is in.${marketPhrase}`;
+      whyItMatters = `Availability changes at the team level can alter role distribution and matchup prep before the picture settles.${marketPhrase}`;
     }
 
     let detail: string;
@@ -1690,7 +1714,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
       detail,
       whatHappened,
       whyItMatters,
-      watchNext: `Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.`,
+      watchNext: `Watch for confirmed beat reports, practice participation, and any official roster adjustments before game time.`,
     };
   }
 
@@ -1704,8 +1728,8 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
       shortDeck: `${team}'s roster picture changed and the role impact is still developing.`,
       detail: "Roster context changed",
       whatHappened: `${subject} is tied to a roster update that changes the ${team} context.`,
-      whyItMatters: `Roster movement can change depth charts, usage, fantasy relevance, and how opponents prepare for ${team}.`,
-      watchNext: "Watch for official roster moves, practice roles, depth-chart updates, and follow-on reports.",
+      whyItMatters: `Roster movement can change depth charts, usage, and how opponents prepare for ${team}.`,
+      watchNext: "Watch for official roster confirmation, practice roles, and depth-chart updates.",
     };
   }
 
@@ -1715,12 +1739,12 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     return {
       headline,
       shortHeadline: headline,
-      deck: `${team}'s lineup context is active, and one confirmed change can move roles, matchup plans, and market assumptions. Watch for the next official card or report trail.`,
+      deck: `${team}'s lineup context is active heading into first pitch. Watch for confirmed starters and any late scratches before game time.`,
       shortDeck: `${team}'s lineup context remains active before the next confirmation.`,
       detail: "Lineup context updated",
-      whatHappened: `${team}'s lineup or pitcher context changed enough to keep the slate under review.`,
-      whyItMatters: "Lineup and pitcher changes can alter game environment, role expectations, fantasy exposure, and late pricing.",
-      watchNext: "Watch for official lineup cards, pitcher confirmations, scratches, weather updates, and market movement.",
+      whatHappened: `${team}'s lineup or pitcher context changed heading into tonight's game.`,
+      whyItMatters: "Starting pitcher and lineup confirmation locks in the key matchup variables for tonight's game.",
+      watchNext: "First pitch tonight. Watch for any late scratches from either lineup before game time.",
     };
   }
 
@@ -1734,8 +1758,8 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
       shortDeck: `${team}'s depth chart is still developing.`,
       detail: "Depth chart context updated",
       whatHappened: `${team}'s depth or role context changed enough to keep monitoring.`,
-      whyItMatters: "Role changes can alter usage, matchup plans, fantasy projections, and team preparation.",
-      watchNext: "Watch for practice reports, snap or rotation notes, roster updates, and official depth-chart confirmation.",
+      whyItMatters: "Role changes affect who plays and how the team sets up — the depth picture matters more when it shifts close to game time.",
+      watchNext: "Watch for practice reports, snap counts, rotation notes, and any official roster or depth-chart confirmation.",
     };
   }
 
@@ -1750,7 +1774,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
       detail: "Books/fantasy/team context reacting",
       whatHappened: `${subject} is tied to movement that changed the ${team} read.`,
       whyItMatters: "Market movement can signal that team news, matchup context, or availability assumptions are changing before the public story is settled.",
-      watchNext: "Watch for the report trail behind the move, confirmation from trusted sources, and whether prices or projections continue to adjust.",
+      watchNext: "Watch for the team news or injury update behind the move, and whether it holds as more sources weigh in.",
     };
   }
 
@@ -1763,7 +1787,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
       shortDeck: `${team} game environment remains part of the live read.`,
       detail: "Game environment updated",
       whatHappened: `${team}'s game environment has a weather or conditions note attached.`,
-      whyItMatters: "Weather and conditions can alter pace, scoring, substitution patterns, and market assumptions.",
+      whyItMatters: "Weather and field conditions can alter pace, scoring environment, and substitution patterns.",
       watchNext: "Watch for updated forecasts, official game notes, lineup changes, and total or prop movement.",
     };
   }
@@ -1790,8 +1814,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
     shortDeck: `${situation.league} context is still developing around ${subject}.`,
     detail: "Story context updated",
     whatHappened: `${subject} is attached to a developing ${situation.league} story read.`,
-    whyItMatters: compactIntelPhrase(situation.whyItMatters) ?? "The update can change team, fantasy, market, or matchup context if more support arrives.",
-    watchNext: publicWatchNext(situation),
+    whyItMatters: (situation.whyItMatters ? sanitizeOutletReferences(compactIntelPhrase(situation.whyItMatters) ?? "") : null) || "The update can change team context and matchup prep if more source support arrives."
   };
 }
 
@@ -1851,6 +1874,19 @@ function publicWatchNext(situation: IntelligenceSituation) {
   if (isRosterMoveSituation(situation)) return "Watch for official transactions, depth-chart changes, practice roles, and follow-on reports.";
   if (situation.marketReaction) return "Watch whether the move is confirmed by trusted reports and whether prices or projections keep adjusting.";
   return situation.actionWindow || "Watch for confirmation, source support, and downstream impact.";
+}
+
+const GENERIC_PLAYER_TOKENS = new Set(["player", "unknown player", "unknown", "athlete"]);
+function isValidPlayerName(name?: string | null): boolean {
+  return Boolean(name) && !GENERIC_PLAYER_TOKENS.has(name!.trim().toLowerCase());
+}
+
+const NAMED_OUTLET_RE = /\b(Rotowire(?:\s+(?:CFB|NFL|MLB|NBA))?|ESPN(?:\s+(?:CFB|NFL|MLB|NBA))?|The\s+Athletic|AP\b|PFF\b|FantasyPros|CBS\s+Sports|Yahoo\s+Sports|NFL\s+Network)\b/gi;
+function sanitizeOutletReferences(text: string): string {
+  return text
+    .replace(NAMED_OUTLET_RE, "wire service")
+    .replace(/\bSingle\s+source:\s+wire\s+service\b/gi, "Single wire source")
+    .replace(/\bpublic\s+confirmation\b/gi, "ES Agents verified");
 }
 
 // Team nicknames are resolved with (league, abbreviation) as a compound key
@@ -2183,7 +2219,9 @@ const liveIntelCss = `
   color: var(--es-text-primary);
   padding: 22px 24px 40px;
   position: relative;
-  overflow: hidden;
+  /* overflow:clip contains decorative absolutes without creating a scroll-container
+     compositing context — avoids the left-edge artifact on the ticker mask-image. */
+  overflow: clip;
 }
 .live-intel-home::before {
   content: "";
@@ -2411,7 +2449,7 @@ const liveIntelCss = `
   font-weight: 700;
 }
 .sidebar-stat-grid > div.is-amber strong {
-  color: var(--es-amber, #E6B450);
+  color: var(--es-amber);
 }
 .sidebar-games {
   display: grid;
@@ -2446,7 +2484,7 @@ const liveIntelCss = `
   border: 1px solid rgba(230, 180, 80, 0.36);
   border-radius: 4px;
   background: rgba(230, 180, 80, 0.10);
-  color: var(--es-amber, #E6B450);
+  color: var(--es-amber);
   font-family: var(--font-cond);
   font-size: 0.60rem;
   font-style: normal;
@@ -2513,6 +2551,207 @@ const liveIntelCss = `
   font-size: 0.72rem;
   line-height: 1.4;
 }
+/* Bloomberg signal feed rail */
+.sidebar-block-bloomberg {
+  padding: 10px;
+}
+.bloomberg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--es-gold, #d9a441);
+  font-family: var(--font-mono);
+  font-size: 0.60rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(245,184,65,0.14);
+  padding-bottom: 7px;
+  margin-bottom: 2px;
+}
+.bloomberg-feed {
+  display: grid;
+  gap: 0;
+}
+.bloomberg-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0,1fr) 48px 38px 22px;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.bloomberg-row:last-child {
+  border-bottom: none;
+}
+.bloomberg-league {
+  color: var(--es-gold, #d9a441);
+  font-family: var(--font-mono);
+  font-size: 0.60rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.bloomberg-topic {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #cdd7e3;
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+.bloomberg-status {
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: uppercase;
+}
+.bloomberg-status.is-verified {
+  background: rgba(24,212,123,0.12);
+  color: #18D47B;
+  border: 1px solid rgba(24,212,123,0.28);
+}
+.bloomberg-status.is-escalating {
+  background: rgba(230,180,80,0.12);
+  color: var(--es-amber);
+  border: 1px solid rgba(230,180,80,0.28);
+}
+.bloomberg-status.is-developing {
+  background: rgba(59,130,246,0.10);
+  color: #60a5fa;
+  border: 1px solid rgba(59,130,246,0.24);
+}
+.bloomberg-status.is-watch {
+  background: rgba(100,116,139,0.10);
+  color: #94a3b8;
+  border: 1px solid rgba(100,116,139,0.22);
+}
+.bloomberg-conf {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: right;
+}
+.bloomberg-conf.is-verified { color: #18D47B; }
+.bloomberg-conf.is-strong { color: var(--es-amber); }
+.bloomberg-conf.is-developing { color: var(--es-forming); }
+.bloomberg-conf.is-forming { color: #64748b; }
+.bloomberg-sources {
+  display: none;
+}
+.bloomberg-time {
+  color: #475569;
+  font-family: var(--font-mono);
+  font-size: 0.60rem;
+  text-align: right;
+}
+.bloomberg-empty {
+  margin: 0;
+  padding: 6px 4px;
+  color: #475569;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+}
+/* Confidence journey mini-timeline (lead card) */
+.conf-journey {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  padding: 8px 0 6px;
+}
+.conf-journey-node {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 56px;
+}
+.conf-journey-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid #334155;
+  background: #1e293b;
+  transition: border-color 0.2s, background 0.2s;
+}
+.conf-journey-node.is-complete .conf-journey-dot {
+  background: #18D47B;
+  border-color: #18D47B;
+}
+.conf-journey-node.is-active .conf-journey-dot {
+  background: var(--es-amber);
+  border-color: var(--es-amber);
+  box-shadow: 0 0 6px rgba(230,180,80,0.5);
+}
+.conf-journey-time {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+.conf-journey-node.is-complete .conf-journey-time { color: #18D47B; }
+.conf-journey-node.is-active .conf-journey-time { color: var(--es-amber); }
+.conf-journey-time-blank { opacity: 0.3; }
+.conf-journey-label {
+  font-family: var(--font-mono);
+  font-size: 0.56rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #475569;
+}
+.conf-journey-node.is-complete .conf-journey-label { color: #94a3b8; }
+.conf-journey-node.is-active .conf-journey-label { color: var(--es-amber); }
+.conf-journey-line {
+  flex: 1;
+  height: 2px;
+  margin-top: 3px;
+  background: #1e293b;
+  border-radius: 1px;
+  align-self: flex-start;
+  min-width: 12px;
+}
+.conf-journey-line.is-filled { background: #18D47B; }
+/* Story intel strip (lead card, always visible) */
+.story-intel-strip {
+  display: grid;
+  gap: 0;
+  padding: 0 0 4px;
+  border-top: 1px solid rgba(82,101,122,0.18);
+  margin-top: 4px;
+}
+.story-intel-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding-top: 6px;
+}
+.story-intel-sources-count,
+.story-intel-agents-count,
+.story-intel-agreement,
+.story-intel-timing-edge {
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  white-space: nowrap;
+}
+.story-intel-sources-count { color: #94a3b8; }
+.story-intel-agents-count { color: #94a3b8; }
+.story-intel-agreement { color: #18D47B; }
+.story-intel-timing-edge { color: var(--es-amber); font-weight: 700; }
+.story-intel-sep {
+  color: #334155;
+  font-style: normal;
+  font-size: 0.64rem;
+  user-select: none;
+}
+/* Status color overrides: confidence tone classes */
+.story-card-conf.is-forming { color: var(--es-forming); }
+.story-card-conf.is-strong { color: var(--es-amber); }
 .media-homepage-main,
 .media-homepage-rail,
 .media-game-context,
@@ -2841,7 +3080,7 @@ const liveIntelCss = `
 }
 .story-card-footer .story-card-conf.is-developing {
   background: rgba(230, 180, 80, 0.12);
-  color: #E6B450;
+  color: var(--es-amber);
   border: 1px solid rgba(230, 180, 80, 0.28);
 }
 .story-card-footer .story-card-conf.is-forming,
@@ -3271,6 +3510,90 @@ const liveIntelCss = `
 }
 .media-quiet-card strong {
   color: #f8fafc;
+}
+.homepage-quiet-lead {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid rgba(82,101,122,0.24);
+  border-radius: 8px;
+  background: rgba(9,16,25,0.58);
+}
+.homepage-quiet-lead-hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #18d47b;
+  font-family: var(--font-cond);
+  font-size: 0.70rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.homepage-quiet-lead-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.homepage-quiet-league-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(82,101,122,0.18);
+  border-radius: 6px;
+  background: rgba(8,14,22,0.48);
+  color: #94a3b8;
+  text-decoration: none;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+.homepage-quiet-league-tile:hover {
+  border-color: rgba(245,184,65,0.28);
+  background: rgba(8,14,22,0.72);
+}
+.homepage-quiet-league-tile img {
+  flex: 0 0 auto;
+  opacity: 0.55;
+}
+.homepage-quiet-league-tile > div {
+  min-width: 0;
+}
+.homepage-quiet-league-tile strong {
+  display: block;
+  color: #e2e8f0;
+  font-family: var(--font-cond);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+.homepage-quiet-league-tile span {
+  display: block;
+  font-size: 0.72rem;
+  line-height: 1.3;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.homepage-quiet-league-tile small {
+  display: block;
+  color: #475569;
+  font-size: 0.63rem;
+  margin-top: 3px;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.homepage-quiet-lead-note {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(82,101,122,0.14);
+  color: #475569;
+  font-size: 0.70rem;
+  line-height: 1.5;
 }
 @media (max-width: 1100px) {
   .media-homepage-grid,
@@ -4678,7 +5001,7 @@ const liveIntelCss = `
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  margin: 0;
+  margin: 0 -24px;
   border-bottom: 1px solid rgba(82,101,122,0.24);
   border-top: 1px solid rgba(82,101,122,0.12);
   background:
@@ -4704,7 +5027,7 @@ const liveIntelCss = `
 .live-intel-ticker-window {
   min-width: 0;
   overflow: hidden;
-  mask-image: linear-gradient(90deg, transparent, black 5%, black 95%, transparent);
+  mask-image: linear-gradient(90deg, black 95%, transparent);
 }
 .live-intel-ticker-track {
   display: flex;
@@ -4721,7 +5044,6 @@ const liveIntelCss = `
   font-weight: 850;
   letter-spacing: 0.06em;
   line-height: 34px;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 .live-intel-ticker-track span::before {

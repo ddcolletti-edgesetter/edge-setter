@@ -1,4 +1,4 @@
-﻿# EdgeSetter North Star — Version 2.0
+# EdgeSetter North Star — Version 2.0
 **Date: June 19, 2026**
 **Status: Active — read this at the start of every Claude Code session**
 

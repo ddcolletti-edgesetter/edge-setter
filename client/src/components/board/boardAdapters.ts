@@ -3,7 +3,7 @@ import type { BoardEscalation, SituationLane } from "@/lib/boardEscalation";
 import type { BoardSortMode } from "@/lib/signalBoardUx";
 import type { Sport } from "@/lib/leagueModifiers";
 import type { CanonicalSituation } from "@/lib/situationsApi";
-import { hasCleanPublicTeamIdentity, hasCleanPublicText, hasMalformedPublicMatchup, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
+import { hasCleanPublicTeamIdentity, hasCleanPublicText, hasMalformedPublicMatchup, isValidTeamToken, publicFallbackLabel, storyTitleHasValidPlayerName } from "@/lib/publicDisplayHygiene";
 import { evidenceCountText, humanizeSignalType, marketFocusHeadline, publicConfidenceLabel, publicLifecycleLabel, publicStoryText, publicTimingLabel, publicUrgencyLabel, sourceCountText } from "@/lib/storyLanguage";
 import { toTeamAbbr } from "@/components/v2/SportVisuals";
 import type { LiveGamePillData, LiveGameStatus, BoardUrgency } from "./LiveGamePill";
@@ -318,7 +318,7 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
   if (league === "NFL") {
     return nflFeaturedCopy(situation, signal, canonical);
   }
-  const editorialCopy = league === "MLB" || league === "NBA";
+  const editorialCopy = league === "MLB" || league === "NBA" || league === "CFB";
   const confidenceDelta = canonical?.confidenceHistoryPreview?.[0]?.delta;
   const confidenceDeltaMetric = typeof confidenceDelta === "number" && confidenceDelta !== 0
     ? { label: "Confidence move", value: `${confidenceDelta > 0 ? "+" : ""}${Math.round(confidenceDelta)}`, tone: confidenceDelta > 0 ? "positive" : "warning" }
@@ -424,7 +424,7 @@ function lifecycleVisualState(canonical: CanonicalSituation): SituationLifecycle
   if (canonical.lifecycleState === "escalating") {
     return canonical.latestEvidence.some((event) => event.marketImpact) ? "market-reacting" : "confirming";
   }
-  if (canonical.lifecycleState === "confirmed" || canonical.lifecycleState === "official") return "consensus-forming";
+  if (canonical.lifecycleState === "confirmed" || canonical.lifecycleState === "official") return "verified";
   if (canonical.lifecycleState === "cooling") return "cooling";
   if (canonical.lifecycleState === "resolved" || canonical.lifecycleState === "invalidated") return "resolved";
   return "archived";
@@ -433,7 +433,7 @@ function lifecycleVisualState(canonical: CanonicalSituation): SituationLifecycle
 function lifecycleVisualStateForLabel(label?: string): SituationLifecycleVisualState {
   if (label === "Detected") return "emerging";
   if (label === "Escalating") return "confirming";
-  if (label === "Verified" || label === "Consensus Forming") return "consensus-forming";
+  if (label === "Verified" || label === "Consensus Forming") return "verified";
   if (label === "Context Moving") return "market-reacting";
   if (label === "Resolved / Stale") return "cooling";
   return "developing";
@@ -464,7 +464,7 @@ function evidenceChain(canonical: CanonicalSituation): SituationEvidenceStep[] {
     { label: "Timing", value: timingStageLabel(canonical), state: timingState },
     {
       label: hasOfficial ? "Official" : hasMarket ? "Market reaction" : "Watch next",
-      value: hasOfficial ? "Confirmed update" : hasMarket ? "Market is reacting" : uncertain ? "Still open" : "Quiet",
+      value: hasOfficial ? "Confirmed update" : hasMarket ? "Early market reaction" : uncertain ? "Still open" : "Quiet",
       state: hasOfficial ? "complete" : hasMarket ? "active" : uncertain ? "caution" : "quiet",
     },
   ];
@@ -478,7 +478,7 @@ function fallbackEvidenceChain(situation: BoardSituation): SituationEvidenceStep
     { label: "Evidence", value: sourceCount > 1 ? `${sourceCount} reports` : "1 report", state: sourceCount > 1 ? "active" : "caution" },
     { label: "Confidence", value: fallbackConfidenceStage(situation), state: situation.confidence >= 75 ? "complete" : situation.confidence >= 55 ? "active" : "caution" },
     { label: "Timing", value: fallbackTimingStage(situation), state: situation.isActionable ? "active" : "quiet" },
-    { label: hasMarket ? "Market reaction" : "Watch next", value: hasMarket ? "Market is reacting" : "Quiet", state: hasMarket ? "active" : "quiet" },
+    { label: hasMarket ? "Market reaction" : "Watch next", value: hasMarket ? "Early market reaction" : "Quiet", state: hasMarket ? "active" : "quiet" },
   ];
 }
 
@@ -518,7 +518,7 @@ function timingStageLabel(canonical: CanonicalSituation) {
   if (canonical.lifecycleState === "confirmed") return "public confirmation";
   if (canonical.lifecycleState === "cooling") return "fully priced";
   if (canonical.lifecycleState === "resolved" || canonical.lifecycleState === "archived" || canonical.lifecycleState === "invalidated") return "cooling story";
-  if (canonical.latestEvidence.some((event) => event.marketImpact)) return "Market is reacting";
+  if (canonical.latestEvidence.some((event) => event.marketImpact)) return "Early market reaction";
   if (canonical.timingPressure === "critical" || canonical.timingPressure === "high") return "early signal";
   if (canonical.timingPressure === "medium") return "developing window";
   if (canonical.timingPressure === "low") return "quiet board";
@@ -546,9 +546,9 @@ function fallbackConfidenceStage(situation: BoardSituation) {
 }
 
 function fallbackTimingStage(situation: BoardSituation) {
-  if (situation.lifecycleStage === "Context Moving" || situation.movementLabel) return "Market is reacting";
+  if (situation.lifecycleStage === "Context Moving" || situation.movementLabel) return "Early market reaction";
   if (situation.lifecycleStage === "Consensus Forming") return "consensus forming";
-  if (situation.lifecycleStage === "Verified") return "public confirmation";
+  if (situation.lifecycleStage === "Verified") return "ES Agents verified";
   if (situation.lifecycleStage === "Resolved / Stale") return "cooling story";
   if (situation.isActionable && situation.escalation === "Watch") return "developing window";
   if (situation.isActionable) return "early development";
@@ -568,18 +568,17 @@ function lifecycleDisplayLabel(label?: string) {
 
 function sportsIdentityForSituation(situation: BoardSituation, canonical?: CanonicalSituation): SituationRowData["sportsIdentity"] {
   const teams = canonical?.teams ?? [];
-  const awayTeam = situation.awayTeam ?? teams[0] ?? situation.team;
-  const homeTeam = situation.homeTeam ?? teams[1] ?? situation.opponent;
   const sport = situation.league === "MLB" ? "mlb"
     : situation.league === "NBA" ? "nba"
       : situation.league === "NFL" ? "nfl"
         : situation.league === "CFB" ? "cfb"
           : undefined;
+  const guard = (v: string | undefined) => (v && isValidTeamToken(v, sport)) ? v : undefined;
   return {
-    awayTeam,
-    homeTeam,
-    team: situation.team ?? teams[0],
-    opponent: situation.opponent ?? teams[1],
+    awayTeam: guard(situation.awayTeam ?? teams[0] ?? situation.team),
+    homeTeam: guard(situation.homeTeam ?? teams[1] ?? situation.opponent),
+    team: guard(situation.team ?? teams[0]),
+    opponent: guard(situation.opponent ?? teams[1]),
     player: canonical?.players?.[0] ?? situation.player,
     sport,
   };
@@ -661,18 +660,58 @@ function editorialHeadline(row: SituationRowData, matchup?: string) {
 function editorialDeck(row: SituationRowData, headline: string) {
   const candidates = [
     row.subtitle,
-    row.body,
-    row.detail,
     row.marketReaction,
     row.market,
   ].map((v) => cleanStoryLine(v)).filter(Boolean) as string[];
   const summary = candidates.find((s) => s.toLowerCase() !== headline.toLowerCase());
   if (summary) return summary;
+  const specific = situationDek(row);
+  if (specific) return specific;
   if (row.league === "MLB") return "EdgeSetter is tracking lineup, pitching, bullpen, weather, roster, and market context as the slate develops.";
   if (row.league === "NBA") return "EdgeSetter is tracking starter confirmations, injury context, rotation changes, late scratches, and pre-tip movement.";
   if (row.league === "NFL") return "EdgeSetter is tracking depth chart, injury designations, snap share, target distribution, and game-week context.";
   if (row.league === "CFB") return "EdgeSetter is tracking roster depth, QB room status, transfer impact, and scheme context.";
   return "EdgeSetter is tracking source support, timing, and sports context as this situation develops.";
+}
+
+function situationDek(row: SituationRowData): string | undefined {
+  const player = row.sportsIdentity?.player ?? playerFromRawTitle(row.title);
+  const team = row.sportsIdentity?.team ?? row.sportsIdentity?.awayTeam ?? teamFromRawTitle(row.title);
+  const opponent = row.sportsIdentity?.opponent ?? row.sportsIdentity?.homeTeam;
+  const ctx = row.title.toLowerCase();
+  const movementNote = row.marketReaction ? ` ${cleanStoryLine(row.marketReaction)}.` : "";
+
+  const confirmedStarter = (ctx.includes("confirmed") || ctx.includes("confirm")) && (ctx.includes("starter") || ctx.includes("pitcher"));
+  const confirmedLineup = (ctx.includes("confirmed") || ctx.includes("confirm")) && (ctx.includes("lineup") || ctx.includes("batting order"));
+  const lineupScratch = ctx.includes("lineup") || ctx.includes("scratch");
+  const pitcherWatch = ctx.includes("pitcher") || ctx.includes("pitching");
+
+  if (confirmedStarter) {
+    const who = player ?? team ?? "The starter";
+    const against = opponent ? ` against ${opponent}` : team && row.matchup ? ` in ${row.matchup}` : "";
+    return `${who} is confirmed to start${against}.${movementNote} Watch for lineup and bullpen decisions before first pitch.`;
+  }
+
+  if (confirmedLineup) {
+    const who = team ?? player ?? "The lineup";
+    const against = opponent ? ` against ${opponent}` : "";
+    return `${who} lineup is confirmed${against}.${movementNote} Watch how the confirmation affects fantasy, market, and game-state reads.`;
+  }
+
+  if (lineupScratch && (player || team)) {
+    const who = player ? `${player}${team ? ` (${team})` : ""}` : team!;
+    return row.league === "NBA"
+      ? `${who} is out of the lineup.${movementNote} Watch how the team adjusts rotation and usage before tip.`
+      : `${who} is out of the lineup.${movementNote} Watch how the team adjusts the batting order and bullpen before first pitch.`;
+  }
+
+  if (pitcherWatch && (player || team)) {
+    const who = player ?? team!;
+    const against = opponent ? ` against ${opponent}` : row.matchup ? ` in ${row.matchup}` : "";
+    return `${who}${against} is the lead pitching context.${movementNote} Watch for bullpen availability, weather, and market response before first pitch.`;
+  }
+
+  return undefined;
 }
 
 function relatedWatchItems(row: SituationRowData, lines: { headline: string; whatHappened: string; whyItMatters: string; watchNext: string }) {
@@ -804,6 +843,18 @@ function cleanPublicMatchupLabel(matchup?: string, team?: string, opponent?: str
 }
 
 function fanFirstTitle(situation: BoardSituation, canonical?: CanonicalSituation) {
+  if (!storyTitleHasValidPlayerName(situation.title)) {
+    const team = situation.team ?? situation.awayTeam ?? canonical?.teams?.[0]
+    const context = `${situation.signalType ?? ''} ${situation.detail ?? ''}`.toLowerCase()
+    if (team) {
+      if (context.includes('eligibility')) return `${team} eligibility ruling under review`
+      if (context.includes('injury') || context.includes('availability')) return `${team} availability update under review`
+      if (context.includes('transfer')) return `${team} transfer portal update`
+      if (context.includes('roster') || context.includes('depth')) return `${team} roster update`
+      return `${team} story update`
+    }
+    return `${situation.league ?? 'CFB'} story under review`
+  }
   const rawTitle = situation.title.trim();
   if (situation.kind === "game") return rawTitle;
   if (!isMarketDominantTitle(rawTitle)) return rawTitle;

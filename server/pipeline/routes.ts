@@ -3412,5 +3412,41 @@ app.get(
     }
   });
 
+  /* ══════════════════════════════════════════════════════
+     VISION WEBHOOK — Manako Vision Agent ingest
+     ══════════════════════════════════════════════════════ */
+
+  /**
+   * POST /api/signals/vision
+   *
+   * Receives Manako Vision Agent structured event payloads.
+   * Verified via HMAC-SHA256 signature in x-manako-signature header.
+   * Acknowledges in <500ms; ingest runs async.
+   *
+   * Body: ManakoEvent JSON
+   */
+  app.post("/api/signals/vision", async (req: Request, res: Response) => {
+    const { verifyManakoSignature } = await import("../auth/manakoWebhook");
+    const { mapManakoEvent } = await import("./manakoMapper");
+    const { ingestVisualSignal } = await import("./visualIngest");
+
+    const signature = (req.headers["x-manako-signature"] as string | undefined) ?? null;
+    const rawBody = ((req as any).rawBody as Buffer | undefined)?.toString("utf8") ?? JSON.stringify(req.body);
+
+    if (!verifyManakoSignature(signature, process.env.MANAKO_WEBHOOK_SECRET, rawBody)) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const signal = mapManakoEvent(req.body);
+    if (!signal) {
+      console.log("[Manako] Unmapped output_label:", req.body?.output_label);
+      return res.json({ status: "discarded" });
+    }
+
+    // Acknowledge immediately — ingest async to stay under 500ms
+    ingestVisualSignal(signal).catch((err: any) => console.error("[Manako ingest error]", err));
+    return res.json({ status: "accepted" });
+  });
+
   console.log("[pipeline] Routes registered");
 }

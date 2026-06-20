@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { deterministicTeamColors, teamColorsFor } from "@/lib/teamColors";
+import { resolveTeamLogoSrc } from "@/lib/teamLogoResolver";
 
 /**
  * Edge Setter v2 — Sport Visual Component System
@@ -298,9 +299,17 @@ type TeamLogoSport = "nba" | "mlb" | "nfl" | "cfb";
 
 export const TEAM_LOGO_URLS: Record<string, string> = { ...NBA_LOGO_URLS, ...MLB_LOGO_URLS, ...NFL_LOGO_URLS, ...CFB_LOGO_URLS };
 
+const LOCAL_LOGO_FALLBACK = "/assets/logos/fallback-transparent.svg";
+
 export function getTeamLogoUrl(abbr: string, sport?: TeamLogoSport): string {
   const upper = toTeamAbbr(abbr);
   if (isUnknownTeamAbbr(upper)) return "";
+  // Use sport-aware resolver to prevent token collisions (e.g. SF Giants vs SF 49ers).
+  // Falls back to ESPN CDN when no local asset is mapped.
+  if (sport === "mlb" || sport === "nba" || sport === "nfl") {
+    const localSrc = resolveTeamLogoSrc(upper, sport);
+    if (localSrc !== LOCAL_LOGO_FALLBACK) return localSrc;
+  }
   if (sport === "mlb") return MLB_LOGO_URLS[upper] ?? "";
   if (sport === "nba") return NBA_LOGO_URLS[upper] ?? "";
   if (sport === "nfl") return NFL_LOGO_URLS[upper] ?? "";

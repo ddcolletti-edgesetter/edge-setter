@@ -72,7 +72,17 @@
       "Read(//tmp/**)",
       "Bash(tasklist)",
       "Bash(npx jest *)",
-      "Bash(npm test *)"
+      "Bash(npm test *)",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\ddcol\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-ddcol-edge-setter\\\\fdf711e1-6b4f-4742-afe5-5d878e1aa4f8\\\\tasks\\\\bjzfjn0r1.output' -Tail 30\")",
+      "Bash(node -e ' *)",
+      "Bash(node *)",
+      "PowerShell(cd \"C:\\\\Users\\\\ddcol\\\\edge-setter\"; npx tsc --noEmit 2>&1 | Where-Object { $_ -match \"boardAdapters|situationDek\" })",
+      "PowerShell(cd \"C:\\\\Users\\\\ddcol\\\\edge-setter\"; $out = npx tsc --noEmit 2>&1; $out | Where-Object { $_ -match \"boardAdapters|situationDek\" }; Write-Host \"---DONE---\")",
+      "Bash(echo \"Exit: $?\")",
+      "Bash(findstr /R \"Tests  Duration Test Files passed failed\")",
+      "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\ddcol\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-ddcol-edge-setter\\\\4d20a766-0b66-4320-a47e-3f57bfacde4e\\\\tasks\\\\ba9fgudoo.output' | Select-String -Pattern 'Tests |Duration|Test Files|passed|failed' | Select-Object -Last 10\")",
+      "PowerShell(node _dbquery.mjs)",
+      "WebFetch(domain:edge-setter.onrender.com)"
     ]
   }
 }

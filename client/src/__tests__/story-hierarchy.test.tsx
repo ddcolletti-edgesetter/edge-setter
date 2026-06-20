@@ -114,7 +114,7 @@ describe("sports story hierarchy", () => {
           source_count: 3,
           bettingRelevance: true,
           fantasyRelevance: true,
-          lineupStatus: "Lineup context could shift role expectations.",
+          lineupStatus: "Lineup context affects how both teams set their matchup.",
           lineMovement: { open: "-110", current: "-125", note: "Line moved after late roster context." },
           timestamp: "10m ago",
         }}

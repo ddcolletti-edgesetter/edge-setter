@@ -388,6 +388,7 @@ export function getLatestSituationSnapshot(
 
 export interface CanonicalSituationRecord extends Situation {
   readonly latest_snapshot: SituationSnapshot | null;
+  readonly latest_snapshot_at: string | null;
 }
 const SITUATION_NOISE_PATTERNS = [
   /transfer your tickets/i,

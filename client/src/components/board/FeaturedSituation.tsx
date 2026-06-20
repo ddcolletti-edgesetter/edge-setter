@@ -481,7 +481,7 @@ function parseMetricPercent(value?: string | number) {
 function plainStatusLabel(status?: string) {
   const value = (status ?? "monitoring").toLowerCase();
   if (value.includes("verified") || value.includes("official")) return "ES Agents verified";
-  if (value.includes("urgent")) return "Needs source review";
+  if (value.includes("urgent")) return "Escalating";
   if (value.includes("develop")) return "Developing before confirmation";
   return value.replace(/\s+/g, " ");
 }

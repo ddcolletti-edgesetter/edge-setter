@@ -8,7 +8,7 @@ import type { LiveSignal } from "@/lib/signalsApi";
 const now = new Date().toISOString();
 
 const pressure = {
-  heroLeague: "MLB-led slate",
+  heroLeague: "MLB coverage active",
   heroHeadline: "No verified lineup or injury break has reached lead-story weight",
   heroBody: "EdgeSetter is waiting for a real team-news break before elevating a single story.",
   timing: "Quiet board",
@@ -21,9 +21,9 @@ const pressure = {
   sourceArcBody: "No report chain has reached homepage weight yet.",
   escalationWatch: "No verified escalation",
   escalationStage: "Monitoring",
-  pressureWindows: ["Pre-slate desk", "Impact still developing", "Awaiting reports"],
+  pressureWindows: ["Pre-game desk", "Impact still developing", "Awaiting reports"],
   convergenceSteps: [
-    { label: "Slate context", state: "complete" },
+    { label: "Board context", state: "complete" },
     { label: "Reports scanning", state: "active" },
     { label: "Impact still developing", state: "active" },
     { label: "Official confirmation", state: "waiting" },
@@ -39,7 +39,7 @@ function liveSignal(overrides: Partial<LiveSignal>): LiveSignal {
     headline: "Blue Jays lineup confirmation window tightening",
     body: "Lineup reporting changed the pregame read before first pitch.",
     action_note: "Watch for the official lineup card and market response.",
-    why_it_matters: "Lineup changes can alter run environment, player availability, and late pricing.",
+    why_it_matters: "Lineup changes can alter run environment and player availability.",
     team: "Toronto Blue Jays",
     player: null,
     matchup: "Toronto Blue Jays @ Miami Marlins",
@@ -149,7 +149,7 @@ describe("homepage story contract", () => {
     });
 
     expectStoryContract(model.lead);
-    expect(model.lead.label).toBe("Quiet slate watch");
+    expect(model.lead.label).toBe("Quiet board watch");
     expect(model.rail).toEqual([]);
     expect(model.games).toEqual([]);
     expect(model.leagues).toEqual([]);

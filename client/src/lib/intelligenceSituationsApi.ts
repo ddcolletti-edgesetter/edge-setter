@@ -247,8 +247,7 @@ function deriveEscalationState(signal: LiveSignal): EscalationState {
   return "Monitoring";
 }
 
-function deriveTimingWindow(ageMinutes: number | null, verdict: string): TimingWindow {
-  if (verdict.toLowerCase().includes("confirmed")) return "Widely Known";
+function deriveTimingWindow(ageMinutes: number | null, _verdict: string): TimingWindow {
   if (ageMinutes === null) return "Developing";
   if (ageMinutes <= 45) return "Early";
   if (ageMinutes <= 180) return "Developing";

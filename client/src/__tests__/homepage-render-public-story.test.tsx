@@ -203,13 +203,11 @@ describe("homepage public story render", () => {
 
     render(<LiveIntelligenceHome />);
     await waitFor(() => {
-  expect(screen.getByRole("heading", {
-    name: "Brandon Aiyuk — OUT",
-  })).toBeInTheDocument();
-});
+      expect(screen.getByRole("heading", {
+        name: "Brandon Aiyuk — OUT",
+      })).toBeInTheDocument();
+    });
 
-await userEvent.click(screen.getByTestId("story-intel-toggle"));
-    
     const domText = document.body.textContent ?? "";
     for (const phrase of bannedHomepagePhrases) {
       expect(domText).not.toContain(phrase);
@@ -226,11 +224,11 @@ await userEvent.click(screen.getByTestId("story-intel-toggle"));
     expect(screen.getByText("Latest Verified Notes")).toBeInTheDocument();
     console.log(domText);
     expect(domText).toContain("Brandon Aiyuk won't play. 49ers has to account for the absence and the plan adjusts from here.");
-    expect(domText).toContain("Watch for confirmed beat reports, practice participation, roster adjustments, and any movement in fantasy or betting markets.");
-    expect(domText).toContain("Sources checked. Timing tracked. Still developing.");
+    expect(domText).toContain("Watch for confirmed beat reports, practice participation, and any official roster adjustments before game time.");
+    expect(domText).toContain("ES Agents monitoring — developing.");
 
     const watchNextIndex = domText.indexOf("Watch next:");
-    const supportIndex = domText.indexOf("Sources checked. Timing tracked. Still developing.");
+    const supportIndex = domText.indexOf("ES Agents monitoring — developing.");
     const moreContextIndex = domText.indexOf("More impact context");
     const fantasyIndex = domText.indexOf("Fantasy impact");
     const bettingIndex = domText.indexOf("Betting/market impact");

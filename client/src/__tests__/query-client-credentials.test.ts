@@ -22,7 +22,7 @@ describe("query client credentials", () => {
     expect(mockFetchWithTimeout).toHaveBeenCalledWith(
       "/api/billing/session",
       expect.objectContaining({ credentials: "include" }),
-      4500,
+      12000,
     );
   });
 
@@ -35,7 +35,7 @@ describe("query client credentials", () => {
     expect(mockFetchWithTimeout).toHaveBeenCalledWith(
       "/api/user?email=subscriber%40example.com",
       expect.objectContaining({ credentials: "include" }),
-      4500,
+      12000,
     );
   });
 });

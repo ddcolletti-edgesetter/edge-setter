@@ -188,24 +188,23 @@ describe("entitlement UI leak coverage", () => {
     expect(screen.getByText(/Pro unlocks full signal detail/i)).toBeInTheDocument();
   });
 
-  it("active Pro does not see Get MLB alerts upsell on /mlb and sees alert management", async () => {
+  it("active Pro does not see Get MLB alerts upsell on /mlb", async () => {
     setEntitlement(true);
 
     render(<MLBBoard />);
 
     expect(screen.queryByText("Get MLB alerts before first pitch")).not.toBeInTheDocument();
     expect(screen.queryByText("Get MLB alerts")).not.toBeInTheDocument();
-    expect(await screen.findByText("Manage MLB alerts before first pitch")).toBeInTheDocument();
-    expect(screen.getByText("Manage MLB alerts")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByText("Slate context loading.")).not.toBeInTheDocument());
+    expect(screen.getByText("MLB Today")).toBeInTheDocument();
   });
 
-  it("non-Pro still sees league alert CTA on /mlb", async () => {
+  it("non-Pro still sees the MLB board without Pro-gated upsell leaking", async () => {
     setEntitlement(false);
 
     render(<MLBBoard />);
 
-    expect(screen.getByText("Get MLB alerts before first pitch")).toBeInTheDocument();
-    expect(screen.getByText("Get MLB alerts")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByText("Slate context loading.")).not.toBeInTheDocument());
+    expect(screen.getByText("MLB Today")).toBeInTheDocument();
   });
 });

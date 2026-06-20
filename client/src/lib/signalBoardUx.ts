@@ -204,7 +204,7 @@ export function signalConfidenceNarrative(signal: BoardSignalLike) {
     sourceCount > 1 ? `${sourceCount} reports aligned` : sourceCount === 1 ? "single-report read" : null,
     officialSourcePresent(signal) ? "official report attached" : null,
     signalHasMovement(signal) ? "market reaction" : null,
-    lifecycle === "Early" ? "early development" : lifecycle === "Confirmed" ? "public confirmation" : null,
+    lifecycle === "Early" ? "early development" : lifecycle === "Confirmed" ? "ES Agents verified" : null,
   ].filter(Boolean);
 
   if (confidence >= 85) return `Strong evidence support: ${drivers.join(" / ") || "verification is mature"}`;
@@ -227,7 +227,7 @@ export function signalSourceSummary(signal: BoardSignalLike) {
   if (hasMarket && sourceCount > 1) return "Market reaction + reporting";
   if (localBeat) return `Local beat: ${localBeat}`;
   if (sourceCount > 1) return `${sourceCount} independent source checks`;
-  if (sourceCount === 1 || labels.length === 1) return `Single source: ${labels[0] ?? "attached"}`;
+  if (sourceCount === 1 || labels.length === 1) return "Single wire source";
   return "Source agreement pending";
 }
 
@@ -240,7 +240,7 @@ export function signalTimingAdvantage(signal: BoardSignalLike) {
   if (lifecycle === "Early" && hasMovement) return "sports context moving";
   if (lifecycle === "Developing" && !hasMovement) return "developing window; verification still forming";
   if (lifecycle === "Developing" && hasMovement) return "partially priced; status still forming";
-  if (verdict.includes("confirmed") || lifecycle === "Confirmed") return hasMovement ? "public confirmation; context shifted" : "public confirmation";
+  if (verdict.includes("confirmed") || lifecycle === "Confirmed") return hasMovement ? "ES Agents verified — context shifted" : "ES Agents verified";
   if (lifecycle === "Widely Known") return "widely known; fully priced";
   if (lifecycle === "Stale" || lifecycle === "Expiring") return "stale signal; no remaining edge";
   return "monitoring only";

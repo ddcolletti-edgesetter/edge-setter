@@ -76,6 +76,6 @@ describe("LeagueEditorialPageFrame", () => {
     expect(story.headline).toBe("Mitchell Robinson finger injury puts Knicks availability in focus");
     expect(story.whatHappened).toBe("Robinson was diagnosed with a broken right pinky and is without a return timetable.");
     expect(story.whyItMatters).toBe("Availability changes can shift starters, rotations, usage, and pre-tip pricing.");
-    expect(story.watchNext).toBe("Watch for the next official status update, warmup/report confirmation, and role impact.");
+    expect(story.watchNext).toBe("Watch for the next official status update, warmup confirmation, and role impact.");
   });
 });

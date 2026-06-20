@@ -1,4 +1,5 @@
-import { useState, type MouseEvent } from "react";
+import type React from "react";
+import { Fragment } from "react";
 import { Link } from "wouter";
 
 import { EdgeSetterOverlay, type EdgeSetterOverlayData } from "@/components/EdgeSetterOverlay";
@@ -46,20 +47,17 @@ interface StoryCardProps {
 
 type ConfidenceTone = "verified" | "strong" | "developing" | "forming" | "pending";
 
-/**
- * North Star confidence display rules:
- * verified → "100% verified" (teal), 85-99 → strong (teal), 70-84 → developing
- * (amber), under 70 → forming (muted). Never a percentage next to "confirmed".
- */
+// North Star: verified → "Verified" (never show % on verified stories)
+// escalating (70–89%) → amber, developing (<70%) → info blue
 export function confidenceDisplay(overlay: EdgeSetterOverlayData): { text: string; tone: ConfidenceTone } {
   const confidence = overlay.confidence?.current;
   const verified = overlay.escalationState === "Official" || (typeof confidence === "number" && confidence >= 100);
-  if (verified) return { text: "100% verified", tone: "verified" };
-  if (typeof confidence !== "number") return { text: "Pending review", tone: "pending" };
+  if (verified) return { text: "Verified", tone: "verified" };
+  if (typeof confidence !== "number") return { text: "Developing", tone: "forming" };
   const rounded = Math.round(confidence);
-  if (rounded >= 85) return { text: `${rounded}% strong`, tone: "strong" };
-  if (rounded >= 70) return { text: `${rounded}% developing`, tone: "developing" };
-  return { text: `${rounded}% forming`, tone: "forming" };
+  if (rounded >= 85) return { text: `${rounded}% escalating`, tone: "strong" };
+  if (rounded >= 70) return { text: `${rounded}% escalating`, tone: "developing" };
+  return { text: `${rounded}% developing`, tone: "forming" };
 }
 
 // Same agreement thresholds as the signal detail drawer (4-agent consensus).
@@ -74,43 +72,20 @@ function agentsFromOverlay(overlay: EdgeSetterOverlayData): number {
   return 0;
 }
 
-type LeadIntelPanel = "fantasy" | "sources" | "weakens";
-
 export function StoryCard({ story, variant = "feature", className, copyVariant = "legacy" }: StoryCardProps) {
   const publicCopy = copyVariant === "public";
   const displayStory = publicCopy ? sanitizePublicStory(story) : story;
-  const [openPanel, setOpenPanel] = useState<LeadIntelPanel | null>(null);
-  // Lead card: intelligence zone is collapsed by default — user clicks teaser to expand
-  const [intelExpanded, setIntelExpanded] = useState(false);
   const isLead = variant === "lead";
   const confidenceRead = confidenceDisplay(displayStory.overlay);
   const agentsAgree = agentsFromOverlay(displayStory.overlay);
   const freshness = displayStory.overlay.timing?.freshnessLabel;
   const sourceCount = displayStory.overlay.sourceSummary?.count ?? 0;
 
-  const togglePanel = (panel: LeadIntelPanel) => (event: MouseEvent<HTMLButtonElement>) => {
-    // The card is wrapped in a navigation link; intel actions expand in place.
-    event.preventDefault();
-    event.stopPropagation();
-    setOpenPanel((current) => (current === panel ? null : panel));
-  };
-
-  const toggleIntel = (event: MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    setIntelExpanded((v) => !v);
-  };
-
-  const timingAdvantage = displayStory.timingAdvantageLead
-    ? displayStory.timingAdvantageKind === "pickup"
-      ? <>⚡ Detected {displayStory.timingAdvantageLead} before national pickup</>
-      : <>⚡ EdgeSetter flagged {displayStory.timingAdvantageLead} before public confirmation</>
-    : null;
+  const timingAdvantage = buildTimingAdvantageNode(displayStory);
 
   // ── Lead card ──────────────────────────────────────────────────────────────
-  // Layout: image → copy (headline + dek + reads) → intelligence teaser strip
-  // The teaser strip shows confidence + source count + timing edge inline.
-  // Clicking it expands the full intelligence zone beneath.
+  // Athletic layer: serif headline + prose body copy.
+  // Bloomberg layer: confidence journey + source/agent counts always visible, no click required.
   if (isLead) {
     const card = (
       <article className={cn("story-card story-card-lead", className)}>
@@ -134,7 +109,7 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
           )}
         </div>
 
-        {/* ── Sports story copy ── */}
+        {/* ── Sports story copy (The Athletic layer) ── */}
         <div className="story-card-copy">
           <div className="story-card-kicker">
             <span>{displayStory.league}</span>
@@ -172,92 +147,49 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
           </div>
         </div>
 
-        {/* ── Intelligence teaser strip (always visible, no click required for key stats) ── */}
-        {/* North Star: source count and agreement visible without clicking */}
-        <div className="story-intel-teaser">
-          <div className="story-intel-teaser-stats">
-            <span className={`story-intel-teaser-conf is-${confidenceRead.tone}`}>
-              {confidenceRead.tone === "verified" || confidenceRead.tone === "strong" ? "✓" : "◉"} {confidenceRead.text}
+        {/* ── Intelligence strip (Bloomberg layer) — ALWAYS VISIBLE, NO CLICK REQUIRED ── */}
+        {/* North Star: source count, ES Agent count, agreement status, confidence journey all visible without interaction */}
+        <div className="story-intel-strip">
+          <ConfidenceJourney overlay={displayStory.overlay} situation={displayStory.situation} />
+          <div className="story-intel-meta">
+            <span className="story-intel-sources-count">
+              {sourceCount} {sourceCount === 1 ? "source" : "sources"} tracked
             </span>
-            <span className="story-intel-teaser-sources">
-              {sourceCount} {sourceCount === 1 ? "source" : "sources"}
-              {sourceCount > 1 ? " · tracking" : " · attached"}
+            <i className="story-intel-sep" aria-hidden="true">·</i>
+            <span className="story-intel-agents-count">
+              {agentsAgree} ES Agent{agentsAgree !== 1 ? "s" : ""} monitoring
             </span>
-            {agentsAgree > 0 && (
-              <span className="story-intel-teaser-agents">
-                {agentsAgree}/4 ES Agents
-              </span>
+            {displayStory.overlay.sourceSummary?.convergence && (
+              <>
+                <i className="story-intel-sep" aria-hidden="true">·</i>
+                <span className="story-intel-agreement">
+                  {sourceAgreementLabel(displayStory.overlay.sourceSummary.convergence)}
+                </span>
+              </>
             )}
+            {/* North Star: timing advantage in intel strip — THIS DISPLAY MUST NEVER BE REMOVED. */}
             {displayStory.timingAdvantageLead && (
-              <span className="story-intel-teaser-timing">
-                ⚡ {displayStory.timingAdvantageLead} early
-              </span>
+              <>
+                <i className="story-intel-sep" aria-hidden="true">·</i>
+                <span className="story-intel-timing-edge">⚡ {displayStory.timingAdvantageLead} early</span>
+              </>
             )}
           </div>
-          <button
-            type="button"
-           className={`story-intel-teaser-toggle${intelExpanded ? " is-open" : ""}`}
-data-testid="story-intel-toggle"
-            onClick={toggleIntel}
-            aria-expanded={intelExpanded}
-            aria-label="EdgeSetter intelligence details"
-          >
-            EdgeSetter Intelligence {intelExpanded ? "▴" : "▾"}
-          </button>
         </div>
 
-        {/* ── Full intelligence zone (collapsed by default) ── */}
-        {intelExpanded && (
-          <div className="story-intel-zone">
-            <div className="story-intel-zone-label">
-              EdgeSetter Intelligence
-              <span>What the agents found</span>
-            </div>
-            <div className="story-intel-stats">
-              <div>
-                <span>Confidence</span>
-                <strong className={`story-card-conf is-${confidenceRead.tone}`}>{confidenceRead.text}</strong>
-              </div>
-              <div>
-                <span>Sources</span>
-                <strong>{sourceCount} attached</strong>
-              </div>
-              <div>
-                <span>Timing edge</span>
-                <strong>{displayStory.timingAdvantageLead ? `${displayStory.timingAdvantageLead} early` : "None yet"}</strong>
-              </div>
-              <div>
-                <span>Line impact</span>
-                <strong>{lineImpactLabel(displayStory)}</strong>
-              </div>
-            </div>
-            <div className="story-intel-agents" aria-label={`${agentsAgree} of 4 ES Agents in agreement`}>
-              {[0, 1, 2, 3].map((slot) => (
-                <i key={slot} className={slot < agentsAgree ? "is-filled" : ""} />
-              ))}
-              <span>{agentsAgree} of 4 ES Agents agree</span>
-            </div>
-            <div className="story-intel-actions">
-              <button type="button" className={openPanel === "fantasy" ? "is-open" : ""} onClick={togglePanel("fantasy")}>Fantasy</button>
-              <button type="button" className={openPanel === "sources" ? "is-open" : ""} onClick={togglePanel("sources")}>Source trail</button>
-              <button type="button" className={openPanel === "weakens" ? "is-open" : ""} onClick={togglePanel("weakens")}>Weakens if</button>
-            </div>
-            {openPanel && <p className="story-intel-panel">{intelPanelText(openPanel, displayStory)}</p>}
-            <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={false} copyVariant={publicCopy ? "editorial" : "legacy"} />
-            <StoryImpactBlocks
-              compact={false}
-              input={{
-                text: [displayStory.headline, displayStory.dek, displayStory.whatChanged, displayStory.whyItMatters, displayStory.watchNext, displayStory.storyType].filter(Boolean).join(" "),
-                fantasyRelevance: displayStory.fantasyRelevance,
-                bettingRelevance: displayStory.bettingRelevance,
-                dfsRelevance: displayStory.dfsRelevance,
-                fantasyDetail: displayStory.fantasyDetail,
-                bettingDetail: displayStory.bettingDetail,
-                dfsDetail: displayStory.dfsDetail,
-              }}
-            />
-          </div>
-        )}
+        <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={false} copyVariant={publicCopy ? "editorial" : "legacy"} />
+        <StoryImpactBlocks
+          compact={false}
+          input={{
+            text: [displayStory.headline, displayStory.dek, displayStory.whatChanged, displayStory.whyItMatters, displayStory.watchNext, displayStory.storyType].filter(Boolean).join(" "),
+            fantasyRelevance: displayStory.fantasyRelevance,
+            bettingRelevance: displayStory.bettingRelevance,
+            dfsRelevance: displayStory.dfsRelevance,
+            fantasyDetail: displayStory.fantasyDetail,
+            bettingDetail: displayStory.bettingDetail,
+            dfsDetail: displayStory.dfsDetail,
+          }}
+        />
       </article>
     );
 
@@ -378,33 +310,80 @@ function leadHeadlineNode(story: StoryCardData) {
   return headline;
 }
 
-function lineImpactLabel(story: StoryCardData) {
-  const reaction = story.situation?.marketReaction;
-  if (!reaction) return "None yet";
-  if (reaction.delta) return reaction.delta;
-  if (reaction.open && reaction.current && reaction.open !== reaction.current) return `${reaction.open} → ${reaction.current}`;
-  return "Reacting";
+// North Star: timing advantage callout — names source type for CFB where taxonomy exists.
+function buildTimingAdvantageNode(story: StoryCardData): React.ReactNode | null {
+  const lead = story.timingAdvantageLead;
+  if (!lead) return null;
+  if (story.league === "CFB" && story.situation?.sources?.length) {
+    const src = story.situation.sources[0];
+    const isSid = /sid|official|athletic.?dept/i.test(`${src?.type ?? ""} ${src?.name ?? ""}`);
+    if (isSid) return <>⚡ EdgeSetter detected via SID post — pickup {lead} later</>;
+  }
+  if (story.timingAdvantageKind === "pickup") return <>⚡ Detected {lead} before national pickup</>;
+  return <>⚡ EdgeSetter flagged {lead} before public confirmation</>;
 }
 
-function intelPanelText(panel: LeadIntelPanel, story: StoryCardData) {
-  if (panel === "fantasy") {
-    if (hasCleanPublicText(story.fantasyDetail)) return story.fantasyDetail!;
-    if (story.fantasyRelevance ?? story.situation?.raw.fantasy_relevance) {
-      return "Role, usage, and availability context may change. Check exposure before lineups lock.";
-    }
-    return "No verified fantasy angle yet. The sports story is still the read.";
-  }
-  if (panel === "sources") {
-    const count = story.overlay.sourceSummary?.count ?? 0;
-    const convergence = story.overlay.sourceSummary?.convergence ?? "Source trail still developing";
-    const names = (story.situation?.sources ?? [])
-      .map((source) => source.name)
-      .filter((name) => hasCleanPublicText(name))
-      .slice(0, 4);
-    const trail = names.length ? ` Trail: ${names.join(", ")}.` : "";
-    return `${count} report${count === 1 ? "" : "s"} tracked. ${convergence}.${trail}`;
-  }
-  return "Conflicting reports, a stale source trail, or an official update that points the other way would lower this read's confidence.";
+function ConfidenceJourney({ overlay, situation }: {
+  overlay: EdgeSetterOverlayData;
+  situation?: IntelligenceSituation | null;
+}) {
+  const esc = overlay.escalationState ?? "Monitoring";
+  const isVerified = esc === "Official" || (overlay.confidence?.current ?? 0) >= 100;
+  const isEscalating = esc === "Escalating" || esc === "Significant" || esc === "Confirming" || esc === "Emerging";
+
+  const firstSeen = situation?.timing.firstSeen;
+  const escalatingEntry = situation?.timeline.find(
+    (e) => e.state === "Escalating" || e.state === "Significant" || e.state === "Confirming",
+  );
+  const verifiedEntry = situation?.timeline.find((e) => e.state === "Official");
+
+  const nodes: Array<{ label: string; time?: string; state: "complete" | "active" | "waiting" }> = [
+    { label: "Detected", time: firstSeen ? formatJourneyTime(firstSeen) : undefined, state: "complete" },
+    {
+      label: "Escalating",
+      time: escalatingEntry?.at ? formatJourneyTime(escalatingEntry.at) : undefined,
+      state: isVerified ? "complete" : isEscalating ? "active" : "waiting",
+    },
+    {
+      label: "Verified",
+      time: verifiedEntry?.at ? formatJourneyTime(verifiedEntry.at) : undefined,
+      state: isVerified ? "complete" : "waiting",
+    },
+  ];
+
+  return (
+    <div className="conf-journey" aria-label="Confidence journey">
+      {nodes.map((node, i) => (
+        <Fragment key={node.label}>
+          <div className={`conf-journey-node is-${node.state}`}>
+            <div className="conf-journey-dot" />
+            {node.time
+              ? <time className="conf-journey-time">{node.time}</time>
+              : <span className="conf-journey-time conf-journey-time-blank">—</span>}
+            <span className="conf-journey-label">{node.label}</span>
+          </div>
+          {i < nodes.length - 1 && (
+            <div className={`conf-journey-line${nodes[i + 1].state !== "waiting" ? " is-filled" : ""}`} aria-hidden="true" />
+          )}
+        </Fragment>
+      ))}
+    </div>
+  );
+}
+
+function formatJourneyTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+function sourceAgreementLabel(convergence?: string | null): string {
+  const norm = (convergence ?? "").toLowerCase();
+  if (norm.includes("official")) return "Official confirmed";
+  if (norm.includes("corroborate") || norm.includes("consensus") || norm.includes("confirmed")) return "Sources agree";
+  if (norm.includes("single")) return "Single source";
+  if (norm.includes("await")) return "Pending";
+  return "Sources checked";
 }
 
 function sanitizePublicStory(story: StoryCardData): StoryCardData {

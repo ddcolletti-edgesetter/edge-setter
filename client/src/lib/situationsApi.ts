@@ -141,42 +141,44 @@ export async function fetchCanonicalSituations(options: FetchCanonicalSituations
 }
 
 export function useCanonicalSituations(options: FetchCanonicalSituationsOptions = {}) {
-  const stableOptions = useMemo(() => options, [
-    options.league,
-    options.sport,
-    options.situationType,
-    options.lifecycleState,
-    options.activeOnly,
-    options.limit,
-    options.orderBy,
-    options.poll,
-  ]);
   const [situations, setSituations] = useState<CanonicalSituation[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  const optionsRef = useRef(options);
+  useEffect(() => {
+    optionsRef.current = options;
+  });
 
   const refresh = useCallback(async () => {
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
     try {
-      const next = await fetchCanonicalSituations(stableOptions);
+      const next = await fetchCanonicalSituations(optionsRef.current);
       setSituations(next);
       setIsLive(next.length > 0);
       setError(null);
-    } catch {
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
       setSituations([]);
       setIsLive(false);
       setError("Canonical situations unavailable; using existing signal feed.");
     } finally {
       setLoading(false);
     }
-  }, [stableOptions]);
+  }, []);
 
   useEffect(() => {
     refresh();
-    if (stableOptions.poll !== false) timerRef.current = setInterval(refresh, REFRESH_MS);
+    if (options.poll !== false) {
+      timerRef.current = setInterval(refresh, REFRESH_MS);
+    }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      if (abortRef.current) abortRef.current.abort();
     };
   }, [refresh]);
 
