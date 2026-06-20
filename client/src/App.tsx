@@ -26,6 +26,7 @@ import NBABoard from "./pages/NBABoard";
 import MLBBoard from "./pages/MLBBoard";
 import NFLBoard from "./pages/NFLBoard";
 import CFBBoard from "./pages/CFBBoard";
+import StoryDetail from "./pages/StoryDetail";
 import ToolsHub from "./pages/ToolsHub";
 import MyEdge from "./pages/MyEdge";
 import AlertSettingsPage from "./pages/AlertSettingsPage";
@@ -74,6 +75,7 @@ function App() {
           <Route path="/mlb" component={MLBBoard} />
           <Route path="/nfl" component={NFLBoard} />
           <Route path="/cfb" component={CFBBoard} />
+          <Route path="/story/:id" component={StoryDetail} />
           <Route path="/tools" component={ToolsHub} />
           <Route path="/tools/player-signals" component={PlayerSignals} />
           <Route path="/tools/market-movement" component={MarketMovement} />

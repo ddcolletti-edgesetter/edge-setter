@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
-import { useSearch } from "wouter";
+import { useLocation, useSearch } from "wouter";
 
 import AppShell from "@/components/V2Shell";
 import { LiveTicker, buildBoardTickerItems } from "@/components/LiveTicker";
 import { BoardSignalRail } from "@/components/BoardSignalRail";
 import { NewSignalsToast } from "@/components/NewSignalsToast";
-import { SignalDetailDrawer, type SignalDetailLike } from "@/components/SignalDetailDrawer";
+import type { SignalDetailLike } from "@/components/SignalDetailDrawer";
 import { BoardCommandBar } from "@/components/board/BoardCommandBar";
 import { BoardPriorityControls } from "@/components/board/BoardPriorityControls";
 import { FeaturedSituation } from "@/components/board/FeaturedSituation";
@@ -81,8 +81,8 @@ const TAB_SIGNAL_TYPE: Record<string, string | null> = {
 const PRO_THRESHOLD = 10;
 
 export default function NBABoard() {
+  const [, navigate] = useLocation();
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
-  const [drawerSignal, setDrawerSignal] = useState<Signal | SignalDetailLike | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
   const [activeLane, setActiveLane] = useState<SituationLaneType | "all">("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
@@ -197,7 +197,7 @@ export default function NBABoard() {
       const index = filteredSignals.findIndex((item) => String(item.id) === String(signal.id));
       if (index >= PRO_THRESHOLD) return;
     }
-    setDrawerSignal(signal);
+    navigate("/story/" + encodeURIComponent(String(signal.id)));
   };
 
   const handleToastView = useCallback(() => {
@@ -354,7 +354,6 @@ export default function NBABoard() {
       </div>
 
       <NewSignalsToast count={pendingCount} onView={handleToastView} board="NBA" scrollContainerRef={scrollContainerRef} />
-      <SignalDetailDrawer open={!!drawerSignal} signal={drawerSignal} sport="NBA" onClose={() => setDrawerSignal(null)} />
     </AppShell>
   );
 }

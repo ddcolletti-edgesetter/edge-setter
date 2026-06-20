@@ -273,3 +273,52 @@ export function canonicalUncertaintySummary(situation: CanonicalSituation) {
 export function normalizeSituationType(value?: string | null) {
   return (value ?? "").toLowerCase().replace(/_/g, " ").trim();
 }
+
+export async function fetchCanonicalSituation(id: string): Promise<CanonicalSituation | null> {
+  try {
+    const res = await apiRequest("GET", `/api/v2/situations/${encodeURIComponent(id)}`);
+    if (!res.ok) return null;
+    return (await res.json()) as CanonicalSituation;
+  } catch {
+    return null;
+  }
+}
+
+export function useCanonicalSituation(id: string) {
+  const [situation, setSituation] = useState<CanonicalSituation | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiRequest("GET", `/api/v2/situations/${encodeURIComponent(id)}`);
+      if (res.status === 404) {
+        setSituation(null);
+        setNotFound(true);
+        setError(null);
+      } else if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
+      } else {
+        const data = (await res.json()) as CanonicalSituation;
+        setSituation(data);
+        setNotFound(false);
+        setError(null);
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") return;
+      setSituation(null);
+      setNotFound(false);
+      setError("Story unavailable.");
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  return { situation, loading, notFound, error, refresh };
+}

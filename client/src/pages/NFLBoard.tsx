@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { RefreshCw } from "lucide-react";
 
 import V2Shell, { useShellTheme } from "../components/V2Shell";
 import { LiveTicker, buildBoardTickerItems } from "../components/LiveTicker";
 import { BoardSignalRail } from "../components/BoardSignalRail";
-import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalDetailDrawer";
+import type { SignalDetailLike } from "../components/SignalDetailDrawer";
 import { ProBoardBanner } from "../components/ProGate";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
@@ -57,8 +58,8 @@ function matchNFLFilter(signal: NFLSignal, filter: string): boolean {
 function NFLBoardInner() {
   const darkMode = useShellTheme();
   const { rowIsFree, openModal } = useSignalGate();
+  const [, navigate] = useLocation();
   const [activeFilter, setActiveFilter] = useState("today");
-  const [selectedSig, setSelectedSig] = useState<NFLSignal | SignalDetailLike | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
   const [activeLane, setActiveLane] = useState<SituationLaneType | "all">("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
@@ -133,7 +134,7 @@ function NFLBoardInner() {
         return;
       }
     }
-    setSelectedSig(signal);
+    navigate("/story/" + encodeURIComponent(String(signal.id)));
   };
 
   return (
@@ -164,7 +165,7 @@ function NFLBoardInner() {
             league="NFL"
             mobileDensity="compact"
             className="sm:mb-1"
-            actions={featured?.kind === "signal" ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
+            actions={featured ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
           />
           <BoardSignalRail situations={situations} />
         </div>
@@ -224,7 +225,7 @@ function NFLBoardInner() {
                       key={situation.id}
                       story={story}
                       compact={compact && lane === "background"}
-                      onOpen={situation.kind === "signal" ? () => openSituation(situation) : undefined}
+                      onOpen={(situation.kind === "signal" || situation.kind === "canonical") ? () => openSituation(situation) : undefined}
                     />
                   )) : (
                     <div className="rounded border border-border bg-muted/10 px-3 py-4 text-sm font-medium text-muted-foreground">
@@ -247,7 +248,6 @@ function NFLBoardInner() {
         {(loading || canonicalLoading) && <div className="es-skeleton h-20 rounded border border-border" />}
       </main>
 
-      <SignalDetailDrawer open={!!selectedSig} signal={selectedSig} sport="NFL" onClose={() => setSelectedSig(null)} />
     </div>
   );
 }

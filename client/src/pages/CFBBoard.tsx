@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { RefreshCw } from "lucide-react";
 
 import V2Shell, { useShellTheme } from "../components/V2Shell";
 import { LiveTicker, buildBoardTickerItems } from "../components/LiveTicker";
 import { BoardSignalRail } from "../components/BoardSignalRail";
-import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalDetailDrawer";
+import type { SignalDetailLike } from "../components/SignalDetailDrawer";
 import { ProBoardBanner } from "../components/ProGate";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
@@ -63,9 +64,9 @@ type TabFilter = typeof TAB_FILTERS[number];
 function CFBBoardInner() {
   const darkMode = useShellTheme();
   const { rowIsFree, openModal } = useSignalGate();
+  const [, navigate] = useLocation();
   const [sidebarFilter, setSidebarFilter] = useState<CFBFilterKey>("SIGNAL STREAM");
   const [tabFilter, setTabFilter] = useState<TabFilter>("Today");
-  const [selectedSig, setSelectedSig] = useState<CFBSignal | SignalDetailLike | null>(null);
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
   const [activeLane, setActiveLane] = useState<SituationLaneType | "all">("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
@@ -151,7 +152,7 @@ function CFBBoardInner() {
         return;
       }
     }
-    setSelectedSig(signal);
+    navigate("/story/" + encodeURIComponent(String(signal.id)));
   };
 
   return (
@@ -201,7 +202,7 @@ function CFBBoardInner() {
             metrics={featuredDetails.metrics}
             mobileDensity="compact"
             className="sm:mb-1"
-            actions={featured?.kind === "signal" ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
+            actions={featured ? [{ label: "Open Story", onClick: () => openSituation(featured) }] : undefined}
           />
           <BoardSignalRail situations={situations} />
         </div>
@@ -293,7 +294,7 @@ function CFBBoardInner() {
                       key={situation.id}
                       story={story}
                       compact={compact && lane === "background"}
-                      onOpen={situation.kind === "signal" ? () => openSituation(situation) : undefined}
+                      onOpen={(situation.kind === "signal" || situation.kind === "canonical") ? () => openSituation(situation) : undefined}
                     />
                   ))}
                 </div>
@@ -338,7 +339,6 @@ function CFBBoardInner() {
         )}
       </main>
 
-      <SignalDetailDrawer open={!!selectedSig} signal={selectedSig} sport="CFB" onClose={() => setSelectedSig(null)} />
     </div>
   );
 }
