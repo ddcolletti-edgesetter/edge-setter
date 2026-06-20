@@ -11,6 +11,51 @@ const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/colleg
 const CURRENT_INJURY_MAX_AGE_DAYS = 21;
 let lastInjuryFetchReachable = false;
 
+const CFB_DISPLAY_TO_ABBR: Record<string, string> = {
+  // SEC
+  "alabama crimson tide": "ALA", "arkansas razorbacks": "ARK", "auburn tigers": "AUB",
+  "florida gators": "FLA", "georgia bulldogs": "UGA", "kentucky wildcats": "UK",
+  "lsu tigers": "LSU", "ole miss rebels": "MISS", "mississippi rebels": "MISS",
+  "mississippi state bulldogs": "MSST", "missouri tigers": "MIZ", "oklahoma sooners": "OU",
+  "south carolina gamecocks": "SC", "tennessee volunteers": "TENN", "texas longhorns": "TEX",
+  "texas a&m aggies": "TAMU", "vanderbilt commodores": "VAN",
+  // Big Ten
+  "illinois fighting illini": "ILL", "indiana hoosiers": "IND", "iowa hawkeyes": "IOWA",
+  "maryland terrapins": "MD", "michigan wolverines": "MICH", "michigan state spartans": "MSU",
+  "minnesota golden gophers": "MINN", "nebraska cornhuskers": "NEB",
+  "northwestern wildcats": "NU", "ohio state buckeyes": "OSU", "oregon ducks": "ORE",
+  "penn state nittany lions": "PSU", "purdue boilermakers": "PUR",
+  "rutgers scarlet knights": "RUT", "ucla bruins": "UCLA", "usc trojans": "USC",
+  "washington huskies": "WASH", "wisconsin badgers": "WIS",
+  // Big 12
+  "arizona wildcats": "ARIZ", "arizona state sun devils": "ASU", "baylor bears": "BAY",
+  "byu cougars": "BYU", "cincinnati bearcats": "CIN", "colorado buffaloes": "COL",
+  "houston cougars": "HOU", "iowa state cyclones": "ISU", "kansas jayhawks": "KU",
+  "kansas state wildcats": "KSU", "oklahoma state cowboys": "OKST",
+  "tcu horned frogs": "TCU", "texas tech red raiders": "TTU", "ucf knights": "UCF",
+  "utah utes": "UTAH", "west virginia mountaineers": "WVU",
+  // ACC
+  "boston college eagles": "BC", "california golden bears": "CAL",
+  "clemson tigers": "CLEM", "duke blue devils": "DUKE",
+  "florida state seminoles": "FSU", "georgia tech yellow jackets": "GT",
+  "louisville cardinals": "LOU", "miami hurricanes": "MIA",
+  "north carolina tar heels": "UNC", "nc state wolfpack": "NCST",
+  "north carolina state wolfpack": "NCST", "pitt panthers": "PITT",
+  "smu mustangs": "SMU", "stanford cardinal": "STAN", "syracuse orange": "SYR",
+  "virginia cavaliers": "UVA", "virginia tech hokies": "VT",
+  "wake forest demon deacons": "WAKE",
+  // Independents
+  "notre dame fighting irish": "ND", "uconn huskies": "UCONN",
+  // AAC
+  "army black knights": "ARMY", "charlotte 49ers": "CHAR", "ecu pirates": "ECU",
+  "east carolina pirates": "ECU", "fau owls": "FAU",
+  "florida atlantic owls": "FAU", "memphis tigers": "MEM",
+  "navy midshipmen": "NAVY", "rice owls": "RICE", "temple owls": "TEMP",
+  "tulane green wave": "TUL", "tulsa golden hurricane": "TULSA",
+  "uab blazers": "UAB", "north texas mean green": "UNT",
+  "usf bulls": "USF", "south florida bulls": "USF", "utsa roadrunners": "UTSA",
+};
+
 interface ESPNTeamRef {
   abbreviation?: string;
   displayName?: string;
@@ -91,10 +136,13 @@ export function normalizeESPNCFBInjuryRows(rows: ESPNInjuryResponse["injuries"] 
         abbreviation: group.abbreviation,
         displayName: group.displayName,
       };
+      const resolvedAbbr = groupTeam.abbreviation
+        ?? CFB_DISPLAY_TO_ABBR[groupTeam.displayName?.toLowerCase().trim() ?? ""];
+      const teamWithAbbr = resolvedAbbr ? { ...groupTeam, abbreviation: resolvedAbbr } : groupTeam;
       for (const injury of group.injuries ?? []) {
         normalized.push({
           ...injury,
-          team: injury.team ?? injury.athlete?.team ?? groupTeam,
+          team: injury.team ?? injury.athlete?.team ?? teamWithAbbr,
         });
       }
       continue;

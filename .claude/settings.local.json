@@ -82,7 +82,10 @@
       "Bash(findstr /R \"Tests  Duration Test Files passed failed\")",
       "Bash(powershell -Command \"Get-Content 'C:\\\\Users\\\\ddcol\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-ddcol-edge-setter\\\\4d20a766-0b66-4320-a47e-3f57bfacde4e\\\\tasks\\\\ba9fgudoo.output' | Select-String -Pattern 'Tests |Duration|Test Files|passed|failed' | Select-Object -Last 10\")",
       "PowerShell(node _dbquery.mjs)",
-      "WebFetch(domain:edge-setter.onrender.com)"
+      "WebFetch(domain:edge-setter.onrender.com)",
+      "PowerShell(cd \"C:\\\\Users\\\\ddcol\\\\edge-setter\"; npx vitest run 2>&1; Write-Host \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(cd C:\\\\Users\\\\ddcol\\\\edge-setter; npx tsc --noEmit 2>&1; echo \"EXIT:$LASTEXITCODE\")",
+      "PowerShell(cd C:\\\\Users\\\\ddcol\\\\edge-setter; npx vitest run 2>&1; echo \"EXIT:$LASTEXITCODE\")"
     ]
   }
 }

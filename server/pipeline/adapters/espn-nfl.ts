@@ -11,6 +11,20 @@ const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 const CURRENT_INJURY_MAX_AGE_DAYS = 21;
 let lastInjuryFetchReachable = false;
 
+const NFL_DISPLAY_TO_ABBR: Record<string, string> = {
+  "arizona cardinals": "ARI", "atlanta falcons": "ATL", "baltimore ravens": "BAL",
+  "buffalo bills": "BUF", "carolina panthers": "CAR", "chicago bears": "CHI",
+  "cincinnati bengals": "CIN", "cleveland browns": "CLE", "dallas cowboys": "DAL",
+  "denver broncos": "DEN", "detroit lions": "DET", "green bay packers": "GB",
+  "houston texans": "HOU", "indianapolis colts": "IND", "jacksonville jaguars": "JAX",
+  "kansas city chiefs": "KC", "las vegas raiders": "LV", "los angeles chargers": "LAC",
+  "los angeles rams": "LAR", "miami dolphins": "MIA", "minnesota vikings": "MIN",
+  "new england patriots": "NE", "new orleans saints": "NO", "new york giants": "NYG",
+  "new york jets": "NYJ", "philadelphia eagles": "PHI", "pittsburgh steelers": "PIT",
+  "san francisco 49ers": "SF", "seattle seahawks": "SEA", "tampa bay buccaneers": "TB",
+  "tennessee titans": "TEN", "washington commanders": "WAS",
+};
+
 interface ESPNTeamRef {
   abbreviation?: string;
   displayName?: string;
@@ -93,10 +107,13 @@ export function normalizeESPNNFLInjuryRows(rows: ESPNInjuryResponse["injuries"] 
         abbreviation: group.abbreviation,
         displayName: group.displayName,
       };
+      const resolvedAbbr = groupTeam.abbreviation
+        ?? NFL_DISPLAY_TO_ABBR[groupTeam.displayName?.toLowerCase().trim() ?? ""];
+      const teamWithAbbr = resolvedAbbr ? { ...groupTeam, abbreviation: resolvedAbbr } : groupTeam;
       for (const injury of group.injuries ?? []) {
         normalized.push({
           ...injury,
-          team: injury.team ?? injury.athlete?.team ?? groupTeam,
+          team: injury.team ?? injury.athlete?.team ?? teamWithAbbr,
         });
       }
       continue;

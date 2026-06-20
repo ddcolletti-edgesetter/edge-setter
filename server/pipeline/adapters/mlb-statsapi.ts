@@ -31,17 +31,61 @@ interface MLBScheduleResponse {
   dates: Array<{ date: string; games: MLBGame[] }>;
 }
 
+const MLB_DISPLAY_TO_ABBR: Record<string, string> = {
+  "arizona diamondbacks": "ARI", "diamondbacks": "ARI",
+  "athletics": "ATH", "oakland athletics": "ATH", "sacramento athletics": "ATH",
+  "atlanta braves": "ATL", "braves": "ATL",
+  "baltimore orioles": "BAL", "orioles": "BAL",
+  "boston red sox": "BOS", "red sox": "BOS",
+  "chicago cubs": "CHC", "cubs": "CHC",
+  "chicago white sox": "CHW", "white sox": "CHW",
+  "cincinnati reds": "CIN", "reds": "CIN",
+  "cleveland guardians": "CLE", "guardians": "CLE",
+  "colorado rockies": "COL", "rockies": "COL",
+  "detroit tigers": "DET", "tigers": "DET",
+  "houston astros": "HOU", "astros": "HOU",
+  "kansas city royals": "KC", "royals": "KC",
+  "los angeles angels": "LAA", "angels": "LAA",
+  "los angeles dodgers": "LAD", "dodgers": "LAD",
+  "miami marlins": "MIA", "marlins": "MIA",
+  "milwaukee brewers": "MIL", "brewers": "MIL",
+  "minnesota twins": "MIN", "twins": "MIN",
+  "new york mets": "NYM", "mets": "NYM",
+  "new york yankees": "NYY", "yankees": "NYY",
+  "philadelphia phillies": "PHI", "phillies": "PHI",
+  "pittsburgh pirates": "PIT", "pirates": "PIT",
+  "san diego padres": "SD", "padres": "SD",
+  "san francisco giants": "SF", "giants": "SF",
+  "seattle mariners": "SEA", "mariners": "SEA",
+  "st. louis cardinals": "STL", "cardinals": "STL",
+  "tampa bay rays": "TB", "rays": "TB",
+  "texas rangers": "TEX", "rangers": "TEX",
+  "toronto blue jays": "TOR", "blue jays": "TOR",
+  "washington nationals": "WSH", "nationals": "WSH",
+};
+
+interface MLBTeamRef {
+  abbreviation?: string;
+  name?: string;
+}
+
 interface MLBTransaction {
   id: number;
   person: { fullName: string };
-  fromTeam?: { abbreviation: string };
-  toTeam?: { abbreviation: string };
-  team: { abbreviation: string };
+  fromTeam?: MLBTeamRef;
+  toTeam?: MLBTeamRef;
+  team?: MLBTeamRef;
   date: string;
   typeCode: string;   // "IL" | "DFA" | "ASG" | "SGN" | etc.
   typeDesc: string;
   description: string;
   effectiveDate: string;
+}
+
+function resolveMLBTeamAbbr(ref: MLBTeamRef | undefined | null): string {
+  if (!ref) return "UNK";
+  if (ref.abbreviation) return ref.abbreviation;
+  return MLB_DISPLAY_TO_ABBR[ref.name?.toLowerCase().trim() ?? ""] ?? "UNK";
 }
 
 interface MLBRosterPlayer {
@@ -207,7 +251,7 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
     const isActivation =
       tx.typeCode === "CU" ||
       (tx.typeCode === "SC" && tx.description.toLowerCase().includes("activated"));
-    const team = (tx.toTeam ?? tx.fromTeam ?? tx.team)?.abbreviation ?? "UNK";
+    const team = resolveMLBTeamAbbr(tx.toTeam ?? tx.fromTeam ?? tx.team);
     const desc = tx.description.toLowerCase();
     const designation = isActivation ? undefined
       : desc.includes("60-day") ? "IL-60"

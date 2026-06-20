@@ -11,6 +11,20 @@ const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 const CURRENT_TRANSACTION_MAX_AGE_DAYS = 14;
 let lastTransactionFetchReachable = false;
 
+const NFL_DISPLAY_TO_ABBR: Record<string, string> = {
+  "arizona cardinals": "ARI", "atlanta falcons": "ATL", "baltimore ravens": "BAL",
+  "buffalo bills": "BUF", "carolina panthers": "CAR", "chicago bears": "CHI",
+  "cincinnati bengals": "CIN", "cleveland browns": "CLE", "dallas cowboys": "DAL",
+  "denver broncos": "DEN", "detroit lions": "DET", "green bay packers": "GB",
+  "houston texans": "HOU", "indianapolis colts": "IND", "jacksonville jaguars": "JAX",
+  "kansas city chiefs": "KC", "las vegas raiders": "LV", "los angeles chargers": "LAC",
+  "los angeles rams": "LAR", "miami dolphins": "MIA", "minnesota vikings": "MIN",
+  "new england patriots": "NE", "new orleans saints": "NO", "new york giants": "NYG",
+  "new york jets": "NYJ", "philadelphia eagles": "PHI", "pittsburgh steelers": "PIT",
+  "san francisco 49ers": "SF", "seattle seahawks": "SEA", "tampa bay buccaneers": "TB",
+  "tennessee titans": "TEN", "washington commanders": "WAS",
+};
+
 interface ESPNTransactionAthlete {
   displayName?: string;
   position?: { abbreviation?: string };
@@ -96,12 +110,20 @@ export function isCurrentESPNTransaction(date: string | undefined, maxAgeDays = 
   return ageMs >= 0 && ageMs <= maxAgeDays * 24 * 60 * 60 * 1000;
 }
 
+function resolveNFLTeamRef(ref: ESPNTeamRef | undefined): ESPNTeamRef | undefined {
+  if (!ref) return undefined;
+  if (ref.abbreviation) return ref;
+  const abbr = NFL_DISPLAY_TO_ABBR[ref.displayName?.toLowerCase().trim() ?? ""];
+  return abbr ? { ...ref, abbreviation: abbr } : ref;
+}
+
 export function normalizeESPNNFLTransactionRows(rows: ESPNTransactionGroup[] = []): ESPNTransactionItem[] {
   const normalized: ESPNTransactionItem[] = [];
   for (const row of rows) {
+    const rowTeam = resolveNFLTeamRef(row.team);
     if (Array.isArray(row.items)) {
       for (const item of row.items) {
-        normalized.push({ ...item, team: item.team ?? row.team });
+        normalized.push({ ...item, team: resolveNFLTeamRef(item.team) ?? rowTeam });
       }
       continue;
     }
@@ -110,7 +132,7 @@ export function normalizeESPNNFLTransactionRows(rows: ESPNTransactionGroup[] = [
       type: row.type,
       description: row.description,
       date: row.date,
-      team: row.team,
+      team: rowTeam,
     });
   }
   return normalized;

@@ -55,6 +55,24 @@ interface ESPNScoreboardResponse {
   events?: ESPNEvent[];
 }
 
+const NBA_DISPLAY_TO_ABBR: Record<string, string> = {
+  "atlanta hawks": "ATL", "boston celtics": "BOS", "brooklyn nets": "BKN",
+  "charlotte hornets": "CHA", "chicago bulls": "CHI", "cleveland cavaliers": "CLE",
+  "dallas mavericks": "DAL", "denver nuggets": "DEN", "detroit pistons": "DET",
+  "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
+  "los angeles clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
+  "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN",
+  "new orleans pelicans": "NOP", "new york knicks": "NYK", "oklahoma city thunder": "OKC",
+  "orlando magic": "ORL", "philadelphia 76ers": "PHI", "phoenix suns": "PHX",
+  "portland trail blazers": "POR", "sacramento kings": "SAC", "san antonio spurs": "SAS",
+  "toronto raptors": "TOR", "utah jazz": "UTA", "washington wizards": "WAS",
+};
+
+function resolveNBATeamAbbr(group: ESPNTeamGroup): string {
+  if (group.abbreviation) return group.abbreviation;
+  return NBA_DISPLAY_TO_ABBR[group.displayName?.toLowerCase().trim() ?? ""] ?? "UNK";
+}
+
 /* ─── Normalize designation ───────────────────────────────── */
 
 function normalizeDesignation(status: string): string {
@@ -82,7 +100,7 @@ export async function fetchNBAInjuries(): Promise<ESPNInjuryEntry[]> {
     return (data.injuries ?? []).flatMap(team =>
       (team.injuries ?? []).map(entry => ({
         ...entry,
-        team: { abbreviation: team.abbreviation ?? team.displayName, displayName: team.displayName },
+        team: { abbreviation: resolveNBATeamAbbr(team), displayName: team.displayName },
       }))
     );
   } catch (err: any) {

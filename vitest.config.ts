@@ -13,6 +13,15 @@ export default defineConfig({
       "client/src/lib/__tests__/**/*.test.{ts,tsx}",
       "server/**/*.test.ts",
     ],
+    pool: "forks",
+    poolOptions: {
+      forks: {
+        singleFork: false,
+      }
+    },
+    testTimeout: 10000,
+    hookTimeout: 10000,
+    reporter: ["verbose"],
     alias: {
       "@": path.resolve(__dirname, "client/src"),
       "@shared": path.resolve(__dirname, "shared"),

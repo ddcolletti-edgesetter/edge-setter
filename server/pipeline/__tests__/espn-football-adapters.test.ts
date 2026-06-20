@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { isCurrentESPNRow, isSignalWorthyNFLInjuryStatus, normalizeESPNNFLInjuryRows } from "../adapters/espn-nfl";
 import { isCurrentESPNCFBRow, isSignalWorthyCFBInjuryStatus, normalizeESPNCFBInjuryRows } from "../adapters/espn-cfb";
 import { isCurrentESPNTransaction, normalizeESPNNFLTransactionRows } from "../adapters/espn-nfl-transactions";
+import { normalizeESPNCFBTransactionRows } from "../adapters/espn-cfb-transactions";
 
 describe("ESPN football adapter normalization", () => {
   it("flattens grouped NFL injury payloads and preserves team context", () => {
@@ -94,5 +95,75 @@ describe("ESPN football adapter normalization", () => {
     expect(rows[0].description).toContain("Signed");
     expect(isCurrentESPNTransaction(rows[0].date, 14, now)).toBe(true);
     expect(isCurrentESPNTransaction("2026-04-01T07:00Z", 14, now)).toBe(false);
+  });
+
+  it("resolves NFL injury team from displayName when abbreviation is absent", () => {
+    const rows = normalizeESPNNFLInjuryRows([
+      {
+        displayName: "Kansas City Chiefs",
+        injuries: [
+          {
+            date: "2026-06-18T12:00Z",
+            status: "Questionable",
+            athlete: { displayName: "Patrick Mahomes" },
+          },
+        ],
+      },
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].team?.abbreviation).toBe("KC");
+  });
+
+  it("resolves CFB injury team from displayName when abbreviation is absent", () => {
+    const rows = normalizeESPNCFBInjuryRows([
+      {
+        displayName: "Alabama Crimson Tide",
+        injuries: [
+          {
+            date: "2026-06-18T12:00Z",
+            status: "Out",
+            athlete: { displayName: "Example Player" },
+          },
+        ],
+      },
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].team?.abbreviation).toBe("ALA");
+  });
+
+  it("resolves NFL transaction team from displayName when abbreviation is absent", () => {
+    const rows = normalizeESPNNFLTransactionRows([
+      {
+        team: { displayName: "Pittsburgh Steelers" },
+        items: [
+          {
+            description: "Waived WR Example Player.",
+            date: "2026-06-18T07:00Z",
+          },
+        ],
+      },
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].team?.abbreviation).toBe("PIT");
+  });
+
+  it("resolves CFB transaction team from displayName when abbreviation is absent", () => {
+    const rows = normalizeESPNCFBTransactionRows([
+      {
+        team: { displayName: "Georgia Bulldogs" },
+        items: [
+          {
+            description: "Player entered transfer portal.",
+            date: "2026-06-18T07:00Z",
+          },
+        ],
+      },
+    ]);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0].team?.abbreviation).toBe("UGA");
   });
 });
