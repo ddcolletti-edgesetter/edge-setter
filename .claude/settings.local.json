@@ -85,7 +85,10 @@
       "WebFetch(domain:edge-setter.onrender.com)",
       "PowerShell(cd \"C:\\\\Users\\\\ddcol\\\\edge-setter\"; npx vitest run 2>&1; Write-Host \"EXIT:$LASTEXITCODE\")",
       "PowerShell(cd C:\\\\Users\\\\ddcol\\\\edge-setter; npx tsc --noEmit 2>&1; echo \"EXIT:$LASTEXITCODE\")",
-      "PowerShell(cd C:\\\\Users\\\\ddcol\\\\edge-setter; npx vitest run 2>&1; echo \"EXIT:$LASTEXITCODE\")"
+      "PowerShell(cd C:\\\\Users\\\\ddcol\\\\edge-setter; npx vitest run 2>&1; echo \"EXIT:$LASTEXITCODE\")",
+      "Bash(echo \"EXIT_CODE: $?\")",
+      "PowerShell(cd \"C:\\\\Users\\\\ddcol\\\\edge-setter\"; $env:CI = \"true\"; npx vitest run --reporter=dot 2>&1 | Select-Object -Last 10)",
+      "Bash(echo \"VITEST_EXIT:$?\")"
     ]
   }
 }

@@ -308,16 +308,18 @@ and `teamColors.ts`.
 **Test:** NFL injury and MLB transaction situations resolve to real team abbreviations.
 Team logos render without hitting the catch-all fallback square.
 
-### Priority 2B — Fix "monitoring" leak on NBA/MLB Watch Desk fallback cards
+### Priority 2B — Fix "monitoring" leak on NBA/MLB Watch Desk fallback cards ✓ COMPLETE
+Applied display mapping to `toQuietLeagueLeadStory()` statusLabel (hardcoded "Monitoring" → "Developing")
+and `toSituationStoryCardData()` verification chain (raw escalationState now mapped before publicStoryText).
+Added "monitoring" to `publicLifecycleLabel()` regex as defensive catch.
+tsc and vitest both exit 0. Committed June 20, 2026.
 
-**Gap:** NBA and MLB boards show raw "monitoring" text in the Verification State field
-of their Watch Desk fallback cards. This is a different surface from canonical
-situation cards and was not covered by Priority 1.
+**Known test gap:** No vitest assertions currently verify that raw pipeline strings from section 4.5
+are absent from NBA/MLB fallback card rendered output. Regression is not structurally prevented.
+Add targeted tests before or during Priority 3.
 
-**Fix:** Apply `mapVerificationDisplayState()` to the Watch Desk fallback card
-template. "monitoring" → "Developing" per the mapping table in section 4.5.
-
-**Test:** NBA and MLB boards show no raw pipeline state strings anywhere.
+Regression test added: `client/src/__tests__/fallback-card-pipeline-strings.test.tsx`
+4 assertions — NBA and MLB adapter output and DOM rendering. Full suite 214/214 passing.
 
 ### Priority 3 — Build story detail page (critical UX gap)
 
@@ -578,7 +580,7 @@ below are true simultaneously. Do not launch until all are met.
 |---|---|---|
 | 1 | User understands "knows things before other sites" within 5 seconds | Needs user test |
 | 2 | At least one story with visible timing advantage callout | Blocked — timing gap never fired in production |
-| 3 | Confidence scores display correctly (Developing/Escalating/Verified) | **FIXED June 20** — monitor for regressions |
+| 3 | Confidence scores display correctly (Developing/Escalating/Verified) | **FIXED June 20** — Priority 1 + 2B complete, monitor for regressions |
 | 4 | No broken logos, no placeholder imagery | Partial — matchup logos work, transaction/injury UNK |
 | 5 | Source count visible on lead story without clicking | Needs UI audit |
 | 6 | Verified story shows confidence journey with wire pickup point | Partial — detected/escalating render, verified + wire pickup not yet |

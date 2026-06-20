@@ -79,7 +79,7 @@ export function publicLifecycleLabel(value?: string | null) {
   if (/urgent|breaking|live/i.test(normalized)) return "Urgent";
   if (/verified|confirmed|consensus|official/i.test(normalized)) return "Confirmed";
   if (/watch|review|likely/i.test(normalized)) return "Watch";
-  if (/developing|emerging|escalating|elevated/i.test(normalized)) return "Developing";
+  if (/developing|emerging|escalating|elevated|monitoring/i.test(normalized)) return "Developing";
   if (/resolved|stale|cooling/i.test(normalized)) return "Cooling";
   if (/detected/i.test(normalized)) return "New watch";
   return publicStoryText(normalized);

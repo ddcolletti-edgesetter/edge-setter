@@ -179,7 +179,9 @@ export function toSituationStoryCardData(row: SituationRowData): SituationStoryC
   const matchup = row.matchup ?? matchupFromIdentity(identity);
   const storyType = storyTypeFromRow(row);
   const confidence = confidenceFromRow(row);
-  const verification = publicStoryText(row.sourceProgressLabel ?? row.sourceSummary ?? row.statusLabel ?? row.escalationState, row.league);
+  const rawVerification = row.sourceProgressLabel ?? row.sourceSummary ?? row.statusLabel ?? row.escalationState;
+const mappedVerification = rawVerification === "monitoring" ? "Developing" : rawVerification;
+const verification = publicStoryText(mappedVerification, row.league);
   const headline = editorialHeadline(row, matchup);
   const whatHappened = storyWhatHappened(row);
   const whyItMatters = storyWhyItMatters(row);
@@ -251,7 +253,7 @@ export function toQuietLeagueLeadStory(league: "MLB" | "NBA"): SituationStoryCar
     title: headline,
     subtitle: dek,
     league,
-    statusLabel: "Monitoring",
+    statusLabel: "Developing",
     lifecycleLabel: "Quiet slate",
     sourceProgressLabel: "Checking sources",
     sportsIdentity: { sport: league.toLowerCase() as "mlb" | "nba" },
