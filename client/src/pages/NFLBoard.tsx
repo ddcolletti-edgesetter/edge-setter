@@ -5,7 +5,7 @@ import { RefreshCw } from "lucide-react";
 import V2Shell, { useShellTheme } from "../components/V2Shell";
 import { LiveTicker, buildBoardTickerItems } from "../components/LiveTicker";
 import { BoardSignalRail } from "../components/BoardSignalRail";
-import type { SignalDetailLike } from "../components/SignalDetailDrawer";
+import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalDetailDrawer";
 import { ProBoardBanner } from "../components/ProGate";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
@@ -68,6 +68,7 @@ function NFLBoardInner() {
   const [liveOnly, setLiveOnly] = useState(false);
   const [actionableOnly, setActionableOnly] = useState(false);
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
+  const [selectedSig, setSelectedSig] = useState<SignalDetailLike | null>(null);
 
   const { signals: liveNFLSignals, loading, isLive, error, refresh } = useNFLSignals(NFL_SIGNALS);
   const nflSituationsOptions = useMemo(() => ({
@@ -127,14 +128,16 @@ function NFLBoardInner() {
     if (situation.kind !== "signal" && situation.kind !== "canonical") return;
     const signal = situation.signal as NFLSignal | SignalDetailLike | undefined;
     if (!signal) return;
-    if (situation.kind === "signal") {
-      const index = visibleSignals.findIndex((item) => String(item.id) === String(signal.id));
-      if (!rowIsFree(index)) {
-        openModal("NFL");
-        return;
-      }
+    if (situation.kind === "canonical") {
+      navigate("/story/" + encodeURIComponent(String(signal.id)));
+      return;
     }
-    navigate("/story/" + encodeURIComponent(String(signal.id)));
+    const index = visibleSignals.findIndex((item) => String(item.id) === String(signal.id));
+    if (!rowIsFree(index)) {
+      openModal("NFL");
+      return;
+    }
+    setSelectedSig(signal as SignalDetailLike);
   };
 
   return (
@@ -248,6 +251,7 @@ function NFLBoardInner() {
         {(loading || canonicalLoading) && <div className="es-skeleton h-20 rounded border border-border" />}
       </main>
 
+      <SignalDetailDrawer open={Boolean(selectedSig)} signal={selectedSig} sport="NFL" onClose={() => setSelectedSig(null)} />
     </div>
   );
 }

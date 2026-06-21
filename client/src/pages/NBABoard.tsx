@@ -6,7 +6,7 @@ import AppShell from "@/components/V2Shell";
 import { LiveTicker, buildBoardTickerItems } from "@/components/LiveTicker";
 import { BoardSignalRail } from "@/components/BoardSignalRail";
 import { NewSignalsToast } from "@/components/NewSignalsToast";
-import type { SignalDetailLike } from "@/components/SignalDetailDrawer";
+import { SignalDetailDrawer, type SignalDetailLike } from "@/components/SignalDetailDrawer";
 import { BoardCommandBar } from "@/components/board/BoardCommandBar";
 import { BoardPriorityControls } from "@/components/board/BoardPriorityControls";
 import { FeaturedSituation } from "@/components/board/FeaturedSituation";
@@ -92,6 +92,7 @@ export default function NBABoard() {
   const [actionableOnly, setActionableOnly] = useState(false);
   const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
   const [gamesLoading, setGamesLoading] = useState(true);
+  const [selectedSig, setSelectedSig] = useState<SignalDetailLike | null>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
 
   const search = useSearch();
@@ -193,11 +194,13 @@ export default function NBABoard() {
     if (situation.kind !== "signal" && situation.kind !== "canonical") return;
     const signal = situation.signal as Signal | SignalDetailLike | undefined;
     if (!signal) return;
-    if (situation.kind === "signal") {
-      const index = filteredSignals.findIndex((item) => String(item.id) === String(signal.id));
-      if (index >= PRO_THRESHOLD) return;
+    if (situation.kind === "canonical") {
+      navigate("/story/" + encodeURIComponent(String(signal.id)));
+      return;
     }
-    navigate("/story/" + encodeURIComponent(String(signal.id)));
+    const index = filteredSignals.findIndex((item) => String(item.id) === String(signal.id));
+    if (index >= PRO_THRESHOLD) return;
+    setSelectedSig(signal as SignalDetailLike);
   };
 
   const handleToastView = useCallback(() => {
@@ -354,6 +357,7 @@ export default function NBABoard() {
       </div>
 
       <NewSignalsToast count={pendingCount} onView={handleToastView} board="NBA" scrollContainerRef={scrollContainerRef} />
+      <SignalDetailDrawer open={Boolean(selectedSig)} signal={selectedSig} sport="NBA" onClose={() => setSelectedSig(null)} />
     </AppShell>
   );
 }
