@@ -201,7 +201,7 @@ export function mapCanonicalSituationToApiResponse(
     lifecycleExplanation: explainLifecycleState(lifecycleState),
     confidence,
     confidenceLabel: confidenceLabel(confidence),
-    confidenceFactors: explainConfidenceFactors(snapshot?.confidence.factors ?? emptyFactors(), confidenceHistory),
+    confidenceFactors: explainConfidenceFactors(snapshot?.confidence.factors ?? emptyFactors(), confidenceHistory, !!publicConfirmation),
     severity: severityLabel(escalationScore),
     escalationScore,
     timingPressure: snapshot?.timing_pressure ?? "inactive",
@@ -230,6 +230,7 @@ export function mapCanonicalSituationToApiResponse(
 export function explainConfidenceFactors(
   factors: SituationConfidenceFactorBreakdown,
   history: readonly SituationConfidenceHistory[] = [],
+  hasPublicConfirmation: boolean = false,
 ): CanonicalSituationConfidenceFactors {
   const latest = [...history].sort((left, right) => compareDesc(left.created_at, right.created_at, left.history_id, right.history_id))[0];
   const delta = latest && latest.previous_confidence != null
@@ -250,13 +251,11 @@ export function explainConfidenceFactors(
   if (factors.contradiction_penalty > 0) decreased.push("Contradictory evidence is applying an explicit penalty.");
   if (factors.freshness < 4) decreased.push("Freshness is weak, so the confidence score is restrained.");
 
-  if (factors.official_confirmation > 0) matters.push("Official confirmation carries the most weight.");
   if (factors.source_reliability >= 14) matters.push("Reliable source quality is a meaningful contributor.");
   if (factors.independent_confirmations >= 10) matters.push("Cross-source confirmation is materially supporting confidence.");
   if (factors.market_alignment >= 8) matters.push("Aligned market movement is relevant evidence.");
   if (matters.length === 0) matters.push("The current read depends on a limited evidence set.");
 
-  if (factors.official_confirmation === 0) uncertain.push("No official confirmation has been attached yet.");
   if (factors.independent_confirmations < 10) uncertain.push("Independent confirmation is still limited.");
   if (factors.validator_agreement < 8) uncertain.push("Validator agreement is not yet strong enough to close the loop.");
   if (factors.contradiction_penalty > 0) uncertain.push("Contradictory evidence still needs resolution.");
