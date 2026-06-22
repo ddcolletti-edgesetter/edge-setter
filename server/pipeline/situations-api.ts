@@ -201,7 +201,7 @@ export function mapCanonicalSituationToApiResponse(
     lifecycleExplanation: explainLifecycleState(lifecycleState),
     confidence,
     confidenceLabel: confidenceLabel(confidence),
-    confidenceFactors: explainConfidenceFactors(snapshot?.confidence.factors ?? emptyFactors(), confidenceHistory, !!publicConfirmation),
+    confidenceFactors: explainConfidenceFactors(snapshot?.confidence.factors ?? emptyFactors(), confidenceHistory),
     severity: severityLabel(escalationScore),
     escalationScore,
     timingPressure: snapshot?.timing_pressure ?? "inactive",
@@ -230,7 +230,6 @@ export function mapCanonicalSituationToApiResponse(
 export function explainConfidenceFactors(
   factors: SituationConfidenceFactorBreakdown,
   history: readonly SituationConfidenceHistory[] = [],
-  hasPublicConfirmation: boolean = false,
 ): CanonicalSituationConfidenceFactors {
   const latest = [...history].sort((left, right) => compareDesc(left.created_at, right.created_at, left.history_id, right.history_id))[0];
   const delta = latest && latest.previous_confidence != null
