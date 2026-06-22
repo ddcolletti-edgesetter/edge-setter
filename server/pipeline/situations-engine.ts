@@ -84,7 +84,9 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
 
   const lifecycle = transitionSituationLifecycle({
     current_state: previousSnapshot?.lifecycle_state ?? null,
-    trigger: input.lifecycle_trigger ?? defaultLifecycleTrigger(input.event),
+    trigger: (input.lifecycle_trigger === "official_confirmation" && !matched)
+      ? defaultLifecycleTrigger(input.event)
+      : (input.lifecycle_trigger ?? defaultLifecycleTrigger(input.event)),
     confidence: confidence.score,
     evidence_count: countEvidence(previousSnapshot) + 1,
     hours_since_latest_evidence: hoursBetween(input.event.occurred_at, input.event.received_at),
