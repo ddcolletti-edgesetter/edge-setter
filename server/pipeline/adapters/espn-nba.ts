@@ -153,10 +153,10 @@ export async function ingestNBAInjuries(): Promise<{ created: number; skipped: n
         notes:        inj.longComment ?? `${playerName} (${team}) listed ${designation}${bodyPart !== "undisclosed" ? ` — ${bodyPart}` : ""}.`,
         confidence,
         confirmation: isHighImpact ? "Corroborated" : "Developing",
-        source_types:  ["official report"],
-        source_labels: ["ESPN / NBA Official"],
+        source_types:  ["league_api"],
+        source_labels: ["ESPN NBA"],
         source_count:  1,
-        sources:       [{ name: "ESPN", type: "official report" }],
+        sources:       [{ name: "ESPN", type: "league_api" }],
       },
     });
 

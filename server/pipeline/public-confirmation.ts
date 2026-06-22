@@ -79,7 +79,7 @@ export function matchConfirmationSource(raw: RawEventSourceFields): Confirmation
   ].filter((value): value is string => typeof value === "string");
 
   const officialName = names.find((name) => /\bofficial\b/i.test(name));
-  if (types.some((type) => /official/i.test(type)) || officialName) {
+  if (types.some((type) => /^official$|^official_source$|^team_official$|^league_official$/i.test(type)) || officialName) {
     return { name: officialName ?? names[0] ?? raw.source_id ?? "official source", reason: "official" };
   }
 
