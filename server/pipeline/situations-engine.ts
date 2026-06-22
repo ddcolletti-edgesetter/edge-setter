@@ -88,7 +88,7 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
     confidence: confidence.score,
     evidence_count: countEvidence(previousSnapshot) + 1,
     hours_since_latest_evidence: hoursBetween(input.event.occurred_at, input.event.received_at),
-    official: input.event.event_type === "official_resolution" || confidence.factors.official_confirmation > 0,
+    official: input.event.event_type === "official_resolution",
     contradiction_count: confidence.factors.contradiction_penalty > 0 ? 1 : 0,
   });
 
