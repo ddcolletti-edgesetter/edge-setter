@@ -102,8 +102,8 @@ const SCHEFTER_PAYLOAD = {
 };
 
 describe("matchConfirmationSource", () => {
-  it("matches official source types", () => {
-    const match = matchConfirmationSource({ payload: { source_types: ["official report"], sources: [{ name: "MLB StatsAPI", type: "api" }] } });
+  it("matches official source types (exact-string match only — 'official report' renamed to league_api on June 22)", () => {
+    const match = matchConfirmationSource({ payload: { source_types: ["official"], sources: [{ name: "League API", type: "official" }] } });
     expect(match?.reason).toBe("official");
   });
 

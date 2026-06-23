@@ -542,6 +542,19 @@ function processCanonicalSituationSafe(raw: RawEvent, signal: LiveSignal, valida
       lifecycle_trigger: confirmationSource ? "official_confirmation" : undefined,
     });
 
+    console.log(
+      `[pubconf:diag] raw=${raw.id.slice(0, 8)}` +
+      ` league=${raw.league}` +
+      ` event_type=${raw.event_type}` +
+      ` matched=${evolution.matched}` +
+      ` situation=${evolution.situation.situation_id.slice(0, 8)}` +
+      ` confirmation_source=${confirmationSource?.name ?? "null"}` +
+      ` confirmation_reason=${confirmationSource?.reason ?? "null"}` +
+      ` source_tier=${(raw.payload as any)?.source_tier ?? "none"}` +
+      ` published_at=${(raw.payload as any)?.published_at ?? "none"}` +
+      ` received_at=${raw.received_at}`
+    );
+
     // North Star timing advantage: if this situation was detected earlier by
     // EdgeSetter and this event is its first mainstream pickup, stamp
     // publicConfirmation + detectionLeadMinutes (insert-once, never overwritten).

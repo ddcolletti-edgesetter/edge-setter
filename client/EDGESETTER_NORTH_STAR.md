@@ -147,17 +147,17 @@ validate in the next active sports period.
 
 ### 3.6 Known data gap — team resolution
 
-Transaction-type situations return `teams: ["UNK"]` because ingestion adapters do
-not resolve team abbreviations from player transaction event payloads. This is a
-pipeline gap, not a display gap.
+Transaction-type and lineup-type situations return `teams: ["UNK"]` because 
+ingestion adapters do not resolve team abbreviations from player transaction 
+event payloads. This is a pipeline gap, not a display gap.
 
-NOTE: Team logos DO resolve correctly when team identity exists — CFB matchup
-situations (e.g. Michigan vs Ohio State) render real team logos because the matchup
-adapter supplies team identity directly. The UNK problem is specific to
-transaction-type and injury-type situations where team must be derived from player
-name lookup. Team logos, team-contextual copy, and future team routing all depend
-on this being fixed for those situation types.
+NOTE: Team logos DO resolve correctly when team identity exists — CFB matchup 
+situations (e.g. Michigan vs Ohio State) render real team logos because the 
+matchup adapter supplies team identity directly. The UNK problem is specific to 
+transaction-type and injury-type situations where team must be derived from 
+player name lookup.
 
+STATUS June 22 2026: Not yet fixed. Next session should start here.
 ---
 
 ## PART 4 — DISPLAY RULES (NON-NEGOTIABLE)
@@ -580,8 +580,7 @@ below are true simultaneously. Do not launch until all are met.
 |---|---|---|
 | 1 | User understands "knows things before other sites" within 5 seconds | Needs user test |
 | 2 | At least one story with visible timing advantage callout | Blocked — timing gap never fired in production |
-| 3 | Confidence scores display correctly (Developing/Escalating/Verified) | **FIXED June 20** — Priority 1 + 2B complete, monitor for regressions |
-| 4 | No broken logos, no placeholder imagery | Partial — matchup logos work, transaction/injury UNK |
+| 3 | Confidence scores display correctly (Developing/Escalating/Verified) | **FIXED June 22** — official_confirmation misfire fixed across all adapters and lifecycle engine. Copy violations removed from explainConfidenceFactors. Monitor for regressions. || 4 | No broken logos, no placeholder imagery | Partial — matchup logos work, transaction/injury UNK |
 | 5 | Source count visible on lead story without clicking | Needs UI audit |
 | 6 | Verified story shows confidence journey with wire pickup point | Partial — detected/escalating render, verified + wire pickup not yet |
 | 7 | CFB timing callout names source type | Not built |
@@ -654,6 +653,44 @@ subscriber-ready criteria in Part 9 are met — not before, not after additional
 features are added.
 
 ---
+
+## PART 12 — FIXES APPLIED June 22 2026
+
+1. **official_confirmation misfire** — MLB StatsAPI, ESPN NBA, BallDontLie, and 
+   MLB historical adapters were setting `source_types: ["official report"]` which 
+   matched `/official/i` regex in `matchConfirmationSource`, triggering 
+   `lifecycle_trigger: "official_confirmation"` on every event. Renamed to 
+   `league_api` in all four adapters.
+
+2. **situations-engine.ts official flag** — removed 
+   `confidence.factors.official_confirmation > 0` from the `official` flag in 
+   `transitionSituationLifecycle` call. Official state now only fires on 
+   `event_type === "official_resolution"`.
+
+3. **situations-engine.ts new situation guard** — `official_confirmation` trigger 
+   now falls back to `defaultLifecycleTrigger` when the situation has no prior 
+   match. Brand new situations cannot receive `official_confirmation` — only 
+   situations EdgeSetter detected first can have wire pickup confirmed.
+
+4. **public-confirmation.ts regex** — tightened from `/official/i` to exact match 
+   only: `official`, `official_source`, `team_official`, `league_official`.
+
+5. **explainConfidenceFactors copy** — removed two North Star violations:
+   - "Official confirmation carries the most weight" (appeared on emerging situations)
+   - "No official confirmation has been attached yet" (inverted EdgeSetter model)
+
+6. **public-confirmation.test.ts test updated** — `matchConfirmationSource > matches official source types`
+   was asserting on `source_types: ["official report"]`, which the June 22 regex tightening intentionally
+   rejected. Test updated to use `"official"` (exact-match). No code changed.
+
+## OPEN PRIORITIES as of June 22 2026
+
+In order:
+1. teams: ["UNK"] — team resolution in transaction/lineup adapters (Section 3.6)
+2. NFL ingest 404 — HEAD /api/pipeline/ingest/nfl returning 404
+3. CFB SID: 0 — CFB ingestion returning nothing  
+4. insertSituationPublicConfirmation never fired — timing advantage callout blocked
+5. Story detail page — routing works, content thin
 
 *EdgeSetter North Star — Version 2.1*
 *June 20, 2026*
