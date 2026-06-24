@@ -419,6 +419,7 @@ async function pollAccount(
 export async function ingestXTier1(
   league?: "NFL" | "CFB"
 ): Promise<{ created: number; skipped: number; noise: number; rate_limited: boolean }> {
+  console.log('[x-twitter] token present:', !!process.env.TWITTER_BEARER_TOKEN, 'length:', process.env.TWITTER_BEARER_TOKEN?.length ?? 0);
   if (!BEARER_TOKEN) {
     console.warn("[x-twitter] TWITTER_BEARER_TOKEN not set — skipping");
     return { created: 0, skipped: 0, noise: 0, rate_limited: false };
