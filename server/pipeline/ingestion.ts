@@ -343,11 +343,20 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
 
     // ── 6. Process all new RawEvents ───────────────────────
     let processorError: string | undefined;
-    const processed = await runProcessorSerialized().catch(e => {
-      processorError = e.message;
-      console.error("[ingestion] Processor error:", e.message);
-      return { processed: 0, errors: 0 };
-    });
+    const processed = { processed: 0, errors: 0 };
+    let passes = 0;
+    let lastR: { processed: number; errors: number };
+    do {
+      lastR = await runProcessorSerialized().catch(e => {
+        processorError = e.message;
+        console.error("[ingestion] Processor error:", e.message);
+        return { processed: 0, errors: 0 };
+      });
+      processed.processed += lastR.processed;
+      processed.errors += lastR.errors;
+      passes++;
+    } while (lastR.processed > 0 && passes < 20);
+    console.log(`[processor] drained ${passes} passes after ingestion cycle`);
 
     // ── 7. Dispatch alerts for newly scored signals ──────────
     const alertResult = await dispatchSignalAlerts().catch(e => {
@@ -492,11 +501,20 @@ export async function runFastIngestionCycle(): Promise<{
 
     // Process + alert immediately — detection without dispatch wins nothing
     let processorError: string | undefined;
-    const processed = await runProcessorSerialized().catch(e => {
-      processorError = e.message;
-      console.error("[ingestion] Fast processor error:", e.message);
-      return { processed: 0, errors: 0 };
-    });
+    const processed = { processed: 0, errors: 0 };
+    let passes = 0;
+    let lastR: { processed: number; errors: number };
+    do {
+      lastR = await runProcessorSerialized().catch(e => {
+        processorError = e.message;
+        console.error("[ingestion] Fast processor error:", e.message);
+        return { processed: 0, errors: 0 };
+      });
+      processed.processed += lastR.processed;
+      processed.errors += lastR.errors;
+      passes++;
+    } while (lastR.processed > 0 && passes < 20);
+    console.log(`[processor] drained ${passes} passes after ingestion cycle`);
 
     const alertResult = await dispatchSignalAlerts().catch(e => {
       console.error("[ingestion] Fast alert dispatch error:", e.message);
