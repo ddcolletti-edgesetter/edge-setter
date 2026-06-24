@@ -442,11 +442,49 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     CREATE INDEX IF NOT EXISTS idx_replay_audit_analytics_snapshot
       ON replay_audit_analytics(snapshot_id, computed_at DESC, analytics_id ASC);
 
+    CREATE TABLE IF NOT EXISTS rss_seen_hashes (
+      hash    TEXT    PRIMARY KEY,
+      seen_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_rss_seen_hashes_seen_at
+      ON rss_seen_hashes(seen_at DESC);
+
   `);
 
   // Migrate existing DBs that predate home_score/away_score columns on games
   addColumnIfMissing(db, "games", "home_score", "REAL");
   addColumnIfMissing(db, "games", "away_score", "REAL");
+}
+
+/* ─── RSS seen-hash dedup ────────────────────────────────────────────────────
+ * Persists dedup hashes across dyno restarts. In-memory Set is the fast path;
+ * SQLite is the source of truth loaded on first call and written on every insert.
+ */
+
+const RSS_HASH_TTL_HOURS = 72;
+
+export function loadRssSeenHashes(
+  limit = 50_000,
+  db: Database.Database = getPipelineDb(),
+): Set<string> {
+  const cutoff = Math.floor(Date.now() / 1000) - RSS_HASH_TTL_HOURS * 3600;
+  const rows = db
+    .prepare(`SELECT hash FROM rss_seen_hashes WHERE seen_at >= ? ORDER BY seen_at DESC LIMIT ?`)
+    .all(cutoff, limit) as { hash: string }[];
+  return new Set(rows.map((r) => r.hash));
+}
+
+export function insertRssSeenHash(
+  hash: string,
+  db: Database.Database = getPipelineDb(),
+): void {
+  db.prepare(`INSERT OR REPLACE INTO rss_seen_hashes (hash, seen_at) VALUES (?, ?)`)
+    .run(hash, Math.floor(Date.now() / 1000));
+}
+
+export function purgeOldRssSeenHashes(db: Database.Database = getPipelineDb()): void {
+  const cutoff = Math.floor(Date.now() / 1000) - RSS_HASH_TTL_HOURS * 3600;
+  db.prepare(`DELETE FROM rss_seen_hashes WHERE seen_at < ?`).run(cutoff);
 }
 
 /* ─── Game CRUD ─────────────────────────────────────────── */

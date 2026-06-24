@@ -13,7 +13,7 @@
  *   - LockedOn podcast network (team-specific daily updates)
  */
 
-import { insertRawEvent, getRawEvents } from "../store";
+import { insertRawEvent, getRawEvents, loadRssSeenHashes, insertRssSeenHash, purgeOldRssSeenHashes } from "../store";
 import { createHash } from "crypto";
 
 const SPORTS_RSS_FEEDS = [
@@ -133,9 +133,36 @@ function classifyText(text: string, tierBonus: number): { eventType: EventType; 
   return null; // no signal pattern matched
 }
 
-function extractPlayer(title: string): string | null {
-  const m = title.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\s+(?:is|has|will|out|injured|traded|signs?|commits?|enters?|granted|cleared|hired|fired)/);
-  return m ? m[1] : null;
+export function extractPlayer(title: string): string | null {
+  // Strip "Report:" / "Sources:" / "Breaking:" / "Update:" prefixes
+  const cleaned = title.replace(/^(?:sources?|reports?|breaking|update|developing)\s*:\s*/i, "").trim();
+
+  // Name pattern: 2–3 title-case words, optional generational suffix
+  // (keeps the same character class as the original — no external NER)
+  const N = "([A-Z][a-z]+(?:\\s+[A-Z][a-z]+){1,2}(?:\\s+(?:Jr\\.?|Sr\\.?|II|III|IV))?)";
+  const A = "(?:is|has|will|was|out|injured|traded|signs?|signed|commits?|enters?|granted|cleared|hired|fired|listed|expected|returns?|misses?|miss|questionable|doubtful|probable|inactive|scratched|suspended|placed|activated|agrees?)";
+
+  // 1. Prefix match — existing fast path, now also covers stripped titles.
+  //    Case-sensitive: player names are title-case, action words are lowercase.
+  //    Using "i" would cause "[A-Z][a-z]+" to capture lowercase action words
+  //    ("is", "out") as additional name tokens.
+  let m = cleaned.match(new RegExp(`^${N}\\s+${A}`));
+  if (m) return m[1];
+
+  // 2. After team possessive: "Chiefs' Rashee Rice" — apostrophe variants
+  m = cleaned.match(new RegExp(`[A-Z][A-Za-z]+['’]s?\\s+${N}`));
+  if (m) return m[1];
+
+  // 3. After NFL/NBA position abbreviation: "WR Name", "RB Name", "QB Name"
+  m = cleaned.match(new RegExp(`\\b(?:WR|RB|QB|TE|CB|LB|OT|DT|DE|SS|FS|OL|DL|DB|OG|PG|SG|SF|PF)\\b\\s+${N}`));
+  if (m) return m[1];
+
+  // 4. Headline-start name before parenthetical: "Rashee Rice (knee)"
+  //    Anchored to ^ so "Super Bowl Preview (Updated)" at mid-title is skipped
+  m = cleaned.match(new RegExp(`^${N}\\s*\\(`));
+  if (m) return m[1];
+
+  return null;
 }
 
 const CFB_TEAM_PATTERNS: [RegExp, string][] = [
@@ -184,7 +211,25 @@ function itemHash(label: string, title: string, pubDate: string): string {
   return createHash("sha1").update(`${label}|${title}|${pubDate.substring(0, 10)}`).digest("hex").substring(0, 16);
 }
 
-const _seenHashes = new Set<string>();
+// Persistent dedup: loaded from SQLite on first use, written through on every new hash.
+// Survives dyno restarts — hashes older than 72h are purged daily.
+let _seenHashes: Set<string> | null = null;
+let _purgeTimer: ReturnType<typeof setInterval> | null = null;
+
+function getSeenHashes(): Set<string> {
+  if (!_seenHashes) {
+    _seenHashes = loadRssSeenHashes(50_000);
+    if (!_purgeTimer) {
+      _purgeTimer = setInterval(() => {
+        purgeOldRssSeenHashes();
+        _seenHashes = loadRssSeenHashes(50_000);
+      }, 24 * 60 * 60 * 1000);
+      // Don't block process exit on this timer
+      _purgeTimer.unref?.();
+    }
+  }
+  return _seenHashes;
+}
 
 async function fetchFeed(url: string, timeoutMs = 8000): Promise<string | null> {
   try {
@@ -229,7 +274,8 @@ async function processFeed(
     const combined = `${item.title} ${item.description}`;
     const hash = itemHash(label, item.title, item.pubDate);
 
-    if (_seenHashes.has(hash) || seenPayloadHashes.has(hash)) { skipped++; continue; }
+    const seenHashes = getSeenHashes();
+    if (seenHashes.has(hash) || seenPayloadHashes.has(hash)) { skipped++; continue; }
 
     const classified = classifyText(combined, confidenceBonus);
     if (!classified) { skipped++; continue; }
@@ -263,7 +309,8 @@ async function processFeed(
           dedup_hash:    hash,
         },
       });
-      _seenHashes.add(hash);
+      insertRssSeenHash(hash);
+      seenHashes.add(hash);
       created++;
     } catch (err: any) {
       if (!err.message?.includes("UNIQUE")) console.warn(`[sports-rss] Failed to store "${item.title}": ${err.message}`);
