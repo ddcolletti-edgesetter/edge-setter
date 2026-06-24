@@ -642,6 +642,45 @@ export function registerRoutes(httpServer: Server, app: Express) {
     });
   });
 
+  // ─── Admin: RSS headline audit (temporary) ───────────────────────────────────
+  app.get("/api/admin/rss-headline-audit", (_req, res) => {
+    const pdb = getPipelineDb();
+    const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+    // Last 20 RSS raw events received in the last 2 hours
+    const recent = pdb.prepare(`
+      SELECT
+        id,
+        player,
+        json_extract(payload, '$.headline')    AS headline,
+        json_extract(payload, '$.dedup_hash')  AS dedup_hash,
+        received_at
+      FROM raw_events
+      WHERE source_type = 'rss'
+        AND received_at >= ?
+      ORDER BY received_at DESC
+      LIMIT 20
+    `).all(cutoff) as any[];
+
+    // Events where player IS populated (extracted) in last 2 hours
+    const withPlayer = pdb.prepare(`
+      SELECT
+        id,
+        player,
+        json_extract(payload, '$.headline') AS headline,
+        received_at
+      FROM raw_events
+      WHERE source_type = 'rss'
+        AND received_at >= ?
+        AND player IS NOT NULL
+        AND player != ''
+      ORDER BY received_at DESC
+      LIMIT 20
+    `).all(cutoff) as any[];
+
+    return res.json({ recent_rss: recent, with_player: withPlayer });
+  });
+
   // ─── Admin: Cross-type player pair diagnostic (temporary) ───────────────────
   app.get("/api/admin/cross-type-audit", (_req, res) => {
     const pdb = getPipelineDb();
