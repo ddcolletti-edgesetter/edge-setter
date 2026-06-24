@@ -517,6 +517,17 @@ export function registerRoutes(httpServer: Server, app: Express) {
         `).all()
       : [];
 
+    const backlogByDay = pdb.prepare(`
+      SELECT
+        DATE(received_at) as day,
+        COUNT(*) as total,
+        SUM(CASE WHEN processed_at IS NOT NULL THEN 1 ELSE 0 END) as processed,
+        SUM(CASE WHEN processed_at IS NULL THEN 1 ELSE 0 END) as unprocessed
+      FROM raw_events
+      GROUP BY DATE(received_at)
+      ORDER BY day DESC
+    `).all();
+
     return res.json({
       live_signals_count: count,
       raw_events_count: rawCount,
@@ -524,6 +535,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       situations_count: situationsCount,
       confirmations_count: confirmationsCount,
       multi_hit_situations: multiHitRows,
+      backlog_by_day: backlogByDay,
       sample,
     });
   });
