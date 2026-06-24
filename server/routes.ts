@@ -540,6 +540,43 @@ export function registerRoutes(httpServer: Server, app: Express) {
     });
   });
 
+  // ─── Admin: Source-type audit (confirmation path diagnostics) ────────────────
+  app.get("/api/admin/source-audit", (_req, res) => {
+    const pdb = getPipelineDb();
+    const bySourceType = pdb.prepare(`
+      SELECT source_type, COUNT(*) as count
+      FROM raw_events
+      WHERE processed_at IS NOT NULL
+      GROUP BY source_type
+      ORDER BY count DESC
+    `).all();
+    const recentProcessed = pdb.prepare(`
+      SELECT
+        id, league, event_type, source_type,
+        json_extract(payload, '$.source_tier') as tier,
+        json_extract(payload, '$.author') as author,
+        json_extract(payload, '$.source_name') as source_name,
+        processed_at
+      FROM raw_events
+      WHERE processed_at IS NOT NULL
+      ORDER BY processed_at DESC
+      LIMIT 10
+    `).all();
+    const xTier1Events = pdb.prepare(`
+      SELECT
+        id, league, event_type, source_type,
+        json_extract(payload, '$.source_tier') as tier,
+        json_extract(payload, '$.author') as author,
+        processed_at
+      FROM raw_events
+      WHERE source_type IN ('x', 'social', 'twitter')
+         OR json_extract(payload, '$.source_tier') = 'tier1'
+      ORDER BY processed_at DESC
+      LIMIT 20
+    `).all();
+    return res.json({ by_source_type: bySourceType, recent_processed: recentProcessed, x_tier1_events: xTier1Events });
+  });
+
   // ─── Admin: Deduplicate source_scores ────────────────────────────────────────
   app.post("/api/admin/source-scores/dedup", (req, res) => {
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
