@@ -355,7 +355,8 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
       processed.processed += lastR.processed;
       processed.errors += lastR.errors;
       passes++;
-    } while (lastR.processed > 0 && passes < 100);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } while (lastR.processed > 0 && passes < 20);
     console.log(`[processor] drained ${passes} passes after ingestion cycle`);
 
     // ── 7. Dispatch alerts for newly scored signals ──────────
@@ -513,7 +514,8 @@ export async function runFastIngestionCycle(): Promise<{
       processed.processed += lastR.processed;
       processed.errors += lastR.errors;
       passes++;
-    } while (lastR.processed > 0 && passes < 100);
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } while (lastR.processed > 0 && passes < 20);
     console.log(`[processor] drained ${passes} passes after ingestion cycle`);
 
     const alertResult = await dispatchSignalAlerts().catch(e => {
