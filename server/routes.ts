@@ -496,7 +496,36 @@ export function registerRoutes(httpServer: Server, app: Express) {
     const sample = pdb.prepare("SELECT id, league, player, signal_type, created_at FROM live_signals ORDER BY created_at DESC LIMIT 10").all();
     const rawCount = (pdb.prepare("SELECT COUNT(*) as n FROM raw_events").get() as any)?.n ?? 0;
     const rawUnprocessed = (pdb.prepare("SELECT COUNT(*) as n FROM raw_events WHERE processed=0").get() as any)?.n ?? 0;
-    return res.json({ live_signals_count: count, raw_events_count: rawCount, raw_unprocessed: rawUnprocessed, sample });
+
+    const tableNames = (pdb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as any[]).map((r: any) => r.name);
+    const situationsCount = tableNames.includes("situations")
+      ? (pdb.prepare("SELECT COUNT(*) as n FROM situations").get() as any)?.n ?? 0
+      : null;
+    const confirmationsCount = tableNames.includes("situation_public_confirmations")
+      ? (pdb.prepare("SELECT COUNT(*) as n FROM situation_public_confirmations").get() as any)?.n ?? 0
+      : null;
+    const multiHitRows = tableNames.includes("situation_events") && tableNames.includes("raw_events")
+      ? pdb.prepare(`
+          SELECT se.situation_id, COUNT(*) as hit_count
+          FROM situation_events se
+          INNER JOIN raw_events re ON se.raw_event_id = re.id
+          WHERE re.processed_at IS NOT NULL
+          GROUP BY se.situation_id
+          HAVING COUNT(*) > 1
+          ORDER BY hit_count DESC
+          LIMIT 20
+        `).all()
+      : [];
+
+    return res.json({
+      live_signals_count: count,
+      raw_events_count: rawCount,
+      raw_unprocessed: rawUnprocessed,
+      situations_count: situationsCount,
+      confirmations_count: confirmationsCount,
+      multi_hit_situations: multiHitRows,
+      sample,
+    });
   });
 
   // ─── Admin: Deduplicate source_scores ────────────────────────────────────────
