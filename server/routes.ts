@@ -642,6 +642,57 @@ export function registerRoutes(httpServer: Server, app: Express) {
     });
   });
 
+  // ─── Admin: Cross-type player pair diagnostic (temporary) ───────────────────
+  app.get("/api/admin/cross-type-audit", (_req, res) => {
+    const pdb = getPipelineDb();
+    const tables = (pdb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as any[]).map((r: any) => r.name);
+    if (!tables.includes("situations")) return res.json({ error: "situations table not present" });
+
+    const crossTypePairs = pdb.prepare(`
+      SELECT s1.situation_type as type_a, s2.situation_type as type_b,
+             COUNT(*) as pairs
+      FROM situations s1
+      JOIN situations s2 ON s1.situation_id < s2.situation_id
+      WHERE s1.players_json != '[]'
+        AND s1.players_json = s2.players_json
+        AND s1.league = s2.league
+        AND s1.situation_type != s2.situation_type
+      GROUP BY s1.situation_type, s2.situation_type
+      ORDER BY pairs DESC
+    `).all();
+
+    const rssEmptyPlayers = pdb.prepare(`
+      SELECT
+        COUNT(*) as total_rss,
+        SUM(CASE WHEN se.raw_event_id IS NOT NULL AND re.source_type = 'rss'
+                      AND (s.players_json = '[]' OR s.players_json IS NULL OR s.players_json = 'null')
+                 THEN 1 ELSE 0 END) as rss_empty_players,
+        SUM(CASE WHEN se.raw_event_id IS NOT NULL AND re.source_type = 'rss'
+                      AND s.players_json != '[]' AND s.players_json IS NOT NULL AND s.players_json != 'null'
+                 THEN 1 ELSE 0 END) as rss_with_players
+      FROM situations s
+      JOIN situation_events se ON se.situation_id = s.situation_id AND se.kind = 'situation_created'
+      JOIN raw_events re ON re.id = se.raw_event_id
+      WHERE re.source_type = 'rss'
+    `).all();
+
+    const rssPlayerSample = pdb.prepare(`
+      SELECT s.situation_id, s.league, s.situation_type, s.players_json, s.teams_json
+      FROM situations s
+      JOIN situation_events se ON se.situation_id = s.situation_id AND se.kind = 'situation_created'
+      JOIN raw_events re ON re.id = se.raw_event_id
+      WHERE re.source_type = 'rss'
+      ORDER BY s.created_at DESC
+      LIMIT 15
+    `).all();
+
+    return res.json({
+      cross_type_pairs: crossTypePairs,
+      rss_player_counts: rssEmptyPlayers,
+      rss_situation_sample: rssPlayerSample,
+    });
+  });
+
   // ─── Admin: Deduplicate source_scores ────────────────────────────────────────
   app.post("/api/admin/source-scores/dedup", (req, res) => {
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
