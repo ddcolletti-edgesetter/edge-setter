@@ -577,6 +577,71 @@ export function registerRoutes(httpServer: Server, app: Express) {
     return res.json({ by_source_type: bySourceType, recent_processed: recentProcessed, x_tier1_events: xTier1Events });
   });
 
+  // ─── Admin: Multi-source situation audit ─────────────────────────────────────
+  app.get("/api/admin/situation-source-audit", (_req, res) => {
+    const pdb = getPipelineDb();
+
+    const tables = (pdb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as any[]).map((r: any) => r.name);
+
+    // Multi-source situations: situations touched by both rss and api raw events
+    const multiSource = tables.includes("situations") && tables.includes("situation_events") && tables.includes("raw_events")
+      ? pdb.prepare(`
+          SELECT
+            s.situation_id,
+            s.league,
+            s.situation_type,
+            s.players_json,
+            COUNT(se.event_id)                                                   AS event_count,
+            SUM(CASE WHEN re.source_type = 'rss' THEN 1 ELSE 0 END)             AS rss_count,
+            SUM(CASE WHEN re.source_type = 'api' THEN 1 ELSE 0 END)             AS api_count,
+            MIN(re.received_at)                                                  AS first_seen,
+            MAX(re.received_at)                                                  AS last_seen
+          FROM situations s
+          JOIN situation_events se ON se.situation_id = s.situation_id
+          JOIN raw_events re ON re.id = se.raw_event_id
+          GROUP BY s.situation_id
+          HAVING rss_count > 0 AND api_count > 0
+          ORDER BY event_count DESC
+          LIMIT 20
+        `).all()
+      : null;
+
+    // Creating-source breakdown: what source_type was the first raw event for each situation?
+    const byCreatingSource = tables.includes("situations") && tables.includes("situation_events") && tables.includes("raw_events")
+      ? pdb.prepare(`
+          SELECT
+            re.source_type AS creating_source_type,
+            COUNT(DISTINCT s.situation_id) AS situation_count
+          FROM situations s
+          JOIN situation_events se ON se.situation_id = s.situation_id AND se.raw_event_id = s.created_from_event_id
+          JOIN raw_events re ON re.id = se.raw_event_id
+          GROUP BY re.source_type
+          ORDER BY situation_count DESC
+        `).all()
+      : null;
+
+    // Overall situation event source breakdown
+    const eventsBySource = tables.includes("situation_events") && tables.includes("raw_events")
+      ? pdb.prepare(`
+          SELECT
+            re.source_type,
+            COUNT(*) AS event_count,
+            COUNT(DISTINCT se.situation_id) AS situation_count
+          FROM situation_events se
+          JOIN raw_events re ON re.id = se.raw_event_id
+          GROUP BY re.source_type
+          ORDER BY event_count DESC
+        `).all()
+      : null;
+
+    return res.json({
+      tables_present: tables.filter(t => ["situations","situation_events","raw_events","situation_public_confirmations"].includes(t)),
+      multi_source_situations: multiSource,
+      by_creating_source: byCreatingSource,
+      events_by_source: eventsBySource,
+    });
+  });
+
   // ─── Admin: Deduplicate source_scores ────────────────────────────────────────
   app.post("/api/admin/source-scores/dedup", (req, res) => {
     const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
