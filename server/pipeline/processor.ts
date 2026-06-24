@@ -351,7 +351,7 @@ function buildScoreInputs(league: League, fields: Partial<LiveSignal>, raw: RawE
 /* ─── Main process function ─────────────────────────────── */
 
 export async function processRawEvents(): Promise<{ processed: number; errors: number }> {
-  const pending = getUnprocessedRawEvents(50);
+  const pending = getUnprocessedRawEvents(500);
   let processed = 0;
   let errors = 0;
 

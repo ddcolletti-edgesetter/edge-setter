@@ -39,9 +39,8 @@ import {
 /* ─── DB setup ─────────────────────────────────────────── */
 
 function resolvePipelineDataDir(): string {
-  // pipeline.db is intentionally ephemeral — it holds live_signals and raw_events
-  // which are rebuilt each ingestion cycle.  Keeping it in /tmp avoids unbounded
-  // growth on the persistent disk.  Use PIPELINE_DATA_DIR only for local dev.
+  // Set PIPELINE_DATA_DIR to a persistent mount path (e.g. /var/data on Render)
+  // to survive dyno restarts. Falls back to /tmp (ephemeral) when unset.
   for (const dir of [process.env.PIPELINE_DATA_DIR, "/tmp", "."]) {
     if (!dir) continue;
     try {
@@ -2018,7 +2017,7 @@ export function insertRawEvent(
   return raw;
 }
 
-export function getUnprocessedRawEvents(limit = 100): RawEvent[] {
+export function getUnprocessedRawEvents(limit = 500): RawEvent[] {
   const db = getPipelineDb();
   // League-balanced fetch: cap each league at floor(limit/4) rows so a single
   // league with a large backlog (e.g. NFL) cannot starve all others each cycle.
