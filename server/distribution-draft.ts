@@ -24,6 +24,10 @@ import { postToDiscord, canPostDiscord } from "./discord";
 import { postToTelegram, canPostTelegram } from "./telegram";
 import { getLiveSignals } from "./pipeline/store";
 
+// Only distribute signals created in this window. Prevents stale draft-era
+// signals from flooding the queue on every run.
+const DISTRIBUTION_WINDOW_HOURS = 48;
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type DraftChannel = "x" | "reddit" | "discord" | "telegram";
@@ -225,11 +229,16 @@ export async function runDistributionDraft(
     const s = (storage as any).getSignal(options.signalId);
     signals = s ? [s] : [];
   } else {
-    // Legacy curated signals (signals table)
-    const legacySignals = ((storage as any).getSignals(true) as Record<string, any>[]).slice(0, 50);
+    const windowCutoff = new Date(Date.now() - DISTRIBUTION_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 
-    // Pipeline live signals (live_signals table) — normalize field names to match legacy shape
-    const pipelineSignals = getLiveSignals({ limit: 50 })
+    // Legacy curated signals (signals table) — only recent ones
+    const legacySignals = ((storage as any).getSignals(true) as Record<string, any>[])
+      .filter((s: Record<string, any>) => !s.published_at || s.published_at >= windowCutoff)
+      .slice(0, 50);
+
+    // Pipeline live signals (live_signals table) — age-gated, archived signals excluded
+    // getLiveSignals already filters is_archived=0; `since` provides the time gate.
+    const pipelineSignals = getLiveSignals({ limit: 50, since: windowCutoff })
       .filter(s => s.score >= 82) // Elite (≥82) or Strong (≥65) — focus on high-value signals
       .map(s => ({
         id: s.id,

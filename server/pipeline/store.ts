@@ -454,6 +454,24 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   // Migrate existing DBs that predate home_score/away_score columns on games
   addColumnIfMissing(db, "games", "home_score", "REAL");
   addColumnIfMissing(db, "games", "away_score", "REAL");
+  // Migrate live_signals to support archival
+  addColumnIfMissing(db, "live_signals", "is_archived", "INTEGER NOT NULL DEFAULT 0");
+}
+
+/* ─── Live signal archival ───────────────────────────────────────────────────
+ * Prevents stale signals (old draft picks, resolved injuries) from re-entering
+ * the distribution queue indefinitely.
+ */
+
+export function archiveOldLiveSignals(
+  olderThanDays = 7,
+  db: Database.Database = getPipelineDb(),
+): number {
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString();
+  const result = db
+    .prepare(`UPDATE live_signals SET is_archived = 1 WHERE created_at < ? AND is_archived = 0`)
+    .run(cutoff);
+  return result.changes;
 }
 
 /* ─── RSS seen-hash dedup ────────────────────────────────────────────────────
@@ -2248,10 +2266,12 @@ export function getLiveSignals(opts: {
   league?: string;
   since?: string;       // ISO timestamp
   limit?: number;
+  includeArchived?: boolean;
 } = {}): LiveSignal[] {
   const db = getPipelineDb();
   const conds: string[] = [];
   const params: unknown[] = [];
+  if (!opts.includeArchived) { conds.push("is_archived = 0"); }
   if (opts.league) { conds.push("league=?"); params.push(opts.league); }
   if (opts.since) { conds.push("created_at>=?"); params.push(opts.since); }
   const where = conds.length ? "WHERE " + conds.join(" AND ") : "";

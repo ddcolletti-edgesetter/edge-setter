@@ -16,7 +16,7 @@ import { sendWaitlistConfirmation, sendProWelcome, sendBillingRetryEmail } from 
 import express from "express";
 import { syncToSupabase } from "./supabase-sync";
 import { isProUser } from "@shared/pro-utils";
-import { getPipelineDb } from "./pipeline/store";
+import { getPipelineDb, archiveOldLiveSignals } from "./pipeline/store";
 import type { LiveSignal } from "./pipeline/types";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import type { Request, Response } from "express";
@@ -639,6 +639,35 @@ export function registerRoutes(httpServer: Server, app: Express) {
       multi_source_situations: multiSource,
       by_creating_source: byCreatingSource,
       events_by_source: eventsBySource,
+    });
+  });
+
+  // ─── Admin: Retire stale live signals ────────────────────────────────────────
+  // Archives live_signals older than N days (default 7). Archived signals are
+  // excluded from getLiveSignals(), so they stop re-entering the distribution
+  // queue. Existing distribution_drafts for those signals are left in place —
+  // they are harmless once the source signals are archived.
+  app.post("/api/admin/retire-stale-signals", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const olderThanDays: number = typeof req.body?.older_than_days === "number"
+      ? req.body.older_than_days
+      : 7;
+
+    const archived = archiveOldLiveSignals(olderThanDays);
+
+    // Also report how many live_signals are now archived total vs active
+    const pdb = getPipelineDb();
+    const counts = pdb.prepare(
+      "SELECT is_archived, COUNT(*) as n FROM live_signals GROUP BY is_archived"
+    ).all() as { is_archived: number; n: number }[];
+    const totalArchived = counts.find(r => r.is_archived === 1)?.n ?? 0;
+    const totalActive   = counts.find(r => r.is_archived === 0)?.n ?? 0;
+
+    return res.json({
+      archived_this_run: archived,
+      older_than_days: olderThanDays,
+      total_archived: totalArchived,
+      total_active: totalActive,
     });
   });
 
