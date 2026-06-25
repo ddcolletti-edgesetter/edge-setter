@@ -207,7 +207,11 @@ export async function runSignalOps(input: SignalOpsInput): Promise<SignalOpsOutp
     `Accepted from ${input.source_name}: "${input.headline.slice(0, 80)}"`);
 
   // ── Stage 2: Deduplicate ────────────────────────────────────────────────────
-  const isDuplicate = (storage as any).signalOpsHeadlineExists(input.headline, 24);
+  // 7-day window: same headline re-published within a week is suppressed.
+  // 24h was too short — RSS feeds re-serve old articles and draft-era content
+  // would cycle back in after just one day, generating a new UUID each time
+  // and bypassing all downstream dedup guards.
+  const isDuplicate = (storage as any).signalOpsHeadlineExists(input.headline, 168);
   if (isDuplicate) {
     const reason = `Duplicate headline seen within 24h — rejected`;
     const item = (storage as any).createSignalOpsItem({
