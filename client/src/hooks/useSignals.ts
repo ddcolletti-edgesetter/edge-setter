@@ -72,11 +72,7 @@ export function useAllSignals(nbaMock: V2Signal[], mlbMock: V2Signal[]) {
 
   function useMocks() {
     setIsLive(false);
-    const combined = [
-      ...nbaMock.map(s => ({ ...s, sport: "NBA" as const })),
-      ...mlbMock.map(s => ({ ...s, sport: "MLB" as const })),
-    ];
-    setSignals(combined as any);
+    setSignals([]); // Show empty state — do not display stub data to users
   }
 
   useEffect(() => {

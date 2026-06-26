@@ -272,8 +272,7 @@ function V2HomeInner() {
     .slice(0, 9);
   const featuredNBA = (allLiveSignals.find(s => s.sport === "NBA" && (s as any)._live && s.confidence >= 70)
     ?? allLiveSignals.find(s => s.sport === "NBA")
-    ?? NBA_SIGNALS.find(s => s.confidence >= 91)
-    ?? NBA_SIGNALS[0]) as typeof NBA_SIGNALS[0];
+    ?? null) as typeof NBA_SIGNALS[0] | null;
 
   return (
     <>
@@ -392,35 +391,37 @@ function V2HomeInner() {
                   total={NBA_TONIGHT[0].total}
                 />
               </div>
-              {/* Top featured edge mini */}
-              <div style={{
-                background: surfaceMini, border: `1px solid rgba(245,184,65,0.2)`,
-                borderRadius: 4, padding: "14px 16px",
-                borderLeft: `3px solid ${T.gold}`,
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                  <Zap size={12} style={{ color: T.gold }} />
-                  <span style={{
-                    fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                    fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold,
-                  }}>Top Edge Right Now</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <PlayerAvatar name={featuredNBA.player ?? ""} team={featuredNBA.team} size={40} />
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 15, color: darkMode ? T.text : "#1A1712", fontWeight: 600, lineHeight: 1.4, marginBottom: 6 }}>
-                      {featuredNBA.headline}
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <VerdictBadge verdict={featuredNBA.verdict} />
-                      <span style={{
-                        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 14, color: T.gold, fontWeight: 700,
-                      }}>{featuredNBA.confidence}%</span>
+              {/* Top featured edge mini — only shown when live data exists */}
+              {featuredNBA && (
+                <div style={{
+                  background: surfaceMini, border: `1px solid rgba(245,184,65,0.2)`,
+                  borderRadius: 4, padding: "14px 16px",
+                  borderLeft: `3px solid ${T.gold}`,
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <Zap size={12} style={{ color: T.gold }} />
+                    <span style={{
+                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                      fontSize: 12, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase", color: T.gold,
+                    }}>Top Edge Right Now</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <PlayerAvatar name={featuredNBA.player ?? ""} team={featuredNBA.team} size={40} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, color: darkMode ? T.text : "#1A1712", fontWeight: 600, lineHeight: 1.4, marginBottom: 6 }}>
+                        {featuredNBA.headline}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <VerdictBadge verdict={featuredNBA.verdict} />
+                        <span style={{
+                          fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                          fontSize: 14, color: T.gold, fontWeight: 700,
+                        }}>{featuredNBA.confidence}%</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </section>
@@ -442,7 +443,7 @@ function V2HomeInner() {
                 <BoardCard
                   sport="NBA" label="NBA Board"
                   description="Playoffs live. Injury flags, context movement, matchup context, rotation intel."
-                  href="/nba" status="LIVE" primary signalCount={allLiveSignals.filter(s => s.sport === "NBA").length || NBA_SIGNALS.length}
+                  href="/nba" status="LIVE" primary signalCount={allLiveSignals.filter(s => s.sport === "NBA").length || undefined}
                   color={T.gold} league="NBA"
                   accentBg="linear-gradient(135deg, rgba(245,184,65,0.08) 0%, rgba(85,37,131,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
@@ -451,7 +452,7 @@ function V2HomeInner() {
                 <BoardCard
                   sport="MLB" label="MLB Board"
                   description="Regular season active. Pitcher news, lineup movement, team trends."
-                  href="/mlb" status="ACTIVE" signalCount={allLiveSignals.filter(s => s.sport === "MLB").length || MLB_SIGNALS.length}
+                  href="/mlb" status="ACTIVE" signalCount={allLiveSignals.filter(s => s.sport === "MLB").length || undefined}
                   color={T.cyan} league="MLB"
                   accentBg="linear-gradient(135deg, rgba(0,183,255,0.08) 0%, rgba(0,42,98,0.1) 100%)"
                   surfaceBg={cardSurface} borderMuted={cardBorderMuted}
@@ -500,7 +501,18 @@ function V2HomeInner() {
                 </Link>
               </div>
               <div style={{ borderTop: `1px solid ${feedBorder}`, borderBottom: `1px solid ${feedBorder}` }}>
-                {topSignals.map(sig => <FeedRow key={sig.id} sig={sig} feedBorder={feedBorder} darkMode={darkMode} />)}
+                {topSignals.length > 0
+                  ? topSignals.map(sig => <FeedRow key={sig.id} sig={sig} feedBorder={feedBorder} darkMode={darkMode} />)
+                  : (
+                    <div style={{
+                      padding: "32px 18px", textAlign: "center",
+                      fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                      fontSize: 15, color: textFaintTH, letterSpacing: "0.06em",
+                    }}>
+                      No signals published yet — pipeline is building coverage.
+                    </div>
+                  )
+                }
               </div>
             </section>
           </div>
