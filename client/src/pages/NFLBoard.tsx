@@ -70,7 +70,7 @@ function NFLBoardInner() {
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
   const [selectedSig, setSelectedSig] = useState<SignalDetailLike | null>(null);
 
-  const { signals: liveNFLSignals, loading, isLive, error, refresh } = useNFLSignals(NFL_SIGNALS);
+  const { signals: liveNFLSignals, loading, isLive, error, refresh } = useNFLSignals([]);
   const nflSituationsOptions = useMemo(() => ({
   league: "NFL" as const,
   activeOnly: false,
