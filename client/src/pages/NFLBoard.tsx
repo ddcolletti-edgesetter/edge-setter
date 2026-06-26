@@ -9,7 +9,7 @@ import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalD
 import { ProBoardBanner } from "../components/ProGate";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
-import { NFL_SIGNALS, NFL_SLATE, type NFLSignal, type NFLSignalType } from "../data/nflMockData";
+import { type NFLSignal, type NFLSignalType } from "../data/nflMockData";
 import { useNFLSignals } from "../hooks/useSignals";
 import { scoreAndRankSignals } from "../lib/signalScorer";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "../lib/signalBoardUx";
@@ -27,11 +27,10 @@ import {
   featuredCopy,
   situationMatchesPriority,
   sortModeFromPriority,
-  toLiveGamePillData,
   toSituationRowData,
   toSituationStoryCardData,
-  type AnyBoardGame,
 } from "../components/board/boardAdapters";
+import type { LiveGamePillData } from "../components/board/LiveGamePill";
 import type { SituationLaneType } from "../components/board/SituationRow";
 
 const NFL_FILTERS = [
@@ -100,7 +99,7 @@ function NFLBoardInner() {
   const situations = useMemo(() => {
     const fallback = buildBoardSituations({
       league: "NFL",
-      games: NFL_SLATE as AnyBoardGame[],
+      games: [],
       signals: visibleSignals as any[],
     });
     const canonicalBoard = canonicalSituationsToBoardSituations(
@@ -117,7 +116,7 @@ function NFLBoardInner() {
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "NFL");
-  const livePills = NFL_SLATE.map((game) => toLiveGamePillData(game, game.signals, "nfl"));
+  const livePills: LiveGamePillData[] = [];
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const storyItems = situations.map((situation) => {
     const row = toSituationRowData(situation);

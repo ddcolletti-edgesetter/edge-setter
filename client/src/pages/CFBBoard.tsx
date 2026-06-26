@@ -9,7 +9,7 @@ import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalD
 import { ProBoardBanner } from "../components/ProGate";
 import TrackRecordStrip from "../components/TrackRecordStrip";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
-import { CFB_SIGNALS, CFB_SLATE, type CFBSignal, type CFBSignalType } from "../data/cfbMockData";
+import { type CFBSignal, type CFBSignalType } from "../data/cfbMockData";
 import { useCFBSignals } from "../hooks/useSignals";
 import { scoreAndRankSignals } from "../lib/signalScorer";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "../lib/signalBoardUx";
@@ -28,11 +28,10 @@ import {
   isSourceNoise,
   situationMatchesPriority,
   sortModeFromPriority,
-  toLiveGamePillData,
   toSituationRowData,
   toSituationStoryCardData,
-  type AnyBoardGame,
 } from "../components/board/boardAdapters";
+import type { LiveGamePillData } from "../components/board/LiveGamePill";
 import { SituationStoryCard } from "../components/board/SituationStoryCard";
 import type { SituationLaneType } from "../components/board/SituationRow";
 
@@ -77,7 +76,7 @@ function CFBBoardInner() {
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
   const [selectedSig, setSelectedSig] = useState<SignalDetailLike | null>(null);
 
-  const { signals: liveCFBSignals, loading, isLive, error, refresh } = useCFBSignals(CFB_SIGNALS);
+  const { signals: liveCFBSignals, loading, isLive, error, refresh } = useCFBSignals([]);
   const cfbSituationsOptions = useMemo(() => ({
     league: "CFB" as const,
     activeOnly: false,
@@ -110,7 +109,7 @@ function CFBBoardInner() {
   const situations = useMemo(() => {
     const fallback = buildBoardSituations({
       league: "CFB",
-      games: CFB_SLATE as AnyBoardGame[],
+      games: [],
       signals: visibleSignals as any[],
     });
     const canonicalBoard = canonicalSituationsToBoardSituations(
@@ -137,7 +136,7 @@ function CFBBoardInner() {
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "CFB");
-  const livePills = CFB_SLATE.map((game) => toLiveGamePillData(game, game.signals, "cfb"));
+  const livePills: LiveGamePillData[] = [];
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const confirmed = rankedCFB.filter((signal) => signal.verdict === "confirmed").length;
   const topUrgentSituations = situations.filter((situation) => situation.lane === "escalating").slice(0, 2);
