@@ -75,6 +75,7 @@ regardless of how it is framed.
     This is a known infrastructure gap — persistent storage for pipeline.db is a
     future requirement before subscriber launch.
 - Optional Supabase sync — falls back to SQLite if env vars absent
+- `server/pipeline/cfb-team-lookup.ts` — shared CFB_DISPLAY_TO_ABBR map, 47 G5 programs, single source of truth for both CFB adapters
 - Ingestion scheduler active hours: currently 7am–1am ET
   OPEN QUESTION: These hours do not cover overnight trades, early morning injury
   reports, or late-night roster moves. Whether to extend or run 24/7 is a product
@@ -294,18 +295,18 @@ items are complete unless explicitly parallelizable.
 `consensus-forming` no longer exists anywhere in the codebase.
 tsc and vitest both exit 0. Committed June 20, 2026.
 
-### Priority 2 — Fix team resolution for transaction/injury situations
+### Priority 2 — Fix CFB G5 team display name resolution ✓ COMPLETE
 
-**Gap:** Transaction-type and injury-type situations return `teams: ["UNK"]` because
-ingestion adapters do not resolve team from player name in those event types.
-Matchup-type situations already resolve correctly.
+STATUS: COMPLETE — commit fa2e94f
 
-**Fix:** In each ingestion adapter that produces player transaction or injury events,
-add a player-to-team lookup step that resolves team abbreviation before the event
-is written to pipeline.db. Cross-reference against lookup tables in `espnAssets.ts`
-and `teamColors.ts`.
+**Gap:** CFB G5 team display names were not resolving to abbreviations. This was a
+G5 team display name lookup gap, not a player-to-team lookup.
 
-**Test:** NFL injury and MLB transaction situations resolve to real team abbreviations.
+**Fix:** New shared file `server/pipeline/cfb-team-lookup.ts` containing the
+`CFB_DISPLAY_TO_ABBR` map with 47 G5 programs added. Imported by `espn-cfb.ts`
+and `espn-cfb-transactions.ts`. `espnAssets.ts` was not involved.
+
+**Test:** CFB G5 team names resolve to real abbreviations.
 Team logos render without hitting the catch-all fallback square.
 
 ### Priority 2B — Fix "monitoring" leak on NBA/MLB Watch Desk fallback cards ✓ COMPLETE

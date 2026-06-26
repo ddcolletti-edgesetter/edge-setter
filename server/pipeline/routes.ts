@@ -1194,8 +1194,8 @@ export function registerPipelineRoutes(app: Express) {
    * GET /api/v2/situations/:id
    *
    * Returns a single canonical situation by id.
-   * Note: pipeline.db lives in /tmp on Render and is wiped on every dyno restart.
-   * A 404 here is expected after a dyno restart — pipeline data is ephemeral on the live server.
+   * Note: pipeline.db location is controlled by PIPELINE_DATA_DIR env var.
+   * On Render with a persistent disk mounted, situation data survives dyno restarts.
    */
   app.get("/api/v2/situations/:id", (req: Request, res: Response) => {
     const rawId = routeParam(req.params.id);
@@ -1204,7 +1204,7 @@ export function registerPipelineRoutes(app: Express) {
     const situation = all.find((s) => s.id === id);
     if (!situation) {
       return res.status(404).json({
-        error: "Situation not found. This is expected after a dyno restart — pipeline.db is ephemeral on Render.",
+        error: "Situation not found.",
       });
     }
     return res.json(situation);

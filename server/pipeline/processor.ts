@@ -19,6 +19,7 @@ import { randomUUID } from "crypto";
 import {
   getUnprocessedRawEvents, markRawEventProcessed,
   upsertLiveSignal, getLiveSignal,
+  insertSignalDetection,
 } from "./store";
 import { scoreSignal } from "./scorer";
 import { runConsensus } from "./consensus-engine";
@@ -432,6 +433,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       };
 
       upsertLiveSignal(signal);
+      insertSignalDetection(signal, raw);  // T1 logging — new signal detection
       storage.recordSignalStateTransition(
         signal.id,
         signal.verdict,
@@ -515,6 +517,7 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
     };
 
     upsertLiveSignal(signal);
+    insertSignalDetection(signal, raw);  // T1 logging — new signal detection
     storage.recordSignalStateTransition(
       signal.id,
       signal.verdict,

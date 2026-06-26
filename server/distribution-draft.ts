@@ -55,6 +55,99 @@ export interface DistributionDraftRunResult {
   log: string[];
 }
 
+// ─── LLM story generator ──────────────────────────────────────────────────────
+
+interface SignalContext {
+  playerName: string;
+  team: string;
+  league: string;
+  signalType: string;
+  situation: string;
+  sourceName: string;
+  sourceTier: number;
+  detectedAt: string;
+  confidenceScore: number;
+  fantasyImpact: string;
+  rawHeadline: string;
+  t2ConfirmedAt?: string;
+  deltaMinutes?: number;
+}
+
+function buildSignalContext(signal: Record<string, any>): SignalContext {
+  const sources = Array.isArray(signal.sources) ? signal.sources : [];
+  const topSource = sources[0] ?? {};
+  const tierMap: Record<string, number> = { tier1: 1, tier2: 2, tier3: 3 };
+  return {
+    playerName:      signal.player ?? signal.player_name ?? "Unknown",
+    team:            signal.team ?? "",
+    league:          signal.league ?? "",
+    signalType:      (signal.signal_type ?? "signal").replace(/_/g, " "),
+    situation:       signal.body ?? signal.why_it_matters ?? signal.normalized_headline ?? "",
+    sourceName:      topSource.name ?? signal.source_id ?? "EdgeSetter",
+    sourceTier:      tierMap[topSource.tier ?? ""] ?? 2,
+    detectedAt:      signal.first_seen_at ?? signal.created_at ?? new Date().toISOString(),
+    confidenceScore: signal.confidence ?? signal.confidence_score ?? 0,
+    fantasyImpact:   signal.action_note ?? "",
+    rawHeadline:     signal.headline ?? signal.normalized_headline ?? "",
+    t2ConfirmedAt:   undefined,
+    deltaMinutes:    undefined,
+  };
+}
+
+async function generateLLMStory(signal: Record<string, any>): Promise<string | null> {
+  const ctx = buildSignalContext(signal);
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.ANTHROPIC_API_KEY ?? "",
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: `You are a sports beat writer for EdgeSetter, a sports intelligence platform.
+Write concise, factual sports news items in beat writer style — not press release style.
+Lead with the most newsworthy fact. Include fantasy and betting relevance where applicable.
+Always include the confidence level naturally in the story body.
+Never fabricate quotes. Never add information not present in the signal data provided.
+Target length: 150-250 words.`,
+        messages: [{
+          role: "user",
+          content: `Write a sports news story based on this signal:
+Player: ${ctx.playerName}
+Team: ${ctx.team}
+League: ${ctx.league}
+Signal type: ${ctx.signalType}
+Situation: ${ctx.situation}
+Source: ${ctx.sourceName} (Tier ${ctx.sourceTier})
+Detected at: ${ctx.detectedAt}
+Confidence score: ${ctx.confidenceScore}%
+Fantasy impact: ${ctx.fantasyImpact}
+Raw headline: ${ctx.rawHeadline}
+${ctx.t2ConfirmedAt ? `Wire confirmed at: ${ctx.t2ConfirmedAt} (${ctx.deltaMinutes} minutes after EdgeSetter detection)` : "Wire confirmation: pending"}`,
+        }],
+      }),
+    });
+
+    if (!response.ok) {
+      console.warn(`[llm:story_error] HTTP ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const text = data?.content?.[0]?.text;
+    if (!text) return null;
+
+    console.log(`[llm:story_generated] player=${ctx.playerName} type=${ctx.signalType}`);
+    return text.trim();
+  } catch (err: any) {
+    console.warn(`[llm:story_error] ${err.message}`);
+    return null;
+  }
+}
+
 // ─── Copy generators ──────────────────────────────────────────────────────────
 
 // Cut at the last sentence end (. ! ?) within max, then word boundary, then hard cut.
@@ -279,26 +372,32 @@ export async function runDistributionDraft(
       }
 
       // ── Stage 3: Generate copy ───────────────────────────────────────────────
-      let copy: string;
-      let headline: string;
-      let notes: string;
+      let copy = "";
+      let headline = "";
+      let notes = "";
 
       try {
         const player = (sig.player_name ?? sig.player ?? "Unknown").slice(0, 40);
+        // Try LLM story first; fall back to rule-based on failure
+        const llmStory = await generateLLMStory(sig).catch(() => null);
+
         if (channel === "x") {
-          copy     = generateXCopy(sig);
+          if (llmStory) {
+            copy = truncateAtBoundary(llmStory, 280);
+          } else {
+            copy = generateXCopy(sig);
+            console.log(`[llm:story_fallback] channel=x signal=${sig.id?.slice(0, 8)}`);
+          }
           headline = `X post — ${player}`;
           notes    = `Auto-generated X post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
-        } else if (channel === "discord") {
-          copy     = generateSocialCopy(sig);
-          headline = `Discord post — ${player}`;
-          notes    = `Auto-generated Discord post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
-        } else if (channel === "telegram") {
-          copy     = generateSocialCopy(sig);
-          headline = `Telegram post — ${player}`;
-          notes    = `Auto-generated Telegram post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
-        } else {
-          copy     = generateRedditCopy(sig);
+        } else if (channel === "discord" || channel === "telegram") {
+          copy = llmStory ?? generateSocialCopy(sig);
+          if (!llmStory) console.log(`[llm:story_fallback] channel=${channel} signal=${sig.id?.slice(0, 8)}`);
+          headline = `${channel} post — ${player}`;
+          notes    = `Auto-generated ${channel} post. Confidence ${sig.confidence_score}%. Verdict: ${sig.verdict}.`;
+        } else if (channel === "reddit") {
+          copy = llmStory ?? generateRedditCopy(sig);
+          if (!llmStory) console.log(`[llm:story_fallback] channel=reddit signal=${sig.id?.slice(0, 8)}`);
           headline = `Reddit post — ${player}`;
           notes    = `Auto-generated Reddit post. Review tone and accuracy before approving.`;
         }

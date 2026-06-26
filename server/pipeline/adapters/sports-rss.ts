@@ -94,20 +94,69 @@ const SPORTS_RSS_FEEDS = [
   { url: "https://www.seahawks.com/rss/news", label: "seahawks_official", league: "NFL" as const, sourceName: "Seattle Seahawks Official", tier: "tier1", confidenceBonus: 12, team: "SEA" },
   { url: "https://www.detroitlions.com/rss/news", label: "lions_official", league: "NFL" as const, sourceName: "Detroit Lions Official", tier: "tier1", confidenceBonus: 12, team: "DET" },
   { url: "https://www.packers.com/rss/news", label: "packers_official", league: "NFL" as const, sourceName: "Green Bay Packers Official", tier: "tier1", confidenceBonus: 12, team: "GB" },
+  // ── NFL Beat Writers ────────────────────────────────────────────────────────
+  {
+    url: "https://www.kansascity.com/sports/nfl/rss",
+    label: "kc_star_nfl",
+    league: "NFL" as const,
+    sourceName: "Kansas City Star NFL",
+    tier: "tier2",
+    confidenceBonus: 7,
+    team: "KC",
+  },
+  {
+    url: "https://buffalonews.com/sports/bills/rss",
+    label: "buffalo_news_bills",
+    league: "NFL" as const,
+    sourceName: "Buffalo News Bills",
+    tier: "tier2",
+    confidenceBonus: 7,
+    team: "BUF",
+  },
+  {
+    url: "https://www.dallasnews.com/sports/dallas-cowboys/rss",
+    label: "dmn_cowboys",
+    league: "NFL" as const,
+    sourceName: "Dallas Morning News Cowboys",
+    tier: "tier2",
+    confidenceBonus: 7,
+    team: "DAL",
+  },
+  {
+    url: "https://www.inquirer.com/sports/eagles/rss",
+    label: "inquirer_eagles",
+    league: "NFL" as const,
+    sourceName: "Philadelphia Inquirer Eagles",
+    tier: "tier2",
+    confidenceBonus: 7,
+    team: "PHI",
+  },
+  {
+    url: "https://www.sfchronicle.com/sports/49ers/rss",
+    label: "sfchronicle_49ers",
+    league: "NFL" as const,
+    sourceName: "SF Chronicle 49ers",
+    tier: "tier2",
+    confidenceBonus: 7,
+    team: "SF",
+  },
+  {
+    url: "https://www.nfl.com/rss/rsslanding?searchString=news",
+    label: "nfl_official_news",
+    league: "NFL" as const,
+    sourceName: "NFL.com News",
+    tier: "tier1",
+    confidenceBonus: 12,
+  },
 ];
 
 // ─── LockedOn podcast RSS feeds ───────────────────────────────────────────────
 // One per team — episode titles contain practice reports, injury updates
 // These are the local beat reporters EdgeSetter needs
 
-const LOCKEDON_NFL_FEEDS = [
-  { team: "BUF", url: "https://feeds.simplecast.com/LIaoLB9Y", label: "lockedon_bills" },
-  { team: "NE",  url: "https://feeds.simplecast.com/wbru9pmV", label: "lockedon_patriots" },
-  { team: "PIT", url: "https://feeds.simplecast.com/y_l5uReM", label: "lockedon_steelers" },
-  { team: "DAL", url: "https://feeds.simplecast.com/4NoEmSg7", label: "lockedon_cowboys" },
-  { team: "PHI", url: "https://feeds.simplecast.com/rR8B4DDE", label: "lockedon_eagles" },
-  { team: "KC",  url: "https://feeds.simplecast.com/9czLVzrJ", label: "lockedon_chiefs" },
-];
+// LockedOn podcast feeds removed — episode titles are not beat intel.
+// Requires YouTube transcript API for usable content. Not wired.
+const LOCKEDON_NFL_FEEDS: { team: string; url: string; label: string }[] = [];
 
 const LOCKEDON_CFB_FEEDS: { team: string; url: string; label: string }[] = [
 ];
@@ -331,7 +380,7 @@ export async function ingestSportsRSSFeeds(): Promise<{ created: number; skipped
 
   const results = await Promise.allSettled([
     ...SPORTS_RSS_FEEDS.map(f =>
-      processFeed(f.url, f.label, f.league, f.sourceName, f.tier, f.confidenceBonus, null, seenPayloadHashes)
+      processFeed(f.url, f.label, f.league, f.sourceName, f.tier, f.confidenceBonus, (f as any).team ?? null, seenPayloadHashes)
     ),
   ]);
 

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ditto — EdgeSetter Search</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0d1117;
+    color: #e6edf3;
+    font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    font-size: 13px;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #21262d;
+  }
+
+  .header-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #E6B450;
+    box-shadow: 0 0 6px #E6B450;
+  }
+
+  .header h1 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #E6B450;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .header .sub {
+    color: #484f58;
+    font-size: 11px;
+    margin-left: auto;
+  }
+
+  #status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #8b949e;
+    font-size: 12px;
+    margin-bottom: 20px;
+    min-height: 20px;
+  }
+
+  .spinner {
+    width: 12px; height: 12px;
+    border: 2px solid #21262d;
+    border-top-color: #E6B450;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-box {
+    background: #1a0f0f;
+    border: 1px solid #6e2c2c;
+    border-radius: 6px;
+    padding: 16px;
+    color: #f85149;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  .results-header {
+    color: #8b949e;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .result-block {
+    background: #161b22;
+    border: 1px solid #21262d;
+    border-radius: 6px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .result-block:hover {
+    border-color: #30363d;
+  }
+
+  .result-type {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #E6B450;
+    margin-bottom: 6px;
+  }
+
+  .result-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e6edf3;
+    margin-bottom: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.4;
+  }
+
+  .result-body {
+    font-size: 12px;
+    color: #8b949e;
+    line-height: 1.7;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    white-space: pre-wrap;
+  }
+
+  .result-meta {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #21262d;
+    font-size: 10px;
+    color: #484f58;
+    display: flex;
+    gap: 16px;
+  }
+
+  .raw-toggle {
+    margin-top: 24px;
+    border-top: 1px solid #21262d;
+    padding-top: 16px;
+  }
+
+  .raw-toggle summary {
+    cursor: pointer;
+    color: #484f58;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    user-select: none;
+    outline: none;
+  }
+
+  .raw-toggle summary:hover { color: #8b949e; }
+
+  .raw-pre {
+    margin-top: 12px;
+    background: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 4px;
+    padding: 12px;
+    font-size: 11px;
+    color: #484f58;
+    overflow-x: auto;
+    white-space: pre;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .empty {
+    color: #484f58;
+    font-size: 12px;
+    text-align: center;
+    padding: 40px 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-dot"></div>
+  <h1>Ditto → EdgeSetter</h1>
+  <span class="sub">MCP search via Anthropic API</span>
+</div>
+
+<div id="status">
+  <div class="spinner"></div>
+  <span id="status-text">Connecting to Ditto MCP…</span>
+</div>
+
+<div id="output"></div>
+
+<script>
+const DITTO_MCP_URL = "https://api.heyditto.ai/mcp";
+const SEARCH_QUERY = "EdgeSetter";
+
+async function searchDitto() {
+  const statusEl = document.getElementById('status');
+  const statusText = document.getElementById('status-text');
+  const output = document.getElementById('output');
+
+  const setStatus = (msg, done = false) => {
+    statusText.textContent = msg;
+    if (done) statusEl.querySelector('.spinner').style.display = 'none';
+  };
+
+  try {
+    setStatus('Calling Anthropic API with Ditto MCP…');
+
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: `You are a search assistant. The user wants to search Ditto for notes or documents related to "EdgeSetter". 
+Use the Ditto MCP tools to search for EdgeSetter. 
+After searching, respond ONLY with a JSON object (no markdown, no backticks) in this exact format:
+{
+  "results": [
+    {
+      "type": "note|document|other",
+      "title": "...",
+      "body": "...",
+      "meta": { "id": "...", "updated": "...", "tags": [] }
+    }
+  ],
+  "tool_used": "name of tool called",
+  "raw_query": "what you searched for",
+  "count": 0
+}
+If no results found, return results as empty array. If tool errors, include an "error" field.`,
+        messages: [
+          { role: "user", content: `Search Ditto for: ${SEARCH_QUERY}` }
+        ],
+        mcp_servers: [
+          {
+            type: "url",
+            url: DITTO_MCP_URL,
+            name: "ditto-mcp"
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({ error: response.statusText }));
+      throw new Error(JSON.stringify(err, null, 2));
+    }
+
+    setStatus('Parsing Ditto response…');
+    const data = await response.json();
+
+    // Collect all content blocks
+    const textBlocks = data.content.filter(b => b.type === 'text').map(b => b.text);
+    const toolCalls = data.content.filter(b => b.type === 'mcp_tool_use');
+    const toolResults = data.content.filter(b => b.type === 'mcp_tool_result');
+
+    const rawText = textBlocks.join('\n');
+
+    // Try to parse JSON from the text response
+    let parsed = null;
+    try {
+      const clean = rawText.replace(/```json|```/g, '').trim();
+      const jsonMatch = clean.match(/\{[\s\S]*\}/);
+      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
+    } catch(e) {}
+
+    setStatus('Done', true);
+
+    if (parsed && parsed.error) {
+      output.innerHTML = `<div class="error-box">Ditto error: ${parsed.error}</div>`;
+      return;
+    }
+
+    if (parsed && Array.isArray(parsed.results)) {
+      if (parsed.results.length === 0) {
+        output.innerHTML = `
+          <div class="results-header">Search: "${SEARCH_QUERY}" · Tool: ${parsed.tool_used || 'unknown'}</div>
+          <div class="empty">No results found in Ditto for "EdgeSetter"</div>`;
+        return;
+      }
+
+      let html = `<div class="results-header">Search: "${SEARCH_QUERY}" · ${parsed.count || parsed.results.length} result(s) · Tool: ${parsed.tool_used || 'unknown'}</div>`;
+
+      for (const r of parsed.results) {
+        const meta = r.meta || {};
+        const tags = (meta.tags || []).join(', ');
+        html += `
+          <div class="result-block">
+            <div class="result-type">${r.type || 'note'}</div>
+            <div class="result-title">${escHtml(r.title || 'Untitled')}</div>
+            <div class="result-body">${escHtml(r.body || '')}</div>
+            <div class="result-meta">
+              ${meta.id ? `<span>ID: ${meta.id}</span>` : ''}
+              ${meta.updated ? `<span>Updated: ${meta.updated}</span>` : ''}
+              ${tags ? `<span>Tags: ${tags}</span>` : ''}
+            </div>
+          </div>`;
+      }
+
+      output.innerHTML = html;
+    } else {
+      // Fallback: show tool calls and raw response
+      let html = '';
+
+      if (toolCalls.length > 0) {
+        html += `<div class="results-header">Tools called</div>`;
+        for (const t of toolCalls) {
+          html += `<div class="result-block"><div class="result-type">tool call</div><div class="result-title">${t.name}</div><div class="result-body">${escHtml(JSON.stringify(t.input, null, 2))}</div></div>`;
+        }
+      }
+
+      if (toolResults.length > 0) {
+        html += `<div class="results-header">Tool results</div>`;
+        for (const r of toolResults) {
+          const content = r.content?.[0]?.text || JSON.stringify(r);
+          html += `<div class="result-block"><div class="result-type">result</div><div class="result-body">${escHtml(content)}</div></div>`;
+        }
+      }
+
+      if (!html) {
+        html = `<div class="result-block"><div class="result-type">raw response</div><div class="result-body">${escHtml(rawText)}</div></div>`;
+      }
+
+      output.innerHTML = html;
+    }
+
+    // Always show raw toggle
+    const rawDetails = document.createElement('details');
+    rawDetails.className = 'raw-toggle';
+    rawDetails.innerHTML = `<summary>Raw API response</summary><pre class="raw-pre">${escHtml(JSON.stringify(data, null, 2))}</pre>`;
+    output.appendChild(rawDetails);
+
+  } catch(err) {
+    setStatus('Error', true);
+    document.getElementById('output').innerHTML = `<div class="error-box">${escHtml(String(err))}\n\n${escHtml(err.stack || '')}</div>`;
+  }
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+searchDitto();
+</script>
+</body>
+</html>

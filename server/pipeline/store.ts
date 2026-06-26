@@ -449,6 +449,27 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     CREATE INDEX IF NOT EXISTS idx_rss_seen_hashes_seen_at
       ON rss_seen_hashes(seen_at DESC);
 
+    CREATE TABLE IF NOT EXISTS signal_detections (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      signal_id        TEXT NOT NULL,
+      player_name      TEXT,
+      team             TEXT,
+      league           TEXT NOT NULL,
+      signal_type      TEXT NOT NULL,
+      source_url       TEXT,
+      source_tier      INTEGER,
+      detected_at      INTEGER NOT NULL,
+      confidence_score REAL,
+      raw_headline     TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_signal_detections_signal_id
+      ON signal_detections(signal_id);
+    CREATE INDEX IF NOT EXISTS idx_signal_detections_detected_at
+      ON signal_detections(detected_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_signal_detections_player
+      ON signal_detections(player_name, league);
+
   `);
 
   // Migrate existing DBs that predate home_score/away_score columns on games
@@ -472,6 +493,49 @@ export function archiveOldLiveSignals(
     .prepare(`UPDATE live_signals SET is_archived = 1 WHERE created_at < ? AND is_archived = 0`)
     .run(cutoff);
   return result.changes;
+}
+
+/* ─── T1 signal detection logging ─────────────────────────────────────────── * Records the moment EdgeSetter first detects a named-player signal. * This is T1 — the backtesting clock starts here. * Only fires for new signals (not updates) with a non-null player and a * recognized signal_type. Additive only — does not touch live_signals. */
+
+const TRACKED_SIGNAL_TYPES = new Set([
+  "injury_update", "transaction", "lineup_change", "lineup_confirm",
+  "eligibility_ruling", "coaching_change", "transfer_portal",
+]);
+
+export function insertSignalDetection(
+  signal: { id: string; player: string | null; team: string | null; league: string; signal_type: string; confidence: number; headline: string },
+  raw: { payload: unknown },
+  db: Database.Database = getPipelineDb(),
+): void {
+  if (!signal.player || !TRACKED_SIGNAL_TYPES.has(signal.signal_type)) return;
+
+  const p = raw.payload as any;
+  const sourceUrl: string | null = p.source_url ?? p.link ?? null;
+  const sourceTier: number | null = p.source_tier
+    ?? (p.tier === "tier1" ? 1 : p.tier === "tier2" ? 2 : p.tier === "tier3" ? 3 : null);
+  try {
+    db.prepare(`
+      INSERT INTO signal_detections
+        (signal_id, player_name, team, league, signal_type, source_url, source_tier, detected_at, confidence_score, raw_headline)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      signal.id,
+      signal.player,
+      signal.team ?? null,
+      signal.league,
+      signal.signal_type,
+      sourceUrl,
+      sourceTier,
+      Date.now(),
+      signal.confidence,
+      signal.headline?.substring(0, 500) ?? null,
+    );
+    console.log(`[t1:logged] ${signal.player} | ${signal.signal_type} | detected_at=${Date.now()} | signal=${signal.id.slice(0, 8)}`);
+  } catch (err: any) {
+    if (!err.message?.includes("UNIQUE")) {
+      console.warn(`[t1:log_error] ${signal.player}: ${err.message}`);
+    }
+  }
 }
 
 /* ─── RSS seen-hash dedup ────────────────────────────────────────────────────
