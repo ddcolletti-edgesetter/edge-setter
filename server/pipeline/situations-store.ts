@@ -446,6 +446,7 @@ export function listCanonicalSituations(opts: {
   if (opts.active_only) {
     where.push("(latest.lifecycle_state IS NULL OR latest.lifecycle_state IN ('watching', 'emerging', 'developing', 'escalating', 'confirmed', 'official', 'cooling'))");
   }
+  where.push("(s.game_id IS NULL OR g.game_time > datetime('now'))");
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   params.push(opts.limit ?? 100);
   const orderSql =
@@ -478,6 +479,7 @@ export function listCanonicalSituations(opts: {
         ORDER BY ss.created_at DESC, ss.snapshot_id ASC
         LIMIT 1
       )
+    LEFT JOIN games g ON g.id = s.game_id
     ${whereSql}
     ORDER BY ${orderSql}
     LIMIT ?
