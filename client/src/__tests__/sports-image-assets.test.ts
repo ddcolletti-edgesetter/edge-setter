@@ -16,7 +16,7 @@ describe("sports image asset resolver", () => {
     expect(asset.candidateSrcs.every((src) => src.startsWith("/sports/"))).toBe(true);
   });
 
-  it("prioritizes story context over slot and league default", () => {
+  it("resolves slot and league default ignoring storyType (no storyType assets exist)", () => {
     const asset = resolveSportsImageAsset({
       league: "NBA",
       team: "New York Knicks",
@@ -26,7 +26,6 @@ describe("sports image asset resolver", () => {
     });
 
     expect(asset.candidateSrcs).toEqual([
-      "/sports/nba/availability-pressure.jpg",
       "/sports/nba/hero.jpg",
       "/sports/nba/default.jpg",
       "/sports/hero.jpg",
@@ -56,7 +55,6 @@ describe("sports image asset resolver", () => {
     });
 
     expect(asset.candidateSrcs).toEqual([
-      "/sports/cfb/qb-depth.jpg",
       "/sports/cfb/drawer.jpg",
       "/sports/cfb/default.jpg",
       "/sports/drawer.jpg",

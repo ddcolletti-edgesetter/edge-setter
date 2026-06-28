@@ -20,11 +20,9 @@ const SUPPORTED_LEAGUES = new Set(["mlb", "nba", "nfl", "cfb"]);
 
 export function resolveSportsImageAsset(input: SportsImageLookupInput): SportsImageAsset {
   const league = normalizeLeague(input.league ?? input.sport);
-  const storyType = normalizeAssetToken(input.storyType);
   const slot = input.slot ?? "featured";
 
   const candidates = [
-    league && storyType && `/sports/${league}/${storyType}.jpg`,
     league && `/sports/${league}/${slot}.jpg`,
     league && `/sports/${league}/default.jpg`,
     `/sports/${slot}.jpg`,
