@@ -16,7 +16,7 @@ describe("sports image asset resolver", () => {
     expect(asset.candidateSrcs.every((src) => src.startsWith("/sports/"))).toBe(true);
   });
 
-  it("prioritizes team, opponent, story context, slot, then fallbacks", () => {
+  it("prioritizes story context over slot and league default", () => {
     const asset = resolveSportsImageAsset({
       league: "NBA",
       team: "New York Knicks",
@@ -26,8 +26,6 @@ describe("sports image asset resolver", () => {
     });
 
     expect(asset.candidateSrcs).toEqual([
-      "/sports/teams/new-york-knicks.jpg",
-      "/sports/teams/boston-celtics.jpg",
       "/sports/nba/availability-pressure.jpg",
       "/sports/nba/hero.jpg",
       "/sports/nba/default.jpg",
@@ -36,15 +34,18 @@ describe("sports image asset resolver", () => {
     ]);
   });
 
-  it("normalizes team names predictably", () => {
+  it("falls back through slot then league default when no storyType", () => {
     const asset = resolveSportsImageAsset({
       sport: "NFL",
-      team: "L.A. Rams & Staff",
       slot: "matchup",
     });
 
-    expect(asset.candidateSrcs[0]).toBe("/sports/teams/l-a-rams-and-staff.jpg");
-    expect(asset.candidateSrcs).toContain("/sports/nfl/matchup.jpg");
+    expect(asset.candidateSrcs).toEqual([
+      "/sports/nfl/matchup.jpg",
+      "/sports/nfl/default.jpg",
+      "/sports/matchup.jpg",
+      "/sports/default.jpg",
+    ]);
   });
 
   it("maps college football aliases to cfb paths", () => {

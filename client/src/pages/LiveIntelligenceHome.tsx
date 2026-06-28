@@ -456,7 +456,6 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
       player: situation.subject.player,
       storyType,
       slot: slot === "lead" ? "hero" : slot === "rail" ? "matchup" : "featured",
-      preferLeagueAsset: true,
     }),
   };
 }
@@ -511,7 +510,6 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
       opponent: hasCleanPublicTeamIdentity(game.homeTeam) ? game.homeTeam : undefined,
       storyType: sameLeagueSituation ? publicSituationType(sameLeagueSituation) : game.status === "In Progress" ? "Live game" : "Matchup watch",
       slot: "matchup",
-      preferLeagueAsset: true,
     }),
   };
 }
@@ -572,7 +570,6 @@ function quietNetworkStory(activeLeague: "ALL" | typeof LEAGUES[number], loading
       team: league,
       storyType: "Coverage watch",
       slot: "quiet",
-      preferLeagueAsset: true,
     }),
   };
 }

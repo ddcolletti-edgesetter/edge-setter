@@ -362,9 +362,7 @@ function leadEditorialImageCandidates(story: SituationStoryCardData, candidates:
         `/sports/${league}/default.jpg`,
       ]
     : [];
-  const nonTeamCandidates = candidates.filter((src) => !src.includes("/sports/teams/"));
-  const teamCandidates = candidates.filter((src) => src.includes("/sports/teams/"));
-  return Array.from(new Set([...leagueEditorial, ...nonTeamCandidates, ...teamCandidates, "/sports/default.jpg"]));
+  return Array.from(new Set([...leagueEditorial, ...candidates, "/sports/default.jpg"]));
 }
 
 function StoryPoint({ label, value }: { label: string; value: string }) {
