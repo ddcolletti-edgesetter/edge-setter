@@ -18,7 +18,7 @@
 import { randomUUID } from "crypto";
 import {
   getUnprocessedRawEvents, markRawEventProcessed,
-  upsertLiveSignal, getLiveSignal,
+  upsertLiveSignal, getLiveSignal, findExistingSignal,
   insertSignalDetection,
 } from "./store";
 import { scoreSignal } from "./scorer";
@@ -390,14 +390,22 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         { id: raw.source_id, name: raw.source_id, type: raw.source_type },
       ];
 
-      const signalId = p.signal_id ?? randomUUID();
+      // Fingerprint lookup: reuse existing signal id if the same league/team/type
+      // was seen within the last 4 hours so the upsert merges rather than creates.
+      const signalType = (fields.signal_type ?? "manual") as SignalType;
+      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+      const existingByFingerprint = p.signal_id
+        ? null
+        : findExistingSignal({ league, team: raw.team ?? null, signal_type: signalType, since: fourHoursAgo });
+      const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
+      const signalFirstSeenAt = existingByFingerprint?.first_seen_at ?? now();
 
       // Merge into LiveSignal
       const signal: LiveSignal = {
         id: signalId,
         league,
         game_id: raw.game_id,
-        signal_type: (fields.signal_type ?? "manual") as SignalType,
+        signal_type: signalType,
         headline: fields.headline ?? "Signal",
         body: fields.body ?? "",
         action_note: fields.action_note ?? "",
@@ -426,7 +434,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         breakdown: scoreResult.breakdown,
         raw_event_ids: [raw.id],
         signal_time: raw.received_at,
-        first_seen_at: now(),
+        first_seen_at: signalFirstSeenAt,
         created_at: now(),
         updated_at: now(),
         outcome_id: null,
@@ -476,13 +484,22 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
     const sources = (p.sources as Array<{ name: string; type: string }> | undefined) ?? [
       { name: raw.source_id, type: raw.source_type },
     ];
-    const signalId = p.signal_id ?? randomUUID();
+
+    // Fingerprint lookup: reuse existing signal id if the same league/team/type
+    // was seen within the last 4 hours so the upsert merges rather than creates.
+    const signalType = (fields.signal_type ?? "manual") as SignalType;
+    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    const existingByFingerprint = p.signal_id
+      ? null
+      : findExistingSignal({ league, team: raw.team ?? null, signal_type: signalType, since: fourHoursAgo });
+    const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
+    const signalFirstSeenAt = existingByFingerprint?.first_seen_at ?? now();
 
     const signal: LiveSignal = {
       id: signalId,
       league,
       game_id: raw.game_id,
-      signal_type: (fields.signal_type ?? "manual") as SignalType,
+      signal_type: signalType,
       headline: fields.headline ?? "Signal",
       body: fields.body ?? "",
       action_note: fields.action_note ?? "",
@@ -510,7 +527,7 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
       breakdown: scoreResult.breakdown,
       raw_event_ids: [raw.id],
       signal_time: raw.received_at,
-      first_seen_at: now(),
+      first_seen_at: signalFirstSeenAt,
       created_at: now(),
       updated_at: now(),
       outcome_id: null,

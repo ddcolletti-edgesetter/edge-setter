@@ -191,6 +191,7 @@ CREATE INDEX IF NOT EXISTS idx_odds_snapshots_league_time
       breakdown               TEXT NOT NULL DEFAULT '{}',  -- JSON
       raw_event_ids           TEXT NOT NULL DEFAULT '[]',  -- JSON
       signal_time             TEXT NOT NULL,
+      first_seen_at           TEXT,
       created_at              TEXT NOT NULL,
       updated_at              TEXT NOT NULL,
       outcome_id              TEXT
@@ -477,6 +478,8 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   addColumnIfMissing(db, "games", "away_score", "REAL");
   // Migrate live_signals to support archival
   addColumnIfMissing(db, "live_signals", "is_archived", "INTEGER NOT NULL DEFAULT 0");
+  // Migrate live_signals to track when the signal was first observed
+  addColumnIfMissing(db, "live_signals", "first_seen_at", "TEXT");
 }
 
 /* ─── Live signal archival ───────────────────────────────────────────────────
@@ -2258,8 +2261,8 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       confirmation_strength,line_movement,injury_designation,lineup_status,
       weather_note,betting_relevance,fantasy_relevance,score,score_band,
       urgency_label,urgency_reason,trust_label,score_explanation,breakdown,
-      raw_event_ids,signal_time,created_at,updated_at,outcome_id
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      raw_event_ids,signal_time,first_seen_at,created_at,updated_at,outcome_id
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       score=excluded.score,
       score_band=excluded.score_band,
@@ -2277,13 +2280,21 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       lineup_status=excluded.lineup_status,
       weather_note=excluded.weather_note,
       verdict=excluded.verdict,
-      confidence=excluded.confidence,
       confirmation_strength=excluded.confirmation_strength,
-      source_count=excluded.source_count,
-      sources=excluded.sources,
+      source_count=live_signals.source_count + excluded.source_count,
+      sources=(
+        SELECT json_group_array(value)
+        FROM (
+          SELECT value FROM json_each(live_signals.sources)
+          UNION ALL
+          SELECT value FROM json_each(excluded.sources)
+        )
+      ),
+      confidence=MIN(92.0, excluded.confidence + (3.0 * live_signals.source_count)),
       raw_event_ids=excluded.raw_event_ids,
       signal_time=excluded.signal_time,
       updated_at=excluded.updated_at
+      -- first_seen_at intentionally omitted: keeps the original insertion time
   `).run(
     s.id, s.league, s.game_id, s.signal_type, s.headline, s.body,
     s.action_note, s.why_it_matters, s.team, s.player, s.matchup,
@@ -2294,7 +2305,7 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
     s.betting_relevance ? 1 : 0, s.fantasy_relevance ? 1 : 0,
     s.score, s.score_band, s.urgency_label, s.urgency_reason,
     s.trust_label, s.score_explanation, JSON.stringify(s.breakdown),
-    JSON.stringify(s.raw_event_ids), s.signal_time, s.created_at, s.updated_at,
+    JSON.stringify(s.raw_event_ids), s.signal_time, s.first_seen_at ?? null, s.created_at, s.updated_at,
     s.outcome_id,
   );
   const existing = getLiveSignal(s.id);
@@ -2355,18 +2366,22 @@ export function getLiveSignal(id: string): LiveSignal | null {
 export function findExistingSignal(opts: {
   league: string;
   game_id?: string | null;
+  team?: string | null;
   player?: string | null;
   signal_type?: string | null;
+  since?: string;  // ISO timestamp — only match signals created at or after this time
 }): LiveSignal | null {
-  if (!opts.player && !opts.signal_type) return null;
+  if (!opts.player && !opts.signal_type && !opts.team) return null;
   const db = getPipelineDb();
-  const conds = ["league=?"];
+  const conds = ["league=?", "is_archived=0"];
   const params: unknown[] = [opts.league];
   // When game_id is present, scope the match to that game so signals from
   // different games (or different days) never collapse onto the same record.
   if (opts.game_id) { conds.push("game_id=?"); params.push(opts.game_id); }
+  if (opts.team) { conds.push("team=?"); params.push(opts.team); }
   if (opts.player) { conds.push("player=?"); params.push(opts.player); }
   if (opts.signal_type) { conds.push("signal_type=?"); params.push(opts.signal_type); }
+  if (opts.since) { conds.push("created_at>=?"); params.push(opts.since); }
   const row = db.prepare(
     `SELECT * FROM live_signals WHERE ${conds.join(" AND ")} ORDER BY created_at DESC LIMIT 1`
   ).get(...params);
