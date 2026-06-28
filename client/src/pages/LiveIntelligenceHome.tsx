@@ -1357,41 +1357,60 @@ function dedupeSignalFeed(situations: IntelligenceSituation[]): IntelligenceSitu
 
 // North Star ticker: real situations with real copy only — no generic filler.
 function buildTickerItems({ situations, games }: { situations: IntelligenceSituation[]; games: LiveGameSituation[] }) {
-  const verified = situations
-    .map((situation) => ({ situation, detection: detectionLeadForIntelligence(situation) }))
-    .filter((entry) => entry.detection !== null)
-    .slice(0, 2)
-    .map(({ situation, detection }) => {
-      const storyCopy = buildPublicSituationStory(situation);
-      const headline = hasCleanPublicText(storyCopy.shortHeadline)
-        ? storyCopy.shortHeadline
-        : publicFallbackLabel(`${storyCopy.headline} ${situation.raw.signal_type}`, situation.league);
-      return `⚡ ES Agents verified ${headline} — ${detection!.lead} before public confirmation`;
-    });
-  const market = situations
-    .filter((situation) => situation.marketReaction)
-    .slice(0, 2)
-    .map((situation) => `${situation.league}: ${cleanTickerSubject(situation.subject.matchup ?? situation.subject.team)} watch tightening`);
-  const lineup = situations
-    .filter((situation) => situation.raw.lineup_status || situation.raw.injury_designation)
-    .slice(0, 2)
-    .map((situation) => `${situation.league}: ${cleanTickerSubject(situation.subject.player ?? situation.subject.team ?? "availability")} update active`);
-  const source = situations
-    .filter((situation) => situation.sourceSummary.count > 1)
-    .slice(0, 2)
-    .map((situation) => `${situation.league}: ${situation.sourceSummary.count} reports lining up`);
-  const game = games
+  const used = new Set<string>();
+  const items: string[] = [];
+
+  const tryAdd = (id: string, text: string) => {
+    if (used.has(id) || !text || containsPublicInvalidToken(text)) return;
+    used.add(id);
+    items.push(text);
+  };
+
+  // Priority 1: verified detections
+  for (const situation of situations) {
+    if (items.length >= 8) break;
+    const detection = detectionLeadForIntelligence(situation);
+    if (!detection) continue;
+    const storyCopy = buildPublicSituationStory(situation);
+    const headline = hasCleanPublicText(storyCopy.shortHeadline)
+      ? storyCopy.shortHeadline
+      : publicFallbackLabel(`${storyCopy.headline} ${situation.raw.signal_type}`, situation.league);
+    tryAdd(situation.id, `⚡ ES Agents verified ${headline} — ${detection.lead} before public confirmation`);
+  }
+
+  // Priority 2: market reaction
+  for (const situation of situations) {
+    if (items.length >= 8) break;
+    if (!situation.marketReaction) continue;
+    tryAdd(situation.id, `${situation.league}: ${cleanTickerSubject(situation.subject.matchup ?? situation.subject.team)} watch tightening`);
+  }
+
+  // Priority 3: lineup/injury
+  for (const situation of situations) {
+    if (items.length >= 8) break;
+    if (!situation.raw.lineup_status && !situation.raw.injury_designation) continue;
+    tryAdd(situation.id, `${situation.league}: ${cleanTickerSubject(situation.subject.player ?? situation.subject.team ?? "availability")} update active`);
+  }
+
+  // Priority 4: source convergence
+  for (const situation of situations) {
+    if (items.length >= 8) break;
+    if (situation.sourceSummary.count <= 1) continue;
+    tryAdd(situation.id, `${situation.league}: ${situation.sourceSummary.count} reports lining up`);
+  }
+
+  // Games — no situation id, keep as-is
+  const gameItems = games
     .filter((item) => item.activeSituations > 0)
     .slice(0, 2)
     .map((item) => `${item.league}: ${cleanShortTeam(item.awayTeam)} @ ${cleanShortTeam(item.homeTeam)} — ${item.activeSituations} situation${item.activeSituations === 1 ? "" : "s"} in progress`);
-  const building = situations.some((situation) => situation.confidence.current >= 70 && situation.confidence.current < 90)
+
+  const building = situations.some((s) => s.confidence.current >= 70 && s.confidence.current < 90)
     ? ["Confidence building"]
     : [];
 
-  return [...verified, ...market, ...lineup, ...source, ...game, ...building]
+  return [...items, ...gameItems, ...building]
     .filter(Boolean)
-    .filter((item) => !containsPublicInvalidToken(item))
-    .filter((item, index, array) => array.indexOf(item) === index)
     .slice(0, 8);
 }
 
