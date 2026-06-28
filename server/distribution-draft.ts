@@ -23,6 +23,7 @@ import { postTweet, canAutoPost } from "./twitter";
 import { postToDiscord, canPostDiscord } from "./discord";
 import { postToTelegram, canPostTelegram } from "./telegram";
 import { getLiveSignals } from "./pipeline/store";
+import { matchConfirmationSource } from "./pipeline/public-confirmation";
 
 // Only distribute signals created in this window. Prevents stale draft-era
 // signals from flooding the queue on every run.
@@ -73,10 +74,38 @@ interface SignalContext {
   deltaMinutes?: number;
 }
 
+function isWireTierSource(src: Record<string, any>): boolean {
+  if (/^official$|^official_source$|^team_official$|^league_official$/i.test(src.type ?? "")) return true;
+  if (src.type === "wire_service") return true;
+  return matchConfirmationSource({
+    payload: {
+      sources: [{ name: src.name ?? "", type: src.type ?? "" }],
+      source_labels: [src.name ?? ""],
+      author: src.name ?? "",
+    },
+  }) !== null;
+}
+
 function buildSignalContext(signal: Record<string, any>): SignalContext {
   const sources = Array.isArray(signal.sources) ? signal.sources : [];
   const topSource = sources[0] ?? {};
   const tierMap: Record<string, number> = { tier1: 1, tier2: 2, tier3: 3 };
+
+  const detectedAt = signal.first_seen_at ?? signal.created_at ?? new Date().toISOString();
+
+  // Use the earliest available wire-tier confirmation timestamp: if any source in
+  // the merged signal is wire-tier, signal_time is when that event was ingested.
+  const wireSource = sources.find((src: Record<string, any>) => isWireTierSource(src));
+  const rawT2 = wireSource ? (signal.signal_time ?? signal.updated_at) : undefined;
+  const t2ConfirmedAt = rawT2 != null ? String(rawT2) : undefined;
+
+  const detectedAtMs = Date.parse(detectedAt);
+  const confirmedAtMs = t2ConfirmedAt ? Date.parse(t2ConfirmedAt) : NaN;
+  const deltaMinutes =
+    Number.isFinite(detectedAtMs) && Number.isFinite(confirmedAtMs) && confirmedAtMs > detectedAtMs
+      ? Math.round((confirmedAtMs - detectedAtMs) / 60_000)
+      : undefined;
+
   return {
     playerName:      signal.player ?? signal.player_name ?? "Unknown",
     team:            signal.team ?? "",
@@ -85,12 +114,12 @@ function buildSignalContext(signal: Record<string, any>): SignalContext {
     situation:       signal.body ?? signal.why_it_matters ?? signal.normalized_headline ?? "",
     sourceName:      topSource.name ?? signal.source_id ?? "EdgeSetter",
     sourceTier:      tierMap[topSource.tier ?? ""] ?? 2,
-    detectedAt:      signal.first_seen_at ?? signal.created_at ?? new Date().toISOString(),
+    detectedAt,
     confidenceScore: signal.confidence ?? signal.confidence_score ?? 0,
     fantasyImpact:   signal.action_note ?? "",
     rawHeadline:     signal.headline ?? signal.normalized_headline ?? "",
-    t2ConfirmedAt:   undefined,
-    deltaMinutes:    undefined,
+    t2ConfirmedAt,
+    deltaMinutes,
   };
 }
 
@@ -346,6 +375,9 @@ export async function runDistributionDraft(
         summary: s.body,
         verdict: s.verdict,
         action_takeaway: s.action_note,
+        sources: s.sources,
+        signal_time: s.signal_time,
+        first_seen_at: s.first_seen_at,
         _source: "pipeline" as const,
       }));
 
