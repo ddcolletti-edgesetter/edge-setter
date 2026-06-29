@@ -551,6 +551,7 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
 }
 
 function processCanonicalSituationSafe(raw: RawEvent, signal: LiveSignal, validatorAgreement = 0): void {
+  console.log(`[SITUATION_PROBE] called raw=${raw.id.slice(0,8)} league=${raw.league} event_type=${raw.event_type}`);
   try {
     const normalized = rawEventToNormalizedEvent(raw, signal);
     // Confirmation sources (official feeds, tier1 wires) close the verification
@@ -561,6 +562,7 @@ function processCanonicalSituationSafe(raw: RawEvent, signal: LiveSignal, valida
       confidence_input: confidenceInputFromRawEvent(raw, signal, validatorAgreement),
       lifecycle_trigger: confirmationSource ? "official_confirmation" : undefined,
     });
+    console.log(`[SITUATION_PROBE] evolved matched=${evolution.matched} situation=${evolution.situation.situation_id.slice(0,8)}`);
 
     console.log(
       `[pubconf:diag] raw=${raw.id.slice(0, 8)}` +
