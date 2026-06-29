@@ -587,7 +587,7 @@ function processCanonicalSituationSafe(raw: RawEvent, signal: LiveSignal, valida
       console.warn("[pipeline/processor] Source rescore failed — non-blocking:", err.message)
     );
   } catch (err: any) {
-    console.warn(`[pipeline/processor] Canonical situation processing skipped for raw event ${raw.id}:`, err.message);
+    console.error(`[SITUATION_FATAL] raw=${raw.id} league=${raw.league} event_type=${raw.event_type} error=${err.message} stack=${err.stack}`);
   }
 }
 
