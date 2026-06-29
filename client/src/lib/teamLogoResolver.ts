@@ -129,40 +129,34 @@ const SLUG_MAPS: Record<League, Record<string, string>> = {
   cfb: {},  // CFB uses full school slugs built elsewhere
 };
 
-/** Base path for logo assets. Update if the public asset path changes. */
-const LOGO_BASE = "/assets/logos";
+/** ESPN CDN base — serves NFL, NBA, MLB team logos by lowercase token */
+const ESPN_CDN = "https://a.espncdn.com/i/teamlogos";
 
-/** Placeholder used when no logo can be resolved — transparent 1×1. */
-const FALLBACK_SRC = "/assets/logos/fallback-transparent.svg";
+/** Transparent fallback — clean empty space instead of red square */
+const FALLBACK_SRC = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E";
 
-/**
- * Resolves the logo `src` path for a team token in a given league.
- *
- * Returns a fully resolved path like `/assets/logos/mlb/sf-giants.svg`,
- * or FALLBACK_SRC if the token is unknown for that league.
- *
- * Using this function (rather than constructing paths from the raw token)
- * is what prevents the SF Giants / 49ers collision. The token `SF` is
- * sport-disambiguated here before it ever becomes an asset path.
- */
-export function resolveTeamLogoSrc(
-  token: string,
-  league: League
-): string {
+export function resolveTeamLogoSrc(token: string, league: League): string {
   if (!token) return FALLBACK_SRC;
 
   const slugMap = SLUG_MAPS[league];
   const upper = token.trim().toUpperCase();
   const slug = slugMap[upper];
 
-  if (!slug) {
-    // Unknown token for this league — return transparent fallback, not red square.
-    // The red-square fallback comes from a broken <img> src. By returning a
-    // known-good transparent SVG, we get a clean empty space instead.
-    return FALLBACK_SRC;
-  }
+  if (!slug) return FALLBACK_SRC;
 
-  return `${LOGO_BASE}/${league}/${slug}.svg`;
+  // CFB uses ESPN numeric IDs — not yet mapped, return fallback
+  if (league === "cfb") return FALLBACK_SRC;
+
+  // ESPN CDN uses lowercase token (den, kc, sf, etc.) not the full slug
+  const espnToken = upper.toLowerCase();
+  const espnLeague = league === "nfl" ? "nfl"
+    : league === "nba" ? "nba"
+    : league === "mlb" ? "mlb"
+    : null;
+
+  if (!espnLeague) return FALLBACK_SRC;
+
+  return `${ESPN_CDN}/${espnLeague}/500/${espnToken}.png`;
 }
 
 /**
