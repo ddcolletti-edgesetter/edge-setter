@@ -368,7 +368,22 @@ export function listSituationsForMatching(opts: {
     LIMIT ?
   `).all(...params);
 
-  return rows.map(deserializeCanonicalSituationRecord).filter(isUsableSituation);
+  // MATCH_PROBE: raw row shape before deserialization
+  if (rows.length > 0) {
+    const r = rows[0] as Record<string, unknown>;
+    console.log(`[MATCH_PROBE] list_raw league=${opts.league} type=${opts.situation_type} count=${rows.length} keys=${JSON.stringify(Object.keys(r))} snapshot_id=${r["snapshot_id"] ?? "MISSING"} latest_snapshot_at=${r["latest_snapshot_at"] ?? "NULL"}`);
+  } else {
+    console.log(`[MATCH_PROBE] list_raw league=${opts.league} type=${opts.situation_type} count=0`);
+  }
+
+  const deserialized = rows.map(deserializeCanonicalSituationRecord);
+
+  // MATCH_PROBE: what isUsableSituation evaluates against
+  for (const record of deserialized.slice(0, 3)) {
+    console.log(`[MATCH_PROBE] usable_check sit=${record.situation_id} has_snapshot=${record.latest_snapshot !== null} confidence=${record.latest_snapshot?.confidence.score ?? "N/A"}`);
+  }
+
+  return deserialized.filter(isUsableSituation);
 }
 
 export function getLatestSituationSnapshot(
