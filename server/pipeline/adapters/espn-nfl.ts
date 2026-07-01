@@ -8,7 +8,8 @@
 import { insertRawEvent, getRawEvents, findGameByTeams } from "../store";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
-const CURRENT_INJURY_MAX_AGE_DAYS = 21;
+// Offseason: 75 days covers OTAs + mini-camp + draft weekend. Tighten to 21 for regular season via env var.
+const CURRENT_INJURY_MAX_AGE_DAYS = Number(process.env.NFL_INJURY_MAX_AGE_DAYS || "75");
 let lastInjuryFetchReachable = false;
 
 const NFL_DISPLAY_TO_ABBR: Record<string, string> = {

@@ -9,7 +9,8 @@ import { insertRawEvent, getRawEvents, findGameByTeams } from "../store";
 import { CFB_DISPLAY_TO_ABBR } from "../cfb-team-lookup";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/college-football";
-const CURRENT_INJURY_MAX_AGE_DAYS = 21;
+// Offseason: 75 days covers spring practice + transfer portal activity. Tighten for regular season via env var.
+const CURRENT_INJURY_MAX_AGE_DAYS = Number(process.env.CFB_INJURY_MAX_AGE_DAYS || "75");
 let lastInjuryFetchReachable = false;
 
 interface ESPNTeamRef {
