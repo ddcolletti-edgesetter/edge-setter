@@ -66,6 +66,7 @@ const TRANSFER_PATTERNS = [
 export type SIDEventType = "eligibility_ruling" | "coaching_change" | "transaction";
 
 export function classifyEventType(text: string): SIDEventType | null {
+  if (/\btickets?\b/i.test(text)) return null;
   if (ELIGIBILITY_PATTERNS.some(p => p.test(text))) return "eligibility_ruling";
   if (COACHING_PATTERNS.some(p => p.test(text)))    return "coaching_change";
   if (TRANSFER_PATTERNS.some(p => p.test(text)))    return "transaction";
@@ -143,6 +144,7 @@ export function extractHeadlines(html: string, baseUrl: string): Array<{ title: 
   let m: RegExpExecArray | null;
   while ((m = anchorRe.exec(html)) !== null) {
     const [, href, text] = m;
+    if (/\/tickets?(?:\/|\?|$)|\/parking|\/donate|\/shop/i.test(href)) continue;
     const clean = text.replace(/\s+/g, " ").trim();
     if (clean.length < 15 || clean.length > 250) continue;
     if (/^(home|news|schedule|roster|tickets|donate|shop|give|about|contact|athletics)/i.test(clean)) continue;
