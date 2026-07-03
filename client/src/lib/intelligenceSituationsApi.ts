@@ -14,6 +14,8 @@ export type TimingWindow = "Early" | "Developing" | "Widely Known" | "Closing" |
 
 export type IntelligenceSituation = {
   id: string;
+  /** True when this row is a grouped rollup ("11 line moves") rather than a single signal. Grouped rows must never display a single confidence number — max-of-group against the pipeline's 92 cap produces a constant, not information. */
+  isSummary?: boolean;
   league: LiveSignal["league"];
   gameId: string | null;
   signalType: string;

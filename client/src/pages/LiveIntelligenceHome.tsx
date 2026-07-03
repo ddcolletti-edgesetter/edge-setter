@@ -608,6 +608,10 @@ function HomepageSupportStack({
 }
 
 function bloombergConfText(situation: IntelligenceSituation): string {
+  // Grouped rollups never show a single confidence number: dedupeSignalFeed picks
+  // max-of-group, and the pipeline caps/flat-assigns confidence at 92 (store.ts:2293,
+  // mlb-statsapi.ts:273), so the "group confidence" is a near-constant artifact.
+  if (situation.isSummary) return "";
   const conf = situation.confidence?.current;
   const state = situation.escalationState;
   if (state === "Official" || (typeof conf === "number" && conf >= 100)) return "Verified";
@@ -619,6 +623,7 @@ function bloombergConfText(situation: IntelligenceSituation): string {
 }
 
 function bloombergConfTone(situation: IntelligenceSituation): string {
+  if (situation.isSummary) return "is-summary";
   const conf = situation.confidence?.current;
   const state = situation.escalationState;
   if (state === "Official" || (typeof conf === "number" && conf >= 100)) return "is-verified";
@@ -1347,6 +1352,7 @@ function dedupeSignalFeed(situations: IntelligenceSituation[]): IntelligenceSitu
     const summaryType = `${group.length} ${typeLabel}s`;
     return {
       ...best,
+      isSummary: true,
       id: `summary-${best.league}-${best.signalType}`,
       signalType: summaryType,
       subject: { team: null, player: null, matchup: null },
