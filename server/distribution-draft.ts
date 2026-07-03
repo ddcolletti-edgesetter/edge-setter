@@ -86,6 +86,14 @@ function isWireTierSource(src: Record<string, any>): boolean {
   }) !== null;
 }
 
+// July 3, 2026: timing callouts suppressed pending real T1/T2 measurement.
+// The previous logic counted EdgeSetter's own statsapi/espn feeds as "wire tier"
+// and took T2 from signal_time (the latest merged event, bounded by the 4h merge
+// window in processor.ts) — making every rendered timing claim self-referential.
+// Re-enable ONLY after T2 comes from an independent external timestamp
+// (odds line-move, RotoWire pubDate, or true wire publication time).
+const TIMING_CALLOUTS_ENABLED = false;
+
 function buildSignalContext(signal: Record<string, any>): SignalContext {
   const sources = Array.isArray(signal.sources) ? signal.sources : [];
   const topSource = sources[0] ?? {};
@@ -95,7 +103,9 @@ function buildSignalContext(signal: Record<string, any>): SignalContext {
 
   // Use the earliest available wire-tier confirmation timestamp: if any source in
   // the merged signal is wire-tier, signal_time is when that event was ingested.
-  const wireSource = sources.find((src: Record<string, any>) => isWireTierSource(src));
+  const wireSource = TIMING_CALLOUTS_ENABLED
+    ? sources.find((src: Record<string, any>) => isWireTierSource(src))
+    : undefined;
   const rawT2 = wireSource ? (signal.signal_time ?? signal.updated_at) : undefined;
   const t2ConfirmedAt = rawT2 != null ? String(rawT2) : undefined;
 
@@ -155,7 +165,7 @@ Detected at: ${ctx.detectedAt}
 Confidence score: ${ctx.confidenceScore}%
 Fantasy impact: ${ctx.fantasyImpact}
 Raw headline: ${ctx.rawHeadline}
-${ctx.t2ConfirmedAt ? `Wire confirmed at: ${ctx.t2ConfirmedAt} (${ctx.deltaMinutes} minutes after EdgeSetter detection)` : "Wire confirmation: pending"}`,
+${ctx.t2ConfirmedAt ? `Wire confirmed at: ${ctx.t2ConfirmedAt} (${ctx.deltaMinutes} minutes after EdgeSetter detection)` : "Do not make any claims about detection timing, being first, or beating other outlets to this news."}`,
         }],
       }),
     });
