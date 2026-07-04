@@ -120,7 +120,7 @@ async function checkHomepageContent(): Promise<CheckResult> {
     return { name: "Homepage HTML", status: "critical", detail: `HTTP ${r.status}`, latency_ms: r.latency_ms };
   }
   const body = r.body ?? "";
-  const hasTitle = body.includes("Edge Setter");
+  const hasTitle = /edge\s?setter/i.test(body);
   const hasScript = body.includes("index-") && body.includes(".js");
   if (!hasTitle || !hasScript) {
     return { name: "Homepage HTML", status: "critical", detail: "Missing expected title or JS bundle", latency_ms: r.latency_ms };
