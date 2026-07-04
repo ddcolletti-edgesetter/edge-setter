@@ -490,7 +490,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── Admin DB Debug ───────────────────────────────────────────────────────────
-  app.get("/api/admin/debug-db", (_req, res) => {
+  app.get("/api/admin/debug-db", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const pdb = getPipelineDb();
     const count = (pdb.prepare("SELECT COUNT(*) as n FROM live_signals").get() as any)?.n ?? 0;
     const sample = pdb.prepare("SELECT id, league, player, signal_type, created_at FROM live_signals ORDER BY created_at DESC LIMIT 10").all();
@@ -541,7 +542,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── Admin: Source-type audit (confirmation path diagnostics) ────────────────
-  app.get("/api/admin/source-audit", (_req, res) => {
+  app.get("/api/admin/source-audit", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const pdb = getPipelineDb();
     const bySourceType = pdb.prepare(`
       SELECT source_type, COUNT(*) as count
@@ -578,7 +580,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── Admin: Multi-source situation audit ─────────────────────────────────────
-  app.get("/api/admin/situation-source-audit", (_req, res) => {
+  app.get("/api/admin/situation-source-audit", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const pdb = getPipelineDb();
 
     const tables = (pdb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as any[]).map((r: any) => r.name);
@@ -672,7 +675,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── Admin: RSS headline audit (temporary) ───────────────────────────────────
-  app.get("/api/admin/rss-headline-audit", (_req, res) => {
+  app.get("/api/admin/rss-headline-audit", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const pdb = getPipelineDb();
     const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
 
@@ -711,7 +715,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── Admin: Cross-type player pair diagnostic (temporary) ───────────────────
-  app.get("/api/admin/cross-type-audit", (_req, res) => {
+  app.get("/api/admin/cross-type-audit", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const pdb = getPipelineDb();
     const tables = (pdb.prepare("SELECT name FROM sqlite_master WHERE type='table'").all() as any[]).map((r: any) => r.name);
     if (!tables.includes("situations")) return res.json({ error: "situations table not present" });
@@ -763,16 +768,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ─── Admin: Deduplicate source_scores ────────────────────────────────────────
   app.post("/api/admin/source-scores/dedup", (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const auth = req.headers.authorization ?? "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-    if (token !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     const result = storage.cleanSourceScoreDuplicates();
     return res.json(result);
   });
 
   // ─── Admin Review Queue ───────────────────────────────────────────────────────
-  app.get("/api/admin/review", (_req, res) => {
+  app.get("/api/admin/review", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const queue = storage.getReviewQueue();
     // Enrich with claim + event data
     const enriched = queue.map(v => {
@@ -785,6 +788,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   app.post("/api/admin/review/:id/resolve", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const verdict = storage.resolveReview(req.params.id);
     if (!verdict) return res.status(404).json({ error: "Not found" });
     // Now publish the alert since it's resolved
@@ -914,10 +918,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   app.delete("/api/admin/signals/:id", (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const auth = req.headers.authorization ?? "";
-    const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
-    if (token !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     const exists = storage.getSignal(req.params.id);
     if (!exists) return res.status(404).json({ error: "Signal not found" });
     storage.deleteSignal(req.params.id);
@@ -1261,11 +1262,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ─── Digest: Admin Send (password-gated) ──────────────────────────────────
   app.post("/api/admin/digest/send", async (req, res) => {
-    const { password } = req.body;
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    if (password !== ADMIN_PASSWORD) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
+    if (!requireAdmin(req, res)) return;
     try {
       // Get the top signal (highest confidence, published today)
       const allSignals = storage.getSignals(true);
@@ -1317,10 +1314,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // POST /api/agent/signal-ops — ingest a single signal
   app.post("/api/agent/signal-ops", async (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const authHeader = req.headers.authorization ?? "";
-    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : req.body?.password;
-    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     try {
       const result = await runSignalOps(req.body);
       return res.json(result);
@@ -1331,10 +1325,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // POST /api/agent/signal-ops/batch — ingest multiple signals
   app.post("/api/agent/signal-ops/batch", async (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const authHeader = req.headers.authorization ?? "";
-    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : req.body?.password;
-    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     if (!Array.isArray(req.body?.inputs)) return res.status(400).json({ error: "inputs[] required" });
     try {
       const results = await batchSignalOps(req.body.inputs);
@@ -1346,10 +1337,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // GET /api/agent/signal-ops/queue — view queue (admin only)
   app.get("/api/agent/signal-ops/queue", (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const authHeader = req.headers.authorization ?? "";
-    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : (req.query.password as string);
-    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     const decision = req.query.decision as string | undefined;
     const items = (storage as any).getSignalOpsQueue(decision);
     return res.json({ count: items.length, items });
@@ -1357,9 +1345,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // POST /api/agent/signal-ops/queue/:id/approve — human approves review_required item
   app.post("/api/agent/signal-ops/queue/:id/approve", async (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const password = req.body?.password;
-    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     const item = (storage as any).getSignalOpsItem(req.params.id);
     if (!item) return res.status(404).json({ error: "Item not found" });
     try {
@@ -1400,9 +1386,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // POST /api/agent/signal-ops/queue/:id/reject — human rejects review_required item
   app.post("/api/agent/signal-ops/queue/:id/reject", (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const password = req.body?.password;
-    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     const item = (storage as any).getSignalOpsItem(req.params.id);
     if (!item) return res.status(404).json({ error: "Item not found" });
     (storage as any).rejectSignalOpsItem(item.id, req.body?.reason ?? "Human rejected");
@@ -1420,20 +1404,14 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // GET /api/agent/site-watch — latest Site Watch log entries
   app.get("/api/agent/site-watch", (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const authHeader = req.headers.authorization ?? "";
-    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : (req.query.password as string);
-    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     const limit = Math.min(Number(req.query.limit ?? 20), 100);
     return res.json((storage as any).getSiteWatchLog(limit));
   });
 
   // POST /api/agent/site-watch/run — trigger a manual run
   app.post("/api/agent/site-watch/run", async (req, res) => {
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    const authHeader = req.headers.authorization ?? "";
-    const password = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : req.body?.password;
-    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     try {
       const result = await runSiteWatch();
       return res.json(result);
@@ -1442,16 +1420,17 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
-  app.get("/api/admin/waitlist", (_req, res) => { res.json(storage.getWaitlist()); });
-  app.get("/api/admin/waitlist/csv", (_req, res) => {
+  app.get("/api/admin/waitlist", (req, res) => { if (!requireAdmin(req, res)) return; res.json(storage.getWaitlist()); });
+  app.get("/api/admin/waitlist/csv", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const list = storage.getWaitlist();
     const csv = ["id,email,name,role,created_at", ...list.map(r => `${r.id},${r.email},${r.name ?? ""},${r.role ?? ""},${r.created_at}`)].join("\n");
     res.setHeader("Content-Type", "text/csv");
     res.setHeader("Content-Disposition", "attachment; filename=waitlist.csv");
     res.send(csv);
   });
-  app.get("/api/admin/users", (_req, res) => { res.json(storage.getAllUsers()); });
-  app.get("/api/admin/event-log", (_req, res) => { res.json(storage.getEventLog()); });
+  app.get("/api/admin/users", (req, res) => { if (!requireAdmin(req, res)) return; res.json(storage.getAllUsers()); });
+  app.get("/api/admin/event-log", (req, res) => { if (!requireAdmin(req, res)) return; res.json(storage.getEventLog()); });
 
   // ─── Distribution Draft Agent routes ──────────────────────────────────────
   function requireAdmin(req: any, res: any): boolean {
@@ -1688,7 +1667,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
    *
    * Example (curl):
    *   curl -X POST http://localhost:5000/api/admin/grant-beta \
-   *     -H "Authorization: Bearer edgesetter-admin-2026" \
+   *     -H "Authorization: Bearer $ADMIN_PASSWORD" \
    *     -H "Content-Type: application/json" \
    *     -d '{"email":"tester@example.com","beta_until":"2026-05-31T23:59:59Z"}'
    *
@@ -1758,7 +1737,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
    * Auth: Authorization: Bearer <ADMIN_PASSWORD>
    *
    * Example:
-   *   curl -H "Authorization: Bearer edgesetter-admin-2026" \
+   *   curl -H "Authorization: Bearer $ADMIN_PASSWORD" \
    *     "http://localhost:5000/api/admin/grant-beta?email=tester@example.com"
    */
   app.get("/api/admin/grant-beta", (req, res) => {
@@ -1926,9 +1905,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // POST /api/pipeline/backfill — kick off historical backfill (runs in background)
   app.post("/api/pipeline/backfill", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const { password, ...options } = req.body ?? {};
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    if (password !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
     res.json({ accepted: true, message: "Backfill started in background — poll /api/pipeline/backfill-status" });
     runFullBackfill(options).then(summary => {
       console.log("[backfill] Complete:", JSON.stringify(summary));
@@ -1939,9 +1917,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // GET /api/pipeline/backfill-status — show progress phases from persistent storage.db
   app.get("/api/pipeline/backfill-status", (req, res) => {
-    const pw = (req.query.password as string) ?? (req.headers.authorization ?? "").replace("Bearer ", "");
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
-    if (pw !== ADMIN_PASSWORD) return res.status(401).json({ error: "Unauthorized" });
+    if (!requireAdmin(req, res)) return;
     return res.json({ phases: getAllBackfillProgress() });
   });
 
