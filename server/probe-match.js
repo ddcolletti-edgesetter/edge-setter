@@ -4,7 +4,8 @@
 // Does NOT require CANONICAL_SITUATIONS_ENABLED — queries the DB directly.
 
 const Database = require('better-sqlite3');
-const DB_PATH = (process.env.PIPELINE_DATA_DIR || process.env.DATA_DIR || '/var/data') + '/pipeline.db';
+// Same resolution chain as server/pipeline/store.ts so both open the same file.
+const DB_PATH = (process.env.PIPELINE_DATA_DIR || process.env.DATA_DIR || '/tmp') + '/pipeline.db';
 
 console.log('[MATCH_PROBE] opening', DB_PATH);
 const db = new Database(DB_PATH, { readonly: true });

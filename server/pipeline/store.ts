@@ -40,8 +40,9 @@ import {
 
 function resolvePipelineDataDir(): string {
   // Set PIPELINE_DATA_DIR to a persistent mount path (e.g. /var/data on Render)
-  // to survive dyno restarts. Falls back to /tmp (ephemeral) when unset.
-  for (const dir of [process.env.PIPELINE_DATA_DIR, "/tmp", "."]) {
+  // to survive dyno restarts. Falls back to DATA_DIR (the persistent disk used
+  // by storage.ts), then /tmp (ephemeral) as a last resort.
+  for (const dir of [process.env.PIPELINE_DATA_DIR, process.env.DATA_DIR, "/tmp", "."]) {
     if (!dir) continue;
     try {
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
