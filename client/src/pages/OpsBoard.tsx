@@ -7,7 +7,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 
-const ADMIN_PASS = "edgesetter-admin-2026";
+import { getAdminPassword } from "../components/AdminGate";
+
 const REFRESH_INTERVAL = 60_000;
 
 /* ─── Types ──────────────────────────────────────────────── */
@@ -146,7 +147,7 @@ export default function OpsBoard() {
     setError(null);
     try {
       const resp = await fetch("/api/admin/ops-dashboard", {
-        headers: { Authorization: `Bearer ${ADMIN_PASS}` },
+        headers: { Authorization: `Bearer ${getAdminPassword()}` },
       });
       if (!resp.ok) throw new Error(`${resp.status}`);
       setData(await resp.json());

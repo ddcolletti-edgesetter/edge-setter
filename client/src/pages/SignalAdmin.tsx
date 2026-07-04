@@ -14,7 +14,7 @@ const C = {
   green: "#3DAE72", red: "#C04040", amber: "#FF8A00",
 };
 
-const ADMIN_PASS = "edgesetter-admin-2026";
+import { getAdminPassword, setAdminPassword, verifyAdminPassword } from "@/components/AdminGate";
 
 function Cap({ children, color, size = 9 }: { children: React.ReactNode; color?: string; size?: number }) {
   return <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: size, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: color ?? C.ivoryDim }}>{children}</span>;
@@ -260,8 +260,23 @@ function CreateSignalForm() {
 }
 
 export default function SignalAdmin() {
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(() => getAdminPassword() !== "");
   const [pass, setPass] = useState("");
+  const [checking, setChecking] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  const submit = async () => {
+    if (!pass || checking) return;
+    setChecking(true);
+    setFailed(false);
+    if (await verifyAdminPassword(pass)) {
+      setAdminPassword(pass);
+      setAuthed(true);
+    } else {
+      setFailed(true);
+    }
+    setChecking(false);
+  };
   const [editSignal, setEditSignal] = useState<Signal | null>(null);
   const [tab, setTab] = useState<"signals" | "waitlist" | "users">("signals");
 
@@ -272,12 +287,12 @@ export default function SignalAdmin() {
   });
   const { data: waitlist = [] } = useQuery<Waitlist[]>({
     queryKey: ["/api/admin/waitlist"],
-    queryFn: () => apiRequest("GET", "/api/admin/waitlist").then(r => r.json()),
+    queryFn: () => apiRequest("GET", "/api/admin/waitlist?password=" + encodeURIComponent(getAdminPassword())).then(r => r.json()),
     enabled: authed && tab === "waitlist",
   });
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
-    queryFn: () => apiRequest("GET", "/api/admin/users").then(r => r.json()),
+    queryFn: () => apiRequest("GET", "/api/admin/users?password=" + encodeURIComponent(getAdminPassword())).then(r => r.json()),
     enabled: authed && tab === "users",
   });
 
@@ -292,18 +307,19 @@ export default function SignalAdmin() {
             type="password"
             placeholder="Admin password"
             value={pass}
-            onChange={e => setPass(e.target.value)}
-            onKeyDown={e => e.key === "Enter" && pass === ADMIN_PASS && setAuthed(true)}
+            onChange={e => { setPass(e.target.value); setFailed(false); }}
+            onKeyDown={e => e.key === "Enter" && submit()}
             style={{ ...inputStyle(), marginBottom: 8 }}
           />
           <button
             data-testid="button-admin-login"
-            onClick={() => pass === ADMIN_PASS && setAuthed(true)}
-            style={{ width: "100%", padding: "9px 0", background: C.gold, color: C.void, border: "none", cursor: "pointer", fontFamily: "'Barlow Condensed'", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase" }}
+            onClick={submit}
+            disabled={checking}
+            style={{ width: "100%", padding: "9px 0", background: C.gold, color: C.void, border: "none", cursor: checking ? "wait" : "pointer", fontFamily: "'Barlow Condensed'", fontSize: 10, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", opacity: checking ? 0.6 : 1 }}
           >
-            Enter
+            {checking ? "Checking…" : "Enter"}
           </button>
-          {pass && pass !== ADMIN_PASS && <p style={{ fontSize: 11, color: C.red, marginTop: 6 }}>Incorrect password</p>}
+          {failed && <p style={{ fontSize: 11, color: C.red, marginTop: 6 }}>Incorrect password</p>}
         </div>
       </div>
     );
