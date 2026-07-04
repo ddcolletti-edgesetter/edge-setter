@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { Server } from "http";
-import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress, getVerifiedCountBySource, getDraftSignalRefs } from "./storage";
+import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress, getVerifiedCountBySource } from "./storage";
 import { runFullBackfill } from "./pipeline/backfill";
 import { insertSignalSchema, insertWaitlistSchema, type User } from "@shared/schema";
 import { sendDailyDigest } from "./email";
@@ -1966,106 +1966,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
       res.json({ ok: true, seeded, skipped, total: drafts.length });
     } catch (e: any) {
       res.status(500).json({ error: e.message });
-    }
-  });
-
-  // ─── Admin: TEMPORARY ingestion→distribution verification (2026-07-03) ──────
-  // Read-only diagnostic. Answers: did post-restart live_signals rows land, and
-  // do any of them reach distribution_drafts (which joins on the legacy
-  // edge_setter.db signals table)? Remove once the ingestion gap is resolved.
-  app.get("/api/admin/verify-ingestion", (req, res) => {
-    if (!requireAdmin(req, res)) return;
-    try {
-      const cutoff = typeof req.query.cutoff === "string" ? req.query.cutoff : "2026-07-04T04:30:00";
-      const pdb = getPipelineDb();
-
-      const newRows = pdb.prepare(
-        `SELECT COUNT(*) AS new_rows_since_restart, MIN(created_at) AS first_row, MAX(created_at) AS last_row
-         FROM live_signals WHERE created_at >= ?`
-      ).get(cutoff);
-
-      const byTypeConfidence = pdb.prepare(
-        `SELECT league, signal_type, confidence, COUNT(*) AS row_count
-         FROM live_signals WHERE created_at >= ?
-         GROUP BY league, signal_type, confidence ORDER BY row_count DESC`
-      ).all(cutoff);
-
-      const postRestart = pdb.prepare(
-        `SELECT id, created_at, league, signal_type, team, player, confidence, headline
-         FROM live_signals WHERE created_at >= ? ORDER BY created_at DESC`
-      ).all(cutoff) as any[];
-
-      const draftRefs = getDraftSignalRefs();
-      const draftsBySignal = new Map<string, typeof draftRefs>();
-      for (const d of draftRefs) {
-        const list = draftsBySignal.get(d.signal_id) ?? [];
-        list.push(d);
-        draftsBySignal.set(d.signal_id, list);
-      }
-      const joined = postRestart.map((s) => ({
-        ...s,
-        drafts: (draftsBySignal.get(s.id) ?? []).map((d) => ({
-          draft_id: d.id, draft_created: d.created_at, status: d.status, channel: d.channel,
-        })),
-      }));
-      const withDraft = joined.filter((s) => s.drafts.length > 0).length;
-
-      const matchDraft = pdb.prepare(`SELECT created_at FROM live_signals WHERE id = ?`);
-      let draftsFedByPipeline = 0;
-      let draftsFedByPipelineSinceJune = 0;
-      for (const d of draftRefs) {
-        const ls = matchDraft.get(d.signal_id) as { created_at: string } | undefined;
-        if (ls) {
-          draftsFedByPipeline++;
-          if (ls.created_at > "2026-06-01") draftsFedByPipelineSinceJune++;
-        }
-      }
-
-      const nullIdentityByType = pdb.prepare(
-        `SELECT league, signal_type,
-                SUM(CASE WHEN team IS NULL OR team = '' THEN 1 ELSE 0 END) AS null_team,
-                SUM(CASE WHEN player IS NULL OR player = '' THEN 1 ELSE 0 END) AS null_player,
-                COUNT(*) AS total
-         FROM live_signals WHERE created_at >= ?
-         GROUP BY league, signal_type ORDER BY total DESC`
-      ).all(cutoff);
-
-      const literalTeamFallback = pdb.prepare(
-        `SELECT id, created_at, league, signal_type, team, player, headline, substr(sources,1,160) AS sources_head
-         FROM live_signals
-         WHERE headline LIKE 'Team —%' OR headline LIKE 'Team --%' OR headline LIKE '%(Team)%'
-         ORDER BY created_at DESC LIMIT 25`
-      ).all();
-
-      const nflIdentityGaps = pdb.prepare(
-        `SELECT id, created_at, signal_type, team, player, headline
-         FROM live_signals
-         WHERE league = 'NFL'
-           AND created_at >= datetime('now', '-7 days')
-           AND (team = 'NO' OR (player IS NULL AND team IS NULL))
-         ORDER BY created_at DESC LIMIT 25`
-      ).all();
-
-      return res.json({
-        cutoff_utc: cutoff,
-        q1_new_rows_since_restart: newRows,
-        q2_by_league_type_confidence: byTypeConfidence,
-        q3_post_restart_signals_vs_drafts: {
-          total_post_restart_signals: joined.length,
-          signals_with_at_least_one_draft: withDraft,
-          rows: joined.slice(0, 100),
-        },
-        q4_dead_path_check: {
-          total_drafts_in_edge_setter_db: draftRefs.length,
-          drafts_referencing_any_pipeline_live_signal: draftsFedByPipeline,
-          drafts_referencing_pipeline_signals_since_june1: draftsFedByPipelineSinceJune,
-        },
-        q5_null_identity_fields_post_restart: nullIdentityByType,
-        q6_literal_team_fallback_headlines: literalTeamFallback,
-        q7_nfl_identity_gaps_recent: nflIdentityGaps,
-      });
-    } catch (e: any) {
-      return res.status(500).json({ error: e.message });
     }
   });
 

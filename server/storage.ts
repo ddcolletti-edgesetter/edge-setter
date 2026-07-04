@@ -1199,14 +1199,6 @@ export const storage = new SqliteStorage();
 
 /* ─── Pipeline Health (module-level) ─────────────────────────────────────── */
 
-export function getDraftSignalRefs(): Array<{
-  id: string; signal_id: string; channel: string; status: string; created_at: string; headline: string;
-}> {
-  return sqlite.prepare(
-    `SELECT id, signal_id, channel, status, created_at, headline FROM distribution_drafts`
-  ).all() as Array<{ id: string; signal_id: string; channel: string; status: string; created_at: string; headline: string }>;
-}
-
 export function recordPipelineHealth(
   component: string,
   status: "ok" | "warning" | "error",
