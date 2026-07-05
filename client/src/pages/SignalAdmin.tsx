@@ -14,7 +14,7 @@ const C = {
   green: "#3DAE72", red: "#C04040", amber: "#FF8A00",
 };
 
-import { getAdminPassword, setAdminPassword, verifyAdminPassword } from "@/components/AdminGate";
+import { getAdminPassword, setAdminPassword, verifyAdminPassword, adminAuthHeaders } from "@/components/AdminGate";
 
 function Cap({ children, color, size = 9 }: { children: React.ReactNode; color?: string; size?: number }) {
   return <span style={{ fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif", fontSize: size, fontWeight: 700, letterSpacing: "0.18em", textTransform: "uppercase", color: color ?? C.ivoryDim }}>{children}</span>;
@@ -287,12 +287,12 @@ export default function SignalAdmin() {
   });
   const { data: waitlist = [] } = useQuery<Waitlist[]>({
     queryKey: ["/api/admin/waitlist"],
-    queryFn: () => apiRequest("GET", "/api/admin/waitlist?password=" + encodeURIComponent(getAdminPassword())).then(r => r.json()),
+    queryFn: () => apiRequest("GET", "/api/admin/waitlist", undefined, adminAuthHeaders()).then(r => r.json()),
     enabled: authed && tab === "waitlist",
   });
   const { data: users = [] } = useQuery<User[]>({
     queryKey: ["/api/admin/users"],
-    queryFn: () => apiRequest("GET", "/api/admin/users?password=" + encodeURIComponent(getAdminPassword())).then(r => r.json()),
+    queryFn: () => apiRequest("GET", "/api/admin/users", undefined, adminAuthHeaders()).then(r => r.json()),
     enabled: authed && tab === "users",
   });
 
@@ -344,12 +344,21 @@ export default function SignalAdmin() {
               </button>
             ))}
           </div>
-          <a
-            href="/api/admin/waitlist/csv"
-            style={{ fontFamily: "'Barlow Condensed'", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.ivoryDim, textDecoration: "none" }}
+          <button
+            onClick={async () => {
+              const r = await fetch("/api/admin/waitlist/csv", { headers: adminAuthHeaders() });
+              if (!r.ok) return;
+              const url = URL.createObjectURL(await r.blob());
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = "waitlist.csv";
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontFamily: "'Barlow Condensed'", fontSize: 9, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: C.ivoryDim }}
           >
             Export CSV ↓
-          </a>
+          </button>
         </div>
       </div>
 

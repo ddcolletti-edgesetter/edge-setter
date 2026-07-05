@@ -23,7 +23,7 @@ import {
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
-import { getAdminPassword } from "@/components/AdminGate";
+import { adminAuthHeaders } from "@/components/AdminGate";
 
 const T = {
   bg:        "#050505",
@@ -77,7 +77,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
   const { data: drafts = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/agent/distribution-drafts", tab, channel],
     queryFn: () => {
-      const params = new URLSearchParams({ password: getAdminPassword() });
+      const params = new URLSearchParams();
       if (tab !== "all") {
         if (tab === "pending") {
           params.set("status", "draft");
@@ -86,7 +86,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
         }
       }
       if (channel !== "all") params.set("channel", channel);
-      return apiRequest("GET", `/api/agent/distribution-drafts?${params}`).then(r => r.json());
+      return apiRequest("GET", `/api/agent/distribution-drafts?${params}`, undefined, adminAuthHeaders()).then(r => r.json());
     },
     refetchInterval: 30000,
   });
@@ -94,7 +94,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
   // Approve
   const approveMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest("POST", `/api/agent/distribution-drafts/${id}/approve`, { password: getAdminPassword() }).then(r => r.json()),
+      apiRequest("POST", `/api/agent/distribution-drafts/${id}/approve`, undefined, adminAuthHeaders()).then(r => r.json()),
     onSuccess: () => {
       toast({ title: "Approved", description: "Draft marked approved." });
       qc.invalidateQueries({ queryKey: ["/api/agent/distribution-drafts"] });
@@ -105,7 +105,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
   // Reject
   const rejectMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest("POST", `/api/agent/distribution-drafts/${id}/reject`, { password: getAdminPassword(), notes: "Rejected by operator" }).then(r => r.json()),
+      apiRequest("POST", `/api/agent/distribution-drafts/${id}/reject`, { notes: "Rejected by operator" }, adminAuthHeaders()).then(r => r.json()),
     onSuccess: () => {
       toast({ title: "Rejected", description: "Draft rejected." });
       qc.invalidateQueries({ queryKey: ["/api/agent/distribution-drafts"] });
@@ -116,7 +116,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
   // Regenerate
   const regenMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest("POST", `/api/agent/distribution-drafts/${id}/regenerate`, { password: getAdminPassword() }).then(r => r.json()),
+      apiRequest("POST", `/api/agent/distribution-drafts/${id}/regenerate`, undefined, adminAuthHeaders()).then(r => r.json()),
     onSuccess: (data) => {
       toast({ title: "Regenerated", description: `${data.drafts_created ?? 0} new draft(s) created.` });
       qc.invalidateQueries({ queryKey: ["/api/agent/distribution-drafts"] });
@@ -127,7 +127,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
   // Post Now
   const postMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest("POST", `/api/agent/distribution-drafts/${id}/post`, { password: getAdminPassword() }).then(r => r.json()),
+      apiRequest("POST", `/api/agent/distribution-drafts/${id}/post`, undefined, adminAuthHeaders()).then(r => r.json()),
     onSuccess: (data) => {
       toast({ title: "Posted", description: `Tweet live: ${data.tweet_url}` });
       qc.invalidateQueries({ queryKey: ["/api/agent/distribution-drafts"] });
@@ -138,7 +138,7 @@ export default function DistributionDrafts({ theme, toggleTheme }: Props) {
   // Manual run
   const runMutation = useMutation({
     mutationFn: () =>
-      apiRequest("POST", "/api/agent/distribution-drafts/run", { password: getAdminPassword() }).then(r => r.json()),
+      apiRequest("POST", "/api/agent/distribution-drafts/run", undefined, adminAuthHeaders()).then(r => r.json()),
     onSuccess: (data) => {
       toast({ title: "Run Complete", description: `Checked ${data.signals_checked} signals. Created ${data.drafts_created} draft(s). Skipped ${data.drafts_skipped}.` });
       qc.invalidateQueries({ queryKey: ["/api/agent/distribution-drafts"] });

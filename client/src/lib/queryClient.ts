@@ -15,11 +15,12 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  headers?: Record<string, string>,
 ): Promise<Response> {
   const res = await fetchWithTimeout(`${API_BASE}${url}`, {
     method,
     credentials: "include",
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: { ...(data ? { "Content-Type": "application/json" } : {}), ...headers },
     body: data ? JSON.stringify(data) : undefined,
   }, 12000);
 

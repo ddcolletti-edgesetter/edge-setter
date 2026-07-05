@@ -18,7 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
-import { getAdminPassword } from "@/components/AdminGate";
+import { adminAuthHeaders } from "@/components/AdminGate";
 
 const T = {
   bg:          "#050505",
@@ -59,7 +59,7 @@ function decisionLabel(decision: string) {
 async function apiPost(path: string, body: object) {
   const res = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...adminAuthHeaders() },
     body: JSON.stringify(body),
   });
   if (!res.ok) throw new Error(await res.text());
@@ -83,7 +83,7 @@ export default function SignalOpsQueue({ theme, toggleTheme }: Props) {
     queryKey: ["/api/agent/signal-ops/queue", tab],
     queryFn: async () => {
       const decision = tab === "all" ? "" : tab;
-      const res = await fetch(`/api/agent/signal-ops/queue?password=${encodeURIComponent(getAdminPassword())}${decision ? `&decision=${decision}` : ""}`);
+      const res = await fetch(`/api/agent/signal-ops/queue${decision ? `?decision=${decision}` : ""}`, { headers: adminAuthHeaders() });
       if (!res.ok) throw new Error(await res.text());
       return res.json();
     },
@@ -91,7 +91,7 @@ export default function SignalOpsQueue({ theme, toggleTheme }: Props) {
   });
 
   const approveMutation = useMutation({
-    mutationFn: (id: string) => apiPost(`/api/agent/signal-ops/queue/${id}/approve`, { password: getAdminPassword() }),
+    mutationFn: (id: string) => apiPost(`/api/agent/signal-ops/queue/${id}/approve`, {}),
     onSuccess: () => {
       toast({ title: "Approved", description: "Signal published to live feed." });
       qc.invalidateQueries({ queryKey: ["/api/agent/signal-ops/queue"] });
@@ -102,7 +102,7 @@ export default function SignalOpsQueue({ theme, toggleTheme }: Props) {
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
-      apiPost(`/api/agent/signal-ops/queue/${id}/reject`, { password: getAdminPassword(), reason }),
+      apiPost(`/api/agent/signal-ops/queue/${id}/reject`, { reason }),
     onSuccess: () => {
       toast({ title: "Rejected", description: "Item removed from queue." });
       qc.invalidateQueries({ queryKey: ["/api/agent/signal-ops/queue"] });
@@ -120,7 +120,7 @@ export default function SignalOpsQueue({ theme, toggleTheme }: Props) {
     try {
       const isArray = Array.isArray(parsed);
       const endpoint = isArray ? "/api/agent/signal-ops/batch" : "/api/agent/signal-ops";
-      const body = isArray ? { inputs: parsed, password: getAdminPassword() } : { ...parsed, password: getAdminPassword() };
+      const body = isArray ? { inputs: parsed } : parsed;
       const result = await apiPost(endpoint, body);
       toast({ title: "Ingested", description: isArray ? `${result.count} signals processed` : `Decision: ${result.decision}` });
       setIngestInput("");

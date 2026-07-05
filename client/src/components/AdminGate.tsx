@@ -10,6 +10,11 @@ export function setAdminPassword(pw: string): void {
   try { sessionStorage.setItem(STORAGE_KEY, pw); } catch {}
 }
 
+/** Bearer auth headers for admin API calls — keeps the credential out of URLs and bodies. */
+export function adminAuthHeaders(): Record<string, string> {
+  return { Authorization: `Bearer ${getAdminPassword()}` };
+}
+
 /** Checks the password against the server (any requireAdmin route works; site-watch is cheap). */
 export async function verifyAdminPassword(pw: string): Promise<boolean> {
   try {

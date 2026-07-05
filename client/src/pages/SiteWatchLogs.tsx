@@ -5,7 +5,7 @@ import { Radio } from "lucide-react";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
-import { getAdminPassword } from "@/components/AdminGate";
+import { adminAuthHeaders } from "@/components/AdminGate";
 
 const T = {
   bg:       "#050505",
@@ -37,7 +37,7 @@ export default function SiteWatchLogs({ theme, toggleTheme }: Props) {
   const { data, isLoading, dataUpdatedAt } = useQuery({
     queryKey: ["/api/agent/site-watch"],
     queryFn: async () => {
-      const r = await fetch(`/api/agent/site-watch?password=${encodeURIComponent(getAdminPassword())}&limit=50`);
+      const r = await fetch(`/api/agent/site-watch?limit=50`, { headers: adminAuthHeaders() });
       if (!r.ok) throw new Error(await r.text());
       return r.json() as Promise<Record<string, any>[]>;
     },

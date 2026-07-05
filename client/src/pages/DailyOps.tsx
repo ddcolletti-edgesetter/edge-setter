@@ -19,7 +19,7 @@ import {
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
-import { getAdminPassword } from "@/components/AdminGate";
+import { adminAuthHeaders } from "@/components/AdminGate";
 
 const T = {
   bg:        "#050505",
@@ -170,7 +170,7 @@ export default function DailyOps({ theme, toggleTheme }: Props) {
   // Latest summary
   const { data: latest, isLoading: latestLoading } = useQuery<any>({
     queryKey: ["/api/agent/daily-ops/latest"],
-    queryFn: () => apiRequest("GET", "/api/agent/daily-ops/latest?password=" + encodeURIComponent(getAdminPassword())).then(r => r.json()),
+    queryFn: () => apiRequest("GET", "/api/agent/daily-ops/latest", undefined, adminAuthHeaders()).then(r => r.json()),
     refetchInterval: 60000,
     retry: false,
   });
@@ -178,14 +178,14 @@ export default function DailyOps({ theme, toggleTheme }: Props) {
   // History
   const { data: history = [], isLoading: historyLoading } = useQuery<any[]>({
     queryKey: ["/api/agent/daily-ops"],
-    queryFn: () => apiRequest("GET", "/api/agent/daily-ops?password=" + encodeURIComponent(getAdminPassword()) + "&limit=30").then(r => r.json()),
+    queryFn: () => apiRequest("GET", "/api/agent/daily-ops?limit=30", undefined, adminAuthHeaders()).then(r => r.json()),
     refetchInterval: 60000,
   });
 
   // Manual run
   const runMutation = useMutation({
     mutationFn: (sendEmail: boolean) =>
-      apiRequest("POST", "/api/agent/daily-ops/run", { password: getAdminPassword(), send_email: sendEmail }).then(r => r.json()),
+      apiRequest("POST", "/api/agent/daily-ops/run", { send_email: sendEmail }, adminAuthHeaders()).then(r => r.json()),
     onSuccess: (data) => {
       toast({ title: "Daily Ops Run Complete", description: `Generated for ${data.date}. Email: ${data.email_sent ? "sent" : "skipped"}.` });
       qc.invalidateQueries({ queryKey: ["/api/agent/daily-ops"] });
