@@ -4,6 +4,8 @@
  */
 
 export function canPostDiscord(): boolean {
+  // KILL SWITCH: auto-posting is opt-in. See telegram.ts — same incident.
+  if (process.env.SOCIAL_DISCORD_ENABLED !== "true") return false;
   return !!process.env.DISCORD_WEBHOOK_URL;
 }
 

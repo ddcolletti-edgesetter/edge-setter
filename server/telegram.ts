@@ -9,6 +9,10 @@
  */
 
 export function canPostTelegram(): boolean {
+  // KILL SWITCH: auto-posting is opt-in. The distribution agent was
+  // repeatedly re-posting reseeded fixture signals; do not flip this on
+  // until the dedupe store (social_posts) survives restarts.
+  if (process.env.SOCIAL_TELEGRAM_ENABLED !== "true") return false;
   return !!(process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID);
 }
 
