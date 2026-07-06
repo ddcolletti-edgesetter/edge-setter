@@ -396,7 +396,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
       const existingByFingerprint = p.signal_id
         ? null
-        : findExistingSignal({ league, team: raw.team ?? null, signal_type: signalType, since: fourHoursAgo });
+        : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: fourHoursAgo });
       const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
       const signalFirstSeenAt = existingByFingerprint?.first_seen_at ?? now();
 
@@ -493,7 +493,7 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
     const existingByFingerprint = p.signal_id
       ? null
-      : findExistingSignal({ league, team: raw.team ?? null, signal_type: signalType, since: fourHoursAgo });
+      : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: fourHoursAgo });
     const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
     const signalFirstSeenAt = existingByFingerprint?.first_seen_at ?? now();
 

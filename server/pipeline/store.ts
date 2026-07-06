@@ -2380,7 +2380,12 @@ export function findExistingSignal(opts: {
   // different games (or different days) never collapse onto the same record.
   if (opts.game_id) { conds.push("game_id=?"); params.push(opts.game_id); }
   if (opts.team) { conds.push("team=?"); params.push(opts.team); }
-  if (opts.player) { conds.push("player=?"); params.push(opts.player); }
+  if (opts.player !== undefined) {
+    // Strict identity: a player-less event must not collapse onto a
+    // player-specific row, and vice versa.
+    if (opts.player === null) conds.push("player IS NULL");
+    else { conds.push("player=?"); params.push(opts.player); }
+  }
   if (opts.signal_type) { conds.push("signal_type=?"); params.push(opts.signal_type); }
   if (opts.since) { conds.push("created_at>=?"); params.push(opts.since); }
   const row = db.prepare(
