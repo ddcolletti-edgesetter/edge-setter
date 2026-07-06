@@ -2282,16 +2282,12 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       weather_note=excluded.weather_note,
       verdict=excluded.verdict,
       confirmation_strength=excluded.confirmation_strength,
-      source_count=live_signals.source_count + excluded.source_count,
-      sources=(
-        SELECT json_group_array(value)
-        FROM (
-          SELECT value FROM json_each(live_signals.sources)
-          UNION ALL
-          SELECT value FROM json_each(excluded.sources)
-        )
-      ),
-      confidence=MIN(92.0, excluded.confidence + (3.0 * live_signals.source_count)),
+      -- Evidence merge (source dedup, corroboration bonus, raw-event
+      -- provenance) happens in processor.mergeSignalEvidence, where source
+      -- identity is resolved; the upsert just persists the computed values.
+      source_count=excluded.source_count,
+      sources=excluded.sources,
+      confidence=excluded.confidence,
       raw_event_ids=excluded.raw_event_ids,
       signal_time=excluded.signal_time,
       updated_at=excluded.updated_at

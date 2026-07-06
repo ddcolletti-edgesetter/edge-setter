@@ -349,6 +349,46 @@ function buildScoreInputs(league: League, fields: Partial<LiveSignal>, raw: RawE
   };
 }
 
+/* ─── Evidence merge ────────────────────────────────────────
+ * Combines an existing signal's evidence with the incoming event's.
+ * Sources are deduped by identity (name, falling back to id) so a
+ * re-poll of the same feed never counts as corroboration; confidence
+ * gets +3 per distinct corroborating source beyond the first, capped
+ * at 92 (never below the base evaluation itself). raw_event_ids
+ * accumulates instead of being overwritten, preserving provenance.
+ */
+function mergeSignalEvidence(
+  existing: LiveSignal | null,
+  incomingSources: Array<{ id?: string; name: string; type: string }>,
+  rawEventId: string,
+  baseConfidence: number,
+): Pick<LiveSignal, "sources" | "source_count" | "raw_event_ids" | "confidence"> {
+  const merged: LiveSignal["sources"] = [];
+  const seen = new Set<string>();
+  const add = (entry: unknown) => {
+    // Rows written before the dedup fix hold JSON strings instead of
+    // objects — parse them so identity dedup still applies.
+    let src = entry;
+    if (typeof src === "string") { try { src = JSON.parse(src); } catch { return; } }
+    const s = src as { id?: string; name?: string; type?: string };
+    const key = String(s.name ?? s.id ?? "").trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    merged.push({ ...s, name: s.name ?? s.id ?? "unknown", type: s.type ?? "unknown" });
+  };
+  for (const e of existing?.sources ?? []) add(e);
+  for (const e of incomingSources) add(e);
+
+  const raw_event_ids = existing
+    ? Array.from(new Set([...existing.raw_event_ids, rawEventId]))
+    : [rawEventId];
+  const confidence = Math.max(
+    baseConfidence,
+    Math.min(92, baseConfidence + 3 * Math.max(0, merged.length - 1)),
+  );
+  return { sources: merged, source_count: merged.length, raw_event_ids, confidence };
+}
+
 /* ─── Main process function ─────────────────────────────── */
 
 export async function processRawEvents(): Promise<{ processed: number; errors: number }> {
@@ -397,8 +437,10 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       const existingByFingerprint = p.signal_id
         ? null
         : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: fourHoursAgo });
+      const existingSignal = p.signal_id ? getLiveSignal(p.signal_id) : existingByFingerprint;
       const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
-      const signalFirstSeenAt = existingByFingerprint?.first_seen_at ?? now();
+      const signalFirstSeenAt = existingSignal?.first_seen_at ?? now();
+      const evidence = mergeSignalEvidence(existingSignal, sources, raw.id, fields.confidence ?? 60);
 
       // Merge into LiveSignal
       const signal: LiveSignal = {
@@ -413,10 +455,10 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         team: raw.team,
         player: raw.player,
         matchup: p.matchup ?? null,
-        sources,
-        source_count: sources.length,
+        sources: evidence.sources,
+        source_count: evidence.source_count,
         verdict: (fields.verdict ?? "review") as any,
-        confidence: fields.confidence ?? 60,
+        confidence: evidence.confidence,
         confirmation_strength: fields.confirmation_strength ?? "Developing",
         line_movement: fields.line_movement ?? null,
         injury_designation: fields.injury_designation ?? null,
@@ -432,7 +474,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         trust_label: scoreResult.trustLabel,
         score_explanation: scoreResult.scoreExplanation,
         breakdown: scoreResult.breakdown,
-        raw_event_ids: [raw.id],
+        raw_event_ids: evidence.raw_event_ids,
         signal_time: raw.received_at,
         first_seen_at: signalFirstSeenAt,
         created_at: now(),
@@ -494,8 +536,10 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
     const existingByFingerprint = p.signal_id
       ? null
       : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: fourHoursAgo });
+    const existingSignal = p.signal_id ? getLiveSignal(p.signal_id) : existingByFingerprint;
     const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
-    const signalFirstSeenAt = existingByFingerprint?.first_seen_at ?? now();
+    const signalFirstSeenAt = existingSignal?.first_seen_at ?? now();
+    const evidence = mergeSignalEvidence(existingSignal, sources, raw.id, fields.confidence ?? 60);
 
     const signal: LiveSignal = {
       id: signalId,
@@ -509,10 +553,10 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
       team: raw.team,
       player: raw.player,
       matchup: p.matchup ?? null,
-      sources,
-      source_count: sources.length,
+      sources: evidence.sources,
+      source_count: evidence.source_count,
       verdict: (fields.verdict ?? "review") as any,
-      confidence: fields.confidence ?? 60,
+      confidence: evidence.confidence,
       confirmation_strength: fields.confirmation_strength ?? "Developing",
       line_movement: fields.line_movement ?? null,
       injury_designation: fields.injury_designation ?? null,
@@ -527,7 +571,7 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
       trust_label: scoreResult.trustLabel,
       score_explanation: scoreResult.scoreExplanation,
       breakdown: scoreResult.breakdown,
-      raw_event_ids: [raw.id],
+      raw_event_ids: evidence.raw_event_ids,
       signal_time: raw.received_at,
       first_seen_at: signalFirstSeenAt,
       created_at: now(),
