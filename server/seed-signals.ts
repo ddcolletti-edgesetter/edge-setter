@@ -1,8 +1,27 @@
 /**
  * Seed draft-week signals for the 2026 NFL Draft (Apr 24–26).
  * Wipes old generic signals and seeds fresh, timely draft-week content.
+ *
+ * SAFETY (July 2026 incident): these are FABRICATED entries about real,
+ * named players. They exist only as dev/demo scaffolding and must never
+ * reach public surfaces or distribution channels as confirmed intel.
+ * Every insert below is forced through sanitizeSeed(), which strips
+ * confirmed/verified status, caps confidence below 50, and marks the row
+ * private and unfeatured — regardless of what the entry declares.
  */
 import { storage } from "./storage";
+
+/** Hard floor for seed data: never public, never confirmed, never high-confidence. */
+function sanitizeSeed<T extends { confidence_score: number }>(s: T) {
+  return {
+    ...s,
+    verdict: "pending",
+    status_tag: "speculative" as const,
+    confidence_score: Math.min(s.confidence_score, 49),
+    is_public: false,
+    is_featured: false,
+  };
+}
 
 export async function seedSignals() {
   if (storage.signalExists()) return;
@@ -330,7 +349,7 @@ export async function seedSignals() {
 
   for (const s of signals) {
     try {
-      storage.createSignal(s);
+      storage.createSignal(sanitizeSeed(s));
     } catch (e) {
       // already exists
     }
@@ -409,5 +428,5 @@ export async function seedSignals() {
     } catch (e) {}
   }
 
-  console.log("[seed] 17 draft-week signals seeded (incl. 2 PFF analytics, 2 Landry scouting, 2 Phil Steele college signals)");
+  console.log("[seed] 17 draft-week signals seeded (sanitized: pending/private/confidence<50 — dev scaffolding only)");
 }
