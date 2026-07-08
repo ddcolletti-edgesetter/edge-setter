@@ -2846,6 +2846,7 @@ app.get("/api/replay-intelligence/forensics/timelines/:timelineHash/reducers", (
 });
 
 app.get("/api/replay-intelligence/exports", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
   try {
     const exports = buildReplayIntelligenceHistoricalExports();
     const payload = {
@@ -2865,6 +2866,7 @@ app.get("/api/replay-intelligence/exports", (req: Request, res: Response) => {
 });
 
 app.get("/api/replay-intelligence/exports/summary", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
   try {
     const summary = buildReplayIntelligenceHistoricalExportSummary();
 
@@ -2879,6 +2881,7 @@ app.get("/api/replay-intelligence/exports/summary", (req: Request, res: Response
 });
 
 app.get("/api/replay-intelligence/exports/:exportHash", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
   try {
     const exportHash = routeParam(req.params.exportHash);
     const bundle = exportHash
@@ -2903,6 +2906,7 @@ app.get("/api/replay-intelligence/exports/:exportHash", (req: Request, res: Resp
 });
 
 app.get("/api/replay-intelligence/exports/:exportHash/download", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
   try {
     const exportHash = routeParam(req.params.exportHash);
     const bundle = exportHash
@@ -2932,6 +2936,7 @@ app.get("/api/replay-intelligence/exports/:exportHash/download", (req: Request, 
 });
 
 app.get("/api/replay-intelligence/exports/:exportHash/manifest", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
   try {
     const exportHash = routeParam(req.params.exportHash);
     const manifest = exportHash
@@ -2956,6 +2961,7 @@ app.get("/api/replay-intelligence/exports/:exportHash/manifest", (req: Request, 
 });
 
 app.get("/api/replay-intelligence/exports/:exportHash/lineage", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
   try {
     const exportHash = routeParam(req.params.exportHash);
     const lineage = exportHash
@@ -2980,6 +2986,7 @@ app.get("/api/replay-intelligence/exports/:exportHash/lineage", (req: Request, r
 });
 
 app.get("/api/replay-intelligence/exports/:exportHash/verification", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
   try {
     const exportHash = routeParam(req.params.exportHash);
     const verification = exportHash
