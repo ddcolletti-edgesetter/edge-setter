@@ -363,9 +363,10 @@ export async function runDistributionDraft(
   } else {
     const windowCutoff = new Date(Date.now() - DISTRIBUTION_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 
-    // Legacy curated signals (signals table) — only recent ones
+    // Legacy curated signals (signals table) — only recent ones.
+    // NULL published_at means "never published": excluded, not always-in-window.
     const legacySignals = ((storage as any).getSignals(true) as Record<string, any>[])
-      .filter((s: Record<string, any>) => !s.published_at || s.published_at >= windowCutoff)
+      .filter((s: Record<string, any>) => s.published_at && s.published_at >= windowCutoff)
       .slice(0, 50);
 
     // Pipeline live signals (live_signals table) — age-gated, archived signals excluded
