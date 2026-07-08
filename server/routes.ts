@@ -805,6 +805,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   app.post("/api/alerts/:id/send", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const alert = storage.markAlertSent(req.params.id);
     if (!alert) return res.status(404).json({ error: "Not found" });
     return res.json({ success: true, alert });
@@ -812,6 +813,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ─── Agent Pipeline (manual trigger for demo) ─────────────────────────────────
   app.post("/api/pipeline/run", async (req, res) => {
+    if (!requireAdmin(req, res)) return;
     try {
       const { source_id, raw_text, player, team, league, topic } = req.body;
       if (!source_id || !raw_text) {
@@ -832,6 +834,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ─── Agent Logs ───────────────────────────────────────────────────────────────
   app.get("/api/logs", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const limit = parseInt((req.query.limit as string) ?? "50");
     const logs = storage.getAgentLogs(limit);
     res.json(logs);
@@ -892,7 +895,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
       fantasy_relevance: row.fantasy_relevance === 1,
     })));
   });
-  app.get("/api/signals/all", (_req, res) => {
+  app.get("/api/signals/all", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     res.json(storage.getSignals(false));
   });
   app.get("/api/signals/:id", (req, res) => {
@@ -904,6 +908,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     res.json(storage.getSourceNotes(req.params.id));
   });
   app.post("/api/signals", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     try {
       const data = insertSignalSchema.parse(req.body);
       return res.json(storage.createSignal(data));
@@ -912,6 +917,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
   app.patch("/api/signals/:id", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const sig = storage.updateSignal(req.params.id, req.body);
     if (!sig) return res.status(404).json({ error: "Not found" });
     return res.json(sig);

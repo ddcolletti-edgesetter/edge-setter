@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { adminAuthHeaders } from "@/components/AdminGate";
 import AppLayout from "../components/AppLayout";
 import { type Theme } from "../App";
 import { FileText } from "lucide-react";
@@ -20,7 +21,7 @@ const agentColors: Record<string, string> = {
 export default function AgentLogs({ theme, toggleTheme }: Props) {
   const { data: logs, isLoading } = useQuery({
     queryKey: ["/api/logs"],
-    queryFn: () => apiRequest("GET", "/api/logs?limit=100").then(r => r.json()),
+    queryFn: () => apiRequest("GET", "/api/logs?limit=100", undefined, adminAuthHeaders()).then(r => r.json()),
     refetchInterval: 15000,
   });
 

@@ -38,7 +38,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function SignalRow({ signal, onEdit }: { signal: Signal; onEdit: (s: Signal) => void }) {
   const qc = useQueryClient();
   const toggleMutation = useMutation({
-    mutationFn: (data: Partial<Signal>) => apiRequest("PATCH", `/api/signals/${signal.id}`, data).then(r => r.json()),
+    mutationFn: (data: Partial<Signal>) => apiRequest("PATCH", `/api/signals/${signal.id}`, data, adminAuthHeaders()).then(r => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/signals/all"] }),
   });
 
@@ -90,7 +90,7 @@ function EditSignalModal({ signal, onClose }: { signal: Signal; onClose: () => v
   });
 
   const mutation = useMutation({
-    mutationFn: (data: Partial<Signal>) => apiRequest("PATCH", `/api/signals/${signal.id}`, data).then(r => r.json()),
+    mutationFn: (data: Partial<Signal>) => apiRequest("PATCH", `/api/signals/${signal.id}`, data, adminAuthHeaders()).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/signals/all"] }); onClose(); },
   });
 
@@ -185,7 +185,7 @@ function CreateSignalForm() {
   });
 
   const mutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/signals", data).then(r => r.json()),
+    mutationFn: (data: any) => apiRequest("POST", "/api/signals", data, adminAuthHeaders()).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/signals/all"] });
       setForm(f => ({ ...f, title: "", player_name: "", team: "", summary: "", action_takeaway: "" }));
@@ -282,7 +282,7 @@ export default function SignalAdmin() {
 
   const { data: signals = [] } = useQuery<Signal[]>({
     queryKey: ["/api/signals/all"],
-    queryFn: () => apiRequest("GET", "/api/signals/all").then(r => r.json()),
+    queryFn: () => apiRequest("GET", "/api/signals/all", undefined, adminAuthHeaders()).then(r => r.json()),
     enabled: authed,
   });
   const { data: waitlist = [] } = useQuery<Waitlist[]>({

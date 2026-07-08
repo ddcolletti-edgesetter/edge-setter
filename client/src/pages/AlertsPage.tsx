@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { adminAuthHeaders } from "@/components/AdminGate";
 import AppLayout from "../components/AppLayout";
 import { type Theme } from "../App";
 import { Zap, CheckCircle, Clock } from "lucide-react";
@@ -19,7 +20,7 @@ export default function AlertsPage({ theme, toggleTheme }: Props) {
 
   const sendMutation = useMutation({
     mutationFn: (id: string) =>
-      apiRequest("POST", `/api/alerts/${id}/send`).then(r => r.json()),
+      apiRequest("POST", `/api/alerts/${id}/send`, undefined, adminAuthHeaders()).then(r => r.json()),
     onSuccess: () => {
       toast({ title: "Alert sent", description: "Alert marked as sent." });
       qc.invalidateQueries({ queryKey: ["/api/alerts"] });
