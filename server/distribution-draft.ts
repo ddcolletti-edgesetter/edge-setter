@@ -359,7 +359,15 @@ export async function runDistributionDraft(
   let signals: Record<string, any>[];
   if (options.signalId) {
     const s = (storage as any).getSignal(options.signalId);
-    signals = s ? [s] : [];
+    // NULL published_at means never published — manual runs skip it unless
+    // force=true (regenerate always forces; age bypass stays intentional).
+    if (s && !s.published_at && !options.force) {
+      logLines.push(`[Fetch] Signal ${options.signalId} has no published_at (never published) — skipped; use force=true to override`);
+      agentLog("Fetch", runId, runId, `Signal ${options.signalId} skipped: never published (no published_at) and force not set`);
+      signals = [];
+    } else {
+      signals = s ? [s] : [];
+    }
   } else {
     const windowCutoff = new Date(Date.now() - DISTRIBUTION_WINDOW_HOURS * 60 * 60 * 1000).toISOString();
 
