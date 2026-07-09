@@ -14,7 +14,7 @@ export default function AlertsPage({ theme, toggleTheme }: Props) {
 
   const { data: alerts, isLoading } = useQuery({
     queryKey: ["/api/alerts"],
-    queryFn: () => apiRequest("GET", "/api/alerts").then(r => r.json()),
+    queryFn: () => apiRequest("GET", "/api/alerts", undefined, adminAuthHeaders()).then(r => r.json()),
     refetchInterval: 30000,
   });
 
