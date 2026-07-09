@@ -298,7 +298,13 @@ function mapLiveSignalToFrontend(s: LiveSignal) {
 export function registerRoutes(httpServer: Server, app: Express) {
   // ─── Seed demo data on startup (non-blocking) ─────────────────────────────────
   seedDemoData().catch(e => console.error("Seed error:", e));
-  seedSignals().catch(e => console.error("Signal seed error:", e));
+  // Signal seed only runs when SEED_ON_BOOT is explicitly set (default off, incl. production).
+  // An emptied signals table must not silently refill with fabricated seed content on restart.
+  if (process.env.SEED_ON_BOOT === "true") {
+    seedSignals().catch(e => console.error("Signal seed error:", e));
+  } else {
+    console.log("[seed] SEED_ON_BOOT not set — skipping signal seed on boot");
+  }
 
   // Hydrate SQLite from Supabase on startup (non-blocking)
   // This ensures sandbox restarts pick up any signals/notes created via Supabase dashboard
