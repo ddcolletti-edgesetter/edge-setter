@@ -296,14 +296,15 @@ function mapLiveSignalToFrontend(s: LiveSignal) {
 }
 
 export function registerRoutes(httpServer: Server, app: Express) {
-  // ─── Seed demo data on startup (non-blocking) ─────────────────────────────────
-  seedDemoData().catch(e => console.error("Seed error:", e));
-  // Signal seed only runs when SEED_ON_BOOT is explicitly set (default off, incl. production).
-  // An emptied signals table must not silently refill with fabricated seed content on restart.
+  // ─── On-boot seeds ────────────────────────────────────────────────────────────
+  // Both run only when SEED_ON_BOOT is explicitly set (default off, incl. production).
+  // Neither seed dedupes on re-run, so restarts would otherwise stack fabricated demo
+  // content (events/claims/verdicts/alerts) and refill an emptied signals table.
   if (process.env.SEED_ON_BOOT === "true") {
+    seedDemoData().catch(e => console.error("Seed error:", e));
     seedSignals().catch(e => console.error("Signal seed error:", e));
   } else {
-    console.log("[seed] SEED_ON_BOOT not set — skipping signal seed on boot");
+    console.log("[seed] SEED_ON_BOOT not set — skipping demo + signal seed on boot");
   }
 
   // Hydrate SQLite from Supabase on startup (non-blocking)
