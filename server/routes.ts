@@ -806,7 +806,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── Alerts ──────────────────────────────────────────────────────────────────
-  app.get("/api/alerts", (_req, res) => {
+  app.get("/api/alerts", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const alertList = storage.getAlerts();
     res.json(alertList);
   });
@@ -872,13 +873,15 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── Events ──────────────────────────────────────────────────────────────────
-  app.get("/api/events", (_req, res) => {
+  app.get("/api/events", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const evts = storage.getEvents();
     res.json(evts);
   });
 
   // ─── Verdicts ─────────────────────────────────────────────────────────────────
-  app.get("/api/verdicts", (_req, res) => {
+  app.get("/api/verdicts", (req, res) => {
+    if (!requireAdmin(req, res)) return;
     const vdicts = storage.getVerdicts();
     res.json(vdicts);
   });
