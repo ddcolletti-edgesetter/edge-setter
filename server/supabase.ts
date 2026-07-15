@@ -22,3 +22,19 @@ export function getSupabase(): SupabaseClient | null {
 }
 
 export const supabaseEnabled = !!SUPABASE_URL && !!(SUPABASE_SERVICE_KEY || SUPABASE_ANON_KEY);
+
+/**
+ * Diagnostic snapshot of what this module captured at import time, vs. what the
+ * environment holds now. A disagreement means the module was imported before the
+ * env was populated, which is indistinguishable from "unset in Render" otherwise.
+ */
+export function supabaseEnvDiagnostics() {
+  const keyLen = (v: string | undefined) => (v ? `set(${v.length} chars)` : "MISSING");
+  return {
+    url_at_import: JSON.stringify(SUPABASE_URL),
+    url_now: JSON.stringify(process.env.SUPABASE_URL),
+    service_key_now: keyLen(process.env.SUPABASE_SERVICE_KEY),
+    anon_key_now: keyLen(process.env.SUPABASE_ANON_KEY),
+    key_in_use: SUPABASE_SERVICE_KEY ? "service" : SUPABASE_ANON_KEY ? "anon" : "none",
+  };
+}

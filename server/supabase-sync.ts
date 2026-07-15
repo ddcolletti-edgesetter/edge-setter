@@ -14,7 +14,7 @@
  * Never await it in request handlers — fire and forget.
  */
 
-import { getSupabase } from "./supabase";
+import { getSupabase, supabaseEnvDiagnostics } from "./supabase";
 
 export async function syncToSupabase(
   table: "waitlist" | "users" | "signals" | "source_notes" | "event_log",
@@ -45,16 +45,20 @@ export async function syncToSupabase(
  */
 export async function pullSignalsFromSupabase(): Promise<any[]> {
   const sb = getSupabase();
+  console.error("[supabase] pull signals env:", JSON.stringify(supabaseEnvDiagnostics()), "| client:", sb ? "created" : "NULL — pull skipped, 0 rows hydrated");
   if (!sb) return [];
   const { data, error } = await sb.from("signals").select("*").order("is_featured", { ascending: false }).order("confidence_score", { ascending: false });
   if (error) { console.error("[supabase] pull signals error:", error.message); return []; }
+  console.error(`[supabase] pull signals returned ${data?.length ?? 0} rows`);
   return data ?? [];
 }
 
 export async function pullSourceNotesFromSupabase(): Promise<any[]> {
   const sb = getSupabase();
+  console.error("[supabase] pull source_notes — client:", sb ? "created" : "NULL — pull skipped, 0 rows hydrated");
   if (!sb) return [];
   const { data, error } = await sb.from("source_notes").select("*");
-  if (error) return [];
+  if (error) { console.error("[supabase] pull source_notes error:", error.message); return []; }
+  console.error(`[supabase] pull source_notes returned ${data?.length ?? 0} rows`);
   return data ?? [];
 }
