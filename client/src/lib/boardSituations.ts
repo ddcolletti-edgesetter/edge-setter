@@ -8,6 +8,7 @@ import {
   type SituationLane,
 } from "./boardEscalation";
 import { getLeagueBoardProfile } from "./leagueBoardProfiles";
+import { ageHoursFrom } from "./storyAge";
 import type { Sport } from "./leagueModifiers";
 import { hasValidPublicSignalIdentity } from "./publicDisplayHygiene";
 import {
@@ -278,33 +279,79 @@ export function compareLeadRank(
   return bFirstDetectedMs - aFirstDetectedMs;
 }
 
-function firstDetectedMs(situation: BoardSituation): number {
+/**
+ * Board "top developing story" staleness cap. Tighter than the homepage's
+ * LEAD_MAX_AGE_HOURS (7 days) because a board lead implies active development,
+ * not a settled story. Situations older than this can't be featured.
+ */
+export const FEATURED_MAX_AGE_HOURS = 48;
+
+/** Raw first-detected ISO timestamp for a situation, or null if none is carried. */
+function firstDetectedIso(situation: BoardSituation): string | null {
   if (situation.kind === "canonical" && situation.canonicalSituation) {
     const raw = (situation.canonicalSituation as { firstSeenAt?: string | null }).firstSeenAt;
-    if (raw) {
-      const ms = new Date(raw).getTime();
-      if (Number.isFinite(ms)) return ms;
-    }
+    if (raw) return raw;
   }
   if (situation.kind === "signal" && situation.signal) {
     const sig = situation.signal as { signal_time?: string | null; created_at?: string | null; isoTimestamp?: string | null };
-    const raw = sig.signal_time ?? sig.created_at ?? sig.isoTimestamp;
-    if (raw) {
-      const ms = new Date(raw).getTime();
-      if (Number.isFinite(ms)) return ms;
-    }
+    return sig.signal_time ?? sig.created_at ?? sig.isoTimestamp ?? null;
+  }
+  return null;
+}
+
+function firstDetectedMs(situation: BoardSituation): number {
+  const iso = firstDetectedIso(situation);
+  if (iso) {
+    const ms = new Date(iso).getTime();
+    if (Number.isFinite(ms)) return ms;
   }
   return 0;
 }
 
-export function selectFeaturedSituation(situations: BoardSituation[]): BoardSituation | null {
-  const candidates = situations.filter(
+/**
+ * Age in hours, or null when the situation carries no parseable timestamp.
+ * Null means "unknown age": callers keep the situation rather than filtering it,
+ * so board pages fed by signal feeds that only carry relative time labels
+ * (e.g. "12m ago") are never wrongly demoted to the quiet state.
+ * Reuses ageHoursFrom from the shared storyAge leaf so both surfaces agree.
+ */
+function featuredAgeHours(situation: BoardSituation, referenceTime: number): number | null {
+  const iso = firstDetectedIso(situation);
+  if (!iso) return null;
+  const hours = ageHoursFrom(iso, referenceTime);
+  return Number.isFinite(hours) ? hours : null;
+}
+
+export function selectFeaturedSituation(
+  situations: BoardSituation[],
+  referenceTime: number = Date.now(),
+): BoardSituation | null {
+  // Age gate: drop situations we can prove are older than the board cap. Unknown-age
+  // situations are kept (see featuredAgeHours). If nothing survives, callers fall back
+  // to the quiet-board empty state via featuredCopy(null, league).
+  const withinAge = situations.filter((s) => {
+    const age = featuredAgeHours(s, referenceTime);
+    return age === null || age <= FEATURED_MAX_AGE_HOURS;
+  });
+
+  const candidates = withinAge.filter(
     s => s.lane !== "background" && !FEATURED_BLOCKED_SIGNAL_TYPES.has(s.signalType ?? "")
   );
-  const pool = candidates.length > 0
+  const nonBackground = candidates.length > 0
     ? candidates
-    : situations.filter(s => s.lane !== "background");
-  const ranked = [...(pool.length > 0 ? pool : situations)].sort((a, b) =>
+    : withinAge.filter(s => s.lane !== "background");
+  const base = nonBackground.length > 0 ? nonBackground : withinAge;
+  if (base.length === 0) return null;
+
+  // Fresh-pool preference (mirrors selectHomepageLead): once anything under 24h old is
+  // available, older-but-within-cap situations can't lead the board.
+  const freshPool = base.filter((s) => {
+    const age = featuredAgeHours(s, referenceTime);
+    return age !== null && age <= 24;
+  });
+  const pool = freshPool.length > 0 ? freshPool : base;
+
+  const ranked = [...pool].sort((a, b) =>
     compareLeadRank(a.confidence, firstDetectedMs(a), b.confidence, firstDetectedMs(b))
   );
   return ranked[0] ?? null;

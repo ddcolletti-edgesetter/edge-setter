@@ -317,10 +317,7 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
 
   const signal = situation.signal as AnyBoardSignal | undefined;
   const canonical = situation.canonicalSituation as CanonicalSituation | undefined;
-  if (league === "NFL") {
-    return nflFeaturedCopy(situation, signal, canonical);
-  }
-  const editorialCopy = league === "MLB" || league === "NBA" || league === "CFB";
+  const editorialCopy = league === "MLB" || league === "NBA" || league === "CFB" || league === "NFL";
   const confidenceDelta = canonical?.confidenceHistoryPreview?.[0]?.delta;
   const confidenceDeltaMetric = typeof confidenceDelta === "number" && confidenceDelta !== 0
     ? { label: "Confidence move", value: `${confidenceDelta > 0 ? "+" : ""}${Math.round(confidenceDelta)}`, tone: confidenceDelta > 0 ? "positive" : "warning" }
@@ -339,42 +336,6 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
       { label: "Timing", value: editorialCopy ? publicTimingLabel(situation.timingAdvantage, situation.league) : timingMetricLabel(situation.timingAdvantage), tone: situation.isActionable ? "positive" : "warning" },
     ].filter(Boolean) as SituationMetric[],
   };
-}
-
-function nflFeaturedCopy(situation: BoardSituation, signal?: AnyBoardSignal, canonical?: CanonicalSituation) {
-  const identity = fanIdentityLabel(situation, canonical);
-  const change = nflChangeLabel(situation, signal);
-  const source = canonical ? evidenceCountText(canonical.evidenceCount) : sourceCountText(situation.sourceCount);
-  const offseason = "Offseason context: this stays in monitoring unless it connects to practice role, depth chart, or a real game-week window.";
-  return {
-    title: `${identity} ${change} could shift NFL depth-chart context`,
-    summary: `${changeSentence(change, identity)} ${offseason}`,
-    primaryRead: `${changeSentence(change, identity)} Source support is ${source.toLowerCase()}, so the board is watching what changed before attaching game-week impact.`,
-    secondaryRead: `Why it matters: role, depth chart, practice availability, and team preparation can shift. Watch next: official updates, local reports, participation notes, and whether a real game-week context appears.`,
-    metrics: [
-      { label: "Story priority", value: publicUrgencyLabel(situation.score), tone: situation.score >= 82 ? "danger" : situation.score >= 65 ? "warning" : "default" },
-      { label: "Confidence", value: publicConfidenceLabel(`${Math.round(situation.confidence)}%`), tone: situation.confidence >= 80 ? "positive" : "default" },
-      { label: "Offseason", value: "Context only", tone: "default" },
-      { label: "Watch next", value: "Official/source update", tone: "default" },
-    ] as SituationMetric[],
-  };
-}
-
-function nflChangeLabel(situation: BoardSituation, signal?: AnyBoardSignal) {
-  const text = `${situation.title} ${situation.detail ?? ""} ${signal?.injuryDesignation ?? ""} ${situation.signalType ?? ""}`.toLowerCase();
-  if (text.includes("injury") || text.includes("out") || text.includes("questionable") || text.includes("practice")) return "availability update";
-  if (text.includes("depth") || text.includes("role")) return "role update";
-  if (text.includes("roster") || text.includes("transaction")) return "roster update";
-  if (text.includes("market") || text.includes("line move")) return "context movement";
-  return "story update";
-}
-
-function changeSentence(change: string, identity: string) {
-  if (change === "availability update") return `${identity} has an availability change under review.`;
-  if (change === "role update") return `${identity} has a role or depth-chart change under review.`;
-  if (change === "roster update") return `${identity} has a roster change under review.`;
-  if (change === "context movement") return `${identity} has context movement under review.`;
-  return `${identity} has a story update under review.`;
 }
 
 export function situationMatchesPriority(situation: BoardSituation, urgencyFilter: string) {

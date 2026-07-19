@@ -6,7 +6,7 @@ import {
   ageHoursFrom,
 } from "../leadRanker";
 import type { CanonicalSituationRecord, VerificationState } from "../../types/situation";
-import type { BoardSituation } from "../boardSituations";
+import { FEATURED_MAX_AGE_HOURS, type BoardSituation } from "../boardSituations";
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -495,5 +495,73 @@ describe("selectFeaturedSituation", () => {
     const normal = makeBoardSituation({ id: "normal", signalType: "injury_update", lane: "escalating", confidence: 50 });
     const result = selectFeaturedSituation([blocked, normal]);
     expect(result?.id).toBe("normal");
+  });
+
+  // ── age / staleness gate (FEATURED_MAX_AGE_HOURS) ──────────────────────────
+
+  it("FEATURED_MAX_AGE_HOURS is 48h and tighter than the homepage cap", () => {
+    expect(FEATURED_MAX_AGE_HOURS).toBe(48);
+    expect(FEATURED_MAX_AGE_HOURS).toBeLessThan(LEAD_MAX_AGE_HOURS);
+  });
+
+  it("does NOT feature an 8-day-old high-confidence situation (falls back to quiet state)", () => {
+    const stale = makeBoardSituation({
+      id: "stale",
+      lane: "escalating",
+      confidence: 95,
+      canonicalSituation: { firstSeenAt: hoursAgo(8 * 24) },
+    });
+    // Only candidate is stale → nothing survives the age gate → null → board shows
+    // the quiet "no verified breaks yet" fallback via featuredCopy(null, league).
+    expect(selectFeaturedSituation([stale], REF)).toBeNull();
+  });
+
+  it("prefers a fresh low-confidence situation over a stale high-confidence one", () => {
+    const stale = makeBoardSituation({
+      id: "stale",
+      lane: "escalating",
+      confidence: 95,
+      canonicalSituation: { firstSeenAt: hoursAgo(8 * 24) },
+    });
+    const fresh = makeBoardSituation({
+      id: "fresh",
+      lane: "escalating",
+      confidence: 60,
+      canonicalSituation: { firstSeenAt: hoursAgo(2) },
+    });
+    expect(selectFeaturedSituation([stale, fresh], REF)?.id).toBe("fresh");
+  });
+
+  it("prefers an under-24h situation over an older-but-within-cap higher-confidence one", () => {
+    const olderStrong = makeBoardSituation({
+      id: "older",
+      lane: "escalating",
+      confidence: 90,
+      canonicalSituation: { firstSeenAt: hoursAgo(30) }, // within 48h cap, but not fresh
+    });
+    const freshWeak = makeBoardSituation({
+      id: "fresh",
+      lane: "escalating",
+      confidence: 55,
+      canonicalSituation: { firstSeenAt: hoursAgo(3) }, // under 24h → wins via fresh-pool
+    });
+    expect(selectFeaturedSituation([olderStrong, freshWeak], REF)?.id).toBe("fresh");
+  });
+
+  it("still features a within-cap situation (47h old) when no fresher option exists", () => {
+    const nearCap = makeBoardSituation({
+      id: "near",
+      lane: "escalating",
+      confidence: 80,
+      canonicalSituation: { firstSeenAt: hoursAgo(47) },
+    });
+    expect(selectFeaturedSituation([nearCap], REF)?.id).toBe("near");
+  });
+
+  it("keeps unknown-age situations (relative-label signal feeds have no ISO timestamp)", () => {
+    // No canonicalSituation/signal timestamp → featuredAgeHours returns null → kept.
+    // Guards against the age gate wrongly nuking signal-fed boards.
+    const noTs = makeBoardSituation({ id: "no-ts", lane: "escalating", confidence: 70 });
+    expect(selectFeaturedSituation([noTs], REF)?.id).toBe("no-ts");
   });
 });

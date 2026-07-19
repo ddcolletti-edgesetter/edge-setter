@@ -14,22 +14,18 @@
 import type { CanonicalSituationRecord } from "../types/situation";
 import { isLeadEligible } from "./storyTypeTiers";
 import { gameProximityScore } from "./gameProximityScore";
+import { ageHoursFrom } from "./storyAge";
 
 export { selectFeaturedSituation } from "./boardSituations";
 
 /** Hard cap: situations older than this never lead the homepage. */
 export const LEAD_MAX_AGE_HOURS = 7 * 24;
 
-/**
- * Age in hours from an ISO timestamp to `referenceTime`.
- * Returns Infinity for invalid or missing timestamps.
- * Injectable referenceTime enables deterministic testing.
- */
-export function ageHoursFrom(iso: string, referenceTime: number = Date.now()): number {
-  const ms = new Date(iso).getTime();
-  if (!Number.isFinite(ms)) return Number.POSITIVE_INFINITY;
-  return (referenceTime - ms) / 3_600_000;
-}
+// ageHoursFrom lives in the storyAge leaf module so boardSituations can share it
+// without importing back from here (this module re-exports selectFeaturedSituation
+// from boardSituations, so the reverse import would be a cycle). Re-exported to
+// keep leadRanker the single import site for ranking callers.
+export { ageHoursFrom } from "./storyAge";
 
 /**
  * Selects the homepage lead from a pool of canonical situation records.
