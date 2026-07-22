@@ -1,0 +1,14 @@
+# Code owners for Edge Setter.
+#
+# Changes to the situation-matching threshold logic, its regression test, and the
+# guard workflow require review from a code owner (enforced via branch protection
+# on `main`: "Require review from Code Owners").
+#
+# NOTE: adjust the @owner below if this account is not the reviewer you want
+# gating these paths. A solo owner cannot approve their own PRs, so if you are the
+# only account, "Require review from Code Owners" will block your own PRs until a
+# second reviewer exists — either add a co-owner here or drop that protection rule.
+
+/server/pipeline/situations-matching.ts                             @ddcolletti-edgesetter
+/server/pipeline/__tests__/situations-matching-threshold.test.ts    @ddcolletti-edgesetter
+/.github/workflows/situations-matching-guard.yml                    @ddcolletti-edgesetter

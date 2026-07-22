@@ -1,0 +1,35 @@
+name: situations-matching-guard
+
+# Guards against relaxing the situation-match threshold (the flat 0.62 cutoff).
+# A proposed 0.45 threshold was measured to false-merge cross-player (0.500) and
+# cross-team (0.480) situations, and was rejected. This job runs the regression
+# fixtures on every PR so the cutoff can't be lowered again without a red check.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Situation-match threshold regression
+        run: npx vitest run server/pipeline/__tests__/situations-matching-threshold.test.ts
