@@ -1,0 +1,44 @@
+name: guard-integrity-check
+
+# Tripwire for the situations-matching guard.
+#
+# situations-matching-guard.yml is the only thing stopping the situation-match
+# threshold from being silently loosened a 4th time. This job pins that
+# workflow's contents to a recorded SHA-256 (.github/guard-integrity.sha256) so
+# any edit to the guard shows up as a deliberate, reviewable change: touching
+# the guard without also updating the hash file in the same commit turns this
+# check red.
+#
+# The hash file also pins THIS workflow, so the tripwire can't be quietly
+# gutted or disabled without the same red check.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify situations-matching guard is unchanged
+        run: |
+          if ! sha256sum -c .github/guard-integrity.sha256; then
+            echo "::error::A pinned guard workflow no longer matches .github/guard-integrity.sha256."
+            echo "A guard workflow (situations-matching-guard.yml or guard-integrity-check.yml)"
+            echo "was modified without updating its recorded hash. See the FAILED line above."
+            echo ""
+            echo "If this change was INTENTIONAL, regenerate the hash file in the SAME commit:"
+            echo "  sha256sum .github/workflows/situations-matching-guard.yml .github/workflows/guard-integrity-check.yml > .github/guard-integrity.sha256"
+            echo ""
+            echo "If you did NOT mean to touch a guard workflow, revert your change to it."
+            exit 1
+          fi
