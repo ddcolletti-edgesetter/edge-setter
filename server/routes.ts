@@ -1036,8 +1036,12 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const stripe = getStripe();
       if (STRIPE_WEBHOOK_SECRET && sig) {
         // Verified: signature matches — production path
-        // express.raw() gives us a Buffer here when Content-Type is application/json
-        event = stripe.webhooks.constructEvent(req.body, sig, STRIPE_WEBHOOK_SECRET);
+        // The global express.json() in index.ts consumes the body before the
+        // route-level express.raw() runs, so req.body is a parsed object here.
+        // Signature verification needs the exact raw bytes, which express.json's
+        // verify hook stashed on req.rawBody.
+        const rawPayload = Buffer.isBuffer(req.rawBody) ? req.rawBody : req.body;
+        event = stripe.webhooks.constructEvent(rawPayload, sig, STRIPE_WEBHOOK_SECRET);
       } else if (!STRIPE_WEBHOOK_SECRET) {
         // No secret configured: allow unsigned (test/local only)
         // req.body may already be parsed by express.json() global middleware
