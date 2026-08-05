@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { RefreshCw } from "lucide-react";
 
@@ -28,12 +28,29 @@ import {
   isSourceNoise,
   situationMatchesPriority,
   sortModeFromPriority,
+  toLiveGamePillData,
   toSituationRowData,
   toSituationStoryCardData,
 } from "../components/board/boardAdapters";
 import type { LiveGamePillData } from "../components/board/LiveGamePill";
 import { SituationStoryCard } from "../components/board/SituationStoryCard";
 import type { SituationLaneType } from "../components/board/SituationRow";
+import { fetchWithTimeout } from "../lib/fetchWithTimeout";
+import { publicGamesForLeague } from "../lib/publicDisplayHygiene";
+
+type CFBLiveGame = {
+  id: number | string;
+  sport: "cfb";
+  espnEventId: string;
+  homeTeam: string | null;
+  awayTeam: string | null;
+  gameDate: Date | null;
+  statusDescription: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  cachedAt: Date;
+  signals?: number;
+};
 
 const CFB_FILTERS = [
   { key: "SIGNAL STREAM", label: "Signal Stream" },
@@ -75,6 +92,36 @@ function CFBBoardInner() {
   const [actionableOnly, setActionableOnly] = useState(false);
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
   const [selectedSig, setSelectedSig] = useState<SignalDetailLike | null>(null);
+  const [liveGames, setLiveGames] = useState<CFBLiveGame[]>([]);
+
+  useEffect(() => {
+    fetchWithTimeout("/api/v2/games?league=CFB", {}, 4500)
+      .then((response) => response.json())
+      .then((payload) => {
+        const statusLabel: Record<string, string> = {
+          live: "In Progress",
+          final: "Final",
+          scheduled: "Scheduled",
+          postponed: "Postponed",
+        };
+        const adapted: CFBLiveGame[] = publicGamesForLeague(payload.games ?? [], "CFB")
+          .map((game: any) => ({
+            id: game.id,
+            sport: "cfb" as const,
+            espnEventId: game.source_game_id ?? game.id,
+            homeTeam: game.home_team ?? null,
+            awayTeam: game.away_team ?? null,
+            gameDate: game.game_time ? new Date(game.game_time) : null,
+            statusDescription: statusLabel[game.status] ?? game.status ?? null,
+            homeScore: game.home_score ?? null,
+            awayScore: game.away_score ?? null,
+            cachedAt: new Date(game.updated_at ?? game.created_at),
+            signals: game.signals ?? undefined,
+          }));
+        setLiveGames(adapted);
+      })
+      .catch(() => setLiveGames([]));
+  }, []);
 
   const { signals: liveCFBSignals, loading, isLive, error, refresh } = useCFBSignals([]);
   const cfbSituationsOptions = useMemo(() => ({
@@ -136,7 +183,10 @@ function CFBBoardInner() {
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "CFB");
-  const livePills: LiveGamePillData[] = [];
+  const livePills: LiveGamePillData[] = useMemo(
+    () => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, rankedCFB), "cfb")),
+    [liveGames, rankedCFB],
+  );
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const confirmed = rankedCFB.filter((signal) => signal.verdict === "confirmed").length;
   const topUrgentSituations = situations.filter((situation) => situation.lane === "escalating").slice(0, 2);
@@ -370,6 +420,16 @@ function canonicalTypeForFilter(filter: CFBFilterKey) {
     COACHING: "scheme",
   };
   return map[filter] ?? null;
+}
+
+function relatedSignalCount(game: CFBLiveGame, signals: { team?: string | null; opponent?: string | null }[]) {
+  const away = game.awayTeam?.toLowerCase() ?? "";
+  const home = game.homeTeam?.toLowerCase() ?? "";
+  return signals.filter((signal) => {
+    const team = signal.team?.toLowerCase() ?? "";
+    const opponent = signal.opponent?.toLowerCase() ?? "";
+    return team === away || team === home || opponent === away || opponent === home;
+  }).length;
 }
 
 function laneSummary(lane: SituationLaneType) {

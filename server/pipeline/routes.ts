@@ -227,7 +227,6 @@ import {
   buildReplayIntelligenceReplaybackHistoryResponse,
   buildReplayIntelligenceReplayReconstructionResponse,
 } from "./replay-intelligence-replayback-api";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "edgesetter-admin-2026";
 const REPLAY_INTELLIGENCE_RESTORATION_PERSISTED_AT = "2026-01-03T00:00:00.000Z";
 const REPLAY_INTELLIGENCE_RESTORATION_RECOVERED_AT = "2026-01-04T00:00:00.000Z";
 const REPLAY_INTELLIGENCE_RESTORATION_RESTORED_AT = "2026-01-05T00:00:00.000Z";
@@ -239,6 +238,11 @@ type ReplayIntelligenceAuditApiRecord = ReplayIntelligenceAuditRecord & {
 };
 
 function requireAdmin(req: Request, res: Response): boolean {
+  const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD?.trim() || null;
+  if (!ADMIN_PASSWORD) {
+    res.status(503).json({ error: "Admin auth not configured" });
+    return false;
+  }
   const authHeader = req.headers.authorization ?? "";
   const pw = authHeader.startsWith("Bearer ") ? authHeader.slice(7)
     : (req.body?.password ?? (req.query as any).password);
@@ -471,6 +475,19 @@ function replayIntelligenceAuditGeneratedAt(
 }
 
 export function registerPipelineRoutes(app: Express) {
+
+  // SECURITY: the /api/replay and /api/replay-intelligence surface (~90 routes)
+  // exposes internal forensic/diagnostic tooling for the replay subsystem.
+  // These were left unguarded during initial development and one sibling family
+  // (/api/replay-intelligence/exports*) was found leaking data unauthenticated
+  // in production (fixed commit f0c4452, July 2026). Rather than leave the rest
+  // open pending a per-route consumer audit, guard the whole prefix now.
+  // If any legitimate external caller needs one of these routes, add an
+  // explicit allowlist here rather than removing this guard.
+  app.use(["/api/replay", "/api/replay-intelligence"], (req: Request, res: Response, next) => {
+    if (!requireAdmin(req, res)) return;
+    next();
+  });
 
   /* ══════════════════════════════════════════════════════
      DELIVERY API — public
@@ -1237,7 +1254,7 @@ export function registerPipelineRoutes(app: Express) {
    *
    * Body:
    * {
-   *   "password": "edgesetter-admin-2026",
+   *   "password": "<ADMIN_PASSWORD env value>",
    *   "league": "NBA",
    *   "team": "BOS",
    *   "player": "Jayson Tatum",
@@ -1314,7 +1331,7 @@ export function registerPipelineRoutes(app: Express) {
    * Triggers a full ingest + process cycle (all adapters).
    * Admin-gated. Useful for on-demand refresh without waiting for scheduler.
    *
-   * Body: { "password": "edgesetter-admin-2026" }
+   * Body: { "password": "<ADMIN_PASSWORD env value>" }
    */
   app.post("/api/pipeline/ingest/run", async (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
@@ -1470,7 +1487,7 @@ export function registerPipelineRoutes(app: Express) {
    *
    * Body:
    * {
-   *   "password": "edgesetter-admin-2026",
+   *   "password": "<ADMIN_PASSWORD env value>",
    *   "signal_id": "<uuid>",
    *   "game_id": "<game_id>",
    *   "market": "spread",         // spread | total | moneyline
@@ -3331,7 +3348,8 @@ app.get("/api/replay-intelligence/convergence/:convergenceHash/lineage", (req: R
  * Current scaffold uses deterministic source records until persistence wiring is added.
  */
 
-app.get("/api/pipeline/replay-intelligence-dashboard", (_req: Request, res: Response) => {
+app.get("/api/pipeline/replay-intelligence-dashboard", (req: Request, res: Response) => {
+  if (!requireAdmin(req, res)) return;
   try {
     const records = listReplayDashboardAggregateRows().map(
   (row): ReplayDashboardSourceRecord => ({

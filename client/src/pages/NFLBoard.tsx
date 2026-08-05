@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocation } from "wouter";
 import { RefreshCw } from "lucide-react";
 
@@ -27,11 +27,28 @@ import {
   featuredCopy,
   situationMatchesPriority,
   sortModeFromPriority,
+  toLiveGamePillData,
   toSituationRowData,
   toSituationStoryCardData,
 } from "../components/board/boardAdapters";
 import type { LiveGamePillData } from "../components/board/LiveGamePill";
 import type { SituationLaneType } from "../components/board/SituationRow";
+import { fetchWithTimeout } from "../lib/fetchWithTimeout";
+import { publicGamesForLeague } from "../lib/publicDisplayHygiene";
+
+type NFLLiveGame = {
+  id: number | string;
+  sport: "nfl";
+  espnEventId: string;
+  homeTeam: string | null;
+  awayTeam: string | null;
+  gameDate: Date | null;
+  statusDescription: string | null;
+  homeScore: number | null;
+  awayScore: number | null;
+  cachedAt: Date;
+  signals?: number;
+};
 
 const NFL_FILTERS = [
   { id: "today", label: "Today" },
@@ -68,6 +85,36 @@ function NFLBoardInner() {
   const [actionableOnly, setActionableOnly] = useState(false);
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
   const [selectedSig, setSelectedSig] = useState<SignalDetailLike | null>(null);
+  const [liveGames, setLiveGames] = useState<NFLLiveGame[]>([]);
+
+  useEffect(() => {
+    fetchWithTimeout("/api/v2/games?league=NFL", {}, 4500)
+      .then((response) => response.json())
+      .then((payload) => {
+        const statusLabel: Record<string, string> = {
+          live: "In Progress",
+          final: "Final",
+          scheduled: "Scheduled",
+          postponed: "Postponed",
+        };
+        const adapted: NFLLiveGame[] = publicGamesForLeague(payload.games ?? [], "NFL")
+          .map((game: any) => ({
+            id: game.id,
+            sport: "nfl" as const,
+            espnEventId: game.source_game_id ?? game.id,
+            homeTeam: game.home_team ?? null,
+            awayTeam: game.away_team ?? null,
+            gameDate: game.game_time ? new Date(game.game_time) : null,
+            statusDescription: statusLabel[game.status] ?? game.status ?? null,
+            homeScore: game.home_score ?? null,
+            awayScore: game.away_score ?? null,
+            cachedAt: new Date(game.updated_at ?? game.created_at),
+            signals: game.signals ?? undefined,
+          }));
+        setLiveGames(adapted);
+      })
+      .catch(() => setLiveGames([]));
+  }, []);
 
   const { signals: liveNFLSignals, loading, isLive, error, refresh } = useNFLSignals([]);
   const nflSituationsOptions = useMemo(() => ({
@@ -116,7 +163,10 @@ function NFLBoardInner() {
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "NFL");
-  const livePills: LiveGamePillData[] = [];
+  const livePills: LiveGamePillData[] = useMemo(
+    () => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, rankedNFL), "nfl")),
+    [liveGames, rankedNFL],
+  );
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const storyItems = situations.map((situation) => {
     const row = toSituationRowData(situation);
@@ -279,6 +329,16 @@ function canonicalTypeForFilter(filter: string) {
     depth: "roster",
   };
   return map[filter] ?? null;
+}
+
+function relatedSignalCount(game: NFLLiveGame, signals: { team?: string | null; opponent?: string | null }[]) {
+  const away = game.awayTeam?.toLowerCase() ?? "";
+  const home = game.homeTeam?.toLowerCase() ?? "";
+  return signals.filter((signal) => {
+    const team = signal.team?.toLowerCase() ?? "";
+    const opponent = signal.opponent?.toLowerCase() ?? "";
+    return team === away || team === home || opponent === away || opponent === home;
+  }).length;
 }
 
 function laneSummary(lane: SituationLaneType) {

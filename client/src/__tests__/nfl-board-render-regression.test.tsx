@@ -6,6 +6,7 @@ import { SignalGateProvider } from "@/context/SignalGate";
 import { useAuth } from "@/context/AuthContext";
 import { useNFLSignals } from "@/hooks/useSignals";
 import { useCanonicalSituations } from "@/lib/situationsApi";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 vi.mock("@/context/AuthContext", () => ({
   useAuth: vi.fn(),
@@ -23,9 +24,14 @@ vi.mock("@/lib/situationsApi", async (importOriginal) => {
   };
 });
 
+vi.mock("@/lib/fetchWithTimeout", () => ({
+  fetchWithTimeout: vi.fn(),
+}));
+
 const mockUseAuth = vi.mocked(useAuth);
 const mockUseNFLSignals = vi.mocked(useNFLSignals);
 const mockUseCanonicalSituations = vi.mocked(useCanonicalSituations);
+const mockFetchWithTimeout = vi.mocked(fetchWithTimeout);
 
 function nflSignal(overrides: Record<string, unknown> = {}) {
   return {
@@ -65,7 +71,12 @@ describe("NFL board render regressions", () => {
       logout: vi.fn(),
     });
     mockUseNFLSignals.mockReturnValue({
-      signals: [nflSignal()],
+      signals: [
+        nflSignal({ id: "nfl-story-1" }),
+        nflSignal({ id: "nfl-story-2" }),
+        nflSignal({ id: "nfl-story-3" }),
+        nflSignal({ id: "nfl-story-4" }),
+      ],
       loading: false,
       isLive: false,
       error: null,
@@ -77,6 +88,20 @@ describe("NFL board render regressions", () => {
       error: null,
       refresh: vi.fn(),
     } as any);
+    mockFetchWithTimeout.mockResolvedValue({
+      json: async () => ({
+        games: [
+          {
+            id: "nfl-game-1",
+            home_team: "DAL",
+            away_team: "SF",
+            status: "scheduled",
+            signals: 4,
+            game_time: new Date().toISOString(),
+          },
+        ],
+      }),
+    } as Response);
 
     render(
       <SignalGateProvider>
