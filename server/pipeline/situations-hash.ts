@@ -1,4 +1,4 @@
-import { computeCanonicalHash } from "./replay-archive";
+import { computeCanonicalHash } from "./canonical-hash";
 import type { NormalizedEvent, SituationType } from "./situations-contract";
 import type { League } from "./types";
 

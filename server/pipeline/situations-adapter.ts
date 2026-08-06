@@ -1,4 +1,4 @@
-import { computeCanonicalHash } from "./replay-archive";
+import { computeCanonicalHash } from "./canonical-hash";
 import type { SituationConfidenceInput } from "./situations-confidence";
 import type { NormalizedEvent, SituationSport, SituationType } from "./situations-contract";
 import type { League, LiveSignal, RawEvent } from "./types";

@@ -1,4 +1,4 @@
-import { computeCanonicalHash } from "./replay-archive";
+import { computeCanonicalHash } from "./canonical-hash";
 import {
   computeSituationConfidence,
   type SituationConfidenceInput,
