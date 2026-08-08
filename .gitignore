@@ -8,3 +8,7 @@ dist/
 *.zip
 scratchpad/
 server.log
+*_temp.*
+check-db.*
+*.patch.md
+qa-dark.*
