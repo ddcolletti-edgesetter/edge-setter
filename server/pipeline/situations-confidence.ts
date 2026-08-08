@@ -1,4 +1,4 @@
-import { computeCanonicalHash } from "./replay-archive";
+import { computeCanonicalHash } from "./canonical-hash";
 import type { SituationConfidenceExplanation, SituationConfidenceFactorBreakdown } from "./situations-contract";
 
 export interface SituationConfidenceInput {

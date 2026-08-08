@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { randomUUID } from "crypto";
 
-import { computeCanonicalHash } from "./replay-archive";
+import { computeCanonicalHash } from "./canonical-hash";
 import { getPipelineDb } from "./store";
 import type {
   Situation,
