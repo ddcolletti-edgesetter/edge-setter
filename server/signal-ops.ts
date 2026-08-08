@@ -118,11 +118,48 @@ function normalizeHeadline(raw: string): string {
     .trim();
 }
 
+// Reporters/insiders whose names commonly appear in signal text but are NOT
+// the subject of the story. The first-name-match heuristic would otherwise
+// tag the reporter as the player (e.g. "Sources tell Adam Schefter that ...").
+const KNOWN_REPORTERS = new Set([
+  "Adam Schefter", "Ian Rapoport", "Jordan Schultz", "Dianna Russini",
+  "Pete Thamel", "Brett McMurphy", "Chris Low", "Bruce Feldman",
+  "Matt Zenitz", "Ross Dellenger", "Nicole Auerbach", "Field Yates",
+  "Tom Pelissero", "Mike Garafolo", "Josina Anderson", "Jeremy Fowler",
+]);
+
+export interface PlayerExtraction {
+  player: string;
+  // "tagged"  — came from structured player_tags, trustworthy.
+  // "heuristic" — regexed out of free text, NOT trustworthy on its own.
+  // "none"    — nothing found.
+  provenance: "tagged" | "heuristic" | "none";
+}
+
+export function extractPlayerWithProvenance(
+  headline: string,
+  body: string,
+  playerTags: string[],
+): PlayerExtraction {
+  if (playerTags.length > 0) {
+    return { player: playerTags[0], provenance: "tagged" };
+  }
+  // Heuristic fallback: find "FirstName LastName" patterns. This is a GUESS,
+  // not ground truth — the first name in the text is often a reporter, the
+  // opponent, or a replacement player rather than the story's subject. We
+  // return it so nothing is lost, but flag it as heuristic so the caller can
+  // route it to human review instead of auto-publishing a possibly-wrong name.
+  const text = headline + " " + body;
+  const matches = text.match(/([A-Z][a-z]+ [A-Z][a-z']+)/g) ?? [];
+  const firstNonReporter = matches.find(m => !KNOWN_REPORTERS.has(m));
+  if (firstNonReporter) {
+    return { player: firstNonReporter, provenance: "heuristic" };
+  }
+  return { player: "Unknown", provenance: "none" };
+}
+
 function extractPlayers(headline: string, body: string, playerTags: string[]): string {
-  if (playerTags.length > 0) return playerTags[0];
-  // Simple heuristic: find "FirstName LastName" pattern
-  const match = (headline + " " + body).match(/([A-Z][a-z]+ [A-Z][a-z']+)/);
-  return match ? match[1] : "Unknown";
+  return extractPlayerWithProvenance(headline, body, playerTags).player;
 }
 
 function extractTeam(headline: string, body: string, teamTags: string[]): string {
@@ -239,7 +276,8 @@ export async function runSignalOps(input: SignalOpsInput): Promise<SignalOpsOutp
 
   // ── Stage 3: Normalize ──────────────────────────────────────────────────────
   const normHeadline = normalizeHeadline(input.headline);
-  const player = extractPlayers(normHeadline, input.body ?? "", input.player_tags ?? []);
+  const playerExtraction = extractPlayerWithProvenance(normHeadline, input.body ?? "", input.player_tags ?? []);
+  const player = playerExtraction.player;
   const team = extractTeam(normHeadline, input.body ?? "", input.team_tags ?? []);
   const signalType = classifySignalType(normHeadline, input.body ?? "");
   const summary = input.body
@@ -278,9 +316,23 @@ export async function runSignalOps(input: SignalOpsInput): Promise<SignalOpsOutp
   let decision: "auto_publish" | "review_required" | "reject";
   let reason: string;
 
+  // Player-attribution guard: signal types that make a claim ABOUT a specific
+  // named player must not auto-publish on a heuristically-guessed name. The
+  // first-name-match heuristic can tag the wrong person (reporter, opponent,
+  // replacement), which for a "verified" product is a credibility-killer worse
+  // than a delay. Force human review so a person confirms the subject.
+  const PLAYER_SUBJECT_TYPES = new Set([
+    "injury", "trade", "contract", "free_agency", "depth_chart", "draft_intelligence",
+  ]);
+  const unreliablePlayerAttribution =
+    playerExtraction.provenance !== "tagged" && PLAYER_SUBJECT_TYPES.has(signalType);
+
   if (conflictFlags.length > 0) {
     decision = "review_required";
     reason = `Conflicting reports detected: ${conflictFlags.join("; ")}`;
+  } else if (unreliablePlayerAttribution) {
+    decision = "review_required";
+    reason = `Player name for a ${signalType} signal was inferred from text, not a structured tag (provenance: ${playerExtraction.provenance}) — needs human confirmation of who the story is about before publishing`;
   } else if (highRisk && score < 80) {
     decision = "review_required";
     reason = `High-risk topic (${signalType}) with confidence ${score} < 80 — requires human review`;

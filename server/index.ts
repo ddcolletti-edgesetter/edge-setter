@@ -5,6 +5,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { runSiteWatch } from "./site-watch";
 import { runDailyOps } from "./daily-ops";
+import { archiveOldLiveSignals } from "./pipeline/store";
 import { runDistributionDraft } from "./distribution-draft";
 import { registerPipelineRoutes } from "./pipeline/routes";
 import { startIngestionScheduler } from "./pipeline/ingestion";
@@ -153,6 +154,18 @@ app.use((req, res, next) => {
     const msUntilNext = next.getTime() - now.getTime();
     console.log(`[daily-ops] Next scheduled run: ${next.toISOString()} (in ${Math.round(msUntilNext / 60000)}m)`);
     setTimeout(async () => {
+      // Archive stale live signals FIRST, so old draft picks / resolved
+      // injuries stop surfacing as if current. Previously this only ran when
+      // an admin manually hit the archival route, which meant an unattended
+      // site accumulated weeks-old stories (e.g. the 19-day-old "out until
+      // 2027" story that rendered as a top developing story). Now it runs
+      // every day as part of ops.
+      try {
+        const archived = archiveOldLiveSignals(7);
+        console.log(`[daily-ops] Archived ${archived} stale live signal(s) (>7 days old)`);
+      } catch (e: any) {
+        console.error("[daily-ops] Stale-signal archival failed:", e.message);
+      }
       try {
         const result = await runDailyOps({ sendEmailReport: true });
         console.log(`[daily-ops] Completed for ${result.date}: site=${result.site_health.last_status} email=${result.email_sent}`);
