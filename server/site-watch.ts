@@ -95,21 +95,25 @@ async function checkRoute(name: string, path: string): Promise<CheckResult> {
 }
 
 async function checkSignalsApi(): Promise<{ check: CheckResult; signalCount: number }> {
-  const r = await fetchWithTimeout(`${SELF_URL}/api/v2/signals?limit=50`);
+  // NOTE: was previously hitting /api/v2/signals, which was never a real route
+  // (only /api/signals exists) — that guaranteed a 404 on every 5-minute run.
+  const r = await fetchWithTimeout(`${SELF_URL}/api/signals`);
   if (!r.ok) {
     return {
-      check: { name: "API /api/v2/signals", status: "critical", detail: `HTTP ${r.status}`, latency_ms: r.latency_ms },
+      check: { name: "API /api/signals", status: "critical", detail: `HTTP ${r.status}`, latency_ms: r.latency_ms },
       signalCount: 0,
     };
   }
   let signalCount = 0;
   try {
-    const data = JSON.parse(r.body ?? "{}");
-    signalCount = data.count ?? (Array.isArray(data.signals) ? data.signals.length : 0);
+    const data = JSON.parse(r.body ?? "[]");
+    // /api/signals returns a bare array, not {count, signals: [...]} — handle both
+    // shapes so this doesn't silently break again if the response shape changes.
+    signalCount = Array.isArray(data) ? data.length : (data.count ?? (Array.isArray(data.signals) ? data.signals.length : 0));
   } catch (_) {}
   const status = signalCount < 3 ? "warning" : "ok";
   return {
-    check: { name: "API /api/v2/signals", status, detail: `${signalCount} signals returned in ${r.latency_ms}ms`, latency_ms: r.latency_ms },
+    check: { name: "API /api/signals", status, detail: `${signalCount} signals returned in ${r.latency_ms}ms`, latency_ms: r.latency_ms },
     signalCount,
   };
 }
