@@ -234,6 +234,26 @@ export function registerPipelineRoutes(app: Express) {
    *   GET /api/v2/signals?since=2026-04-26T12:00:00Z&band=Elite
    */
 
+  app.get("/api/v2/signals", (req: Request, res: Response) => {
+    const { league, since, band, type } = req.query as {
+      league?: string;
+      since?: string;
+      band?: string;
+      type?: string;
+    };
+    const limit = Math.min(Math.max(Number(req.query.limit ?? 50), 0), 200);
+    // band/type aren't SQL-filterable in getLiveSignals, so when either is
+    // requested, over-fetch before filtering — otherwise filtering after an
+    // already-limited query can silently drop matches that exist just
+    // outside the fetched window.
+    const needsPostFilter = Boolean(band || type);
+    let signals = getLiveSignals({ league, since, limit: needsPostFilter ? 500 : limit });
+    if (band) signals = signals.filter((s) => s.score_band === band);
+    if (type) signals = signals.filter((s) => s.signal_type === type);
+    if (needsPostFilter) signals = signals.slice(0, limit);
+    return res.json({ signals });
+  });
+
   /**
    * GET /api/v2/signals/:id
    *
