@@ -20,6 +20,7 @@ import { getPipelineDb, archiveOldLiveSignals } from "./pipeline/store";
 import type { LiveSignal } from "./pipeline/types";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import type { Request, Response } from "express";
+import type Stripe from "stripe";
 
 export function getAutoSeedOwnerEmail(): string | null {
   if (process.env.NODE_ENV === "production") return null;
@@ -986,6 +987,31 @@ export function registerRoutes(httpServer: Server, app: Express) {
     return res.json(user);
   });
 
+  // Resolves a usable Stripe customer id for the CURRENT key's mode.
+  // A customer id saved under one Stripe mode (test/live) is invalid under
+  // the other mode's key — Stripe returns a "resource_missing" error rather
+  // than silently working. If the stored id isn't usable, create a fresh
+  // customer and persist it so a stale id never reaches checkout or the
+  // billing portal again.
+  async function resolveStripeCustomerId(
+    stripe: Stripe,
+    email: string,
+    storedCustomerId: string | null | undefined,
+  ): Promise<string> {
+    if (storedCustomerId) {
+      try {
+        const existing = await stripe.customers.retrieve(storedCustomerId);
+        if (!(existing as any).deleted) return storedCustomerId;
+      } catch (e: any) {
+        if (e?.code !== "resource_missing") throw e; // real error (network/auth) — don't swallow
+        console.warn(`[stripe] stored customer ${storedCustomerId} not usable in current mode for ${maskedEmail(email)}, recreating`);
+      }
+    }
+    const customer = await stripe.customers.create({ email });
+    storage.upsertUser({ email, stripe_customer_id: customer.id });
+    return customer.id;
+  }
+
   // ─── MVP: Stripe Checkout ──────────────────────────────────────────────────────
   app.post("/api/checkout", async (req, res) => {
     const email = normalizeSubscriberEmail(req.body?.email);
@@ -993,13 +1019,9 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       const stripe = getStripe();
       const baseUrl = process.env.BASE_URL ?? "https://edgesetter.net";
-      let customerId: string | undefined;
       const existingUser = storage.getUserByEmail(email);
-      if (existingUser?.stripe_customer_id) {
-        customerId = existingUser.stripe_customer_id;
-      } else {
-        const customer = await stripe.customers.create({ email });
-        customerId = customer.id;
+      const customerId = await resolveStripeCustomerId(stripe, email, existingUser?.stripe_customer_id);
+      if (!existingUser) {
         storage.upsertUser({ email, stripe_customer_id: customerId, plan: "free", access_status: "pending" });
       }
       const lineItems: any[] = STRIPE_PRO_PRICE_ID
@@ -1198,11 +1220,12 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
     try {
       const stripe = getStripe();
+      const customerId = await resolveStripeCustomerId(stripe, access.email, access.user.stripe_customer_id);
       const session = await stripe.billingPortal.sessions.create({
-        customer: access.user.stripe_customer_id,
+        customer: customerId,
         return_url: `${process.env.BASE_URL ?? "https://edgesetter.net"}/#/pro`,
       });
-      storage.logEvent({ event_name: "billing_portal_opened", email: access.email, metadata: JSON.stringify({ customer_id: access.user.stripe_customer_id }) });
+      storage.logEvent({ event_name: "billing_portal_opened", email: access.email, metadata: JSON.stringify({ customer_id: customerId }) });
       billingLog("portal:success", {
         email: maskedEmail(access.email),
         stripePortalSessionCreated: true,
