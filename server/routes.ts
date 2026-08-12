@@ -1642,6 +1642,26 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // POST /api/admin/email/test-pro-welcome — manually retrigger the Pro welcome
+  // email without a real Stripe charge. Useful for verifying RESEND_API_KEY /
+  // deliverability after a config change.
+  app.post("/api/admin/email/test-pro-welcome", async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    const email = normalizeSubscriberEmail(req.body?.email);
+    if (!email) return res.status(400).json({ error: "email required" });
+    try {
+      await sendProWelcome(email);
+      return res.json({
+        success: true,
+        note: process.env.RESEND_API_KEY
+          ? "Sent via Resend — check the inbox."
+          : "RESEND_API_KEY not set — this only logged to the server console, no email was actually sent.",
+      });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
   // POST /api/agent/social/test — send a test message to Discord and Telegram
   app.post("/api/agent/social/test", async (req, res) => {
     if (!requireAdmin(req, res)) return;
