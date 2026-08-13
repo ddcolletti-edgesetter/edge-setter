@@ -1698,6 +1698,24 @@ export function registerRoutes(httpServer: Server, app: Express) {
         .prepare("SELECT COUNT(*) AS n FROM distribution_drafts WHERE signal_id NOT IN (SELECT id FROM signals)")
         .get() as any).n as number;
 
+      // Recent live_signals score distribution — mirrors the exact eligibility
+      // window the distribution-draft batch uses: 48h (DISTRIBUTION_WINDOW_HOURS,
+      // distribution-draft.ts:30) + is_archived=0. Hardcoded here to avoid
+      // exporting the constant; keep in sync if that window changes.
+      const cutoff48h = new Date(Date.now() - 48 * 3600 * 1000).toISOString();
+
+      const eligible_82_count = (pdb
+        .prepare("SELECT COUNT(*) AS n FROM live_signals WHERE is_archived = 0 AND created_at >= ? AND score >= 82")
+        .get(cutoff48h) as any).n as number;
+
+      const recent_score_distribution = pdb
+        .prepare("SELECT score_band, signal_type, COUNT(*) AS n, MAX(score) AS top FROM live_signals WHERE is_archived = 0 AND created_at >= ? GROUP BY score_band, signal_type ORDER BY n DESC")
+        .all(cutoff48h) as Array<{ score_band: string; signal_type: string; n: number; top: number }>;
+
+      const recent_max_score = pdb
+        .prepare("SELECT MAX(score) AS max_recent, COUNT(*) AS rows_48h FROM live_signals WHERE is_archived = 0 AND created_at >= ?")
+        .get(cutoff48h) as { max_recent: number | null; rows_48h: number };
+
       return res.json({
         confidence_non_null_count,
         distinct_confidence_values,
@@ -1705,6 +1723,9 @@ export function registerRoutes(httpServer: Server, app: Express) {
         distribution_drafts_total,
         distribution_drafts_linked,
         distribution_drafts_orphaned,
+        eligible_82_count,
+        recent_score_distribution,
+        recent_max_score,
       });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
