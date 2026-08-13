@@ -380,7 +380,8 @@ export async function runDistributionDraft(
     // Pipeline live signals (live_signals table) — age-gated, archived signals excluded
     // getLiveSignals already filters is_archived=0; `since` provides the time gate.
     const pipelineSignals = getLiveSignals({ limit: 50, since: windowCutoff })
-      .filter(s => s.score >= 82) // Elite (≥82) or Strong (≥65) — focus on high-value signals
+      // TODO: threshold may need lowering once odds ingestion + source weights are restored — see PR #18 diagnostics
+      .filter(s => s.score >= 82) // Elite (≥82) — focus on high-value signals
       .map(s => ({
         id: s.id,
         signal_type: s.signal_type,

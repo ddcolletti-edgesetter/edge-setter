@@ -41,6 +41,7 @@ const SOURCE_TYPE_WEIGHT: Record<string, number> = {
   sharp_money:        2.0,
   analytics:          2.0,
   line_tracking:      2.0,
+  sports_api:         2.0,  // ESPN structured feeds (NFL/CFB injuries + transactions) — verified official data, on par with analytics/line feeds
   weather_service:    2.5,
   broadcast:          1.5,
   fantasy_platform:   1.5,
