@@ -1197,6 +1197,17 @@ export class SqliteStorage implements IStorage {
 
 export const storage = new SqliteStorage();
 
+/**
+ * Raw handle to the main edge_setter.db SQLite connection (the same `sqlite`
+ * instance backing SqliteStorage). Mirrors getPipelineDb() in pipeline/store.ts
+ * for callers that need raw SQL against tables in this DB file — e.g. admin
+ * diagnostics. Note: pipeline tables like live_signals live in a *separate*
+ * file (pipeline.db); use getPipelineDb() for those.
+ */
+export function getStorageDb() {
+  return sqlite;
+}
+
 /* ─── Pipeline Health (module-level) ─────────────────────────────────────── */
 
 export function recordPipelineHealth(

@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { Server } from "http";
-import { storage, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress, getVerifiedCountBySource } from "./storage";
+import { storage, getStorageDb, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress, getVerifiedCountBySource } from "./storage";
 import { runFullBackfill } from "./pipeline/backfill";
 import { insertSignalSchema, insertWaitlistSchema, type User } from "@shared/schema";
 import { sendDailyDigest } from "./email";
@@ -1656,6 +1656,55 @@ export function registerRoutes(httpServer: Server, app: Express) {
         note: process.env.RESEND_API_KEY
           ? "Sent via Resend — check the inbox."
           : "RESEND_API_KEY not set — this only logged to the server console, no email was actually sent.",
+      });
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  });
+
+  // POST /api/admin/diag/calibration — admin-gated confidence-calibration and
+  // distribution-draft integrity diagnostics. Reads the two SQLite DBs prod
+  // actually uses at runtime: live_signals lives in pipeline.db (getPipelineDb),
+  // while distribution_drafts + signals live in edge_setter.db (getStorageDb).
+  // These are separate DB files, so each is queried with its own handle — no
+  // cross-DB JOIN / ATTACH. Supabase is a write-only mirror and is never read.
+  app.post("/api/admin/diag/calibration", (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const pdb = getPipelineDb();   // pipeline.db   → live_signals
+      const sdb = getStorageDb();    // edge_setter.db → distribution_drafts, signals
+
+      const confidence_non_null_count = (pdb
+        .prepare("SELECT COUNT(*) AS n FROM live_signals WHERE confidence IS NOT NULL")
+        .get() as any).n as number;
+
+      const distinct_confidence_values = (pdb
+        .prepare("SELECT DISTINCT confidence FROM live_signals ORDER BY confidence")
+        .all() as Array<{ confidence: number | null }>).map(r => r.confidence);
+
+      const distinct_confidence_count = distinct_confidence_values.length;
+
+      // signal_id is NOT NULL and signals.id is a non-null PRIMARY KEY, so
+      // linked (IN) + orphaned (NOT IN) partition total exactly — no NULL trap.
+      const distribution_drafts_total = (sdb
+        .prepare("SELECT COUNT(*) AS n FROM distribution_drafts")
+        .get() as any).n as number;
+
+      const distribution_drafts_linked = (sdb
+        .prepare("SELECT COUNT(*) AS n FROM distribution_drafts WHERE signal_id IN (SELECT id FROM signals)")
+        .get() as any).n as number;
+
+      const distribution_drafts_orphaned = (sdb
+        .prepare("SELECT COUNT(*) AS n FROM distribution_drafts WHERE signal_id NOT IN (SELECT id FROM signals)")
+        .get() as any).n as number;
+
+      return res.json({
+        confidence_non_null_count,
+        distinct_confidence_values,
+        distinct_confidence_count,
+        distribution_drafts_total,
+        distribution_drafts_linked,
+        distribution_drafts_orphaned,
       });
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
