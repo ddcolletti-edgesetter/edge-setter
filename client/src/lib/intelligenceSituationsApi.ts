@@ -1,6 +1,7 @@
 import { apiRequest } from "./queryClient";
 import { fetchSignals, type LiveSignal } from "./signalsApi";
 import { publicGamesForLeague } from "./publicDisplayHygiene";
+import { deriveVerificationState, evidenceFromLiveSignal } from "@shared/verification-state";
 
 export type EscalationState =
   | "Monitoring"
@@ -233,20 +234,33 @@ export function adaptSignalToSituation(
   };
 }
 
+/**
+ * Escalation state for the live_signals lineage.
+ *
+ * The old numeric ladder (confidence >= 85 / >= 75 / >= 60) has been retired:
+ * the verification decision now comes from the shared evidence engine
+ * (deriveVerificationState via evidenceFromLiveSignal), so state is driven by
+ * evidence — verdict, corroboration, official confirmation, market reaction —
+ * never by a raw confidence number. The three-word result is mapped back onto
+ * the existing six-value EscalationState enum so downstream ranking, timeline,
+ * and priority consumers are unchanged.
+ */
 function deriveEscalationState(signal: LiveSignal): EscalationState {
-  const verdict = signal.verdict.toLowerCase();
-  const confirmation = signal.confirmation_strength.toLowerCase();
-  const urgency = signal.urgency_label.toLowerCase();
   const ageMinutes = ageInMinutes(signal.signal_time ?? signal.created_at ?? signal.updated_at);
+  const official = /official/i.test(`${signal.verdict} ${signal.confirmation_strength}`);
+  const { state } = deriveVerificationState(evidenceFromLiveSignal(signal));
 
-  if (ageMinutes !== null && ageMinutes > 1440 && !verdict.includes("official") && !confirmation.includes("official")) return "Monitoring";
+  // Stale situations that never reached Verified fall back to Monitoring.
+  if (state !== "Verified" && !official && ageMinutes !== null && ageMinutes > 1440) return "Monitoring";
 
-  if (verdict.includes("official") || confirmation.includes("official")) return "Official";
-  if (verdict.includes("confirmed") || confirmation.includes("consensus") || confirmation.includes("confirmed")) return "Confirming";
-  if (signal.confidence >= 85 || urgency === "urgent") return "Significant";
-  if (signal.confidence >= 75 || signal.line_movement) return "Escalating";
-  if (signal.source_count >= 2 || signal.confidence >= 60) return "Emerging";
-  return "Monitoring";
+  switch (state) {
+    case "Verified":
+      return official ? "Official" : "Confirming";
+    case "Escalating":
+      return signal.line_movement || signal.source_count >= 2 ? "Escalating" : "Emerging";
+    default: // "Developing"
+      return signal.source_count >= 2 ? "Emerging" : "Monitoring";
+  }
 }
 
 function deriveTimingWindow(ageMinutes: number | null, _verdict: string): TimingWindow {

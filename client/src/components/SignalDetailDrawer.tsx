@@ -3,11 +3,11 @@ import type { ReactNode } from "react";
 import { Bell, Bookmark, CheckCircle2, Clock3, History, LineChart, ShieldCheck, TrendingUp, X } from "lucide-react";
 
 import { AgentCalibrationBadge, ChainReactionPreview, HistoricalPatternMatch, WhatToWatchNext } from "@/components/AgentCalibration";
-import { ConfidenceGauge } from "@/components/ConfidenceGauge";
 import { SportsStoryVisual } from "@/components/SportsMedia";
 import { storyImpactSections } from "@/components/StoryImpactBlocks";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { humanizeSignalType, publicConfidenceLabel, publicStoryText, publicTimingLabel, sourceCountText } from "@/lib/storyLanguage";
+import { deriveVerificationState, evidenceFromLiveSignal } from "@shared/verification-state";
 
 type LineMovementLike = {
   open?: string | null;
@@ -419,14 +419,6 @@ function calibrationModel(signal: SignalDetailLike, editorial = false): {
   return { label, support, summary, rows, basis, confirmationSignals, weakeningSignals, limitations, comparableHistory };
 }
 
-function agentsFromConfidenceAndSources(confidence: number, sources: number): number {
-  if (confidence >= 85 && sources >= 2) return 4;
-  if (confidence >= 72 && sources >= 2) return 3;
-  if (confidence >= 58 || sources >= 2) return 2;
-  if (confidence > 0 || sources >= 1) return 1;
-  return 0;
-}
-
 function calibrationDriverValue(value: string) {
   const normalized = value.toLowerCase();
   if (normalized.includes("stronger") || normalized.includes("strong")) return 78;
@@ -593,6 +585,16 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   const meta = editorialCopy ? metaParts.map((item) => publicStoryText(item)).join(" / ") : metaParts.join(" / ");
   const storyContextLabel = storyContext(signal, sport, editorialCopy);
   const storyVerificationState = verificationState(signal, model.confidence, model.sources, editorialCopy);
+  // Evidence-grounded verification word (Verified / Escalating / Developing) from the
+  // shared engine — replaces the retired ConfidenceGauge's raw-percentage arc.
+  const verificationWord = deriveVerificationState(
+    evidenceFromLiveSignal({
+      verdict: signal.verdict ?? signal.status_tag ?? "",
+      confirmation_strength: signal.confirmationStrength ?? "",
+      source_count: model.sources,
+      line_movement: (signal.lineMovement ?? signal.line_movement) ?? null,
+    }),
+  );
   const storyImpactRows = impactRows(signal);
   const downstreamImpacts = storyImpactSections(downstreamImpactInput(signal, movement));
   const nextRows = confirmWeakenRows(signal, model.timing);
@@ -705,15 +707,29 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
           </Section>
 
           <Section title="Source trail / timing / evidence" icon={<ShieldCheck size={14} />}>
-            <div style={{ display: "flex", justifyContent: "center", marginBottom: 16, paddingTop: 4 }}>
-  <ConfidenceGauge
-    value={model.confidence}
-    agentsAgree={agentsFromConfidenceAndSources(model.confidence, model.sources)}
-    agentsTotal={4}
-    size="md"
-    showAgents
-  />
-</div>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginBottom: 16, paddingTop: 4 }}>
+              <div
+                data-testid="verification-state-word"
+                style={{
+                  fontFamily: "'Barlow Condensed', sans-serif",
+                  fontSize: 30,
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color:
+                    verificationWord.state === "Verified"
+                      ? "#18D47B"
+                      : verificationWord.state === "Escalating"
+                        ? "#F5B841"
+                        : "rgba(248,250,252,0.62)",
+                }}
+              >
+                {verificationWord.state}
+              </div>
+              <div style={{ maxWidth: 280, textAlign: "center", fontSize: 12, lineHeight: 1.4, color: "rgba(248,250,252,0.6)" }}>
+                {verificationWord.basis}
+              </div>
+            </div>
 {signal.detectionLeadTime && (
   <div style={{ textAlign: "center", color: "#2DD4BF", fontWeight: 700, fontSize: 13, marginBottom: 12, letterSpacing: "0.03em" }}>
     {signal.detectionLeadKind === "pickup"
