@@ -439,6 +439,7 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
     bettingRelevance: situation.raw.betting_relevance ?? null,
     overlay: {
       escalationState: situation.escalationState,
+      verification: situation.verification,
       confidence: situation.confidence,
       sourceSummary: {
         ...situation.sourceSummary,
@@ -487,6 +488,7 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
     watchNext: sameLeagueSituation && hasCleanPublicText(storyCopy?.watchNext) ? storyCopy?.watchNext : "Watch for official team news and source convergence.",
     overlay: sameLeagueSituation ? {
       escalationState: sameLeagueSituation.escalationState,
+      verification: sameLeagueSituation.verification,
       confidence: sameLeagueSituation.confidence,
       sourceSummary: {
         ...sameLeagueSituation.sourceSummary,
@@ -497,6 +499,7 @@ function gameToStoryCard(game: LiveGameSituation, situation?: IntelligenceSituat
       status: "Story support",
     } : {
       escalationState: game.topEscalation,
+      verification: null,
       confidence: { current: null, delta: null, explanation: "No agent confidence score until a verified story attaches." },
       sourceSummary: { count: 0, convergence: "Awaiting confirmed source" },
       timing: { window: game.status, freshnessLabel: score },
@@ -549,6 +552,7 @@ function quietNetworkStory(activeLeague: "ALL" | typeof LEAGUES[number], loading
     watchNext: leagueQuietNote(league),
     overlay: watched ? {
       escalationState: watched.escalationState,
+      verification: watched.verification,
       confidence: watched.confidence,
       sourceSummary: {
         ...watched.sourceSummary,
@@ -559,6 +563,7 @@ function quietNetworkStory(activeLeague: "ALL" | typeof LEAGUES[number], loading
       status: "Most developed watch",
     } : {
       escalationState: "Monitoring",
+      verification: null,
       confidence: { current: null, delta: null, explanation: "Confidence pending until a verified story attaches." },
       sourceSummary: { count: 0, convergence: "Awaiting confirmed source" },
       timing: { window: loading ? "Checking" : "Monitoring", freshnessLabel: "Live scan" },
