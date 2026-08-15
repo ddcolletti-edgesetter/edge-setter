@@ -43,13 +43,31 @@ interface StoryCardProps {
   variant?: "lead" | "feature" | "rail" | "compact";
   className?: string;
   copyVariant?: "legacy" | "public";
+  /**
+   * When true (homepage flag on), confidence displays render the shared
+   * verification word instead of a raw percentage. Threaded down to the
+   * EdgeSetterOverlay so the whole card reads one evidence-grounded word.
+   */
+  verificationStateEnabled?: boolean;
 }
 
 type ConfidenceTone = "verified" | "strong" | "developing" | "forming" | "pending";
 
 // North Star: verified → "Verified" (never show % on verified stories)
 // escalating (70–89%) → amber, developing (<70%) → info blue
-export function confidenceDisplay(overlay: EdgeSetterOverlayData): { text: string; tone: ConfidenceTone } {
+//
+// When verificationStateEnabled is on and a pre-computed verification word is
+// attached, we surface that word directly (no percentage) — the flag-off path
+// keeps the legacy percentage lineage untouched.
+export function confidenceDisplay(
+  overlay: EdgeSetterOverlayData,
+  verificationStateEnabled = false,
+): { text: string; tone: ConfidenceTone } {
+  if (verificationStateEnabled && overlay.verification) {
+    const state = overlay.verification.state;
+    const tone: ConfidenceTone = state === "Verified" ? "verified" : state === "Escalating" ? "strong" : "forming";
+    return { text: state, tone };
+  }
   const confidence = overlay.confidence?.current;
   const verified = overlay.escalationState === "Official" || (typeof confidence === "number" && confidence >= 100);
   if (verified) return { text: "Verified", tone: "verified" };
@@ -72,11 +90,11 @@ function agentsFromOverlay(overlay: EdgeSetterOverlayData): number {
   return 0;
 }
 
-export function StoryCard({ story, variant = "feature", className, copyVariant = "legacy" }: StoryCardProps) {
+export function StoryCard({ story, variant = "feature", className, copyVariant = "legacy", verificationStateEnabled = false }: StoryCardProps) {
   const publicCopy = copyVariant === "public";
   const displayStory = publicCopy ? sanitizePublicStory(story) : story;
   const isLead = variant === "lead";
-  const confidenceRead = confidenceDisplay(displayStory.overlay);
+  const confidenceRead = confidenceDisplay(displayStory.overlay, verificationStateEnabled);
   const agentsAgree = agentsFromOverlay(displayStory.overlay);
   const freshness = displayStory.overlay.timing?.freshnessLabel;
   const sourceCount = displayStory.overlay.sourceSummary?.count ?? 0;
@@ -177,7 +195,7 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
           </div>
         </div>
 
-        <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={false} copyVariant={publicCopy ? "editorial" : "legacy"} />
+        <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={false} copyVariant={publicCopy ? "editorial" : "legacy"} verificationStateEnabled={verificationStateEnabled} />
         <StoryImpactBlocks
           compact={false}
           input={{
@@ -272,7 +290,7 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
         )}
       </div>
 
-      <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={variant === "rail" || variant === "compact"} copyVariant={publicCopy ? "editorial" : "legacy"} />
+      <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={variant === "rail" || variant === "compact"} copyVariant={publicCopy ? "editorial" : "legacy"} verificationStateEnabled={verificationStateEnabled} />
       <StoryImpactBlocks
         compact={variant === "rail" || variant === "compact"}
         input={{

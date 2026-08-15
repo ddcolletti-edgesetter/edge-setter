@@ -35,13 +35,23 @@ interface EdgeSetterOverlayProps {
   situation?: IntelligenceSituation | null;
   compact?: boolean;
   copyVariant?: "legacy" | "editorial";
+  /**
+   * When true (homepage flag on), the confidence-support line renders the
+   * shared verification word ("Verified" / "Escalating" / "Developing") instead
+   * of a raw "N% support" number. Falls back to the legacy percentage display
+   * when off, or when no pre-computed verification word is attached.
+   */
+  verificationStateEnabled?: boolean;
 }
 
-export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "legacy" }: EdgeSetterOverlayProps) {
+export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "legacy", verificationStateEnabled = false }: EdgeSetterOverlayProps) {
   const confidence = data.confidence?.current;
   const delta = data.confidence?.delta;
   const publicCopy = copyVariant === "editorial";
-  const confidenceLabel = typeof confidence === "number"
+  const showVerificationWord = verificationStateEnabled && data.verification != null;
+  const confidenceLabel = showVerificationWord
+    ? data.verification!.state
+    : typeof confidence === "number"
     ? publicCopy ? `${Math.round(confidence)}% support from tracked signals` : `${Math.round(confidence)}% support signal`
     : "Awaiting verification";
   const deltaLabel = typeof delta === "number" && delta !== 0 ? `${delta > 0 ? "+" : ""}${Math.round(delta)}` : "Hold";
@@ -88,8 +98,8 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
         <div className="edge-overlay-grid grid grid-cols-1 gap-1.5">
           <div className={cellClass}>
             <ShieldCheck size={13} className={iconClass} />
-            <span className={labelClass}>Confidence support</span>
-            <strong className={valueClass}>{confidenceLabel}</strong>
+            <span className={labelClass}>{showVerificationWord ? "Verification" : "Confidence support"}</span>
+            <strong className={valueClass} data-verification-word={showVerificationWord ? "true" : undefined}>{confidenceLabel}</strong>
           </div>
           <div className={cellClass}>
             <ShieldCheck size={13} className={iconClass} />
