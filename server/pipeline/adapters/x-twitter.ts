@@ -389,7 +389,10 @@ async function pollAccount(
           source_count:      isCorroborated ? 2 : 1,
           sources: [{
             id:   `x_${source.handle.toLowerCase()}`,
-            name: `${source.name} (@${source.handle})`,
+            // Canonical name — must match source_scores.source_name for
+            // downstream joins (e.g. getVerifiedCountBySource). Display
+            // formatting with the handle lives in source_labels, not here.
+            name: source.name,
             type: "social",
           }],
           tweet_id:          tweet.id,
