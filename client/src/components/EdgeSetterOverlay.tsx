@@ -3,9 +3,16 @@ import { Clock3, History, ShieldCheck } from "lucide-react";
 import { AgentCalibrationBadge, HistoricalPatternMatch } from "@/components/AgentCalibration";
 import { ConfidenceMovement, EscalationBadge, SourceChainMini } from "@/components/intelligence/SituationCard";
 import type { EscalationState, IntelligenceSituation, TimingWindow } from "@/lib/intelligenceSituationsApi";
+import type { VerificationStateResult } from "@shared/verification-state";
 
 export interface EdgeSetterOverlayData {
   escalationState?: EscalationState | null;
+  /**
+   * Pre-computed public verification word from the shared engine. Carried on
+   * the overlay so display wiring (PR-B) can render the word directly. Null for
+   * game-only overlays that have no attached situation.
+   */
+  verification?: VerificationStateResult | null;
   confidence?: {
     current?: number | null;
     delta?: number | null;

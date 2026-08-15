@@ -1,7 +1,7 @@
 import { apiRequest } from "./queryClient";
 import { fetchSignals, type LiveSignal } from "./signalsApi";
 import { publicGamesForLeague } from "./publicDisplayHygiene";
-import { deriveVerificationState, evidenceFromLiveSignal } from "@shared/verification-state";
+import { deriveVerificationState, evidenceFromLiveSignal, type VerificationStateResult } from "@shared/verification-state";
 
 export type EscalationState =
   | "Monitoring"
@@ -30,6 +30,14 @@ export type IntelligenceSituation = {
     matchup: string | null;
   };
   escalationState: EscalationState;
+  /**
+   * Pre-computed public verification word ("Verified" / "Escalating" /
+   * "Developing") from the shared evidence engine. Computed once in the mapper
+   * and reused by both escalationState derivation and downstream display, so
+   * every consumer sees the same evidence-grounded word rather than re-deriving
+   * it (or falling back to a raw confidence number).
+   */
+  verification: VerificationStateResult;
   confidence: {
     current: number;
     previous: number | null;
@@ -170,7 +178,11 @@ export function adaptSignalToSituation(
   signal: LiveSignal,
   previousConfidence?: number,
 ): IntelligenceSituation {
-  const escalationState = deriveEscalationState(signal);
+  // Compute the shared verification word ONCE, then reuse it for the
+  // escalation-state mapping below and expose it on the situation so display
+  // sites read the same evidence-grounded word instead of re-deriving it.
+  const verification = deriveVerificationState(evidenceFromLiveSignal(signal));
+  const escalationState = deriveEscalationState(signal, verification);
   const ageMinutes = ageInMinutes(signal.signal_time ?? signal.created_at ?? signal.updated_at);
   const timingWindow = deriveTimingWindow(ageMinutes, signal.verdict);
   const sources = signal.sources.map((source) => ({
@@ -205,6 +217,7 @@ export function adaptSignalToSituation(
       matchup: signal.matchup,
     },
     escalationState,
+    verification,
     confidence: {
       current: currentConfidence,
       previous,
@@ -244,11 +257,14 @@ export function adaptSignalToSituation(
  * never by a raw confidence number. The three-word result is mapped back onto
  * the existing six-value EscalationState enum so downstream ranking, timeline,
  * and priority consumers are unchanged.
+ *
+ * The verification result is computed once by the caller (adaptSignalToSituation)
+ * and passed in, so a single situation never derives the shared word twice.
  */
-function deriveEscalationState(signal: LiveSignal): EscalationState {
+function deriveEscalationState(signal: LiveSignal, verification: VerificationStateResult): EscalationState {
   const ageMinutes = ageInMinutes(signal.signal_time ?? signal.created_at ?? signal.updated_at);
   const official = /official/i.test(`${signal.verdict} ${signal.confirmation_strength}`);
-  const { state } = deriveVerificationState(evidenceFromLiveSignal(signal));
+  const { state } = verification;
 
   // Stale situations that never reached Verified fall back to Monitoring.
   if (state !== "Verified" && !official && ageMinutes !== null && ageMinutes > 1440) return "Monitoring";
