@@ -222,7 +222,7 @@ export function adaptSignalToSituation(
       current: currentConfidence,
       previous,
       delta,
-      explanation: confidenceExplanation(signal, currentConfidence, delta),
+      explanation: confidenceExplanation(signal, currentConfidence, delta, verification),
     },
     timing: {
       firstSeen: signal.signal_time ?? signal.created_at,
@@ -346,7 +346,12 @@ function validatorAgreement(signal: LiveSignal) {
   return label;
 }
 
-function confidenceExplanation(signal: LiveSignal, confidence: number, delta: number | null) {
+function confidenceExplanation(
+  signal: LiveSignal,
+  confidence: number,
+  delta: number | null,
+  verification: VerificationStateResult,
+) {
   const movement = delta === null ? "Initial live read" : delta > 0 ? `Up ${delta} points` : delta < 0 ? `Down ${Math.abs(delta)} points` : "Holding steady";
   const drivers = [
     signal.source_count ? `${signal.source_count} source checks` : null,
@@ -354,7 +359,12 @@ function confidenceExplanation(signal: LiveSignal, confidence: number, delta: nu
     signal.line_movement ? "context shift" : null,
     signal.urgency_reason || null,
   ].filter(Boolean);
-  return `${movement} at ${confidence}%. ${drivers.join(" / ") || "Verification context is still building."}`;
+  // Behind the homepage flag, lead with the shared verification word instead of
+  // leaking the raw confidence percentage. Read at call time (not module scope)
+  // so vi.stubEnv toggles are observed per call. Flag off = legacy string.
+  const verificationStateEnabled = import.meta.env.VITE_VERIFICATION_STATE_HOMEPAGE === "true";
+  const readout = verificationStateEnabled ? `${movement} — ${verification.state}` : `${movement} at ${confidence}%`;
+  return `${readout}. ${drivers.join(" / ") || "Verification context is still building."}`;
 }
 
 function buildImplications(signal: LiveSignal) {

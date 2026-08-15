@@ -185,6 +185,11 @@ export default function LiveIntelligenceHome() {
     [activeLeague, editorialSituation, featured, leadGames, livePressure, loading, visibleSituations],
   );
   const hasAssignmentRail = homepageStories.rail.length > 0;
+  // Feature flag: surface the shared verification word ("Verified" / "Escalating"
+  // / "Developing") in place of raw confidence percentages on the homepage. Read
+  // in the render body (not module scope) so tests can toggle it via vi.stubEnv
+  // and each render observes the current value.
+  const verificationStateEnabled = import.meta.env.VITE_VERIFICATION_STATE_HOMEPAGE === "true";
 
   return (
     <AppShell brandContext="LIVE SPORTS DESK">
@@ -250,7 +255,7 @@ export default function LiveIntelligenceHome() {
                 {featured ? "Lead story" : "Coverage status"}
               </div>
               {featured
-                ? <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" />
+                ? <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" verificationStateEnabled={verificationStateEnabled} />
                 : <HomepageQuietLead loading={loading} situations={publicSituations} />
               }
               <HomepageSupportStack stories={homepageStories} pressure={livePressure} loading={loading} />
@@ -259,7 +264,7 @@ export default function LiveIntelligenceHome() {
                   <div className="media-section-label">Developing now</div>
                   <div className="media-developing-grid" aria-label="Developing stories">
                     {homepageStories.rail.map((story) => (
-                      <StoryCard key={story.id} story={story} variant="rail" copyVariant="public" />
+                      <StoryCard key={story.id} story={story} variant="rail" copyVariant="public" verificationStateEnabled={verificationStateEnabled} />
                     ))}
                   </div>
                 </>
