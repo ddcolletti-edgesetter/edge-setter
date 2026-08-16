@@ -301,17 +301,32 @@ function checkCorroboration(
   playerName: string | null,
   signalType: string,
   recentEvents: any[],
+  excludeOutlet: string | null = null,
 ): boolean {
   if (!playerName) return false;
   return recentEvents.some(e => {
     const payload = e.payload as any;
-    return (
+    if (!(
       e.player === playerName &&
       payload?.signal_type === signalType &&
       (payload?.on3_feed !== undefined ||
        payload?.sports247_feed !== undefined ||
        payload?.source_type === "rss")
-    );
+    )) {
+      return false;
+    }
+    // Guard against false corroboration: an insider's outlet republishing
+    // their own reporting on the wire (e.g. Schefter on X + ESPN NFL RSS)
+    // is the same underlying source, not independent confirmation. Skip
+    // any RSS item whose feed-level label matches the insider's outlet.
+    if (excludeOutlet) {
+      const labels: string[] = payload?.source_labels ?? [];
+      const sameOutlet = labels.some((l: string) =>
+        l.toLowerCase().includes(excludeOutlet.toLowerCase())
+      );
+      if (sameOutlet) return false;
+    }
+    return true;
   });
 }
 
@@ -351,7 +366,7 @@ async function pollAccount(
       : source.league;
 
     // Check corroboration from RSS sources
-    const isCorroborated = checkCorroboration(player, classified.signalType, recentEvents);
+    const isCorroborated = checkCorroboration(player, classified.signalType, recentEvents, source.outlet);
     const finalConfidence = isCorroborated
       ? Math.min(98, classified.confidence + 5)
       : classified.confidence;
