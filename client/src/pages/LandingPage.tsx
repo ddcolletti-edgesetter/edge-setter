@@ -14,6 +14,7 @@ import { type Theme } from "../App";
 import { Moon, ChevronRight, CheckCircle2, X, Menu, Activity } from "lucide-react";
 import DataBadge from "../components/DataBadge";
 import { trackLandingVisit } from "@/lib/analytics";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 
 interface Props { theme: Theme; toggleTheme: () => void; }
 
@@ -291,7 +292,7 @@ function FeaturedCard({ signal }: { signal: any }) {
             fontSize: 10, letterSpacing: "0.06em",
             color: T.textFaint, marginTop: 2,
           }}>
-            The highest-confidence intel in today's feed
+            The strongest signals in today's feed
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
@@ -325,14 +326,14 @@ function FeaturedCard({ signal }: { signal: any }) {
         <div style={{ textAlign: "center", flexShrink: 0 }}>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: 40, fontWeight: 700, color: T.gold,
-            lineHeight: 1, letterSpacing: "-0.03em",
-          }}>{conf}</div>
+            fontSize: 17, fontWeight: 700, color: T.gold,
+            lineHeight: 1.15, letterSpacing: "-0.01em",
+          }}>{publicConfidenceLabel(conf)}</div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 10, fontWeight: 700, letterSpacing: "0.14em",
             textTransform: "uppercase", color: T.textFaint, marginTop: 2,
-          }}>Confidence</div>
+          }}>Signal strength</div>
         </div>
       </div>
 
@@ -549,7 +550,7 @@ function SignalTile({ signal }: { signal: any }) {
           fontSize: 10, fontWeight: 700, letterSpacing: "0.12em",
           textTransform: "uppercase", color: T.textFaint,
         }}>
-          Confidence
+          Signal strength
         </div>
         <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, position: "relative" }}>
           <div style={{
@@ -561,8 +562,9 @@ function SignalTile({ signal }: { signal: any }) {
         <div style={{
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
           fontSize: 11, fontWeight: 700, color: T.gold,
+          whiteSpace: "nowrap",
         }}>
-          {signal.confidence_score ?? 70}
+          {publicConfidenceLabel(signal.confidence_score ?? 70)}
         </div>
       </div>
       </div>
@@ -957,7 +959,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
           }}>
             Draft week is the highest-signal 72 hours in football.
             Edge Setter tracks prospect risers and fallers, team-fit buzz,
-            medical flags, and free-agency fallout — verified, confidence-scored,
+            medical flags, and free-agency fallout — source-checked and ranked,
             actionable before the pick is in.
           </p>
 
@@ -1150,7 +1152,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                 Source Leaderboard
               </div>
               <div style={{ fontSize: 14, lineHeight: 1.55, color: T.textMuted }}>
-                Analyst accuracy scoring by beat reporter, insider, and media outlet. Source accuracy scoring is live. Expanded source tracking and depth continue rolling out.
+                Source reliability tracking by beat reporter, insider, and media outlet. Reliability tracking is rolling out as settled outcomes accumulate.
               </div>
             </div>
           </Link>
@@ -1267,7 +1269,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
         }}>
           {[
             { n: "01", title: "Signal Ingestion", body: "Beat writers, beat reporters, team insiders, analytics services (incl. PFF), independent scouts (Landry Football), and college analysts (Phil Steele) monitored in real time across 15+ verified sources." },
-            { n: "02", title: "Confidence Scoring", body: "Each signal receives a 0–100 confidence score based on source reliability, corroboration, and timing." },
+            { n: "02", title: "Signal Ranking", body: "Each signal is ranked by source agreement, corroboration, and timing." },
             { n: "03", title: "Verdict Assignment", body: "Signals are classified: Confirmed, Likely, Rumor, or Contradicted — with reasoning you can trust." },
             { n: "04", title: "Action Takeaway", body: "Every signal includes a concrete action step — what to do with this intelligence in your leagues." },
           ].map(step => (
@@ -1357,7 +1359,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
             </div>
             <GoldRule opacity={0.10} my={0} />
             <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 20 }}>
-              {["3 most-recent live signals", "Verdict labels (confirmed/rumor)", "Confidence score preview"].map(f => (
+              {["3 most-recent live signals", "Verdict labels (confirmed/rumor)", "Signal strength preview"].map(f => (
                 <div key={f} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <CheckCircle2 size={14} style={{ color: T.textFaint, flexShrink: 0 }} />
                   <span style={{ fontSize: 15, color: T.textMuted }}>{f}</span>
@@ -1415,7 +1417,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
               {[
                 "Full live signals feed — no cap",
                 "Free Agency, Injury & topic filters",
-                "Confidence scores + verdict detail",
+                "Signal strength + verdict detail",
                 "Action takeaway on every signal",
                 "2026 Draft Board + archive search",
                 "Today's Top Signal history",
@@ -1480,7 +1482,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                 Fantasy players, DFS grinders, and bettors who follow NFL news
                 already know the information is out there — it's just scattered
                 across tweets, podcasts, and beat reporters. Edge Setter converts
-                it into ranked edges with confidence scores and a single action, so
+                it into ranked edges with a clear signal read and a single action, so
                 you're acting on intelligence, not noise.
               </p>
               <WaitlistForm onSuccess={() => setWaitlistDone(true)} />
@@ -1536,7 +1538,7 @@ export default function LandingPage({ theme, toggleTheme }: Props) {
                 Today's top signal. In your inbox. Free.
               </h2>
               <p style={{ fontSize: 15, color: T.textMuted, lineHeight: 1.6, marginBottom: 20 }}>
-                The #1 edge from today's feed — with confidence score and the one action to take. Signals 2 and 3 are Pro-only.
+                The #1 edge from today's feed — with its signal read and the one action to take. Signals 2 and 3 are Pro-only.
               </p>
               <DigestSubscribeForm onSuccess={() => setDigestDone(true)} />
               <p style={{ fontSize: 12, color: T.textFaint, marginTop: 12 }}>

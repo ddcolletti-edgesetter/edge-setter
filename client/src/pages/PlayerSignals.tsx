@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import AppShell from "@/components/V2Shell";
 import { useNBASignals, useMLBSignals } from "@/hooks/useSignals";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { Activity, Search, User, Zap, X, AlertTriangle, TrendingUp, BarChart2 } from "lucide-react";
 import type { V2Signal } from "@/data/v2MockData";
 import { SignalDetailDrawer, type SignalDetailLike } from "@/components/SignalDetailDrawer";
@@ -188,8 +189,8 @@ function PlayerSignalCard({ signal, sport, onOpenDetails }: { signal: Signal; sp
           <div style={{ width: 64, height: 3, background: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" }}>
             <div style={{ width: `${conf}%`, height: "100%", background: confColor(conf), borderRadius: 2 }} />
           </div>
-          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 12, fontWeight: 700, color: confColor(conf), minWidth: 36 }}>
-            {conf}%
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 12, fontWeight: 700, color: confColor(conf), whiteSpace: "nowrap" }}>
+            {publicConfidenceLabel(conf)}
           </span>
         </div>
       </div>

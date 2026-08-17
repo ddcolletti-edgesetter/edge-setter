@@ -14,6 +14,7 @@ import {
   rankCanonicalSituations,
   type CanonicalSituation,
 } from "./situationsApi";
+import { publicConfidenceLabel } from "./storyLanguage";
 
 export function canonicalSituationsToBoardSituations(
   situations: readonly CanonicalSituation[],
@@ -240,11 +241,12 @@ function computeConfidenceJourney(situation: CanonicalSituation): string | undef
   const peakMs = new Date(peakEntry.timestamp).getTime();
   const gapMinutes = Math.round((peakMs - firstMs) / 60_000);
 
-  if (gapMinutes < 3) return `Confidence reached ${peak}% at first signal`;
-  if (gapMinutes < 60) return `Confidence reached ${peak}% within ${gapMinutes} min`;
+  const peakLabel = publicConfidenceLabel(peak);
+  if (gapMinutes < 3) return `${peakLabel} at first signal`;
+  if (gapMinutes < 60) return `${peakLabel} within ${gapMinutes} min`;
   const h = Math.floor(gapMinutes / 60);
   const m = gapMinutes % 60;
-  return `Confidence reached ${peak}% within ${m > 0 ? `${h}h ${m}m` : `${h}h`}`;
+  return `${peakLabel} within ${m > 0 ? `${h}h ${m}m` : `${h}h`}`;
 }
 
 export function formatLeadGap(gapMinutes: number): string {

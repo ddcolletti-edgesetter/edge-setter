@@ -1,5 +1,6 @@
 import V2Shell from "../components/V2Shell";
 import { useCanonicalSituation, type CanonicalSituationLifecycleState } from "../lib/situationsApi";
+import { publicConfidenceLabel } from "../lib/storyLanguage";
 
 function displayState(state: CanonicalSituationLifecycleState) {
   if (state === "confirmed" || state === "official") {
@@ -136,7 +137,7 @@ function StoryDetailInner({ id }: { id: string }) {
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-baseline gap-2">
             <span className={`text-2xl font-bold ${state.colorClass}`}>
-              {isVerified ? "Verified" : `${situation.confidence}%`}
+              {isVerified ? "Verified" : publicConfidenceLabel(situation.confidence)}
             </span>
             <span className="text-sm text-muted-foreground">{situation.confidenceLabel}</span>
           </div>

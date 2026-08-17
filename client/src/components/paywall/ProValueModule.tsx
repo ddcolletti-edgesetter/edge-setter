@@ -23,8 +23,8 @@ const ITEMS = [
   { icon: Zap,          label: "Full live signal feed" },
   { icon: BarChart2,    label: "Source context and movement tags" },
   { icon: Filter,       label: "Board filters across active sports" },
-  { icon: BookOpen,     label: "Saved signals and accuracy context" },
-  { icon: CheckCircle2, label: "Confidence drivers and action windows" },
+  { icon: BookOpen,     label: "Saved signals and source context" },
+  { icon: CheckCircle2, label: "Signal drivers and action windows" },
 ];
 
 export default function ProValueModule() {
@@ -73,8 +73,8 @@ export default function ProValueModule() {
       </div>
       <p style={{ fontSize: 14, color: C.textMuted, margin: "0 0 18px", lineHeight: 1.55 }}>
         {isPro
-          ? "Full signal detail, source context, accuracy context, and saved-signal monitoring are included in Pro."
-          : "Move from limited board access into full signal detail, source context, accuracy context, and saved-signal monitoring."}
+          ? "Full signal detail, source context, evidence context, and saved-signal monitoring are included in Pro."
+          : "Move from limited board access into full signal detail, source context, evidence context, and saved-signal monitoring."}
       </p>
 
       {/* Free signal meter — only show if they've used some */}

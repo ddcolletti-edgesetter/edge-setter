@@ -4,6 +4,7 @@ import { AgentCalibrationBadge, HistoricalPatternMatch } from "@/components/Agen
 import { ConfidenceMovement, EscalationBadge, SourceChainMini } from "@/components/intelligence/SituationCard";
 import type { EscalationState, IntelligenceSituation, TimingWindow } from "@/lib/intelligenceSituationsApi";
 import type { VerificationStateResult } from "@shared/verification-state";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 
 export interface EdgeSetterOverlayData {
   escalationState?: EscalationState | null;
@@ -52,7 +53,7 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
   const confidenceLabel = showVerificationWord
     ? data.verification!.state
     : typeof confidence === "number"
-    ? publicCopy ? `${Math.round(confidence)}% support from tracked signals` : `${Math.round(confidence)}% support signal`
+    ? publicConfidenceLabel(confidence)
     : "Awaiting verification";
   const deltaLabel = typeof delta === "number" && delta !== 0 ? `${delta > 0 ? "+" : ""}${Math.round(delta)}` : "Hold";
   const sourceCount = data.sourceSummary?.count ?? 0;

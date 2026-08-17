@@ -21,10 +21,10 @@ const SIGNAL_TYPES = [
 ] as const;
 
 const CONFIDENCE_OPTS = [
-  { value: 70,  label: "70+ (All notable)" },
-  { value: 80,  label: "80+ (Strong)" },
-  { value: 85,  label: "85+ (Elite only)" },
-  { value: 90,  label: "90+ (Max confidence)" },
+  { value: 70,  label: "All notable signals" },
+  { value: 80,  label: "Strong signals only" },
+  { value: 85,  label: "Strongest signals" },
+  { value: 90,  label: "Only the strongest" },
 ];
 
 interface Prefs {
@@ -283,8 +283,8 @@ export default function AlertSettingsPage() {
           </div>
         </Section>
 
-        {/* Confidence threshold */}
-        <Section title="Minimum Confidence">
+        {/* Signal-strength threshold */}
+        <Section title="Minimum Signal Strength">
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {CONFIDENCE_OPTS.map(opt => (
               <Toggle

@@ -6,6 +6,7 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { Link } from "wouter";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { apiRequest } from "@/lib/queryClient";
 import type { Signal } from "@shared/schema";
 import { CheckCircle2, ChevronRight } from "lucide-react";
@@ -68,12 +69,6 @@ function ConfBar({ score }: { score: number }) {
       <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2, position: "relative" }}>
         <div style={{ position: "absolute", top: 0, left: 0, bottom: 0, width: `${score}%`, background: color, borderRadius: 2 }} />
       </div>
-      <span style={{
-        fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-        fontSize: 12, fontWeight: 700, color: T.gold, minWidth: 28, textAlign: "right",
-      }}>
-        {score}
-      </span>
     </div>
   );
 }
@@ -259,11 +254,11 @@ function SignalCard({ signal, featured, onOpenDetails }: { signal: Signal; featu
         <div style={{ textAlign: "right", flexShrink: 0 }}>
           <div style={{
             fontFamily: "'Playfair Display', Georgia, serif",
-            fontSize: featured ? 36 : 28, fontWeight: 700,
-            color: T.gold, lineHeight: 1,
-            letterSpacing: "-0.03em",
+            fontSize: featured ? 17 : 15, fontWeight: 700,
+            color: T.gold, lineHeight: 1.15,
+            letterSpacing: "-0.01em",
           }}>
-            {signal.confidence_score}
+            {publicConfidenceLabel(signal.confidence_score)}
           </div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",

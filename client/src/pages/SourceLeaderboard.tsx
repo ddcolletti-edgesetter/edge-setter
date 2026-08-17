@@ -124,6 +124,15 @@ function getSourceLeagues(sourceName: string): LeagueTab[] {
   return SOURCE_LEAGUE_MAP[sourceName] ?? ["NFL", "NBA", "MLB", "CFB"];
 }
 
+// A source only has a real accuracy record once settled outcomes exist AND the
+// accuracy pass has run. Until then overall_accuracy / injury_accuracy /
+// false_positive_rate are seeded placeholders — we must never render them as a
+// measured percentage for a named source. Reliability tiers (trust_tier) and
+// timing are not outcome-dependent, so they stay.
+function hasSettledOutcomes(s: any): boolean {
+  return (s?.verified_count ?? 0) > 0 && s?.last_computed_at != null;
+}
+
 function SourceLeagueChips({ leagues }: { leagues: LeagueTab[] }) {
   const visible = leagues.filter((league) => league !== "ALL").slice(0, 3);
   if (!visible.length) return null;
@@ -241,7 +250,7 @@ export default function SourceLeaderboard() {
   return <V2Shell brandContext="SOURCE INTEL"><SourceLeaderboardInner /></V2Shell>;
 }
 
-function SourceLeaderboardInner() {
+export function SourceLeaderboardInner() {
   const [activeFilter, setActiveFilter] = useState<FilterChip>("all");
   const [activeLeague, setActiveLeague] = useState<LeagueTab>("ALL");
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
@@ -421,6 +430,7 @@ function SourceLeaderboardInner() {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {filteredScores.map((s: any, i: number) => {
                 const acc = parseFloat(s.overall_accuracy ?? "0");
+                const settled = hasSettledOutcomes(s);
                 const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
                 const leadTime = parseFloat(s.average_lead_time_minutes ?? "0").toFixed(0);
                 const leagues = getSourceLeagues(s.source_name ?? "");
@@ -452,10 +462,13 @@ function SourceLeaderboardInner() {
                       </div>
                       <span style={{
                         fontFamily: "'Barlow Condensed', sans-serif",
-                        fontSize: 17, fontWeight: 800, color: accColor,
+                        fontSize: settled ? 17 : 12, fontWeight: settled ? 800 : 700,
+                        color: settled ? accColor : C.ivoryMuted,
+                        letterSpacing: settled ? undefined : "0.06em",
+                        textTransform: settled ? undefined : ("uppercase" as const),
                         flexShrink: 0,
                       }}>
-                        {acc.toFixed(1)}%
+                        {settled ? `${acc.toFixed(1)}%` : "Pending"}
                       </span>
                     </div>
                     {/* Row 2: tier + type + lead time */}
@@ -513,6 +526,7 @@ function SourceLeaderboardInner() {
                   <tbody>
                     {filteredScores.map((s: any, i: number) => {
                       const acc = parseFloat(s.overall_accuracy ?? "0");
+                      const settled = hasSettledOutcomes(s);
                       const accColor = acc >= 85 ? C.anaCyan : acc >= 70 ? C.anaAmber : C.ivoryMuted;
                       const leagues = getSourceLeagues(s.source_name ?? "");
                       return (
@@ -533,16 +547,18 @@ function SourceLeaderboardInner() {
                           </td>
                           <td className="px-4 py-3"><TierBadge tier={s.trust_tier ?? null} /></td>
                           <td className="px-4 py-3 text-right">
-                            <span className="font-bold" style={{ color: accColor }}>{acc.toFixed(1)}%</span>
+                            {settled
+                              ? <span className="font-bold" style={{ color: accColor }}>{acc.toFixed(1)}%</span>
+                              : <span className="text-sm uppercase tracking-wider" style={{ color: C.ivoryMuted }}>Pending</span>}
                           </td>
                           <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: C.ivoryMuted }}>
                             {parseFloat(s.average_lead_time_minutes ?? "0").toFixed(0)}m
                           </td>
                           <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: C.ivoryMuted }}>
-                            {parseFloat(s.false_positive_rate ?? "0").toFixed(1)}%
+                            {settled ? `${parseFloat(s.false_positive_rate ?? "0").toFixed(1)}%` : "—"}
                           </td>
                           <td className="px-4 py-3 text-right text-sm tabular-nums" style={{ color: C.ivoryMuted }}>
-                            {parseFloat(s.injury_accuracy ?? "0").toFixed(1)}%
+                            {settled ? `${parseFloat(s.injury_accuracy ?? "0").toFixed(1)}%` : "—"}
                           </td>
                         </tr>
                       );

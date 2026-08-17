@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { Link } from "wouter";
 import AppLayout from "../components/AppLayout";
 import VerdictBadge from "../components/VerdictBadge";
@@ -460,9 +461,9 @@ function SignalCard({ item }: { item: SignalFeedItem }) {
         >
           <div
             className="stat-num-display"
-            style={{ color: confColor, fontSize: 28, fontWeight: 700 }}
+            style={{ color: confColor, fontSize: 15, fontWeight: 700, lineHeight: 1.2 }}
           >
-            {conf.toFixed(0)}<span style={{ fontSize: 14 }}>%</span>
+            {publicConfidenceLabel(conf)}
           </div>
           <p className="data-label" style={{ marginTop: 2 }}>Conf.</p>
           {item.source_name && (() => {

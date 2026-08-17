@@ -8,6 +8,7 @@ import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
 import type { IntelligenceSituation } from "@/lib/intelligenceSituationsApi";
 import type { SportsImageAsset } from "@/lib/sportsImageAssets";
 import { hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { cn } from "@/lib/utils";
 
 export interface StoryCardData {
@@ -73,9 +74,10 @@ export function confidenceDisplay(
   if (verified) return { text: "Verified", tone: "verified" };
   if (typeof confidence !== "number") return { text: "Developing", tone: "forming" };
   const rounded = Math.round(confidence);
-  if (rounded >= 85) return { text: `${rounded}% escalating`, tone: "strong" };
-  if (rounded >= 70) return { text: `${rounded}% escalating`, tone: "developing" };
-  return { text: `${rounded}% developing`, tone: "forming" };
+  const label = publicConfidenceLabel(rounded);
+  if (rounded >= 85) return { text: label, tone: "strong" };
+  if (rounded >= 70) return { text: label, tone: "developing" };
+  return { text: label, tone: "forming" };
 }
 
 // Same agreement thresholds as the signal detail drawer (4-agent consensus).

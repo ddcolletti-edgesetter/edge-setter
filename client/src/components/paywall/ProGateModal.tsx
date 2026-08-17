@@ -26,7 +26,7 @@ const BULLETS = [
   { icon: BarChart2,   text: "Full Draft Board with intel + movement tags" },
   { icon: Filter,      text: "Topic filters: Draft, Free Agency, Injuries, Trades, Depth Chart, Coaching" },
   { icon: BookOpen,    text: "Today's Top Signal history — see every edge we've surfaced" },
-  { icon: CheckCircle2,text: "Confidence scores, verdict detail, and action takeaways on every signal" },
+  { icon: CheckCircle2,text: "Signal strength, verdict detail, and action takeaways on every signal" },
 ];
 
 export default function ProGateModal() {
@@ -114,7 +114,7 @@ export default function ProGateModal() {
           fontSize: 15, color: C.textMuted,
           margin: "0 0 24px", lineHeight: 1.55,
         }}>
-          See the signals, confidence, and action in one feed — before your league or the market does.
+          See the signals, their strength, and action in one feed — before your league or the market does.
         </p>
 
         {/* Bullets */}
@@ -159,7 +159,7 @@ export default function ProGateModal() {
           </span>
           <p style={{ fontSize: 13, color: C.textMuted, margin: "4px 0 0", lineHeight: 1.5 }}>
             <strong style={{ color: C.text }}>2026 NFL Draft is Apr 24–26.</strong>{" "}
-            Track source context, confidence movement, and action windows from one workflow.
+            Track source context, signal movement, and action windows from one workflow.
           </p>
         </div>
 

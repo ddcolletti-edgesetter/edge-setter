@@ -31,7 +31,7 @@ const PRO_FEATURES = [
   {
     icon: Zap,
     label: "Full live intelligence feed",
-    detail: "Developing NBA, MLB, NFL, and CFB stories with source trail, timing window, confidence, and public-safe watch level.",
+    detail: "Developing NBA, MLB, NFL, and CFB stories with source trail, timing window, signal strength, and public-safe watch level.",
   },
   {
     icon: BarChart2,
@@ -45,13 +45,13 @@ const PRO_FEATURES = [
   },
   {
     icon: BookOpen,
-    label: "Source and confidence context",
+    label: "Source and signal context",
     detail: "Separate reliability from urgency so confirmed facts do not get confused with immediate action windows.",
   },
   {
     icon: CheckCircle2,
     label: "Saved preferences",
-    detail: "Configure sports, story types, confidence thresholds, and delivery channels without fake launch promises.",
+    detail: "Configure sports, story types, signal-strength thresholds, and delivery channels without fake launch promises.",
   },
 ];
 

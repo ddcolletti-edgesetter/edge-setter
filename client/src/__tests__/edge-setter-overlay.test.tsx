@@ -5,8 +5,9 @@ import { EdgeSetterOverlay, type EdgeSetterOverlayData } from "@/components/Edge
 import type { VerificationStateResult } from "@shared/verification-state";
 
 // PR-B: EdgeSetterOverlay renders the shared verification word in its
-// confidence-support cell when the flag is on, and the legacy "N% support"
-// number when off (or when no verification word is attached).
+// confidence-support cell when the flag is on. When off (or when no verification
+// word is attached) it renders a qualitative signal-strength tier — never a bare
+// confidence percentage (confidence is a blended prior, not a calibrated number).
 
 const verification: VerificationStateResult = {
   state: "Verified",
@@ -25,11 +26,12 @@ function overlayData(overrides: Partial<EdgeSetterOverlayData> = {}): EdgeSetter
 }
 
 describe("EdgeSetterOverlay — verification-state display", () => {
-  it("shows the percentage support label when the flag is off", () => {
+  it("shows a qualitative signal tier (no percentage) when the flag is off", () => {
     const { container } = render(<EdgeSetterOverlay data={overlayData()} />);
     const text = container.textContent ?? "";
 
-    expect(text).toContain("82% support signal");
+    expect(text).toContain("Strong support");
+    expect(text).not.toMatch(/\d+%/);
     expect(text).toContain("Confidence support");
     expect(container.querySelector('[data-verification-word="true"]')).toBeNull();
   });
@@ -44,16 +46,18 @@ describe("EdgeSetterOverlay — verification-state display", () => {
     expect(text).toContain("Verification");
   });
 
-  it("uses editorial percentage phrasing for public copy when the flag is off", () => {
+  it("uses the qualitative tier for public copy when the flag is off", () => {
     const { container } = render(<EdgeSetterOverlay data={overlayData()} copyVariant="editorial" />);
-    expect(container.textContent).toContain("82% support from tracked signals");
+    expect(container.textContent).toContain("Strong support");
+    expect(container.textContent).not.toMatch(/\d+%/);
   });
 
-  it("falls back to the percentage when the flag is on but no verification word is attached", () => {
+  it("falls back to the qualitative tier when the flag is on but no verification word is attached", () => {
     const { container } = render(
       <EdgeSetterOverlay data={overlayData({ verification: null })} verificationStateEnabled />,
     );
-    expect(container.textContent).toContain("82% support signal");
+    expect(container.textContent).toContain("Strong support");
+    expect(container.textContent).not.toMatch(/\d+%/);
     expect(container.querySelector('[data-verification-word="true"]')).toBeNull();
   });
 

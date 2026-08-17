@@ -1,6 +1,7 @@
 import { Activity, ChevronDown, Clock3, Link2, ShieldCheck, TrendingDown, TrendingUp } from "lucide-react";
 import { useState } from "react";
 import type { EscalationState, IntelligenceSituation } from "@/lib/intelligenceSituationsApi";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 
 const stateTone: Record<EscalationState, string> = {
   Monitoring: "#94A3B8",
@@ -41,7 +42,7 @@ export function ConfidenceMovement({ situation }: { situation: IntelligenceSitua
       <div style={{ color }}>
         {icon}
         <strong>{label}</strong>
-        <span>{current}%</span>
+        <span>{publicConfidenceLabel(current)}</span>
       </div>
       <p>{explanation}</p>
     </div>
