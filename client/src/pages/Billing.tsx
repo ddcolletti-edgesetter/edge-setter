@@ -250,7 +250,7 @@ export default function Billing() {
                   "Full signal archive (unlimited history)",
                   "Injury & lineup alerts",
                   "Line movement tracking",
-                  "Consensus confidence scores",
+                  "Consensus signal strength",
                   "Multi-sport coverage",
                   "Early access to new features",
                 ].map((feature) => (

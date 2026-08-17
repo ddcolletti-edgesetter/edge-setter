@@ -95,7 +95,7 @@ export default function SuccessPage() {
               </p>
             )}
             <p style={{ fontSize: 13, color: C.ivoryDim, margin: "0 0 28px", lineHeight: 1.6 }}>
-              Your Pro access is active at $19/month. Full signal feed, confidence scores, source notes, and verdict detail.
+              Your Pro access is active at $19/month. Full signal feed, signal strength, source notes, and verdict detail.
             </p>
             <Link href="/pro">
               <a

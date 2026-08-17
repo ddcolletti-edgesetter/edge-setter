@@ -7,9 +7,12 @@ import type { VerificationStateResult } from "@shared/verification-state";
 
 // PR-B: with the VITE_VERIFICATION_STATE_HOMEPAGE flag on, StoryCard surfaces the
 // shared verification word ("Verified" / "Escalating" / "Developing") in place of
-// the raw confidence percentage. Flag off keeps the legacy percentage lineage.
-// The flag reaches StoryCard as a prop (LiveIntelligenceHome reads the env once in
-// its render body and threads it down), so these tests drive the prop directly.
+// the confidence readout. Flag off surfaces a qualitative signal-strength tier
+// ("Strong pattern match" / "Strong support" / "Still forming" / ...) — never a
+// bare confidence percentage (the confidence value is a blended prior, not a
+// calibrated probability). The flag reaches StoryCard as a prop (LiveIntelligenceHome
+// reads the env once in its render body and threads it down), so these tests drive
+// the prop directly.
 
 const verification: VerificationStateResult = {
   state: "Escalating",
@@ -41,15 +44,15 @@ function story(overrideOverlay: Partial<EdgeSetterOverlayData> = {}): StoryCardD
 }
 
 describe("StoryCard — verification-state display", () => {
-  it("shows the raw confidence percentage when the flag is off", () => {
+  it("shows a qualitative signal tier (no percentage) when the flag is off", () => {
     const { container } = render(<StoryCard story={story()} variant="rail" />);
     const text = container.textContent ?? "";
 
-    expect(text).toContain("60%");
+    expect(text).not.toMatch(/\d+%/);
     expect(container.querySelector('[data-verification-word="true"]')).toBeNull();
 
     const pill = container.querySelector(".story-card-conf");
-    expect(pill?.textContent).toContain("60%");
+    expect(pill?.textContent).toBe("Still forming");
     expect(pill?.textContent).not.toBe("Escalating");
   });
 
@@ -66,13 +69,15 @@ describe("StoryCard — verification-state display", () => {
     expect(pill?.textContent).toBe("Escalating");
   });
 
-  it("falls back to the percentage when the flag is on but no verification word is attached", () => {
+  it("falls back to the qualitative tier when the flag is on but no verification word is attached", () => {
     const { container } = render(
       <StoryCard story={story({ verification: null })} variant="rail" verificationStateEnabled />,
     );
     const text = container.textContent ?? "";
 
-    expect(text).toContain("60%");
+    expect(text).not.toMatch(/\d+%/);
+    const pill = container.querySelector(".story-card-conf");
+    expect(pill?.textContent).toBe("Still forming");
     expect(container.querySelector('[data-verification-word="true"]')).toBeNull();
   });
 });
@@ -93,11 +98,12 @@ describe("confidenceDisplay — flag-gated word mapping", () => {
     });
   });
 
-  it("ignores the verification word and keeps the percentage when the flag is off", () => {
+  it("ignores the verification word and uses the qualitative tier when the flag is off", () => {
     const read = confidenceDisplay(
       { verification: { state: "Verified", basis: "" }, confidence: { current: 60 } },
       false,
     );
-    expect(read.text).toContain("60%");
+    expect(read.text).toBe("Still forming");
+    expect(read.text).not.toMatch(/\d+%/);
   });
 });

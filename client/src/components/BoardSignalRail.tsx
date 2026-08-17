@@ -1,5 +1,6 @@
 import type { BoardSituation } from "@/lib/boardSituations";
 import { signalAgeMinutes, type BoardSignalLike } from "@/lib/signalBoardUx";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 
 const STALE_THRESHOLD_MINUTES = 48 * 60;
 
@@ -172,7 +173,7 @@ function SignalRow({ s }: { s: BoardSituation }) {
         {subject && <small>{subject}</small>}
       </span>
       <span className={`bloomberg-status ${cls}`}>{label}</span>
-      <span className={`bloomberg-conf ${confTone(conf)}`}>{conf}%</span>
+      <span className={`bloomberg-conf ${confTone(conf)}`}>{publicConfidenceLabel(conf)}</span>
     </div>
   );
 }

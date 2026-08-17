@@ -10,7 +10,7 @@ export type OperationalLifecycle =
 export type BoardSortMode = "priority" | "newest" | "confidence" | "timing" | "movement";
 
 export function boardSortFeedback(mode: BoardSortMode) {
-  if (mode === "confidence") return "Showing stories with the strongest agent-calibrated confidence first.";
+  if (mode === "confidence") return "Showing the strongest signals first.";
   if (mode === "newest") return "Showing newest verified developments first.";
   if (mode === "timing") return "Showing stories with the clearest timing window first.";
   if (mode === "movement") return "Showing stories with market reaction or urgent context changes first.";

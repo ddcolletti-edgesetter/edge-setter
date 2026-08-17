@@ -127,8 +127,7 @@ function readSourceCount(signal: SignalDetailLike) {
 function confidenceLabel(value: number) {
   if (!value) return "Unavailable";
   if (value >= 100) return "VERIFIED";
-  if (value >= 96) return "95%+";
-  return `${Math.round(value)}%`;
+  return publicConfidenceLabel(value);
 }
 
 function confidenceBand(value: number, editorial = false) {

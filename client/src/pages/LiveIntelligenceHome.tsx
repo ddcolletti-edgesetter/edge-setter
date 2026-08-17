@@ -13,6 +13,7 @@ import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { fetchSignals } from "@/lib/signalsApi";
 import { containsPublicInvalidToken, hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
 import { compareLeadRank } from "@/lib/boardSituations";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { LEAD_MAX_AGE_HOURS, ageHoursFrom } from "@/lib/leadRanker";
 import { AlertTriangle, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -626,10 +627,7 @@ function bloombergConfText(situation: IntelligenceSituation): string {
   const state = situation.escalationState;
   if (state === "Official" || (typeof conf === "number" && conf >= 100)) return "Verified";
   if (typeof conf !== "number") return "Developing";
-  const r = Math.round(conf);
-  if (r >= 85) return `${r}%`;
-  if (r >= 70) return `${r}%`;
-  return `${r}%`;
+  return publicConfidenceLabel(Math.round(conf));
 }
 
 function bloombergConfTone(situation: IntelligenceSituation): string {

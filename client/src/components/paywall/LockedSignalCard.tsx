@@ -8,6 +8,7 @@
  */
 import type { Signal } from "@shared/schema";
 import { useSignalGate } from "@/context/SignalGate";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { Lock } from "lucide-react";
 
 const T = {
@@ -130,11 +131,11 @@ export default function LockedSignalCard({ signal, index }: Props) {
           <div style={{ textAlign: "right", flexShrink: 0, filter: "blur(6px)", userSelect: "none" }}>
             <div style={{
               fontFamily: "'Playfair Display',Georgia,serif",
-              fontSize: 28, fontWeight: 700,
-              color: T.gold, lineHeight: 1,
-              letterSpacing: "-0.03em",
+              fontSize: 15, fontWeight: 700,
+              color: T.gold, lineHeight: 1.15,
+              letterSpacing: "-0.01em",
             }}>
-              {signal.confidence_score}
+              {publicConfidenceLabel(signal.confidence_score ?? 0)}
             </div>
             <div style={{
               fontFamily: "'Barlow Condensed','Arial Narrow',Arial,sans-serif",

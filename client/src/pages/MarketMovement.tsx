@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import AppShell from "@/components/V2Shell";
 import { useNBASignals, useMLBSignals } from "@/hooks/useSignals";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { TrendingUp, TrendingDown, Zap, BarChart2, AlertTriangle } from "lucide-react";
 import type { V2Signal } from "@/data/v2MockData";
 
@@ -188,10 +189,10 @@ function MoveCard({ signal, sport }: { signal: Signal; sport: string }) {
               padding: "8px 14px", borderRadius: 6,
               background: T.surface3,
             }}>
-              <div style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 18, fontWeight: 700, color: conf >= 80 ? T.green : T.gold }}>
-                {conf}%
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 13, fontWeight: 700, color: conf >= 80 ? T.green : T.gold }}>
+                {publicConfidenceLabel(conf)}
               </div>
-              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.08em", marginTop: 2 }}>CONF</div>
+              <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 10, color: T.textFaint, letterSpacing: "0.08em", marginTop: 2 }}>SIGNAL</div>
             </div>
           )}
         </div>
@@ -201,8 +202,8 @@ function MoveCard({ signal, sport }: { signal: Signal; sport: string }) {
           <div style={{ flex: 1, height: 3, background: "rgba(255,255,255,0.06)", borderRadius: 2 }}>
             <div style={{ width: `${conf}%`, height: "100%", background: accentColor, borderRadius: 2, opacity: 0.8 }} />
           </div>
-          <span style={{ fontFamily: "'Share Tech Mono', monospace", fontSize: 11, color: T.textMuted, flexShrink: 0 }}>
-            {conf}% confidence
+          <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 11, color: T.textMuted, flexShrink: 0, whiteSpace: "nowrap" }}>
+            {publicConfidenceLabel(conf)}
           </span>
         </div>
 

@@ -391,7 +391,7 @@ function canonicalTypeForTab(tab: string) {
 
 function laneSummary(league: "NBA", lane: SituationLaneType) {
   const copy: Record<SituationLaneType, string> = {
-    escalating: "Fresh changes where source agreement, agent-calibrated confidence, or public context are moving faster than the broad board.",
+    escalating: "Fresh changes where source agreement, signal strength, or public context are moving faster than the broad board.",
     live: "In-game stories tied to active source checks, market reaction, fantasy impact, or role changes still in progress.",
     decision: "Pre-tip windows where timing depends on the next warmup, lineup, or market reaction.",
     confirmed: "Verified rotation and injury stories with the confirmation chain preserved for downstream reads.",

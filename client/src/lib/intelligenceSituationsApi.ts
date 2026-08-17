@@ -1,6 +1,7 @@
 import { apiRequest } from "./queryClient";
 import { fetchSignals, type LiveSignal } from "./signalsApi";
 import { publicGamesForLeague } from "./publicDisplayHygiene";
+import { publicConfidenceLabel } from "./storyLanguage";
 import { deriveVerificationState, evidenceFromLiveSignal, type VerificationStateResult } from "@shared/verification-state";
 
 export type EscalationState =
@@ -363,7 +364,7 @@ function confidenceExplanation(
   // leaking the raw confidence percentage. Read at call time (not module scope)
   // so vi.stubEnv toggles are observed per call. Flag off = legacy string.
   const verificationStateEnabled = import.meta.env.VITE_VERIFICATION_STATE_HOMEPAGE === "true";
-  const readout = verificationStateEnabled ? `${movement} — ${verification.state}` : `${movement} at ${confidence}%`;
+  const readout = verificationStateEnabled ? `${movement} — ${verification.state}` : `${movement} — ${publicConfidenceLabel(confidence)}`;
   return `${readout}. ${drivers.join(" / ") || "Verification context is still building."}`;
 }
 

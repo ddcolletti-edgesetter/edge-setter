@@ -245,7 +245,7 @@ export default function AccuracyPage() {
   return <V2Shell><AccuracyPageInner /></V2Shell>;
 }
 
-function AccuracyPageInner() {
+export function AccuracyPageInner() {
   const [sport, setSport]   = useState<Sport>("ALL");
   const [sortKey, setSortKey] = useState<SortKey>("accuracy");
 
@@ -269,6 +269,10 @@ function AccuracyPageInner() {
     return Array.from(seen.values()).map(row => {
       const acc       = parseFloat(row.overall_accuracy ?? "0");
       const verified  = row.verified_count ?? 0;
+      // A source only has a real accuracy record when settled outcomes exist AND
+      // the accuracy pass has actually run. Absent that, overall_accuracy is a
+      // seeded placeholder — never present it as measured (no %, grade, or tier).
+      const hasSettled = verified > 0 && row.last_computed_at != null;
       const rel       = parseFloat(row.reliability_score ?? "0");
       const weight    = rel > 0 ? Math.round(rel) : Math.round(acc * 0.85);
       return {
@@ -277,9 +281,10 @@ function AccuracyPageInner() {
         _lead:    parseFloat(row.average_lead_time_minutes ?? "0"),
         _fp:      parseFloat(row.false_positive_rate ?? "0"),
         _sport:   getSourceSport(row.source_name ?? ""),
-        _badge:   statusBadge(acc, verified),
+        _badge:   hasSettled ? statusBadge(acc, verified) : "UNVERIFIED",
         _weight:  weight,
         _verified: verified,
+        _hasSettled: hasSettled,
       };
     });
   }, [rawScores]);
@@ -297,16 +302,19 @@ function AccuracyPageInner() {
   }, [scores, sport, sortKey]);
 
   // ── Header stats ────────────────────────────────────────────────────────────
+  const settledScores = scores.filter(s => s._hasSettled);
+  const hasSettledData = settledScores.length > 0;
   const eliteCount    = scores.filter(s => s._badge === "ELITE").length;
-  const avgAcc        = scores.length > 0
-    ? scores.reduce((s, r) => s + r._acc, 0) / scores.length
+  const avgAcc        = settledScores.length > 0
+    ? settledScores.reduce((s, r) => s + r._acc, 0) / settledScores.length
     : 0;
   const totalVerified = scores.reduce((s, r) => s + r._verified, 0);
 
   const stats = [
     { label: "Sources Tracked",      value: isLoading ? "—" : String(scores.length) },
     { label: "Elite Sources",         value: isLoading ? "—" : String(eliteCount),         gold: true },
-    { label: "Tracked Accuracy",      value: isLoading ? "—" : `${avgAcc.toFixed(1)}%` },
+    // Only show a measured accuracy aggregate once settled outcomes exist.
+    { label: "Tracked Accuracy",      value: isLoading ? "—" : (hasSettledData ? `${avgAcc.toFixed(1)}%` : "Pending") },
     { label: "Settled Outcomes",      value: isLoading ? "—" : String(totalVerified) },
   ];
 
@@ -363,7 +371,7 @@ function AccuracyPageInner() {
         {/* ── Divider ── */}
         <div style={{ height: 1, background: T.goldBorder, marginBottom: 18 }} />
 
-        <AccuracyTrustLayer sourceCount={scores.length} avgAccuracy={avgAcc} />
+        <AccuracyTrustLayer sourceCount={settledScores.length} avgAccuracy={avgAcc} />
 
         <div className="board-guidance-strip source-guidance">
           <span>Source agreement controls how much a report can move live confidence.</span>
@@ -537,20 +545,32 @@ function AccuracyPageInner() {
                     }}>{sourceSubtitle(s.source_type)}</div>
                   </div>
 
-                  {/* Accuracy grade + % + bar */}
+                  {/* Accuracy grade + % + bar — only where settled outcomes exist.
+                      Otherwise overall_accuracy is a seeded placeholder, so we show
+                      no number/grade rather than a fabricated track record. */}
                   <div>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+                    {s._hasSettled ? (
+                      <>
+                        <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+                          <span style={{
+                            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+                            fontSize: 16, fontWeight: 800, color: gc,
+                            letterSpacing: "-0.01em", lineHeight: 1,
+                          }}>{grade}</span>
+                          <span style={{
+                            fontSize: 12, fontWeight: 700, color: gc,
+                            fontVariantNumeric: "tabular-nums",
+                          }}>{s._acc.toFixed(1)}%</span>
+                        </div>
+                        <Bar value={s._acc} color={gc} />
+                      </>
+                    ) : (
                       <span style={{
                         fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
-                        fontSize: 16, fontWeight: 800, color: gc,
-                        letterSpacing: "-0.01em", lineHeight: 1,
-                      }}>{grade}</span>
-                      <span style={{
-                        fontSize: 12, fontWeight: 700, color: gc,
-                        fontVariantNumeric: "tabular-nums",
-                      }}>{s._acc.toFixed(1)}%</span>
-                    </div>
-                    <Bar value={s._acc} color={gc} />
+                        fontSize: 11, fontWeight: 600, color: T.textFaint,
+                        letterSpacing: "0.04em",
+                      }}>Awaiting settled outcomes</span>
+                    )}
                   </div>
 
                   {/* Consensus Weight X/100 */}
@@ -578,7 +598,7 @@ function AccuracyPageInner() {
                     fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
                     fontSize: 12, fontVariantNumeric: "tabular-nums",
                     color: s._fp > 20 ? T.red : T.textMuted,
-                  }}>{s._fp > 0 ? `${s._fp.toFixed(1)}%` : "—"}</div>
+                  }}>{s._hasSettled && s._fp > 0 ? `${s._fp.toFixed(1)}%` : "—"}</div>
 
                   {/* Verified count */}
                   <div style={{

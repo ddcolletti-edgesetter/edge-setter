@@ -3,9 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { adaptSignalToSituation } from "../intelligenceSituationsApi";
 import type { LiveSignal } from "../signalsApi";
 
-// PR-B: the confidence explanation string must not leak the raw percentage when
-// the VITE_VERIFICATION_STATE_HOMEPAGE flag is on — it leads with the shared
-// verification word instead. Flag off keeps the legacy "at N%" phrasing.
+// PR-B: the confidence explanation string leads with the shared verification word
+// when the VITE_VERIFICATION_STATE_HOMEPAGE flag is on. Flag off leads with a
+// qualitative signal-strength tier — never a bare confidence percentage (the
+// confidence value is a blended prior, not a calibrated probability).
 
 function makeLiveSignal(overrides: Partial<LiveSignal> = {}): LiveSignal {
   const now = new Date().toISOString();
@@ -60,10 +61,11 @@ describe("confidenceExplanation — verification-state flag gating", () => {
     vi.unstubAllEnvs();
   });
 
-  it("includes the raw percentage when the flag is off", () => {
+  it("uses the qualitative signal tier (no percentage) when the flag is off", () => {
     vi.stubEnv("VITE_VERIFICATION_STATE_HOMEPAGE", "");
     const situation = adaptSignalToSituation(makeLiveSignal({ confidence: 60 }));
-    expect(situation.confidence.explanation).toContain("60%");
+    expect(situation.confidence.explanation).toContain("Still forming");
+    expect(situation.confidence.explanation).not.toMatch(/\d+%/);
   });
 
   it("leads with the verification word and hides the percentage when the flag is on", () => {

@@ -204,8 +204,8 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
             <span className="text-[0.7rem] font-semibold text-muted-foreground tabular-nums">{copyVariant === "editorial" ? sourceCountText(situation.sourceCount) : `${situation.sourceCount} reports`}</span>
           )}
           {typeof confidenceDelta === "number" && confidenceDelta !== 0 && (
-            <span className={cn("max-w-full truncate text-[0.7rem] font-bold tabular-nums", confidenceDelta > 0 ? "text-[var(--es-green)]" : "text-[var(--es-amber)]")}>
-              Confidence {confidenceDelta > 0 ? "+" : ""}{Math.round(confidenceDelta)}
+            <span className={cn("max-w-full truncate text-[0.7rem] font-bold", confidenceDelta > 0 ? "text-[var(--es-green)]" : "text-[var(--es-amber)]")}>
+              {confidenceDelta > 0 ? "Support building" : "Support easing"}
             </span>
           )}
           {situation.evidenceCount != null && (
@@ -363,7 +363,7 @@ export function EvidenceChain({
       {((typeof confidenceDelta === "number" && confidenceDelta !== 0) || evidenceGrowthLabel) && !(compact && evidenceGrowthLabel && !(typeof confidenceDelta === "number" && confidenceDelta !== 0)) ? (
         <span className={cn("situation-confidence-move", typeof confidenceDelta === "number" && confidenceDelta < 0 && "is-down")}>
           {typeof confidenceDelta === "number" && confidenceDelta !== 0
-            ? `${confidenceDelta > 0 ? "+" : ""}${Math.round(confidenceDelta)} agent confidence`
+            ? (confidenceDelta > 0 ? "Support building" : "Support easing")
             : storyText(evidenceGrowthLabel, copyVariant)}
         </span>
       ) : null}

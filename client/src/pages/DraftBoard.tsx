@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import AppLayout from "../components/AppLayout";
+import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import VerdictBadge from "../components/VerdictBadge";
 import DataBadge from "../components/DataBadge";
 import { trackDraftBoardVisit } from "@/lib/analytics";
@@ -608,7 +609,7 @@ function MobileProspectCard({
                       <span style={{ fontSize: 13, color: "#94A3B8", marginLeft: "auto" }}>{s.source_name}</span>
                     </div>
                     <p style={{ fontSize: 16, color: "#F8FAFC", lineHeight: 1.65, margin: "0 0 10px 0" }}>{s.normalized_claim}</p>
-                    <p style={{ fontSize: 13, color: "#64748B", fontWeight: 700, margin: 0 }}>{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
+                    <p style={{ fontSize: 13, color: "#64748B", fontWeight: 700, margin: 0 }}>{publicConfidenceLabel(parseFloat(s.confidence_score ?? "0"))}</p>
                   </div>
                 ))}
               </div>
@@ -1084,7 +1085,7 @@ export default function DraftBoard({ theme, toggleTheme }: Props) {
                                           <span className="text-[12px] text-muted-foreground ml-auto">{s.source_name}</span>
                                         </div>
                                         <p className="text-[15px] text-foreground leading-relaxed">{s.normalized_claim}</p>
-                                        <p className="text-[13px] text-muted-foreground mt-1.5 font-semibold">{parseFloat(s.confidence_score ?? "0").toFixed(0)}% conf</p>
+                                        <p className="text-[13px] text-muted-foreground mt-1.5 font-semibold">{publicConfidenceLabel(parseFloat(s.confidence_score ?? "0"))}</p>
                                       </div>
                                     ))}
                                   </div>

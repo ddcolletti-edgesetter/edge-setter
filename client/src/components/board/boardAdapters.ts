@@ -145,7 +145,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     escalationState: escalationStateForSituation(situation),
     statusLabel: situation.statusLabel ?? situation.escalation,
     metrics: [
-      { label: "Confidence", value: `${Math.round(situation.confidence)}%`, tone: situation.confidence >= 80 ? "positive" : situation.confidence >= 60 ? "warning" : "default" },
+      { label: "Confidence", value: publicConfidenceLabel(situation.confidence), tone: situation.confidence >= 80 ? "positive" : situation.confidence >= 60 ? "warning" : "default" },
     ].filter(Boolean) as SituationMetric[],
     tags: [situation.trustLabel, canonical?.confidenceLabel, signal?.injuryDesignation, signal?.conference].filter(Boolean) as string[],
     actionLabel: situation.kind === "signal" ? "Open story" : undefined,
@@ -329,7 +329,7 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
     secondaryRead: fanSafeContext([situation.sourceSummary, canonical?.confidenceFactors.whatRemainsUncertain[0], situation.timingAdvantage].filter(Boolean).join(" / ") || signal?.action_takeaway || situation.trustLabel),
     metrics: [
       { label: "Story priority", value: editorialCopy ? publicUrgencyLabel(situation.score) : urgencyLabel(situation.score), tone: situation.score >= 82 ? "danger" : situation.score >= 65 ? "warning" : "default" },
-      { label: "Confidence", value: editorialCopy ? publicConfidenceLabel(`${Math.round(situation.confidence)}%`) : `${Math.round(situation.confidence)}%`, tone: situation.confidence >= 80 ? "positive" : "default" },
+      { label: "Confidence", value: publicConfidenceLabel(situation.confidence), tone: situation.confidence >= 80 ? "positive" : "default" },
       confidenceDeltaMetric,
       canonical ? { label: "Evidence", value: editorialCopy ? evidenceCountText(canonical.evidenceCount) : canonical.evidenceCount, tone: canonical.evidenceCount >= 3 ? "positive" : "default" } : null,
       { label: "Verification", value: editorialCopy ? publicLifecycleLabel(situation.lifecycleStage) : lifecycleDisplayLabel(situation.lifecycleStage), tone: situation.lifecycleStage === "Context Moving" ? "warning" : situation.lifecycleStage === "Resolved / Stale" ? "default" : "positive" },

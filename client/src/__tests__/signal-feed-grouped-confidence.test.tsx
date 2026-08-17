@@ -193,11 +193,13 @@ describe("signal feed grouped confidence", () => {
     expect(groupedConf?.classList.contains("is-summary")).toBe(true);
     expect(groupedRow!.textContent).not.toContain("%");
 
-    // A lone signal keeps its confidence readout — the blank is summary-only.
+    // A lone signal shows a qualitative signal tier (not a bare percentage) — the
+    // grouped-row blank above is summary-only.
     const singleRow = rows.find(
       (row) => row.querySelector(".bloomberg-league")?.textContent?.trim() === "NBA",
     );
     expect(singleRow).toBeDefined();
-    expect(singleRow!.querySelector(".bloomberg-conf")?.textContent).toBe("88%");
+    expect(singleRow!.querySelector(".bloomberg-conf")?.textContent).toBe("Strong pattern match");
+    expect(singleRow!.textContent).not.toMatch(/\d+%/);
   });
 });
