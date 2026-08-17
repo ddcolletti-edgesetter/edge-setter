@@ -19,6 +19,19 @@ import type { League } from "../types";
 const API_KEY = process.env.THE_ODDS_API_KEY ?? "";
 const BASE_URL = "https://api.the-odds-api.com/v4";
 
+// Betting key numbers — thresholds where public/sharp behavior shifts sharply.
+// Same list the client scorer uses (client/src/lib/signalScorer.ts scoreMarketImpact),
+// applied identically so a signal scores the same on server and client. A line move
+// that crosses one of these sets crossed_key_number on the payload, which the scorer
+// reads (buildScoreInputs -> ScoreInputs.crossedKeyNumber) for a +3 market bonus.
+const KEY_NUMBERS = [3, 3.5, 6.5, 7, 10, 10.5, 14];
+
+export function crossesKeyNumber(open: number, current: number): boolean {
+  const o = Math.abs(open);
+  const c = Math.abs(current);
+  return KEY_NUMBERS.some((kn) => (o < kn && c >= kn) || (o > kn && c <= kn));
+}
+
 /* Sport keys for The Odds API */
 const SPORT_KEYS: Record<League, string> = {
   NBA: "basketball_nba",
@@ -181,6 +194,7 @@ away_score: null,
             line_delta: deltaFromOpen,
             market: "spread",
             sharp_money: false,
+            crossed_key_number: crossesKeyNumber(openSpread, spreadLine),
             matchup: `${shortCode(ag.away_team)} @ ${shortCode(ag.home_team)}`,
             game_time: ag.commence_time,
             source_types: ["sportsbook"],
@@ -214,6 +228,7 @@ away_score: null,
             line_delta: totalDeltaFromOpen,
             market: "total",
             sharp_money: false,
+            crossed_key_number: crossesKeyNumber(openTotal, totalLine),
             matchup: `${shortCode(ag.away_team)} @ ${shortCode(ag.home_team)}`,
             game_time: ag.commence_time,
             source_types: ["sportsbook"],

@@ -42,6 +42,7 @@ const SOURCE_TYPE_WEIGHT: Record<string, number> = {
   analytics:          2.0,
   line_tracking:      2.0,
   sports_api:         2.0,  // ESPN structured feeds (NFL/CFB injuries + transactions) — verified official data, on par with analytics/line feeds
+  league_api:         3.0,  // Official league data feeds (MLB StatsAPI, ESPN NBA, BallDontLie). New key: these official-tier feeds had no entry here and silently fell through to the 1.0 default in getSourceTypeWeight(), suppressing sourceQualityScore on a high-frequency, high-trust source. Weighted 3.0 to match the other official-tier entries above.
   weather_service:    2.5,
   broadcast:          1.5,
   fantasy_platform:   1.5,

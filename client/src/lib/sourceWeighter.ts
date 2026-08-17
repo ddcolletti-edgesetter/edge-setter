@@ -28,6 +28,7 @@ const SOURCE_TYPE_QUALITY: Record<string, number> = {
   tracking_data:         2.0,
   sports_api:            2.0,   // ESPN structured feeds (injuries + transactions) — verified official data
   "sports api":          2.0,
+  league_api:            3.5,   // Official league data feeds (MLB StatsAPI, ESPN NBA, BallDontLie). New key: without it these official-tier feeds fell through to the 0.5 default in computeSourceQuality(). Weighted 3.5 to match this file's other official-tier entries ("official report"/transaction).
   "fantasy platform":    1.5,
   fantasy_platform:      1.5,
   "broadcast":           1.5,
