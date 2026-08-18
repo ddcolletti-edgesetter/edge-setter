@@ -11,6 +11,7 @@
  */
 
 import { insertRawEvent, upsertGame, getGame, findGameByTeams, getRawEvents, getPipelineDb } from "../store";
+import { canonicalGameId, mlbCanonicalTeamCode } from "../canonical-game-id";
 
 const BASE_URL = "https://statsapi.mlb.com/api/v1";
 
@@ -131,11 +132,18 @@ export async function fetchMLBFinalScores(): Promise<Array<{
         const awayRuns = raw.linescore?.teams?.away?.runs;
         if (homeRuns == null || awayRuns == null) continue;
 
-        const canonicalId = `mlb_${raw.gamePk}`;
+        // Resolve scores onto the CANONICAL row — the one that carries the
+        // betting line — not the old `mlb_${gamePk}` row (which never has a
+        // spread). Non-club rows (All-Star break) resolve to null → skip.
+        const homeCode = mlbCanonicalTeamCode(g.teams.home.team);
+        const awayCode = mlbCanonicalTeamCode(g.teams.away.team);
+        if (!homeCode || !awayCode) continue;
+
         const gameDate = g.gameDate.slice(0, 10);
+        const canonicalId = canonicalGameId("MLB", g.gameDate, awayCode, homeCode);
 
         const game = getGame(canonicalId)
-          ?? findGameByTeams("MLB", g.teams.home.team.abbreviation, g.teams.away.team.abbreviation, gameDate);
+          ?? findGameByTeams("MLB", homeCode, awayCode, gameDate);
         if (!game) continue;
 
         results.push({
@@ -156,30 +164,40 @@ export async function fetchMLBFinalScores(): Promise<Array<{
 
 export async function ingestMLBSchedule(): Promise<{ games: number }> {
   const games = await fetchMLBSchedule();
-  let count = 0;
+  let count = 0, skipped = 0;
   for (const g of games) {
-    const gameId = `mlb_${g.gamePk}`;
+    // Canonical id so schedule, odds, scores, and signals all share ONE row.
+    const homeCode = mlbCanonicalTeamCode(g.teams.home.team);
+    const awayCode = mlbCanonicalTeamCode(g.teams.away.team);
+    if (!homeCode || !awayCode) { skipped++; continue; }  // All-Star / non-club
+    const gameId = canonicalGameId("MLB", g.gameDate, awayCode, homeCode);
+
+    // MLB StatsAPI carries no odds. If The Odds API already populated this row
+    // this cycle, preserve its spread/total rather than nulling them — upsertGame
+    // overwrites the odds columns with whatever we pass, so pass the existing
+    // values through instead of null.
+    const existing = getGame(gameId);
     upsertGame({
       id: gameId,
       league: "MLB",
-      home_team: g.teams.home.team.abbreviation,
-      away_team: g.teams.away.team.abbreviation,
+      home_team: homeCode,
+      away_team: awayCode,
       game_time: g.gameDate,
       status: mapGameState(g.status.abstractGameState),
-      spread_line: null,       // MLB StatsAPI doesn't provide odds — The Odds API does
-      spread_team: null,
-      total_line: null,
-      moneyline_home: null,
-      moneyline_away: null,
-      open_spread: null,
-      open_total: null,
+      spread_line:    existing?.spread_line    ?? null,
+      spread_team:    existing?.spread_team    ?? null,
+      total_line:     existing?.total_line     ?? null,
+      moneyline_home: existing?.moneyline_home ?? null,
+      moneyline_away: existing?.moneyline_away ?? null,
+      open_spread:    existing?.open_spread    ?? null,
+      open_total:     existing?.open_total     ?? null,
       home_score: null,
       away_score: null,
       source_game_id: String(g.gamePk),
     });
     count++;
   }
-  console.log(`[mlb-statsapi] Upserted ${count} games`);
+  console.log(`[mlb-statsapi] Upserted ${count} games${skipped ? ` (skipped ${skipped} non-club)` : ""}`);
   return { games: count };
 }
 
@@ -305,8 +323,13 @@ export async function fetchProbablePitchers(): Promise<Array<{
     for (const date of data.dates) {
       for (const game of date.games) {
         const g = game as any;
+        // Bind pitcher confirmations to the canonical row (keyed on team id,
+        // which this endpoint always returns even without hydrate=team).
+        const homeCode = mlbCanonicalTeamCode(g.teams?.home?.team);
+        const awayCode = mlbCanonicalTeamCode(g.teams?.away?.team);
+        if (!homeCode || !awayCode) continue;  // All-Star / non-club
         result.push({
-          game_id: `mlb_${g.gamePk}`,
+          game_id: canonicalGameId("MLB", g.gameDate, awayCode, homeCode),
           home_pitcher: g.teams?.home?.probablePitcher?.fullName ?? null,
           away_pitcher: g.teams?.away?.probablePitcher?.fullName ?? null,
         });

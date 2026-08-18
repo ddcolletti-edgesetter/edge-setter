@@ -15,6 +15,7 @@
 
 import { upsertGame, getGame, insertRawEvent, insertOddsSnapshot } from "../store";
 import type { League } from "../types";
+import { canonicalGameId } from "../canonical-game-id";
 
 const API_KEY = process.env.THE_ODDS_API_KEY ?? "";
 const BASE_URL = "https://api.the-odds-api.com/v4";
@@ -127,15 +128,13 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
     const mlHome = h2hMarket?.outcomes.find(o => o.name === ag.home_team)?.price ?? null;
     const mlAway = h2hMarket?.outcomes.find(o => o.name === ag.away_team)?.price ?? null;
 
-    // Build canonical game id
-    const gameDate = ag.commence_time.slice(0, 10).replace(/-/g, "_");
-
-    const gameId = [
+    // Build canonical game id (shared helper — the one id scheme all leagues use)
+    const gameId = canonicalGameId(
       league,
-      gameDate,
+      ag.commence_time,
       shortCode(ag.away_team),
       shortCode(ag.home_team),
-    ].join("_");
+    );
 insertOddsSnapshot({
   game_id: gameId,
   league,
@@ -291,7 +290,11 @@ const NAME_TO_CODE: Record<string, string> = {
   "Chicago White Sox": "CWS", "Cleveland Guardians": "CLE",
   "Detroit Tigers": "DET", "Kansas City Royals": "KC",
   "Minnesota Twins": "MIN", "Houston Astros": "HOU",
-  "Los Angeles Angels": "LAA", "Oakland Athletics": "OAK",
+  "Los Angeles Angels": "LAA",
+  // Athletics relocated (2025); the live feed now sends a bare "Athletics" and
+  // StatsAPI's canonical code is "ATH". Map every historical/current name form
+  // to ATH so the odds row can never split from the StatsAPI row on this club.
+  "Athletics": "ATH", "Oakland Athletics": "ATH", "Sacramento Athletics": "ATH",
   "Seattle Mariners": "SEA", "Texas Rangers": "TEX",
   "New York Mets": "NYM", "Atlanta Braves": "ATL",
   "Philadelphia Phillies": "PHI", "Miami Marlins": "MIA",
