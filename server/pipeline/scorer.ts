@@ -1,12 +1,34 @@
 /**
  * Edge Setter — Server-side Scorer  (Sprint 7)
  *
- * This is a direct port of the frontend signalScorer.ts logic to Node.js.
- * The scoring algorithm is identical — all changes to the scoring model
- * happen in signalScorer.ts; this file stays in sync but lives on the server
- * so the processing layer can score signals without a browser.
+ * Originally ported from the frontend signalScorer.ts. The two files now
+ * SHARE the same factor structure, band thresholds (Elite ≥82 / Strong ≥65 /
+ * Watchlist ≥48), and component caps — but they are NOT identical and must not
+ * be assumed to be. They have diverged in both structure and weights:
  *
- * DO NOT change scoring logic here without also updating client/src/lib/signalScorer.ts.
+ *   - Source-quality math differs structurally. This file inlines
+ *     computeSourceQualityScore() by AVERAGING per-type weights and scaling
+ *     ×4.2 (cap 28). The client delegates to sourceWeighter.ts, which SUMS
+ *     per-type weights (cap 14) before its own bonuses/cap. Same inputs can
+ *     yield different sourceQualityScore on each side.
+ *
+ *   - Official-tier source weight differs (see SOURCE_TYPE_WEIGHT below):
+ *     server official/team_official/league_api = 3.0; the client's
+ *     "official report" tier = 3.5. See the note on SOURCE_TYPE_WEIGHT.
+ *
+ * IMPORTANT — this is the AUTHORITATIVE scorer. It is the one whose output is
+ * persisted and shown to customers:
+ *   processor.ts calls scoreSignal() → writes score / score_band / urgency /
+ *   breakdown onto the LiveSignal row → the /api/v2/signals delivery API
+ *   serves that stored score → signalsApi.ts injects it as the client's
+ *   `_score` object, and the client scorer does NOT re-compute (it only sorts
+ *   by the server-supplied _score.totalScore). The client signalScorer.ts runs
+ *   its own math only against mock data in dev.
+ *
+ * Consequence: the numbers customers see come from THIS file's weights, not
+ * the client's. Keep the two roughly in sync for dev/prod parity, but when
+ * they conflict, the server value is the one that ships. Any change here
+ * affects live, customer-facing scores.
  */
 
 import type { LiveSignal, ScoreBand, UrgencyLabel, TrustLabel, ScoreBreakdown } from "./types";
@@ -29,6 +51,31 @@ export function getScoreBand(score: number): ScoreBand {
 
 /* ─── Source quality lookup ─────────────────────────────── */
 
+/*
+ * Per-source-type weights. Averaged in computeSourceQualityScore() (NOT summed).
+ *
+ * DIVERGENCE FROM CLIENT — official tier is 3.0 here, 3.5 in the client's
+ * sourceWeighter.ts ("official report": 3.5). This 3.0 is load-bearing for the
+ * Elite band and must not be bumped as a "sync":
+ *   - This server table has held official at 3.0 since the scorer was first
+ *     ported in Sprint 7 (e0e516b); it was never 3.5 on the server side, so the
+ *     divergence is long-standing, not a recent regression.
+ *   - 3.0 is the official-tier scale that Elite (≥82) reachability was tuned
+ *     and tested against. commit 5bac38f added league_api at 3.0 to match this
+ *     scale, and its regression suite (elite-score-reachable) validates that a
+ *     strong official-sourced transaction reaches Elite (~85.6) with official
+ *     at 3.0. Raising server official to 3.5 would inflate every
+ *     official-sourced signal and erode the headroom above the 82 cutoff.
+ *   - Because THIS file produces the persisted, customer-facing score (see the
+ *     header note), the client's 3.5 does not affect live scores; it only
+ *     shifts dev/mock output.
+ * The server(3.0)/client(3.5) mismatch is a known, explicitly-tracked
+ * follow-up (flagged in 5bac38f's message). Do NOT "fix" it by bumping this to
+ * 3.5 without re-tuning the Elite band — that is a scoring change, not a sync.
+ *
+ * Note: transaction is 3.5 here (a high-impact category), which is separate
+ * from the official-tier weight and is what makes Elite reachable at all.
+ */
 const SOURCE_TYPE_WEIGHT: Record<string, number> = {
   official:           3.0,
   team_official:      3.0,
@@ -61,7 +108,10 @@ function computeSourceQualityScore(
 ): number {
   if (sourceCount === 0) return 0;
 
-  // Base quality from source types (max 3.5)
+  // Base quality: AVERAGE of per-type weights (this is the server's approach;
+  // the client's sourceWeighter.ts SUMS instead). Bounded by the largest entry
+  // in SOURCE_TYPE_WEIGHT — currently transaction at 3.5, with the official
+  // tier at 3.0 (see the SOURCE_TYPE_WEIGHT note on the client divergence).
   const avgTypeWeight = sourceTypes.length > 0
     ? sourceTypes.reduce((s, t) => s + getSourceTypeWeight(t), 0) / sourceTypes.length
     : 1.0;
