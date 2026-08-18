@@ -13,7 +13,10 @@
  *
  * Date iteration: 30-day chunks to keep API response sizes manageable.
  *
- * Game IDs: mlb_{gamePk} — consistent with the live mlb-statsapi adapter.
+ * Game IDs: canonical `MLB_{YYYY_MM_DD}_{AWAY}_{HOME}` (via canonical-game-id) —
+ * consistent with the live mlb-statsapi and the-odds-api adapters, so backfilled
+ * games land on the same unified row and match an odds row when one exists.
+ * gamePk is retained in source_game_id for provenance.
  *
  * Settlement note:
  *   Historical games have no spread_line (MLB StatsAPI doesn't provide odds).
@@ -30,6 +33,7 @@ import {
   markBackfillPhase,
   getBackfillPhase,
 } from "../store";
+import { canonicalGameId, mlbCanonicalTeamCode } from "../canonical-game-id";
 
 const BASE_URL = "https://statsapi.mlb.com/api/v1";
 const THROTTLE_MS = 300;
@@ -133,18 +137,20 @@ async function fetchTransactionsChunk(startDate: string, endDate: string): Promi
 
 function processGame(game: MLBGame): { game_id: string | null; isNew: boolean } {
   const raw = game as any;
-  const homeAbbr = game.teams.home.team.abbreviation;
-  const awayAbbr = game.teams.away.team.abbreviation;
-  if (!homeAbbr || !awayAbbr) return { game_id: null, isNew: false };
+  // Canonical codes/id — consistent with the live adapter so historical backfill
+  // lands on the same unified row (and matches an odds row when one exists).
+  const homeCode = mlbCanonicalTeamCode(game.teams.home.team);
+  const awayCode = mlbCanonicalTeamCode(game.teams.away.team);
+  if (!homeCode || !awayCode) return { game_id: null, isNew: false };
   const gameDate = game.gameDate.slice(0, 10);
-  const gameId = `mlb_${game.gamePk}`;
+  const gameId = canonicalGameId("MLB", game.gameDate, awayCode, homeCode);
 
   const isFinal = game.status.abstractGameState === "Final";
   const homeRuns = raw.linescore?.teams?.home?.runs;
   const awayRuns = raw.linescore?.teams?.away?.runs;
 
   // If live pipeline already has this game, update score if final
-  const existing = findGameByTeams("MLB", homeAbbr, awayAbbr, gameDate)
+  const existing = findGameByTeams("MLB", homeCode, awayCode, gameDate)
     ?? (getGame(gameId) ? { id: gameId } as any : null);
 
   if (existing) {
@@ -157,8 +163,8 @@ function processGame(game: MLBGame): { game_id: string | null; isNew: boolean } 
   upsertHistoricalGame({
     id: gameId,
     league: "MLB",
-    home_team: homeAbbr,
-    away_team: awayAbbr,
+    home_team: homeCode,
+    away_team: awayCode,
     game_time: game.gameDate,
     status: isFinal ? "final" : "scheduled",
     spread_line: null,
@@ -176,8 +182,8 @@ function processGame(game: MLBGame): { game_id: string | null; isNew: boolean } 
   // Probable pitcher lineup_confirm events
   const rawGame = game as any;
   for (const [side, teamAbbr] of [
-    ["home", homeAbbr],
-    ["away", awayAbbr],
+    ["home", homeCode],
+    ["away", awayCode],
   ] as [string, string][]) {
     const pitcher = rawGame.teams?.[side]?.probablePitcher?.fullName;
     if (!pitcher) continue;
@@ -201,7 +207,7 @@ function processGame(game: MLBGame): { game_id: string | null; isNew: boolean } 
           sources: [{ name: "MLB StatsAPI", type: "league_api" }],
           pitcher_matchup: true,
           game_time: game.gameDate,
-          matchup: `${awayAbbr} @ ${homeAbbr}`,
+          matchup: `${awayCode} @ ${homeCode}`,
         },
       },
       { eventTime: game.gameDate },
