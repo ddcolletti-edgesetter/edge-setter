@@ -63,6 +63,38 @@ function recordRequest() {
   _requestsThisWindow++;
 }
 
+// ─── Fetch-outcome metrics ──────────────────────────────────────────────────────
+// Tally WHY fetches fail so a broken token / depleted credits / rate cap is
+// legible in logs and health checks instead of vanishing into empty arrays.
+export interface XFetchStats {
+  ok: number;             // 200 with >=1 tweet
+  empty: number;          // 200 with zero tweets
+  no_token: number;       // TWITTER_BEARER_TOKEN unset
+  rate_limited: number;   // 429
+  auth_error: number;     // 401 / 403 — token rejected / forbidden
+  usage_cap: number;      // 402 — credits depleted / billing
+  http_error: number;     // other non-2xx
+  network_error: number;  // fetch threw
+  last_error?: string;    // most recent classified failure + body snippet
+}
+
+const _fetchStats: XFetchStats = {
+  ok: 0, empty: 0, no_token: 0, rate_limited: 0,
+  auth_error: 0, usage_cap: 0, http_error: 0, network_error: 0,
+};
+
+export function getXFetchStats(): XFetchStats { return { ..._fetchStats }; }
+
+/** Human-readable failure class for a non-2xx X API response. */
+function classifyXStatus(status: number, body: string): string {
+  if (status === 401) return "AUTH_INVALID (401) — bearer token rejected; regenerate it";
+  if (status === 403) return "FORBIDDEN (403) — app suspended or wrong access tier";
+  if (status === 402 || /credits.?depleted|usage.?cap/i.test(body))
+    return "USAGE_CAP (402) — X API credits depleted / billing; NOT a token issue";
+  if (status === 429) return "RATE_LIMITED (429)";
+  return `HTTP_${status}`;
+}
+
 // ─── X API fetch ──────────────────────────────────────────────────────────────
 
 export interface XTweet {
@@ -91,8 +123,8 @@ export async function fetchRecentTweets(
   username: string,
   maxResults = 10,
 ): Promise<XTweet[]> {
-  if (!BEARER_TOKEN) return [];
-  if (isRateLimited()) return [];
+  if (!BEARER_TOKEN) { _fetchStats.no_token++; return []; }
+  if (isRateLimited()) { _fetchStats.rate_limited++; return []; }
 
   try {
     const params = new URLSearchParams({
@@ -110,19 +142,34 @@ export async function fetchRecentTweets(
     if (res.status === 429) {
       const reset = res.headers.get("x-rate-limit-reset");
       if (reset) _rateLimitResetAt = parseInt(reset) * 1000;
-      console.warn(`[x-twitter] Rate limited fetching tweets for ${username}`);
+      _fetchStats.rate_limited++;
+      console.warn(`[x-twitter] Rate limited (429) fetching tweets for ${username}`);
       return [];
     }
 
     if (!res.ok) {
-      console.warn(`[x-twitter] HTTP ${res.status} for ${username}`);
+      // Read the body: X returns a JSON problem doc whose title/detail explains
+      // WHY (e.g. {"detail":"credits depleted"}). Dropping it — as before — made
+      // a billing/token outage indistinguishable from a transient blip.
+      let body = "";
+      try { body = await res.text(); } catch { /* ignore */ }
+      const reason = classifyXStatus(res.status, body);
+      if (res.status === 401 || res.status === 403) _fetchStats.auth_error++;
+      else if (res.status === 402 || /credits.?depleted|usage.?cap/i.test(body)) _fetchStats.usage_cap++;
+      else _fetchStats.http_error++;
+      _fetchStats.last_error = `${reason} :: ${body.slice(0, 200)}`;
+      console.warn(`[x-twitter] ${reason} for ${username} — ${body.slice(0, 200)}`);
       return [];
     }
 
     const data = await res.json() as XTimelineResponse;
-    return (data.data ?? []).map(t => ({ ...t, author_username: username }));
+    const tweets = (data.data ?? []).map(t => ({ ...t, author_username: username }));
+    if (tweets.length === 0) _fetchStats.empty++; else _fetchStats.ok++;
+    return tweets;
   } catch (err: any) {
-    console.warn(`[x-twitter] Search error for ${username}: ${err.message}`);
+    _fetchStats.network_error++;
+    _fetchStats.last_error = `NETWORK :: ${err.message}`;
+    console.warn(`[x-twitter] Network error for ${username}: ${err.message}`);
     return [];
   }
 }
@@ -460,6 +507,7 @@ export async function ingestXTier1(
   }
 
   console.log(`[x-twitter] Tier1: ${totalCreated} created, ${totalSkipped} skipped, ${totalNoise} noise filtered`);
+  console.log(`[x-twitter] Tier1 fetch stats: ${JSON.stringify(getXFetchStats())}`);
   return { created: totalCreated, skipped: totalSkipped, noise: totalNoise, rate_limited: false };
 }
 
@@ -509,5 +557,6 @@ export async function ingestXTier2(
   }
 
   console.log(`[x-twitter] Tier2: ${totalCreated} created, ${totalSkipped} skipped, ${totalNoise} noise filtered`);
+  console.log(`[x-twitter] Tier2 fetch stats: ${JSON.stringify(getXFetchStats())}`);
   return { created: totalCreated, skipped: totalSkipped, noise: totalNoise, rate_limited: false };
 }
