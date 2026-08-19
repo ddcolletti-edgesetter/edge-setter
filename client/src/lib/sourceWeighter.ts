@@ -15,7 +15,7 @@ import type { ConfirmationStrength, Verdict } from "../data/v2MockData";
 
 /* ── Per-type base quality points ─────────────────────────── */
 const SOURCE_TYPE_QUALITY: Record<string, number> = {
-  "official report":     3.5,   // League-mandated reports (highest trust)
+  "official report":     3.0,   // League-mandated reports — official tier, aligned to server scorer.ts (was 3.5; see PR #25 drift note)
   "beat reporter":       3.0,   // Full-time team access reporters
   "wire service":        2.5,
   "sportsbook":          2.5,   // Sharp-accepting books (Pinnacle, Circa)
