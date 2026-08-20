@@ -38,6 +38,8 @@ services:
         fromGroup: edge-setter-env
       - key: SOCIAL_X_ENABLED
         value: "false"
+      - key: CANONICAL_SITUATIONS_ENABLED
+        value: "true"
     disk:
       name: edge-setter-data
       mountPath: /var/data
