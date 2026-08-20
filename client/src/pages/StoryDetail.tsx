@@ -1,5 +1,5 @@
 import V2Shell from "../components/V2Shell";
-import { useCanonicalSituation, type CanonicalSituationLifecycleState } from "../lib/situationsApi";
+import { useCanonicalSituation, isEdgeShowcaseEligible, type CanonicalSituationLifecycleState } from "../lib/situationsApi";
 import { publicConfidenceLabel } from "../lib/storyLanguage";
 
 function displayState(state: CanonicalSituationLifecycleState) {
@@ -167,28 +167,30 @@ function StoryDetailInner({ id }: { id: string }) {
         )}
       </section>
 
-      {/* 4. Timing advantage callout — mandatory when detectionLeadMinutes exists */}
-      {situation.detectionLeadMinutes != null && (
+      {/* 4. EdgeSetter Edge — prominent badge, shown ONLY for significant leads
+             (detectionLeadMinutes >= EDGE_SHOWCASE_THRESHOLD_MINUTES, backed by a
+             real wire/official confirmation). Stories with a smaller lead, or
+             that did not come from our early detection, render here with no badge
+             and are published as normal. The threshold intentionally matches the
+             internal deltaMinutes SLO floor — see docs/delta-minutes-monitoring.md. */}
+      {isEdgeShowcaseEligible(situation) && (
         <section
-          data-testid="timing-advantage-callout"
-          className="mb-6 rounded-md border border-[#E6B450]/30 bg-[#E6B450]/5 p-4"
+          data-testid="edgesetter-edge-badge"
+          className="mb-6 rounded-md border border-[#E6B450]/40 bg-[#E6B450]/10 p-4"
         >
-          <h2 className="mb-1 text-xs font-bold uppercase tracking-widest text-[#E6B450]">Timing Advantage</h2>
-          {situation.publicConfirmation ? (
-            <p className="text-sm font-semibold text-foreground">
+          <span className="inline-block rounded-full bg-[#E6B450] px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-black">
+            EdgeSetter Edge
+          </span>
+          <p className="mt-2 text-sm font-semibold text-foreground">
+            We reported this story {situation.detectionLeadMinutes}{" "}
+            {situation.detectionLeadMinutes === 1 ? "minute" : "minutes"} before the public wire.
+          </p>
+          {situation.publicConfirmation && (
+            <p className="mt-1 text-xs text-muted-foreground">
               ES Agents verified {new Date(situation.firstSeenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               {" · "}Wire pickup {new Date(situation.publicConfirmation).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              {" — "}{situation.detectionLeadMinutes} min later
-            </p>
-          ) : (
-            <p className="text-sm font-semibold text-foreground">
-              ES Agents verified · {new Date(situation.firstSeenAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </p>
           )}
-          <p className="mt-1 text-xs text-muted-foreground">
-            EdgeSetter detected this story {situation.detectionLeadMinutes}{" "}
-            {situation.detectionLeadMinutes === 1 ? "minute" : "minutes"} before wire pickup.
-          </p>
         </section>
       )}
 

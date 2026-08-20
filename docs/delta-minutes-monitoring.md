@@ -132,6 +132,54 @@ endpoint unreachable / non-200, `errors` present, or `capture.healthy=false`.
 > few days of real numbers; the hard-error gates are what matter early. Once you
 > have a baseline, set the floor to something you'd genuinely page on.
 
+## Public "EdgeSetter Edge" showcase (story pages)
+
+The same deltaMinutes measurement drives a customer-facing highlight. On a story
+page, when a story qualifies, we show a prominent badge:
+
+> **EdgeSetter Edge** — We reported this story _X_ minutes before the public wire.
+
+**Showcase threshold: 10 minutes.** A story earns the badge only when **all** of:
+- it originated from **our own early detection** — the server only records a lead
+  (`detectionLeadMinutes`) when EdgeSetter saw the story before any wire/official
+  source (`server/pipeline/public-confirmation.ts` guards), so a present value
+  already means "we were first";
+- the measured lead is **`>= 10` minutes**;
+- it is backed by a **real public-confirmation timestamp** (never an estimate).
+
+The eligibility rule lives in `isEdgeShowcaseEligible()` /
+`EDGE_SHOWCASE_THRESHOLD_MINUTES` (`client/src/lib/situationsApi.ts`) and renders
+in `client/src/pages/StoryDetail.tsx`.
+
+### Why 10 — alignment with the internal SLO floor
+
+The public showcase threshold is **deliberately the same value as the internal
+deltaMinutes SLO floor** (the 10-minute floor the monitor alerts on, above). This
+keeps public claims and internal benchmarks consistent: we never advertise a lead
+we would not also hold ourselves to internally, and — because leads under ~10 min
+sit within the 5-minute ingestion-poll noise floor — we don't showcase leads that
+are really just poll timing. If you change one, change the other:
+
+| Where | Constant |
+|---|---|
+| Public badge | `EDGE_SHOWCASE_THRESHOLD_MINUTES` (`client/src/lib/situationsApi.ts`) |
+| SLO monitor | `SLO_MIN_MEDIAN_MINUTES` / `SLO_MIN_P90_MINUTES` (workflow) + `checkSlo()` default (`scripts/check-delta-minutes.mjs`) |
+
+A client unit test (`client/src/lib/__tests__/edge-showcase.test.ts`) pins the
+threshold at 10 so the two cannot silently drift.
+
+### All stories still publish
+
+The badge is **purely additive** — an extra highlight for significant leads. It
+never gates or filters publishing: stories with a lead under 10 minutes, and
+stories that did not come from our early detection, are posted exactly as normal,
+just without the badge.
+
+> The badge only appears once real capture is live (`CANONICAL_SITUATIONS_ENABLED=true`)
+> and a wire/official source has confirmed one of our earlier detections. Until
+> then, no story carries a `detectionLeadMinutes`, so no badge shows — by design,
+> not fallback.
+
 ## Alerting
 
 - **GitHub native email** (zero config): repo watchers are emailed when a

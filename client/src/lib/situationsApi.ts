@@ -225,6 +225,44 @@ export function isActiveCanonicalSituation(situation: CanonicalSituation) {
   return !["resolved", "archived", "invalidated"].includes(situation.lifecycleState);
 }
 
+/**
+ * Public "EdgeSetter Edge" showcase threshold, in minutes.
+ *
+ * A story earns the prominent EdgeSetter Edge badge only when we detected it at
+ * least this many minutes before the public wire confirmed it. This is
+ * DELIBERATELY the same value as the internal deltaMinutes SLO floor
+ * (scripts/check-delta-minutes.mjs, .github/workflows/delta-minutes-slo.yml,
+ * docs/delta-minutes-monitoring.md) — so the public claim never advertises a
+ * lead we would not also hold ourselves to internally. Keep these in sync: if
+ * you change the SLO floor, change this too. Leads under this threshold also sit
+ * within the ~5-min ingestion-poll noise floor, so they are not showcased.
+ */
+export const EDGE_SHOWCASE_THRESHOLD_MINUTES = 10;
+
+/**
+ * Whether a story qualifies for the public EdgeSetter Edge badge.
+ *
+ * Eligibility requires all of:
+ *   - it originated from our own early detection — `detectionLeadMinutes` is only
+ *     set by the server when EdgeSetter saw the story before any wire/official
+ *     source (see server/pipeline/public-confirmation.ts guards), so a present
+ *     value already means "we were first";
+ *   - the measured lead is >= EDGE_SHOWCASE_THRESHOLD_MINUTES;
+ *   - it is backed by a real public-confirmation timestamp (never an estimate).
+ *
+ * ALL stories still publish regardless — this only decides whether the extra
+ * badge is shown.
+ */
+export function isEdgeShowcaseEligible(
+  situation: Pick<CanonicalSituation, "detectionLeadMinutes" | "publicConfirmation">,
+): boolean {
+  return (
+    typeof situation.detectionLeadMinutes === "number" &&
+    situation.detectionLeadMinutes >= EDGE_SHOWCASE_THRESHOLD_MINUTES &&
+    !!situation.publicConfirmation
+  );
+}
+
 export function isCoolingCanonicalSituation(situation: CanonicalSituation) {
   return ["cooling", "resolved", "archived", "invalidated"].includes(situation.lifecycleState);
 }
