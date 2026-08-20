@@ -571,6 +571,147 @@ export function registerPipelineRoutes(app: Express) {
     });
   });
 
+  /**
+   * GET /api/pipeline/diagnostics/delta-minutes   (admin)
+   *
+   * deltaMinutes = "lead-time advantage" = how many minutes EdgeSetter detected
+   * a situation BEFORE a wire/official source publicly confirmed it. It is the
+   * `detection_lead_minutes` column already computed + persisted per situation
+   * in `situation_public_confirmations` (see server/pipeline/public-confirmation.ts):
+   *
+   *   T1 (our detection) = situations.created_at (first event's received_at)
+   *   T2 (public confirm) = situation_public_confirmations.confirmed_at
+   *   deltaMinutes        = round((T2 - T1) / 60000)   [always > 0 at insert time]
+   *
+   * BIGGER deltaMinutes is BETTER — it is our edge over the public wire. This
+   * endpoint reads the stored column back and returns per-league distribution
+   * stats (median, p90, % under 10 min) as JSON. It runs INSIDE the Render
+   * service because pipeline.db is a SQLite file on the /var/data disk that
+   * off-box callers (e.g. GitHub Actions) cannot open directly.
+   *
+   * CAPTURE GATE: the recorder only runs when CANONICAL_SITUATIONS_ENABLED="true"
+   * (processor.ts). Until that flag is on and traffic accrues, `capture.healthy`
+   * is false and there is nothing to measure yet — that is a real, alertable
+   * state, not a bug.
+   *
+   * This endpoint is READ-ONLY. It never creates tables or writes rows; if the
+   * canonical tables are absent it reports capture.healthy=false rather than
+   * throwing.
+   *
+   * Ad-hoc:
+   *   curl -s -H "Authorization: Bearer $ADMIN_PASSWORD" \
+   *     https://edge-setter.onrender.com/api/pipeline/diagnostics/delta-minutes | jq
+   */
+  app.get("/api/pipeline/diagnostics/delta-minutes", (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const db = getPipelineDb();
+
+      // Nearest-rank percentile over an ascending-sorted array (integer minutes).
+      const percentile = (sortedAsc: number[], p: number): number | null => {
+        if (sortedAsc.length === 0) return null;
+        const rank = Math.ceil((p / 100) * sortedAsc.length);
+        const idx = Math.min(sortedAsc.length - 1, Math.max(0, rank - 1));
+        return sortedAsc[idx];
+      };
+      const median = (sortedAsc: number[]): number | null => {
+        const n = sortedAsc.length;
+        if (n === 0) return null;
+        const mid = Math.floor(n / 2);
+        return n % 2 ? sortedAsc[mid] : (sortedAsc[mid - 1] + sortedAsc[mid]) / 2;
+      };
+      const round1 = (v: number | null): number | null => (v == null ? null : Math.round(v * 10) / 10);
+
+      // Read-only presence check — never create the canonical tables here.
+      const tableExists = (name: string): boolean =>
+        !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name = ?").get(name);
+      const hasSituations = tableExists("situations");
+      const hasConfirmations = tableExists("situation_public_confirmations");
+
+      const situationsRows = hasSituations
+        ? (db.prepare("SELECT COUNT(*) AS n FROM situations").get() as { n: number }).n
+        : 0;
+      const confirmationsRows = hasConfirmations
+        ? (db.prepare("SELECT COUNT(*) AS n FROM situation_public_confirmations").get() as { n: number }).n
+        : 0;
+
+      const errors: string[] = [];
+      let captureNote: string;
+      if (!hasSituations || !hasConfirmations) {
+        captureNote =
+          "Canonical situations tables absent — CANONICAL_SITUATIONS_ENABLED has not run in this DB. " +
+          "Set it to \"true\" in Render and redeploy to begin capturing deltaMinutes.";
+      } else if (confirmationsRows === 0) {
+        captureNote =
+          "Situations pipeline is live but no wire/official confirmation of an earlier EdgeSetter " +
+          "detection has been recorded yet. Allow a capture-and-wait period, then re-check.";
+      } else {
+        captureNote = "Capturing deltaMinutes.";
+      }
+      const healthy = confirmationsRows > 0;
+
+      // Pull the raw per-signal leads joined to their league. Confirmations are
+      // relatively rare events, so materializing them is cheap.
+      let leagues: Array<Record<string, unknown>> = [];
+      let overall: Record<string, unknown> = { n: 0, median_minutes: null, p90_minutes: null, pct_under_10min: null };
+      if (healthy) {
+        const rows = db.prepare(`
+          SELECT s.league AS league, c.detection_lead_minutes AS lead
+          FROM situation_public_confirmations c
+          JOIN situations s ON s.situation_id = c.situation_id
+          WHERE c.detection_lead_minutes IS NOT NULL
+        `).all() as Array<{ league: string; lead: number }>;
+
+        const byLeague = new Map<string, number[]>();
+        const all: number[] = [];
+        for (const r of rows) {
+          const lead = Number(r.lead);
+          if (!Number.isFinite(lead)) continue;
+          const league = r.league ?? "UNKNOWN";
+          if (!byLeague.has(league)) byLeague.set(league, []);
+          byLeague.get(league)!.push(lead);
+          all.push(lead);
+        }
+
+        const summarize = (leads: number[]) => {
+          const sorted = [...leads].sort((a, b) => a - b);
+          const n = sorted.length;
+          const under10 = sorted.filter((v) => v < 10).length;
+          return {
+            n,
+            median_minutes: median(sorted),
+            p90_minutes: percentile(sorted, 90),
+            min_minutes: n ? sorted[0] : null,
+            max_minutes: n ? sorted[n - 1] : null,
+            avg_minutes: n ? round1(sorted.reduce((a, b) => a + b, 0) / n) : null,
+            pct_under_10min: n ? round1((100 * under10) / n) : null,
+          };
+        };
+
+        leagues = [...byLeague.entries()]
+          .map(([league, leads]) => ({ league, ...summarize(leads) }))
+          .sort((a, b) => (b.n as number) - (a.n as number));
+        overall = { league: "ALL", ...summarize(all) };
+      }
+
+      return res.json({
+        generated_at: new Date().toISOString(),
+        capture: {
+          canonical_tables_present: hasSituations && hasConfirmations,
+          situations_rows: situationsRows,
+          confirmations_rows: confirmationsRows,
+          healthy,
+          note: captureNote,
+        },
+        leagues,
+        overall,
+        errors,
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
   /* ══════════════════════════════════════════════════════
      OUTCOMES — CLV computation implemented
      ══════════════════════════════════════════════════════ */

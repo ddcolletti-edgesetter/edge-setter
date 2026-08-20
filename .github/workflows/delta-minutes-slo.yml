@@ -1,0 +1,77 @@
+name: delta-minutes-slo
+
+# Daily SLO monitor for EdgeSetter's deltaMinutes (lead-time advantage).
+#
+# deltaMinutes = minutes EdgeSetter detected a situation BEFORE the public wire
+# confirmed it. Bigger is better; the SLO is a FLOOR (alert when the lead drops
+# below threshold). This job polls the admin diagnostic endpoint on the running
+# Render service and fails if the endpoint errors, capture is unhealthy, or the
+# SLO is breached. A failed run is the alert.
+#
+# ── Required repo config (Settings → Secrets and variables → Actions) ────────
+#   Secret   EDGESETTER_ADMIN_PASSWORD  — the prod ADMIN_PASSWORD (Bearer token)
+#   Secret   SLACK_WEBHOOK_URL          — optional; if set, failures post to Slack
+#   Variable EDGESETTER_BASE_URL        — optional; defaults to the prod URL below
+#
+# ── Alerting ─────────────────────────────────────────────────────────────────
+#   1. GitHub emails repo watchers automatically when a scheduled run fails
+#      (zero config). 2. If SLACK_WEBHOOK_URL is set, the notify step also posts
+#      to Slack with a link to the failed run.
+#
+# ── Tuning the SLO ───────────────────────────────────────────────────────────
+#   Adjust the SLO_* env values on the "Run deltaMinutes SLO check" step below,
+#   or start warmup-safe by leaving them and relying only on the hard-error
+#   gates. The comparator/direction lives in scripts/check-delta-minutes.mjs
+#   (checkSlo). See docs/delta-minutes-monitoring.md.
+#
+# ── Manual run ───────────────────────────────────────────────────────────────
+#   Actions tab → "delta-minutes-slo" → Run workflow (workflow_dispatch).
+
+on:
+  schedule:
+    # 13:10 UTC daily (~06:10 PT) — after overnight slates have settled.
+    - cron: "10 13 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: delta-minutes-slo
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run deltaMinutes SLO check
+        env:
+          EDGESETTER_BASE_URL: ${{ vars.EDGESETTER_BASE_URL || 'https://edge-setter.onrender.com' }}
+          EDGESETTER_ADMIN_PASSWORD: ${{ secrets.EDGESETTER_ADMIN_PASSWORD }}
+          # SLO floor (minutes). Bigger deltaMinutes is better; fail below these.
+          SLO_MIN_MEDIAN_MINUTES: "10"
+          SLO_MIN_P90_MINUTES: "10"
+          SLO_SCOPE: "per_league"
+        run: node scripts/check-delta-minutes.mjs
+
+      - name: Notify Slack on failure
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_URL" ]; then
+            echo "SLACK_WEBHOOK_URL not set — relying on GitHub's native failure email."
+            exit 0
+          fi
+          payload=$(printf '{"text":":rotating_light: EdgeSetter deltaMinutes SLO check FAILED\n%s"}' "$RUN_URL")
+          curl -sS -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
