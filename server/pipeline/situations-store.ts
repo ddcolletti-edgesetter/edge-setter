@@ -146,6 +146,34 @@ export function ensureSituationSchema(db: Database.Database = getPipelineDb()): 
   `);
 
   installAppendOnlyGuards(db);
+  ensureSituationGameResolutionSchema(db);
+}
+
+/**
+ * Backfill resolution table for situations whose game_id is NULL.
+ *
+ * The situations table is strictly append-only (BEFORE UPDATE / BEFORE DELETE
+ * triggers both RAISE(ABORT)), so a NULL game_id can never be filled in place.
+ * This side table records the resolved game_id for a situation without ever
+ * touching situations. Readers LEFT JOIN it and COALESCE.
+ *
+ * NOTE ON KEY TYPE: situations.situation_id is TEXT (e.g. "sit_...."), so this
+ * key is TEXT — NOT the INTEGER the original spec proposed. An INTEGER-affinity
+ * column would coerce the text ids to 0 on both storage and join comparison,
+ * collapsing every row onto the same key and breaking the LEFT JOIN entirely.
+ *
+ * This table is deliberately NOT append-only: it is a re-runnable backfill
+ * artifact and is not added to APPEND_ONLY_TABLES / does not get guard triggers.
+ */
+export function ensureSituationGameResolutionSchema(db: Database.Database = getPipelineDb()): void {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS situation_game_resolution (
+      situation_id            TEXT NOT NULL,
+      resolved_game_id        TEXT NOT NULL,
+      resolved_at             TEXT NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (situation_id)
+    );
+  `);
 }
 
 export function insertSituation(situation: Situation, db: Database.Database = getPipelineDb()): Situation {
@@ -359,9 +387,10 @@ export function listSituationsForMatching(opts: {
   params.push(opts.limit ?? 100);
 
   const rows = db.prepare(`
-    SELECT s.*, MAX(ss.created_at) AS latest_snapshot_at
+    SELECT s.*, r.resolved_game_id, MAX(ss.created_at) AS latest_snapshot_at
     FROM situations s
     LEFT JOIN situation_snapshots ss ON ss.situation_id = s.situation_id
+    LEFT JOIN situation_game_resolution r ON r.situation_id = s.situation_id
     ${where}
     GROUP BY s.situation_id
     ORDER BY COALESCE(MAX(ss.created_at), s.created_at) DESC, s.situation_id ASC
@@ -461,7 +490,7 @@ export function listCanonicalSituations(opts: {
   if (opts.active_only) {
     where.push("(latest.lifecycle_state IS NULL OR latest.lifecycle_state IN ('watching', 'emerging', 'developing', 'escalating', 'confirmed', 'official', 'cooling'))");
   }
-  where.push("(s.game_id IS NULL OR g.game_time > datetime('now'))");
+  where.push("(COALESCE(s.game_id, r.resolved_game_id) IS NULL OR g.game_time > datetime('now'))");
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   params.push(opts.limit ?? 100);
   const orderSql =
@@ -484,7 +513,8 @@ export function listCanonicalSituations(opts: {
       latest.evidence_event_ids_json,
       latest.replay_hash AS snapshot_replay_hash,
       latest.previous_snapshot_hash,
-      latest.created_at AS snapshot_created_at
+      latest.created_at AS snapshot_created_at,
+      r.resolved_game_id
     FROM situations s
     LEFT JOIN situation_snapshots latest
       ON latest.snapshot_id = (
@@ -494,7 +524,8 @@ export function listCanonicalSituations(opts: {
         ORDER BY ss.created_at DESC, ss.snapshot_id ASC
         LIMIT 1
       )
-    LEFT JOIN games g ON g.id = s.game_id
+    LEFT JOIN situation_game_resolution r ON r.situation_id = s.situation_id
+    LEFT JOIN games g ON g.id = COALESCE(s.game_id, r.resolved_game_id)
     ${whereSql}
     ORDER BY ${orderSql}
     LIMIT ?
@@ -630,7 +661,9 @@ function deserializeSituationWithLatestSnapshot(row: any): Situation & { latest_
     canonical_hash: row.canonical_hash,
     sport: row.sport,
     league: row.league,
-    game_id: row.game_id,
+    // Backfilled game_id (situation_game_resolution) fills in NULLs left by the
+    // append-only situations table. Real s.game_id always wins over a resolution.
+    game_id: row.game_id ?? row.resolved_game_id ?? null,
     teams: parseJson(row.teams_json, []),
     players: parseJson(row.players_json, []),
     situation_type: row.situation_type,
