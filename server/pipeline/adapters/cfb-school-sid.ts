@@ -211,7 +211,7 @@ const _seenHashes = new Set<string>();
 
 function itemHash(school: SchoolSource, text: string, date: string): string {
   return createHash("sha1")
-    .update(`${school.abbreviation}|${text}|${date.substring(0, 10)}`)
+    .update(`${school.abbreviation}|${text.toLowerCase()}|${date.substring(0, 10)}`)
     .digest("hex")
     .substring(0, 16);
 }

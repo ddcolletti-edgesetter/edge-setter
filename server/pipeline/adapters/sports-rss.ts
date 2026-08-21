@@ -257,7 +257,7 @@ function extractField(block: string, tag: string): string {
 }
 
 function itemHash(label: string, title: string, pubDate: string): string {
-  return createHash("sha1").update(`${label}|${title}|${pubDate.substring(0, 10)}`).digest("hex").substring(0, 16);
+  return createHash("sha1").update(`${label}|${title.toLowerCase()}|${pubDate.substring(0, 10)}`).digest("hex").substring(0, 16);
 }
 
 // Persistent dedup: loaded from SQLite on first use, written through on every new hash.
