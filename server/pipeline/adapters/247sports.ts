@@ -204,7 +204,7 @@ function checkCorroboration(
 
 function itemHash(feedLabel: string, title: string, pubDate: string): string {
   return createHash("sha1")
-    .update(`247|${feedLabel}|${title}|${pubDate.substring(0, 10)}`)
+    .update(`247|${feedLabel}|${title.toLowerCase()}|${pubDate.substring(0, 10)}`)
     .digest("hex")
     .substring(0, 16);
 }

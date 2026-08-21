@@ -180,7 +180,7 @@ function extractXMLField(block: string, tag: string): string {
 
 function itemHash(feedLabel: string, title: string, pubDate: string): string {
   return createHash("sha1")
-    .update(`${feedLabel}|${title}|${pubDate.substring(0, 10)}`)
+    .update(`${feedLabel}|${title.toLowerCase()}|${pubDate.substring(0, 10)}`)
     .digest("hex")
     .substring(0, 16);
 }
