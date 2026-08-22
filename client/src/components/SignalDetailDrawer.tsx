@@ -7,7 +7,7 @@ import { SportsStoryVisual } from "@/components/SportsMedia";
 import { storyImpactSections } from "@/components/StoryImpactBlocks";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { humanizeSignalType, publicConfidenceLabel, publicStoryText, publicTimingLabel, sourceCountText } from "@/lib/storyLanguage";
-import { deriveSignalVerificationState, readSignalSourceCount } from "@/lib/signalVerification";
+import { deriveSignalVerificationState, honestConfirmationStrength, readSignalSourceCount } from "@/lib/signalVerification";
 
 type LineMovementLike = {
   open?: string | null;
@@ -128,6 +128,25 @@ function confidenceBand(value: number, editorial = false) {
   if (value >= 72) return "Elevated confidence support";
   if (value >= 58) return "Confidence still forming";
   return "Verification watch";
+}
+
+/**
+ * Evidence-strength copy for the drawer's StatCard. The confidence tier can read
+ * "Strong ..." off a high (often single-prior) confidence number; a single,
+ * not-yet-verified source must not present as strong evidence in the same view
+ * that shows "1 source check". Cap the "strong" wording in that case only —
+ * verified stories and 2+ source stories are unaffected.
+ */
+function evidenceStrengthDisplay(confidence: number, sources: number, verified: boolean, editorial = false) {
+  const value = confidenceLabel(confidence);
+  const detail = confidenceBand(confidence, editorial);
+  if (!verified && sources < 2) {
+    return {
+      value: /strong/i.test(value) ? "Still forming" : value,
+      detail: /strong/i.test(detail) ? "Single-source evidence; still forming" : detail,
+    };
+  }
+  return { value, detail };
 }
 
 function signalTimestamp(signal: SignalDetailLike) {
@@ -280,7 +299,11 @@ function confirmWeakenRows(signal: SignalDetailLike, timing: ReturnType<typeof t
   return [
     {
       label: "What would confirm this",
-      value: signal.confirmationStrength ?? (sourceCount > 1 ? "Another aligned source or official report would strengthen the story." : "A second independent source or official report would strengthen the story."),
+      // Only surface the raw strength label when the count actually backs it;
+      // a single source must not be described as already corroborated.
+      value: (sourceCount >= 2 && signal.confirmationStrength)
+        ? signal.confirmationStrength
+        : (sourceCount > 1 ? "Another aligned source or official report would strengthen the story." : "A second independent source or official report would strengthen the story."),
     },
     {
       label: "What would weaken this",
@@ -306,7 +329,7 @@ function confidenceDrivers(signal: SignalDetailLike, ageMinutes: number | null, 
 
   return [
     { label: "Source support", value: sources ? sourceScore : Math.max(28, confidence - 35), detail: editorial ? (sources ? sourceCountText(sources) : "Source support pending") : (sources ? `${sources} source checks attached` : "No source checks attached") },
-    { label: editorial ? "Source check" : "Source quality", value: sourceQuality, detail: editorial ? publicStoryText(signal.confirmationStrength ?? "Source check pending") : signal.confirmationStrength ?? "Source quality not yet scored" },
+    { label: editorial ? "Source check" : "Source quality", value: sourceQuality, detail: editorial ? publicStoryText(honestConfirmationStrength(signal.confirmationStrength, sources) || "Source check pending") : honestConfirmationStrength(signal.confirmationStrength, sources) || "Source quality not yet scored" },
     { label: "Market reaction", value: hasMovement ? 78 : 36, detail: hasMovement ? "Market movement attached" : "No movement attached yet" },
     { label: "Timing freshness", value: timingScore, detail: freshnessLabel(ageMinutes, signalTimestamp(signal)) },
     {
@@ -579,6 +602,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   // shared engine, via the single client seam the board story card also uses — so the
   // card and this drawer can never disagree for the same underlying signal.
   const verificationWord = deriveSignalVerificationState(signal);
+  const evidenceStrength = evidenceStrengthDisplay(model.confidence, model.sources, verificationWord.state === "Verified", editorialCopy);
   const storyImpactRows = impactRows(signal);
   const downstreamImpacts = storyImpactSections(downstreamImpactInput(signal, movement));
   const nextRows = confirmWeakenRows(signal, model.timing);
@@ -722,14 +746,14 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   </div>
 )}
             <div className="signal-detail-stat-grid">
-              <StatCard label="Evidence strength" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence, editorialCopy)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
+              <StatCard label="Evidence strength" value={evidenceStrength.value} detail={evidenceStrength.detail} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
               <StatCard label="Verification state" value={verificationWord.state} detail={verificationWord.basis} tone={model.edge.tone} />
               <StatCard label="Watch timing" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
               <StatCard label="Replay freshness" value={freshnessLabel(model.ageMinutes, signalTimestamp(signal))} detail="Detection age" tone={model.ageMinutes !== null && model.ageMinutes <= 45 ? "green" : "gray"} />
             </div>
             <div className="signal-source-summary">
               <strong>{editorialCopy ? (model.sources ? sourceCountText(model.sources) : "Source check pending") : model.sources ? `${model.sources} source checks attached` : "No source checks attached"}</strong>
-              <span>{editorialCopy ? publicStoryText(signal.confirmationStrength ?? "Source support is not available for this story view.") : signal.confirmationStrength ?? "Source support is not available for this story view."}</span>
+              <span>{editorialCopy ? publicStoryText(honestConfirmationStrength(signal.confirmationStrength, model.sources) || "Source support is not available for this story view.") : honestConfirmationStrength(signal.confirmationStrength, model.sources) || "Source support is not available for this story view."}</span>
             </div>
             <div className="signal-trust-stack">
               {model.trust.map((reason) => (

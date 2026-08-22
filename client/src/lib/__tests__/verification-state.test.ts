@@ -188,9 +188,20 @@ describe("evidenceFromLiveSignal", () => {
     expect(deriveVerificationState(evidenceFromLiveSignal(signal)).state).toBe("Verified");
   });
 
-  it("promotes a confirmed verdict with a Consensus tier to Verified", () => {
+  it("does NOT promote a single-source confirmed + Consensus to Verified (no corroboration to claim)", () => {
+    // A lone source labeled "Consensus" cannot claim independent corroboration:
+    // the pipeline sets that label from inputs other than the source count.
     const signal = makeLiveSignal({ verdict: "confirmed", confirmation_strength: "Consensus", source_count: 1 });
-    expect(deriveVerificationState(evidenceFromLiveSignal(signal)).state).toBe("Verified");
+    const ev = evidenceFromLiveSignal(signal);
+    expect(ev.independentCorroboration).toBe(false);
+    expect(deriveVerificationState(ev).state).toBe("Escalating");
+  });
+
+  it("promotes a confirmed verdict with a Consensus tier AND >= 2 sources to Verified", () => {
+    const signal = makeLiveSignal({ verdict: "confirmed", confirmation_strength: "Consensus", source_count: 2 });
+    const ev = evidenceFromLiveSignal(signal);
+    expect(ev.independentCorroboration).toBe(true);
+    expect(deriveVerificationState(ev).state).toBe("Verified");
   });
 
   it("keeps a lone confirmed verdict (single source) at Escalating", () => {
@@ -221,9 +232,21 @@ describe("evidenceFromLiveSignal", () => {
     expect(deriveVerificationState(ev).state).toBe("Escalating");
   });
 
-  it("maps a Corroborated strength onto the Corroborated tier", () => {
-    const signal = makeLiveSignal({ verdict: "likely", confirmation_strength: "Corroborated", source_count: 1 });
+  it("maps a Corroborated strength onto the Corroborated tier when >= 2 sources back it", () => {
+    const signal = makeLiveSignal({ verdict: "likely", confirmation_strength: "Corroborated", source_count: 2 });
     expect(evidenceFromLiveSignal(signal).confirmationTier).toBe("Corroborated");
+  });
+
+  it("downgrades a single-source Corroborated strength so it cannot claim multiple sources", () => {
+    // "Corroborated"/"Consensus" assert more than one source; a lone source must
+    // not register at those tiers (this is the SF market-movement overclaim).
+    const signal = makeLiveSignal({ verdict: "likely", confirmation_strength: "Corroborated", source_count: 1 });
+    const ev = evidenceFromLiveSignal(signal);
+    expect(ev.confirmationTier).not.toBe("Corroborated");
+    expect(ev.confirmationTier).not.toBe("Consensus");
+    expect(ev.independentCorroboration).toBe(false);
+    // The rendered basis must not claim corroboration for a single source.
+    expect(deriveVerificationState(ev).basis.toLowerCase()).not.toContain("corroborate");
   });
 });
 
