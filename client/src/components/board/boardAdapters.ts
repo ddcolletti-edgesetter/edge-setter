@@ -4,6 +4,7 @@ import type { BoardSortMode } from "@/lib/signalBoardUx";
 import type { Sport } from "@/lib/leagueModifiers";
 import type { CanonicalSituation } from "@/lib/situationsApi";
 import { hasCleanPublicTeamIdentity, hasCleanPublicText, hasMalformedPublicMatchup, isValidTeamToken, publicFallbackLabel, storyTitleHasValidPlayerName } from "@/lib/publicDisplayHygiene";
+import { deriveSignalVerificationState } from "@/lib/signalVerification";
 import { evidenceCountText, humanizeSignalType, marketFocusHeadline, publicConfidenceLabel, publicLifecycleLabel, publicStoryText, publicTimingLabel, publicUrgencyLabel, sourceCountText } from "@/lib/storyLanguage";
 import { toTeamAbbr } from "@/components/v2/SportVisuals";
 import type { LiveGamePillData, LiveGameStatus, BoardUrgency } from "./LiveGamePill";
@@ -129,6 +130,11 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
   const confidenceDelta = canonical?.confidenceHistoryPreview?.[0]?.delta ?? null;
   const matchup = [situation.awayTeam, situation.homeTeam].filter(Boolean).join(" @ ")
     || [situation.team, situation.opponent].filter(Boolean).join(" vs ");
+  // Derive the canonical verification word from the same signal the detail
+  // drawer opens on, so the story card and the drawer never disagree. Only the
+  // signal lineage feeds a drawer (canonical situations open the /story page),
+  // so we derive from the signal when present and otherwise leave it undefined.
+  const verification = signal ? deriveSignalVerificationState(signal) : undefined;
 
   return {
     id: situation.id,
@@ -144,6 +150,8 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     lane: situation.lane,
     escalationState: escalationStateForSituation(situation),
     statusLabel: situation.statusLabel ?? situation.escalation,
+    verificationState: verification?.state,
+    verificationBasis: verification?.basis,
     metrics: [
       { label: "Confidence", value: publicConfidenceLabel(situation.confidence), tone: situation.confidence >= 80 ? "positive" : situation.confidence >= 60 ? "warning" : "default" },
     ].filter(Boolean) as SituationMetric[],
@@ -599,18 +607,19 @@ function editorialHeadline(row: SituationRowData, matchup?: string) {
   }
 
   if (isMarketDominantTitle(row.title) || context.includes("market")) {
-    if (row.league === "MLB") {
-      const label = cleanPublicMatchupLabel(matchup, team, opponent);
-      return label ? `${label} line movement follows late roster context` : publicFallbackLabel(context, "MLB");
-    }
     const label = cleanPublicMatchupLabel(matchup, team, opponent);
-    return `${label || "NBA"} line movement follows late availability context`;
+    if (!label) return publicFallbackLabel(context, row.league);
+    return row.league === "MLB"
+      ? `${label} line movement follows late roster context`
+      : `${label} line movement follows late availability context`;
   }
 
   if (context.includes("lineup") || context.includes("scratch") || context.includes("starter")) {
+    const subject = team || matchup;
+    if (!subject) return publicFallbackLabel(context, row.league);
     return row.league === "MLB"
-      ? `Late ${team || matchup || "MLB"} lineup update could change first-pitch plans`
-      : `Late ${team || matchup || "NBA"} starter update could change rotation plans`;
+      ? `Late ${subject} lineup update could change first-pitch plans`
+      : `Late ${subject} starter update could change rotation plans`;
   }
 
   if (row.league === "MLB" && context.includes("pitcher")) {
