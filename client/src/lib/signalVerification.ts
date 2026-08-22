@@ -49,6 +49,32 @@ export function readSignalSourceCount(signal?: VerifiableSignalLike | null): num
   return signal.sourceLabels?.length ?? 0;
 }
 
+/** Confirmation-strength labels that assert more than one independent source. */
+const MULTI_SOURCE_STRENGTH = /consensus|corroborat|multiple|aligned|agreement/i;
+
+/**
+ * Reconcile a raw confirmation-strength label against the actual source count
+ * for DISPLAY. A single (or zero) source can never truthfully read as
+ * "Corroborated" / "Consensus" / "Multiple ..." — the pipeline derives that
+ * label from inputs other than the count (e.g. line-movement delta), so those
+ * words would overclaim the evidence shown in the same view. Non-multiplicity
+ * labels (e.g. "Developing", "Official") pass through unchanged.
+ *
+ * The replacement deliberately avoids the exact word "corroborated" so it is not
+ * rewritten back into "Multiple reports" by publicStoryText.
+ */
+export function honestConfirmationStrength(
+  rawStrength?: string | null,
+  sourceCount = 0,
+): string {
+  const raw = (rawStrength ?? "").trim();
+  if (!raw || sourceCount >= 2) return raw;
+  if (!MULTI_SOURCE_STRENGTH.test(raw)) return raw;
+  return sourceCount === 1
+    ? "Single source; corroboration still building"
+    : "Awaiting corroboration";
+}
+
 /**
  * Canonical verification state for a signal-lineage story. The ONE place the
  * board card path and the drawer both call, so their state words match.

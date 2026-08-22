@@ -115,24 +115,36 @@ export interface LiveSignalEvidenceInput {
 /**
  * Map a live signal into shared evidence.
  *
- * Rationale for the promotion rules (approved design): verdict "confirmed" is
- * driven by official-source identity, so a confirmed verdict backed by
- * corroboration (>= 2 sources OR a Consensus tier) is a genuine "Verified".
+ * Honesty rule (corrected): "Corroborated" / "Consensus" tiers and
+ * independent-corroboration copy all assert MORE THAN ONE independent source.
+ * The pipeline sets `confirmation_strength` from inputs other than the source
+ * count (e.g. line-movement delta — see server/pipeline/processor.ts), so a
+ * genuinely single-source signal can arrive labeled "Corroborated"/"Consensus".
+ * We reconcile the strength label against the real source count here, in the one
+ * canonical adapter, so NO downstream copy can claim multiple/independent
+ * corroboration for a lone source. Official confirmation is a separate axis (a
+ * single official source is legitimately official) and is left untouched.
  */
 export function evidenceFromLiveSignal(signal: LiveSignalEvidenceInput): VerificationEvidence {
   const verdict = (signal.verdict ?? "").toLowerCase().trim();
   const strength = (signal.confirmation_strength ?? "").toLowerCase().trim();
   const sourceCount = signal.source_count ?? 0;
+  const hasIndependentSources = sourceCount >= 2;
 
-  const confirmationTier = normalizeConfirmationTier(strength);
-  const consensusTier = confirmationTier === "Consensus";
+  const rawTier = normalizeConfirmationTier(strength);
+  // A lone source cannot be "Corroborated" or "Consensus" — those words claim
+  // multiple corroborating sources. Downgrade so single-source copy stays honest.
+  const confirmationTier =
+    hasIndependentSources || (rawTier !== "Corroborated" && rawTier !== "Consensus")
+      ? rawTier
+      : "Developing";
   const officialConfirmation = verdict.includes("official") || strength.includes("official");
 
   return {
     contradicted: verdict.includes("contradicted") || verdict.includes("contradict"),
     officialConfirmation,
     verdict: verdict.includes("confirmed") ? "confirmed" : verdict,
-    independentCorroboration: sourceCount >= 2 || consensusTier,
+    independentCorroboration: hasIndependentSources,
     confirmationTier,
     marketReaction: Boolean(signal.line_movement),
   };
