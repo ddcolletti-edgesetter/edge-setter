@@ -56,6 +56,15 @@ export interface SituationRowData {
   lane?: SituationLaneType;
   escalationState?: SituationEscalationState;
   statusLabel?: string;
+  /**
+   * Canonical, evidence-grounded verification word ("Verified" / "Escalating" /
+   * "Developing") from the shared engine. Same source of truth the detail drawer
+   * uses, so the card and drawer never disagree. Undefined when the situation
+   * carries no signal to derive from (falls back to the legacy status label).
+   */
+  verificationState?: string;
+  /** Plain-language basis for {@link verificationState}. */
+  verificationBasis?: string;
   metrics?: SituationMetric[];
   tags?: string[];
   actionLabel?: string;

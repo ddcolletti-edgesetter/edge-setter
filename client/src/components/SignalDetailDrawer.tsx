@@ -7,7 +7,7 @@ import { SportsStoryVisual } from "@/components/SportsMedia";
 import { storyImpactSections } from "@/components/StoryImpactBlocks";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
 import { humanizeSignalType, publicConfidenceLabel, publicStoryText, publicTimingLabel, sourceCountText } from "@/lib/storyLanguage";
-import { deriveVerificationState, evidenceFromLiveSignal } from "@shared/verification-state";
+import { deriveSignalVerificationState, readSignalSourceCount } from "@/lib/signalVerification";
 
 type LineMovementLike = {
   open?: string | null;
@@ -110,18 +110,9 @@ function readConfidence(signal: SignalDetailLike) {
 }
 
 function readSourceCount(signal: SignalDetailLike) {
-  if (typeof signal.sources === "number") return signal.sources;
-  if (Array.isArray(signal.sources)) return signal.sources.length;
-  if (typeof signal.sources === "string") {
-    const parsed = Number.parseInt(signal.sources, 10);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-  if (typeof signal.source_count === "number") return signal.source_count;
-  if (typeof signal.source_count === "string") {
-    const parsed = Number.parseInt(signal.source_count, 10);
-    if (!Number.isNaN(parsed)) return parsed;
-  }
-  return signal.sourceLabels?.length ?? 0;
+  // Delegate to the shared counter so the drawer's confidence/timing model and
+  // the canonical verification word evaluate the exact same source depth.
+  return readSignalSourceCount(signal);
 }
 
 function confidenceLabel(value: number) {
@@ -585,15 +576,9 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   const storyContextLabel = storyContext(signal, sport, editorialCopy);
   const storyVerificationState = verificationState(signal, model.confidence, model.sources, editorialCopy);
   // Evidence-grounded verification word (Verified / Escalating / Developing) from the
-  // shared engine — replaces the retired ConfidenceGauge's raw-percentage arc.
-  const verificationWord = deriveVerificationState(
-    evidenceFromLiveSignal({
-      verdict: signal.verdict ?? signal.status_tag ?? "",
-      confirmation_strength: signal.confirmationStrength ?? "",
-      source_count: model.sources,
-      line_movement: (signal.lineMovement ?? signal.line_movement) ?? null,
-    }),
-  );
+  // shared engine, via the single client seam the board story card also uses — so the
+  // card and this drawer can never disagree for the same underlying signal.
+  const verificationWord = deriveSignalVerificationState(signal);
   const storyImpactRows = impactRows(signal);
   const downstreamImpacts = storyImpactSections(downstreamImpactInput(signal, movement));
   const nextRows = confirmWeakenRows(signal, model.timing);
@@ -738,7 +723,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
 )}
             <div className="signal-detail-stat-grid">
               <StatCard label="Evidence strength" value={confidenceLabel(model.confidence)} detail={confidenceBand(model.confidence, editorialCopy)} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
-              <StatCard label="Verification state" value={storyVerificationState} detail={signal.verdict ?? signal.status_tag ?? "Verdict unavailable"} tone={model.edge.tone} />
+              <StatCard label="Verification state" value={verificationWord.state} detail={verificationWord.basis} tone={model.edge.tone} />
               <StatCard label="Watch timing" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
               <StatCard label="Replay freshness" value={freshnessLabel(model.ageMinutes, signalTimestamp(signal))} detail="Detection age" tone={model.ageMinutes !== null && model.ageMinutes <= 45 ? "green" : "gray"} />
             </div>
