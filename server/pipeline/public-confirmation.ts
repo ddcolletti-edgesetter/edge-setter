@@ -48,6 +48,17 @@ const WIRE_CONFIRMATION_SOURCES = [
   "nfl network",
 ] as const;
 
+/**
+ * Source types EdgeSetter assigns to its OWN polling ingestion (ESPN NFL/CFB
+ * → sports_api; ESPN NBA / MLB StatsAPI → league_api). These are detection
+ * feeds, not independent public pickups, so they can never count as a public
+ * confirmation. Gating on the TYPE is what stops our own re-ingestion from
+ * masquerading as a wire: a feed label like "ESPN NFL" would otherwise match
+ * WIRE_CONFIRMATION_SOURCES and structurally disqualify the situation it
+ * created (via situationOriginatedFromConfirmationSource).
+ */
+const OWN_INGESTION_SOURCE_TYPES = new Set(["league_api", "sports_api"]);
+
 export interface ConfirmationSourceMatch {
   readonly name: string;
   readonly reason: "official" | "tier1_wire";
@@ -56,6 +67,25 @@ export interface ConfirmationSourceMatch {
 interface RawEventSourceFields {
   readonly source_id?: string;
   readonly payload: Record<string, unknown>;
+}
+
+/**
+ * Identity signature EdgeSetter's own scheduled RSS feeds (the sports-rss
+ * adapter) stamp on every event: a `rss_<label>` source_id, a `rss_feed` label,
+ * and `rss_`-prefixed source entries. These are OUR ingestion, not an
+ * independent public pickup — the same as the api feeds above — but they arrive
+ * with source_type "rss" (not league_api/sports_api), so the type gate misses
+ * them. An ESPN feed's "ESPN NFL"/"ESPN NBA"/"ESPN MLB" label would otherwise
+ * match the wire list and structurally disqualify the situation it created.
+ * We gate on the feed-config IDENTITY (not the "rss" source_type) so a genuine
+ * third-party RSS wire — which carries no `rss_` scheduler signature — still
+ * passes on name.
+ */
+function isOwnScheduledRssFeed(raw: RawEventSourceFields, p: Record<string, any>): boolean {
+  if (typeof raw.source_id === "string" && raw.source_id.startsWith("rss_")) return true;
+  if (typeof p.rss_feed === "string" && p.rss_feed.trim().length > 0) return true;
+  const sourceEntries: Array<{ id?: unknown }> = Array.isArray(p.sources) ? p.sources : [];
+  return sourceEntries.some((source) => typeof source?.id === "string" && source.id.startsWith("rss_"));
 }
 
 /**
@@ -83,8 +113,22 @@ export function matchConfirmationSource(raw: RawEventSourceFields): Confirmation
     return { name: officialName ?? names[0] ?? raw.source_id ?? "official source", reason: "official" };
   }
 
-  // Wire reporters must be tier1 when the adapter supplies a tier; sources
-  // without tier metadata (RSS wires like "ESPN NFL") pass on name alone.
+  // EdgeSetter's own polling feeds (ESPN, MLB StatsAPI) arrive tagged
+  // league_api/sports_api. They are our detection, not a public confirmation —
+  // gate them out by TYPE so a feed label like "ESPN NFL" can't match the wire
+  // list below. (Genuinely official league/team feeds are handled above.)
+  if (types.some((type) => OWN_INGESTION_SOURCE_TYPES.has(type.toLowerCase()))) return null;
+
+  // Same principle as the type gate, keyed on the RSS feed-config identity:
+  // EdgeSetter's own scheduled RSS feeds (e.g. espn_nfl_rss) arrive as source_type
+  // "rss" — not league_api/sports_api — so the type gate above misses them. Their
+  // "ESPN NFL" label matches the wire list below, so without this gate our own
+  // re-ingestion counts as a public confirmation and disqualifies the situation it
+  // created (~7% of ESPN NFL events leak in via this path).
+  if (isOwnScheduledRssFeed(raw, p)) return null;
+
+  // Wire reporters must be tier1 when the adapter supplies a tier; third-party
+  // wires without tier metadata (RSS with no feed-config identity) pass on name alone.
   const tier = String(p.source_tier ?? p.tier ?? p.trust_tier ?? "");
   if (tier && tier !== "tier1") return null;
   const wireName = names.find((name) =>
