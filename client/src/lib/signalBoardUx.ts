@@ -1,3 +1,5 @@
+import { shouldCapSingleSourceStrength } from "./storyLanguage";
+
 export type SignalLifecycle = "Early" | "Developing" | "Confirmed" | "Widely Known" | "Expiring" | "Stale";
 export type OperationalLifecycle =
   | "Detected"
@@ -207,7 +209,14 @@ export function signalConfidenceNarrative(signal: BoardSignalLike) {
     lifecycle === "Early" ? "early development" : lifecycle === "Confirmed" ? "ES Agents verified" : null,
   ].filter(Boolean);
 
-  if (confidence >= 85) return `Strong evidence support: ${drivers.join(" / ") || "verification is mature"}`;
+  // "Strong evidence support" claims more than a lone unverified source can back;
+  // route through the shared single-source cap so this narrative agrees with the
+  // board card's evidence-strength label for the same signal.
+  const strongAllowed = !shouldCapSingleSourceStrength({
+    sourceCount,
+    verified: lifecycle === "Confirmed" || officialSourcePresent(signal),
+  });
+  if (confidence >= 85 && strongAllowed) return `Strong evidence support: ${drivers.join(" / ") || "verification is mature"}`;
   if (confidence >= 70) return `Evidence support building: ${drivers.join(" / ") || "waiting on next validator"}`;
   if (confidence >= 55) return `Early evidence support: ${drivers.join(" / ") || "verification still thin"}`;
   return `Thin evidence watch: ${drivers.join(" / ") || "needs stronger confirmation"}`;
