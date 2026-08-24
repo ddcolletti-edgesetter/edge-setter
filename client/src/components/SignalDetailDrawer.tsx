@@ -6,7 +6,7 @@ import { AgentCalibrationBadge, ChainReactionPreview, HistoricalPatternMatch, Wh
 import { SportsStoryVisual } from "@/components/SportsMedia";
 import { storyImpactSections } from "@/components/StoryImpactBlocks";
 import { resolveSportsImageAsset } from "@/lib/sportsImageAssets";
-import { humanizeSignalType, publicConfidenceLabel, publicStoryText, publicTimingLabel, sourceCountText } from "@/lib/storyLanguage";
+import { humanizeSignalType, publicConfidenceLabel, publicStoryText, publicTimingLabel, shouldCapSingleSourceStrength, sourceCountText, type EvidenceStrengthContext } from "@/lib/storyLanguage";
 import { deriveSignalVerificationState, honestConfirmationStrength, readSignalSourceCount } from "@/lib/signalVerification";
 
 type LineMovementLike = {
@@ -115,10 +115,10 @@ function readSourceCount(signal: SignalDetailLike) {
   return readSignalSourceCount(signal);
 }
 
-function confidenceLabel(value: number) {
+function confidenceLabel(value: number, context?: EvidenceStrengthContext) {
   if (!value) return "Unavailable";
   if (value >= 100) return "VERIFIED";
-  return publicConfidenceLabel(value);
+  return publicConfidenceLabel(value, context);
 }
 
 function confidenceBand(value: number, editorial = false) {
@@ -138,11 +138,15 @@ function confidenceBand(value: number, editorial = false) {
  * verified stories and 2+ source stories are unaffected.
  */
 function evidenceStrengthDisplay(confidence: number, sources: number, verified: boolean, editorial = false) {
-  const value = confidenceLabel(confidence);
+  const context: EvidenceStrengthContext = { sourceCount: sources, verified };
+  // `value` is capped by the shared publicConfidenceLabel path via `context`, so
+  // the single-source rule lives in exactly one place (shared with the board
+  // cards). Only the drawer-specific `detail` band is reconciled here.
+  const value = confidenceLabel(confidence, context);
   const detail = confidenceBand(confidence, editorial);
-  if (!verified && sources < 2) {
+  if (shouldCapSingleSourceStrength(context)) {
     return {
-      value: /strong/i.test(value) ? "Still forming" : value,
+      value,
       detail: /strong/i.test(detail) ? "Single-source evidence; still forming" : detail,
     };
   }

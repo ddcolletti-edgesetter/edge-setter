@@ -85,16 +85,52 @@ export function publicLifecycleLabel(value?: string | null) {
   return publicStoryText(normalized);
 }
 
-export function publicConfidenceLabel(value?: string | number | null) {
+/**
+ * Source context that governs whether an evidence-strength label may read as
+ * "strong". A lone, not-yet-verified source cannot honestly present as strong
+ * evidence in a view that also shows "1 report" / "single-source".
+ */
+export interface EvidenceStrengthContext {
+  readonly sourceCount?: number | null;
+  readonly verified?: boolean | null;
+}
+
+/**
+ * The single-source evidence-strength cap, in ONE place. Returns true when a
+ * signal's evidence-strength wording must be held back from "strong"/multi-
+ * source language: a single (or zero) source that has NOT reached a Verified /
+ * official state. Verified stories and 2+ source stories are never capped.
+ *
+ * Every surface that renders an evidence-strength / confidence tier next to a
+ * source count (board top card, stories-to-watch rows, the drawer, the
+ * confidence narrative) routes through this predicate — via
+ * `publicConfidenceLabel(value, context)` for tier labels, or directly for copy
+ * it composes itself — so the card, the list, and the drawer can never disagree
+ * about the same single-source story.
+ */
+export function shouldCapSingleSourceStrength(context?: EvidenceStrengthContext | null): boolean {
+  if (!context) return false;
+  if (context.verified) return false;
+  return (context.sourceCount ?? 0) < 2;
+}
+
+export function publicConfidenceLabel(value?: string | number | null, context?: EvidenceStrengthContext | null) {
   const text = String(value ?? "").trim();
   const parsed = Number.parseFloat(text.replace("%", ""));
-  if (!Number.isNaN(parsed)) {
-    if (parsed >= 85) return "Strong pattern match";
-    if (parsed >= 70) return "Strong support";
-    if (parsed >= 55) return "Still forming";
-    return "Needs more confirmation";
-  }
-  return publicStoryText(text || "Still forming");
+  const label = !Number.isNaN(parsed)
+    ? parsed >= 85
+      ? "Strong pattern match"
+      : parsed >= 70
+        ? "Strong support"
+        : parsed >= 55
+          ? "Still forming"
+          : "Needs more confirmation"
+    : publicStoryText(text || "Still forming");
+  // A single, unverified source can't read as "Strong ..." in the same view that
+  // shows its lone report count. Downgrade only that wording; everything else
+  // (including callers that pass no context) is unchanged.
+  if (shouldCapSingleSourceStrength(context) && /strong/i.test(label)) return "Still forming";
+  return label;
 }
 
 export function publicTimingLabel(value?: string | null, league?: string) {

@@ -119,9 +119,56 @@ describe("matchConfirmationSource", () => {
     expect(match?.name).toBe("Adam Schefter");
   });
 
-  it("matches wire outlets without tier metadata (RSS)", () => {
+  it("matches a third-party RSS wire without tier metadata (no EdgeSetter feed-config identity)", () => {
+    // A bare "ESPN NFL" RSS event that carries NONE of our scheduler's signature
+    // (no rss_ source_id, no rss_feed label, no rss_ source entry) is treated as an
+    // independent third-party pickup and still passes on name.
     const match = matchConfirmationSource({ payload: { source_labels: ["ESPN NFL"], source_types: ["rss"] } });
     expect(match?.reason).toBe("tier1_wire");
+  });
+
+  // Regression (RSS path of the NFL zero-confirm bug): EdgeSetter's OWN scheduled
+  // RSS feeds (sports-rss adapter) arrive as source_type "rss" — not league_api/
+  // sports_api — so the type gate misses them, yet their "ESPN NFL" label matches
+  // the wire list. They stamp a feed-config identity (rss_<label> source_id, a
+  // rss_feed label, rss_-prefixed source entries); we gate on that identity so our
+  // own re-ingestion can't masquerade as a public confirmation. ~7% of ESPN NFL
+  // events leaked in via this path before the gate.
+  it("does NOT match EdgeSetter's own scheduled ESPN NFL RSS feed (rss_ source_id identity)", () => {
+    expect(matchConfirmationSource({
+      source_id: "rss_espn_nfl_rss",
+      payload: {
+        source_labels: ["ESPN NFL"],
+        source_types: ["rss"],
+        sources: [{ id: "rss_espn_nfl_rss", name: "ESPN NFL", type: "rss" }],
+        rss_feed: "espn_nfl_rss",
+      },
+    })).toBeNull();
+  });
+
+  it("does NOT match EdgeSetter's own scheduled RSS feed identified by rss_feed label alone", () => {
+    expect(matchConfirmationSource({
+      payload: { source_labels: ["ESPN NBA"], source_types: ["rss"], rss_feed: "espn_nba_rss" },
+    })).toBeNull();
+  });
+
+  // Regression: EdgeSetter's own polling feeds arrive tagged league_api/sports_api.
+  // They are our DETECTION, not an independent public pickup, so they must never
+  // count as a confirmation — otherwise the situation they created gets structurally
+  // disqualified by situationOriginatedFromConfirmationSource (the NFL zero-confirm bug).
+  // The gate is type-based, not label-based: the same "ESPN NFL" label still passes
+  // as a third-party RSS wire that carries no feed-config identity (case above), but
+  // is rejected here on the api feed — and on our own scheduled RSS feed (case above).
+  it("does NOT match EdgeSetter's own sports_api ingestion (ESPN NFL/CFB api feed)", () => {
+    expect(matchConfirmationSource({
+      payload: { source_labels: ["ESPN NFL"], source_types: ["sports_api"], sources: [{ name: "ESPN NFL", type: "sports_api" }] },
+    })).toBeNull();
+  });
+
+  it("does NOT match EdgeSetter's own league_api ingestion (MLB StatsAPI / ESPN NBA feed)", () => {
+    expect(matchConfirmationSource({
+      payload: { source_types: ["league_api"], sources: [{ name: "MLB StatsAPI", type: "league_api" }] },
+    })).toBeNull();
   });
 
   it("does not match tier3 blogs or unknown reporters", () => {
