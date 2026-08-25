@@ -1,5 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FeaturedSituation } from "@/components/board/FeaturedSituation";
 import { toSituationRowData } from "@/components/board/boardAdapters";
@@ -9,15 +9,17 @@ import { toBoardSignalSituation, type BoardSignalInput } from "@/lib/boardSituat
 /**
  * Regression guard for the verification-state disagreement: the /mlb story CARD
  * (FeaturedSituation) showed "Escalating" while the DRAWER (SignalDetailDrawer)
- * showed "Verified" for the SAME underlying signal, because the card used
- * legacy string logic (plainStatusLabel) and only the drawer called the
- * canonical shared engine.
+ * showed "Verified" for the SAME underlying signal.
  *
- * This bug shipped once before (July) and was believed fixed by the August
- * rewrite — but only the card view was checked then, not the drawer. This test
- * therefore renders BOTH surfaces from the SAME fixture signal and asserts the
- * verification-state string matches exactly.
+ * The raw evidence-grounded word ("Verified" / "Escalating" / "Developing") is
+ * now gated behind VITE_VERIFICATION_STATE_HOMEPAGE on BOTH surfaces, so this
+ * guard renders both from the SAME fixture in BOTH flag states:
+ *   - flag ON  => both surfaces show the SAME engine word (exact parity).
+ *   - flag OFF => neither surface renders the bare engine word (both gated), so
+ *     the old "card says X, drawer says Y" disagreement cannot recur.
  */
+
+const ENGINE_WORDS = ["Verified", "Escalating", "Developing"];
 
 // The exact story from the live-site audit.
 const MATT_BRASH: SignalDetailLike = {
@@ -74,27 +76,48 @@ describe("verification state parity between story card and drawer", () => {
   afterEach(() => {
     document.body.innerHTML = "";
     window.localStorage.clear();
+    vi.unstubAllEnvs();
   });
 
-  it("card and drawer agree for the Matt Brash IL-60 story (Verified, not Escalating)", () => {
-    const card = cardVerificationState(MATT_BRASH);
-    const drawer = drawerVerificationState(MATT_BRASH);
+  describe("flag ON — both surfaces render the same engine word", () => {
+    it("card and drawer agree for the Matt Brash IL-60 story (Verified, not Escalating)", () => {
+      vi.stubEnv("VITE_VERIFICATION_STATE_HOMEPAGE", "true");
+      const card = cardVerificationState(MATT_BRASH);
+      const drawer = drawerVerificationState(MATT_BRASH);
 
-    expect(card).toBe("Verified");
-    expect(drawer).toBe("Verified");
-    expect(card).toBe(drawer);
+      expect(card).toBe("Verified");
+      expect(drawer).toBe("Verified");
+      expect(card).toBe(drawer);
+    });
+
+    it.each([
+      ["Verified", MATT_BRASH],
+      ["Escalating", ESCALATING],
+      ["Developing", DEVELOPING],
+    ] as const)("card and drawer render the same %s state", (expected, signal) => {
+      vi.stubEnv("VITE_VERIFICATION_STATE_HOMEPAGE", "true");
+      const card = cardVerificationState(signal);
+      const drawer = drawerVerificationState(signal);
+
+      expect(card).toBe(expected);
+      expect(drawer).toBe(expected);
+      expect(card).toBe(drawer);
+    });
   });
 
-  it.each([
-    ["Verified", MATT_BRASH],
-    ["Escalating", ESCALATING],
-    ["Developing", DEVELOPING],
-  ] as const)("card and drawer render the same %s state", (expected, signal) => {
-    const card = cardVerificationState(signal);
-    const drawer = drawerVerificationState(signal);
+  describe("flag OFF — neither surface leaks the bare engine word", () => {
+    it.each([
+      ["Verified", MATT_BRASH],
+      ["Escalating", ESCALATING],
+      ["Developing", DEVELOPING],
+    ] as const)("%s story: card and drawer both suppress the bare word", (_expected, signal) => {
+      vi.stubEnv("VITE_VERIFICATION_STATE_HOMEPAGE", "");
+      const card = cardVerificationState(signal);
+      const drawer = drawerVerificationState(signal);
 
-    expect(card).toBe(expected);
-    expect(drawer).toBe(expected);
-    expect(card).toBe(drawer);
+      // Both surfaces fall back to public status copy — never the bare engine word.
+      expect(ENGINE_WORDS).not.toContain(card);
+      expect(ENGINE_WORDS).not.toContain(drawer);
+    });
   });
 });

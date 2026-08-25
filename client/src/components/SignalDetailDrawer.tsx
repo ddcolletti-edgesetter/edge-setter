@@ -606,6 +606,12 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
   // shared engine, via the single client seam the board story card also uses — so the
   // card and this drawer can never disagree for the same underlying signal.
   const verificationWord = deriveSignalVerificationState(signal);
+  // Same gate the board card honors (VITE_VERIFICATION_STATE_HOMEPAGE): only
+  // surface the raw engine word ("Verified" / "Escalating" / "Developing") when
+  // the flag is on. Off => the public status phrase, so card and drawer stay
+  // consistent and neither leaks the internal word while the flag is off.
+  const verificationStateEnabled = import.meta.env.VITE_VERIFICATION_STATE_HOMEPAGE === "true";
+  const verificationDisplayWord = verificationStateEnabled ? verificationWord.state : storyVerificationState;
   const evidenceStrength = evidenceStrengthDisplay(model.confidence, model.sources, verificationWord.state === "Verified", editorialCopy);
   const storyImpactRows = impactRows(signal);
   const downstreamImpacts = storyImpactSections(downstreamImpactInput(signal, movement));
@@ -736,7 +742,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
                         : "rgba(248,250,252,0.62)",
                 }}
               >
-                {verificationWord.state}
+                {verificationDisplayWord}
               </div>
               <div style={{ maxWidth: 280, textAlign: "center", fontSize: 12, lineHeight: 1.4, color: "rgba(248,250,252,0.6)" }}>
                 {verificationWord.basis}
@@ -751,7 +757,7 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
 )}
             <div className="signal-detail-stat-grid">
               <StatCard label="Evidence strength" value={evidenceStrength.value} detail={evidenceStrength.detail} tone={model.confidence ? (model.confidence >= 80 ? "green" : "blue") : "gray"} />
-              <StatCard label="Verification state" value={verificationWord.state} detail={verificationWord.basis} tone={model.edge.tone} />
+              <StatCard label="Verification state" value={verificationDisplayWord} detail={verificationWord.basis} tone={model.edge.tone} />
               <StatCard label="Watch timing" value={model.timing.label} detail={model.timing.description} tone={model.timing.tone} />
               <StatCard label="Replay freshness" value={freshnessLabel(model.ageMinutes, signalTimestamp(signal))} detail="Detection age" tone={model.ageMinutes !== null && model.ageMinutes <= 45 ? "green" : "gray"} />
             </div>
