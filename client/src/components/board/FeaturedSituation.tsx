@@ -33,6 +33,14 @@ interface FeaturedSituationProps {
   mobileDensity?: "default" | "compact";
   presentation?: "default" | "story";
   league?: string;
+  /**
+   * Gate for the evidence-grounded verification word ("Verified" / "Escalating"
+   * / "Developing"). Same flag the homepage honors via EdgeSetterOverlay. When
+   * off, the "Verification state" read falls back to plain public status copy
+   * instead of surfacing the raw engine word. Defaults to the build-time flag so
+   * every board stays in lockstep with the homepage without threading a prop.
+   */
+  verificationStateEnabled?: boolean;
 }
 
 export function FeaturedSituation({
@@ -50,6 +58,7 @@ export function FeaturedSituation({
   mobileDensity = "default",
   presentation = "default",
   league,
+  verificationStateEnabled = import.meta.env.VITE_VERIFICATION_STATE_HOMEPAGE === "true",
 }: FeaturedSituationProps) {
   const displayTitle = title ?? situation?.title ?? "No developing story";
   const displaySummary = summary ?? situation?.subtitle;
@@ -63,9 +72,15 @@ export function FeaturedSituation({
   const confidenceMetric = displayMetrics.find((metric) => metric.label.toLowerCase().includes("confidence") || metric.label.toLowerCase() === "conf");
   const isLive = situation?.lane === "live";
   const isEscalated = escalation === "escalated";
+  // Only surface the raw engine verification word ("Verified" / "Escalating" /
+  // "Developing") when the flag is on — mirroring the homepage. Otherwise fall
+  // back to plain public status copy so the internal word never leaks to fans.
+  const verificationStateRead = verificationStateEnabled && situation?.verificationState
+    ? situation.verificationState
+    : plainStatusLabel(situation?.statusLabel ?? escalation);
 
   if (presentation === "story") {
-    const story = situation
+    const baseStory = situation
       ? toSituationStoryCardData(situation)
       : quietStoryCardData({
           eyebrow,
@@ -76,6 +91,13 @@ export function FeaturedSituation({
           metrics: displayMetrics,
           league,
         });
+    // Respect the same gate as the default "Verification state" read: the raw
+    // engine word ("Verified" / "Escalating" / "Developing") reaches the
+    // editorial layout's verification slot only when the flag is on. Off => keep
+    // the public status copy, so the story path never leaks the internal word.
+    const story = verificationStateEnabled && situation?.verificationState
+      ? { ...baseStory, verification: situation.verificationState }
+      : baseStory;
 
     return (
       <section className={cn("board-featured-situation-story", className)}>
@@ -150,7 +172,7 @@ export function FeaturedSituation({
 
       <div className="mt-2 grid min-w-0 gap-1.5 sm:grid-cols-3">
         <PlainRead label="Evidence strength" value={plainConfidenceLabel(confidenceMetric, situation)} />
-        <PlainRead label="Verification state" value={situation?.verificationState ?? plainStatusLabel(situation?.statusLabel ?? escalation)} />
+        <PlainRead label="Verification state" value={verificationStateRead} />
         <PlainRead label="Source support" value={plainSupportLabel(situation)} />
       </div>
 
@@ -483,7 +505,10 @@ function plainStatusLabel(status?: string) {
   if (value.includes("verified") || value.includes("official")) return "ES Agents verified";
   if (value.includes("urgent")) return "Escalating";
   if (value.includes("develop")) return "Developing before confirmation";
-  return value.replace(/\s+/g, " ");
+  // Any other state (monitoring, watch, escalated, elevated, breaking, …) must
+  // still render as clean copy — never a raw lowercase state word. Title-case
+  // the remainder so the featured card can't leak "escalated"/"monitoring".
+  return value.replace(/\s+/g, " ").trim().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function plainSupportLabel(situation?: SituationRowData) {
