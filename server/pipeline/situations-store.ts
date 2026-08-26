@@ -376,7 +376,7 @@ export function listSituationsForMatching(opts: {
   readonly league: string;
   readonly situation_type?: string;
   readonly limit?: number;
-}, db: Database.Database = getPipelineDb()): (Situation & { latest_snapshot_at: string | null })[] {
+}, db: Database.Database = getPipelineDb()): CanonicalSituationRecord[] {
   ensureSituationSchema(db);
   const params: unknown[] = [opts.league];
   let where = "WHERE s.league = ?";
@@ -386,14 +386,40 @@ export function listSituationsForMatching(opts: {
   }
   params.push(opts.limit ?? 100);
 
+  // Pull the actual latest snapshot row via a correlated subquery (same pattern
+  // as listCanonicalSituations), so every snapshot column is present for
+  // deserializeCanonicalSituationRecord. The old MAX(ss.created_at) aggregate
+  // returned only a timestamp, leaving snapshot_id/confidence_json/etc. absent —
+  // so latest_snapshot always deserialized to null and isUsableSituation filtered
+  // out every candidate.
   const rows = db.prepare(`
-    SELECT s.*, r.resolved_game_id, MAX(ss.created_at) AS latest_snapshot_at
+    SELECT
+      s.*,
+      latest.snapshot_id,
+      latest.lifecycle_state,
+      latest.confidence_score,
+      latest.confidence_json,
+      latest.summary,
+      latest.escalation_score,
+      latest.timing_pressure,
+      latest.evidence_event_ids_json,
+      latest.replay_hash AS snapshot_replay_hash,
+      latest.previous_snapshot_hash,
+      latest.created_at AS snapshot_created_at,
+      latest.created_at AS latest_snapshot_at,
+      r.resolved_game_id
     FROM situations s
-    LEFT JOIN situation_snapshots ss ON ss.situation_id = s.situation_id
+    LEFT JOIN situation_snapshots latest
+      ON latest.snapshot_id = (
+        SELECT ss.snapshot_id
+        FROM situation_snapshots ss
+        WHERE ss.situation_id = s.situation_id
+        ORDER BY ss.created_at DESC, ss.snapshot_id ASC
+        LIMIT 1
+      )
     LEFT JOIN situation_game_resolution r ON r.situation_id = s.situation_id
     ${where}
-    GROUP BY s.situation_id
-    ORDER BY COALESCE(MAX(ss.created_at), s.created_at) DESC, s.situation_id ASC
+    ORDER BY COALESCE(latest.created_at, s.created_at) DESC, s.situation_id ASC
     LIMIT ?
   `).all(...params);
 
