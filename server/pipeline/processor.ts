@@ -32,6 +32,19 @@ import type { RawEvent, LiveSignal, League, SignalType, LineMovement } from "./t
 
 /* ─── Helper ────────────────────────────────────────────── */
 
+// Per-SignalType dedup lookback for findExistingSignal(). injury_update
+// widened from the 4h default to 24h — real Fri-report -> Sun-gameday
+// gaps exceed 4h, causing legitimate revisions to fork instead of merge
+// (item 4 investigation, Aug 25 2026).
+const SIGNAL_DEDUP_LOOKBACK_MS: Partial<Record<SignalType, number>> = {
+  injury_update: 24 * 60 * 60 * 1000,
+};
+const DEFAULT_DEDUP_LOOKBACK_MS = 4 * 60 * 60 * 1000;
+
+function dedupLookbackMs(signalType: SignalType): number {
+  return SIGNAL_DEDUP_LOOKBACK_MS[signalType] ?? DEFAULT_DEDUP_LOOKBACK_MS;
+}
+
 function now() { return new Date().toISOString(); }
 
 function buildMatchup(team: string | null, game?: { home_team: string; away_team: string }): string | null {
@@ -431,12 +444,13 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       ];
 
       // Fingerprint lookup: reuse existing signal id if the same league/team/type
-      // was seen within the last 4 hours so the upsert merges rather than creates.
+      // was seen within the per-type dedup window (see dedupLookbackMs) so the
+      // upsert merges rather than creates.
       const signalType = (fields.signal_type ?? "manual") as SignalType;
-      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+      const dedupSince = new Date(Date.now() - dedupLookbackMs(signalType)).toISOString();
       const existingByFingerprint = p.signal_id
         ? null
-        : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: fourHoursAgo });
+        : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: dedupSince });
       const existingSignal = p.signal_id ? getLiveSignal(p.signal_id) : existingByFingerprint;
       const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
       const signalFirstSeenAt = existingSignal?.first_seen_at ?? now();
@@ -530,12 +544,13 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
     ];
 
     // Fingerprint lookup: reuse existing signal id if the same league/team/type
-    // was seen within the last 4 hours so the upsert merges rather than creates.
+    // was seen within the per-type dedup window (see dedupLookbackMs) so the
+    // upsert merges rather than creates.
     const signalType = (fields.signal_type ?? "manual") as SignalType;
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+    const dedupSince = new Date(Date.now() - dedupLookbackMs(signalType)).toISOString();
     const existingByFingerprint = p.signal_id
       ? null
-      : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: fourHoursAgo });
+      : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: dedupSince });
     const existingSignal = p.signal_id ? getLiveSignal(p.signal_id) : existingByFingerprint;
     const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
     const signalFirstSeenAt = existingSignal?.first_seen_at ?? now();
