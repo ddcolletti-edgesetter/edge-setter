@@ -10,6 +10,13 @@ import type {
 } from "./situations-contract";
 import { deriveSituationHistoricalCalibration } from "./situations-calibration";
 import {
+  buildConfidenceBaselines,
+  capCorruptedConfidence,
+  confidenceBaselineKey,
+  countFoundingRows,
+  resolveHeadlineConfidence,
+} from "./situations-confidence-guard";
+import {
   buildComparableSituationCorpus,
   buildComparableSituationCorpusRecord,
   matchComparableSituations,
@@ -141,7 +148,8 @@ export function listCanonicalSituationApiResponses(query: CanonicalSituationApiQ
   if (records.length === 0) return [];
 
   const comparableCorpus = buildComparableSituationCorpus();
-  const mapped = records.map((record) => mapCanonicalSituationToApiResponse(record, comparableCorpus));
+  const confidenceBaselines = buildConfidenceBaselines();
+  const mapped = records.map((record) => mapCanonicalSituationToApiResponse(record, comparableCorpus, confidenceBaselines));
   const sorted = sortCanonicalSituationApiResponses(mapped, query.orderBy ?? "updated_at");
   return sorted.slice(0, sanitizeLimit(query.limit));
 }
@@ -149,19 +157,33 @@ export function listCanonicalSituationApiResponses(query: CanonicalSituationApiQ
 export function mapCanonicalSituationToApiResponse(
   record: CanonicalSituationRecord,
   comparableCorpus: readonly ComparableSituationCorpusRecord[] = buildComparableSituationCorpus(),
+  confidenceBaselines: Map<string, number> = buildConfidenceBaselines(),
 ): CanonicalSituationApiResponse {
   const snapshot = record.latest_snapshot;
   const events = listSituationEvents(record.situation_id);
   const stateHistory = listSituationStateHistory(record.situation_id);
   const confidenceHistory = listSituationConfidenceHistory(record.situation_id);
-  const rawConfidence = snapshot?.confidence.score ?? 0;
+  // Guard: a situation re-founded past its single legitimate founding carries
+  // duplicate founding evidence that inflates its headline confidence. Cap the
+  // presented score down to the clean single-founding cohort's baseline for the
+  // same league + situation_type. `corrupted` then gates the official-confirmation
+  // override below so a mis-founded situation is never lifted to 100.
+  const cap = capCorruptedConfidence({
+    rawConfidence: snapshot?.confidence.score ?? 0,
+    foundingRowCount: countFoundingRows(events),
+    baseline: confidenceBaselines.get(confidenceBaselineKey(record.league, record.situation_type)),
+  });
+  const rawConfidence = cap.confidence;
   const lifecycleState = snapshot?.lifecycle_state ?? "watching";
   const hasOfficialConfirmation = (snapshot?.confidence.factors?.official_confirmation ?? 0) > 0;
   const hasContradiction = (snapshot?.confidence.factors?.contradiction_penalty ?? 0) < 0;
-  const confidence = lifecycleState === "official" ||
-    (lifecycleState === "confirmed" && hasOfficialConfirmation && !hasContradiction)
-    ? 100
-    : rawConfidence;
+  const confidence = resolveHeadlineConfidence({
+    rawConfidence,
+    corrupted: cap.corrupted,
+    lifecycleState,
+    hasOfficialConfirmation,
+    hasContradiction,
+  });
   const escalationScore = snapshot?.escalation_score ?? 0;
   const latestEvidence = mapLatestEvidence(events, confidenceHistory);
   const sourceCount = new Set(events.map((event) => event.source_id).filter(Boolean)).size;

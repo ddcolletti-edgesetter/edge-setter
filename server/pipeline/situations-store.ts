@@ -441,6 +441,43 @@ export function listSituationsForMatching(opts: {
   return deserialized.filter(isUsableSituation);
 }
 
+/**
+ * Latest headline confidence of every "clean" situation — one whose distinct
+ * `situation_created` (founding) rows number exactly 1. These are the situations
+ * that were detected once and never re-founded, so their confidence is not
+ * inflated by duplicate founding evidence. The confidence guard uses this cohort
+ * to build a per-(league, situation_type) baseline that corrupted situations are
+ * capped to. Rows with no snapshot (null confidence) are excluded.
+ */
+export function getCleanFoundingSituationConfidences(
+  db: Database.Database = getPipelineDb(),
+): { league: string; situation_type: string; confidence_score: number }[] {
+  ensureSituationSchema(db);
+  const rows = db.prepare(`
+    SELECT league, situation_type, confidence_score FROM (
+      SELECT
+        s.league AS league,
+        s.situation_type AS situation_type,
+        (
+          SELECT ss.confidence_score
+          FROM situation_snapshots ss
+          WHERE ss.situation_id = s.situation_id
+          ORDER BY ss.created_at DESC, ss.snapshot_id ASC
+          LIMIT 1
+        ) AS confidence_score
+      FROM situations s
+      WHERE (
+        SELECT COUNT(*)
+        FROM situation_events se
+        WHERE se.situation_id = s.situation_id
+          AND se.kind = 'situation_created'
+      ) = 1
+    )
+    WHERE confidence_score IS NOT NULL
+  `).all() as { league: string; situation_type: string; confidence_score: number }[];
+  return rows;
+}
+
 export function getLatestSituationSnapshot(
   situationId: string,
   db: Database.Database = getPipelineDb(),
