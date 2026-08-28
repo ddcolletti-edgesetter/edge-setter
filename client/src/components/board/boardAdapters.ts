@@ -135,6 +135,13 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
   // signal lineage feeds a drawer (canonical situations open the /story page),
   // so we derive from the signal when present and otherwise leave it undefined.
   const verification = signal ? deriveSignalVerificationState(signal) : undefined;
+  const escalationState = escalationStateForSituation(situation);
+  // Single-source evidence-strength cap context, shared with the drawer via the
+  // verification word so the card and the drawer agree for the same signal.
+  const strengthContext = {
+    sourceCount: situation.sourceCount,
+    verified: isSituationVerified({ verificationState: verification?.state, escalationState }),
+  };
 
   return {
     id: situation.id,
@@ -148,12 +155,12 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     urgency: urgencyForEscalation(situation.escalation),
     urgencyScore: Math.round(situation.score),
     lane: situation.lane,
-    escalationState: escalationStateForSituation(situation),
+    escalationState,
     statusLabel: situation.statusLabel ?? situation.escalation,
     verificationState: verification?.state,
     verificationBasis: verification?.basis,
     metrics: [
-      { label: "Confidence", value: publicConfidenceLabel(situation.confidence), tone: situation.confidence >= 80 ? "positive" : situation.confidence >= 60 ? "warning" : "default" },
+      { label: "Confidence", value: publicConfidenceLabel(situation.confidence, strengthContext), tone: situation.confidence >= 80 ? "positive" : situation.confidence >= 60 ? "warning" : "default" },
     ].filter(Boolean) as SituationMetric[],
     tags: [situation.trustLabel, canonical?.confidenceLabel, signal?.injuryDesignation, signal?.conference].filter(Boolean) as string[],
     actionLabel: situation.kind === "signal" ? "Open story" : undefined,
@@ -187,6 +194,10 @@ export function toSituationStoryCardData(row: SituationRowData): SituationStoryC
   const matchup = row.matchup ?? matchupFromIdentity(identity);
   const storyType = storyTypeFromRow(row);
   const confidence = confidenceFromRow(row);
+  const strengthContext = {
+    sourceCount: row.sourceCount,
+    verified: isSituationVerified({ verificationState: row.verificationState, escalationState: row.escalationState }),
+  };
   const rawVerification = row.sourceProgressLabel ?? row.sourceSummary ?? row.statusLabel ?? row.escalationState;
 const mappedVerification = rawVerification === "monitoring" ? "Developing" : rawVerification;
 const verification = publicStoryText(mappedVerification, row.league);
@@ -196,7 +207,7 @@ const verification = publicStoryText(mappedVerification, row.league);
   const edgeSetterKnows = cleanStoryLine(
     [
       row.sourceProgressLabel ?? sourceCountLabel(row.sourceCount),
-      confidence ? publicConfidenceLabel(confidence) : undefined,
+      confidence ? publicConfidenceLabel(confidence, strengthContext) : undefined,
       row.timingStageLabel ?? row.timingAdvantage,
     ].filter(Boolean).join(" / ") || "EdgeSetter is monitoring source support, timing, confidence, and downstream sports impact.",
   );
@@ -220,7 +231,7 @@ const verification = publicStoryText(mappedVerification, row.league);
     player: identity?.player,
     storyType,
     timestamp: row.timestamp,
-    confidence: confidence ? publicConfidenceLabel(confidence) : undefined,
+    confidence: confidence ? publicConfidenceLabel(confidence, strengthContext) : undefined,
     sourceCount: row.sourceCount,
     lifecycle: publicLifecycleLabel(row.lifecycleLabel),
     verification,
@@ -330,6 +341,11 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
   const confidenceDeltaMetric = typeof confidenceDelta === "number" && confidenceDelta !== 0
     ? { label: "Confidence move", value: `${confidenceDelta > 0 ? "+" : ""}${Math.round(confidenceDelta)}`, tone: confidenceDelta > 0 ? "positive" : "warning" }
     : null;
+  const escalationState = escalationStateForSituation(situation);
+  const strengthContext = {
+    sourceCount: situation.sourceCount,
+    verified: isSituationVerified({ escalationState }),
+  };
   return {
     title: fanFirstTitle(situation, canonical),
     summary: fanFirstSummary(situation, signal, canonical),
@@ -337,7 +353,7 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
     secondaryRead: fanSafeContext([situation.sourceSummary, canonical?.confidenceFactors.whatRemainsUncertain[0], situation.timingAdvantage].filter(Boolean).join(" / ") || signal?.action_takeaway || situation.trustLabel),
     metrics: [
       { label: "Story priority", value: editorialCopy ? publicUrgencyLabel(situation.score) : urgencyLabel(situation.score), tone: situation.score >= 82 ? "danger" : situation.score >= 65 ? "warning" : "default" },
-      { label: "Confidence", value: publicConfidenceLabel(situation.confidence), tone: situation.confidence >= 80 ? "positive" : "default" },
+      { label: "Confidence", value: publicConfidenceLabel(situation.confidence, strengthContext), tone: situation.confidence >= 80 ? "positive" : "default" },
       confidenceDeltaMetric,
       canonical ? { label: "Evidence", value: editorialCopy ? evidenceCountText(canonical.evidenceCount) : canonical.evidenceCount, tone: canonical.evidenceCount >= 3 ? "positive" : "default" } : null,
       { label: "Verification", value: editorialCopy ? publicLifecycleLabel(situation.lifecycleStage) : lifecycleDisplayLabel(situation.lifecycleStage), tone: situation.lifecycleStage === "Context Moving" ? "warning" : situation.lifecycleStage === "Resolved / Stale" ? "default" : "positive" },
@@ -365,6 +381,27 @@ export function laneLabel(lane: SituationLane) {
   if (lane === "confirmed") return "Verified Stories";
   if (lane === "background") return "Background Watch";
   return "Escalating Stories";
+}
+
+// Single source of truth for "is this situation verified" used by the
+// evidence-strength cap. Previously this was inlined at three call sites, two of
+// which drifted in casing; keep them in lockstep here so a new state value or an
+// upstream casing change can only ever change one definition.
+//
+// Casing note: `verificationState` is compared against capitalized "Verified"
+// (it comes from deriveSignalVerificationState's SituationVerificationState) while
+// `escalationState` is compared against lowercase "verified"/"official" (it comes
+// from SituationEscalationState). The split is intentional — genuinely different
+// upstream fields with different value vocabularies — not an accidental mismatch.
+export function isSituationVerified(input: {
+  verificationState?: string | null;
+  escalationState?: string | null;
+}): boolean {
+  return (
+    input.verificationState === "Verified" ||
+    input.escalationState === "verified" ||
+    input.escalationState === "official"
+  );
 }
 
 function escalationStateForSituation(situation: BoardSituation): SituationEscalationState {
