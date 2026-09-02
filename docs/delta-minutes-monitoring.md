@@ -16,10 +16,20 @@ persisted per situation in `situation_public_confirmations`
 | **T2 — public confirmation** | `situation_public_confirmations.confirmed_at` (the wire/official source's `published_at`, else its received_at) |
 | **deltaMinutes** | `round((T2 − T1) / 60000)` — always `> 0` at insert time |
 
-This is **independent of the X API**: official feeds (statsapi, league/team
-official, RSS wires like "ESPN NFL", "AP Sports") count as confirmation on their
-own. The endpoint's per-`confirmation_reason` data (in the SQL companion) lets
-you read the fully X-free lead separately.
+This is **partly independent of the X API**: team/league official feeds and RSS
+wires (e.g. "ESPN NFL", "AP Sports", ProFootballTalk) count as confirmation on
+their own, X-free. The endpoint's per-`confirmation_reason` data (in the SQL
+companion) lets you read the fully X-free lead separately.
+
+> **Not a confirmation source:** EdgeSetter's own polling APIs — MLB StatsAPI and
+> the ESPN NFL/NBA/CFB API feeds — do **not** count as public confirmation. They
+> are our *detection*, not an independent public pickup. StatsAPI stopped counting
+> at commit `c6e39a9` (its `source_type` was renamed `official report` →
+> `league_api` to stop an `official_confirmation` misfire), and
+> `matchConfirmationSource` now gates out any `league_api`/`sports_api` source by
+> type. Consequence: a league whose only ingested source is such an API cannot
+> produce `deltaMinutes` rows — **MLB today has no wire/official feed ingested at
+> all** (the X manifest and RSS feeds cover NFL + CFB only), so it captures nothing.
 
 ## Capture gate ⚠️
 

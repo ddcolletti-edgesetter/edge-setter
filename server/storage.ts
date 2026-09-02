@@ -335,6 +335,11 @@ sqlite.exec(`
     completed_at     TEXT,
     created_at       TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS processed_webhook_events (
+    event_id     TEXT PRIMARY KEY,
+    processed_at TEXT DEFAULT CURRENT_TIMESTAMP
+  );
 `);
 
 // Migration: add tweet columns to distribution_drafts if missing.
@@ -1056,6 +1061,26 @@ export class SqliteStorage implements IStorage {
   }
   getEventLog(limit = 200): EventLog[] {
     return db.select().from(event_log).orderBy(desc(event_log.created_at)).limit(limit).all();
+  }
+
+  // ─── Webhook Idempotency ───────────────────────────────────────────────────
+  // Returns true if this Stripe event id has already been recorded as fully
+  // processed. Read-only — checked at the top of the webhook handler so a
+  // redelivery of an event we already handled is skipped before any side effects.
+  isWebhookEventProcessed(eventId: string): boolean {
+    return !!sqlite
+      .prepare(`SELECT 1 FROM processed_webhook_events WHERE event_id = ? LIMIT 1`)
+      .get(eventId);
+  }
+  // Records a Stripe event id as fully processed. Called at the very end of the
+  // handler, after all event-type processing has succeeded, so a mid-handler
+  // failure leaves the event unrecorded and Stripe's retry re-runs it.
+  // INSERT OR IGNORE absorbs the PRIMARY KEY conflict (e.g. a concurrent
+  // redelivery that recorded first) rather than throwing.
+  markWebhookEventProcessed(eventId: string): void {
+    sqlite
+      .prepare(`INSERT OR IGNORE INTO processed_webhook_events (event_id, processed_at) VALUES (?, ?)`)
+      .run(eventId, now());
   }
 
   // ─── Distribution Drafts ──────────────────────────────────────────────────
