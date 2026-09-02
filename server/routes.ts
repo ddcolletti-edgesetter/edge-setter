@@ -358,8 +358,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
       }
       const entry = storage.addToWaitlist(data);
       storage.logEvent({ event_name: "request_access_submit", email: data.email, metadata: JSON.stringify({ source: "landing_page" }) });
-      syncToSupabase("waitlist", { email: data.email, name: data.name, role: data.role, source: "landing_page" }, "insert").catch(() => {});
-      syncToSupabase("event_log", { event_name: "request_access_submit", email: data.email, metadata: { source: "landing_page" } }, "insert").catch(() => {});
       sendWaitlistConfirmation(data.email).catch(() => {});
       return res.json({ success: true, id: entry.id });
     } catch (err: any) {
@@ -1042,7 +1040,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
         metadata: { email },
       });
       storage.logEvent({ event_name: "checkout_started", email, metadata: JSON.stringify({ session_id: session.id }) });
-      syncToSupabase("event_log", { event_name: "checkout_started", email, metadata: { session_id: session.id } }, "insert").catch(() => {});
       return res.json({ url: session.url });
     } catch (e: any) {
       console.error("[checkout]", e.message);
@@ -1280,8 +1277,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
         storage.upsertUser(proData);
         setBillingIdentityCookie(res, sessionEmail);
         storage.logEvent({ event_name: "success_page_view", email: sessionEmail, metadata: JSON.stringify({ session_id }) });
-        syncToSupabase("users", proData, "upsert").catch(() => {});
-        syncToSupabase("event_log", { event_name: "subscription_started", email: sessionEmail, metadata: { session_id } }, "insert").catch(() => {});
         return res.json({ success: true, plan: "pro" });
       }
       return res.json({ success: false, plan: "free" });
@@ -1306,7 +1301,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
         source: source ?? "landing_page",
       });
       storage.logEvent({ event_name: "digest_subscribe", email: sub.email, metadata: JSON.stringify({ source: sub.source }) });
-      syncToSupabase("event_log", { event_name: "digest_subscribe", email: sub.email, metadata: { source: sub.source } }, "insert").catch(() => {});
       return res.json({ success: true, id: sub.id });
     } catch (err: any) {
       return res.status(500).json({ error: err.message ?? "Subscribe failed" });
