@@ -33,11 +33,15 @@ import type { RawEvent, LiveSignal, League, SignalType, LineMovement } from "./t
 /* ─── Helper ────────────────────────────────────────────── */
 
 // Per-SignalType dedup lookback for findExistingSignal(). injury_update
-// widened from the 4h default to 24h — real Fri-report -> Sun-gameday
-// gaps exceed 4h, causing legitimate revisions to fork instead of merge
-// (item 4 investigation, Aug 25 2026).
+// widened from the 4h default to 48h — real Fri-report -> Sun-gameday
+// revision cadence exceeds 24h, so same-injury-story continuations were
+// forking into two live rows instead of merging. Item-4 gap analysis found
+// 473 post-deploy same-player pairs all sitting between 24.0h and 47.75h;
+// 48h collapses them. Known tradeoff: a genuinely new, unrelated injury to
+// the same player 24-48h after a prior one now incorrectly merges.
+// (item 4 investigation, Aug 2026).
 const SIGNAL_DEDUP_LOOKBACK_MS: Partial<Record<SignalType, number>> = {
-  injury_update: 24 * 60 * 60 * 1000,
+  injury_update: 48 * 60 * 60 * 1000,
 };
 const DEFAULT_DEDUP_LOOKBACK_MS = 4 * 60 * 60 * 1000;
 
