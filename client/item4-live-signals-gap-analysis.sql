@@ -3,6 +3,19 @@
 -- Match key = league + team(dropped when null/'') + player(strict, null=null) + signal_type
 --             + is_archived=0 + created_at within window.  NO source. NO game_id (not passed).
 -- Ordering/window column = created_at (same column dedupSince and ORDER BY use).
+--
+-- is_archived=0 is hardcoded into findExistingSignal()'s WHERE clause
+-- (store.ts:1242, `conds = ["league=?", "is_archived=0"]`) — it dedups only
+-- against the LIVE population. Both sides of every pair are filtered to
+-- is_archived=0 below so this mirrors that population, not archived history.
+--
+-- WINDOW: production's injury_update lookback is 24h (processor.ts:39-41,
+-- SIGNAL_DEDUP_LOOKBACK_MS.injury_update = 24h). This query COLLECTS at 48h on
+-- purpose, for parity with the situations proxy (measured at 48h). Because rn=1
+-- always picks the closest prior, the buckets split cleanly:
+--   zero_gap + under_24h = pairs production MERGES (closest prior <=24h)
+--   h24_48               = pairs production FORKS  (closest prior 24-48h, outside
+--                          the 24h lookback -> findExistingSignal returns null).
 -- Read-only: uses TEMP table only (in-memory, never written to the db file).
 
 .headers on
@@ -34,6 +47,10 @@ matches AS (
   JOIN inj a
     ON a.league = b.league
    AND a.id <> b.id
+   -- live population only: findExistingSignal() searches is_archived=0 rows,
+   -- and a freshly-processed event b is is_archived=0 at dedup time too.
+   AND a.is_archived = 0
+   AND b.is_archived = 0
    AND ( a.created_at <  b.created_at
          OR (a.created_at = b.created_at AND a.id < b.id) )
    AND (b.jd - a.jd) * 24.0 <= 48.0
@@ -78,11 +95,16 @@ SELECT
   SUM(CASE WHEN (b_player IS NULL OR b_player = '')             THEN 1 ELSE 0 END) AS empty_player_pairs
 FROM gaps;
 
--- (4) context: population + null/empty entity prevalence + archival split
+-- (4) context: archival split (full population) + null/empty entity prevalence
+--     restricted to the LIVE (is_archived=0) population that dedup actually runs on.
+--     total_injury_rows/archived_rows/live_rows keep the full-population split
+--     (this is where the ~95% archived figure comes from); the null/empty counts
+--     are live-only so they describe the population findExistingSignal() searches.
 SELECT
-  COUNT(*)                                                    AS total_injury_rows,
-  SUM(CASE WHEN team   IS NULL OR team   = '' THEN 1 ELSE 0 END) AS null_or_empty_team,
-  SUM(CASE WHEN player IS NULL OR player = '' THEN 1 ELSE 0 END) AS null_or_empty_player,
-  SUM(CASE WHEN is_archived = 1 THEN 1 ELSE 0 END)            AS archived_rows
+  COUNT(*)                                                                            AS total_injury_rows,
+  SUM(CASE WHEN is_archived = 1 THEN 1 ELSE 0 END)                                    AS archived_rows,
+  SUM(CASE WHEN is_archived = 0 THEN 1 ELSE 0 END)                                    AS live_rows,
+  SUM(CASE WHEN is_archived = 0 AND (team   IS NULL OR team   = '') THEN 1 ELSE 0 END) AS live_null_or_empty_team,
+  SUM(CASE WHEN is_archived = 0 AND (player IS NULL OR player = '') THEN 1 ELSE 0 END) AS live_null_or_empty_player
 FROM live_signals
 WHERE signal_type = 'injury_update';
