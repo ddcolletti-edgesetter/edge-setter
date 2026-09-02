@@ -13,7 +13,7 @@ import path from "path";
  * That window used to be a flat 4h for every type. Real injury reports arrive
  * Friday and get revised on Sunday gameday — a gap well past 4h — so
  * legitimate revisions were forking into duplicate rows. injury_update's
- * window is now widened to 24h; every other type keeps the 4h default.
+ * window is now widened to 48h; every other type keeps the 4h default.
  *
  * These tests exercise the real merge path (processOne → findExistingSignal →
  * upsertLiveSignal) against an isolated pipeline.db, seeding the prior signal
@@ -134,27 +134,42 @@ beforeEach(() => {
   vi.clearAllMocks();
 });
 
-describe("injury_update dedup window (24h)", () => {
+describe("injury_update dedup window (48h)", () => {
   it("merges a revision 6h after the prior injury_update (shares signal_id)", async () => {
     const seededId = seedSignal("injury_update", isoHoursAgo(6));
 
     const signal = await processor.processOne(makeRaw("injury_update"));
 
     expect(signal).not.toBeNull();
-    // 6h < 24h window → reuse the existing id (merge, not fork).
+    // 6h < 48h window → reuse the existing id (merge, not fork).
     expect(signal!.id).toBe(seededId);
 
     const rows = store.getLiveSignals({ league: LEAGUE, includeArchived: true });
     expect(rows).toHaveLength(1);
   });
 
-  it("does NOT merge a revision 30h after the prior injury_update (new signal_id)", async () => {
+  it("merges a revision 30h after the prior injury_update (shares signal_id)", async () => {
+    // Was a fork under the old 24h window; the item-4 widening to 48h makes
+    // this Fri-report -> Sun-gameday cadence (30h apart) merge instead.
     const seededId = seedSignal("injury_update", isoHoursAgo(30));
 
     const signal = await processor.processOne(makeRaw("injury_update"));
 
     expect(signal).not.toBeNull();
-    // 30h > 24h window → the prior row is out of range, so a fresh signal forks.
+    // 30h < 48h window → reuse the existing id (merge, not fork).
+    expect(signal!.id).toBe(seededId);
+
+    const rows = store.getLiveSignals({ league: LEAGUE, includeArchived: true });
+    expect(rows).toHaveLength(1);
+  });
+
+  it("does NOT merge a revision 50h after the prior injury_update (new signal_id)", async () => {
+    const seededId = seedSignal("injury_update", isoHoursAgo(50));
+
+    const signal = await processor.processOne(makeRaw("injury_update"));
+
+    expect(signal).not.toBeNull();
+    // 50h > 48h window → the prior row is out of range, so a fresh signal forks.
     expect(signal!.id).not.toBe(seededId);
 
     const rows = store.getLiveSignals({ league: LEAGUE, includeArchived: true });
