@@ -1078,6 +1078,18 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       const stripe = getStripe();
 
+      // ── Idempotency guard (check) ──────────────────────────────────────────
+      // Stripe may redeliver an event (its own retries, or ours after a 500).
+      // If we already recorded this event.id as fully processed, this is a
+      // redelivery of work we completed — skip all processing and ack 200.
+      // The matching record happens at the END of the handler, only after
+      // processing succeeds, so a mid-handler failure returns 500 and leaves the
+      // event unrecorded, letting Stripe's retry re-run it (retry recovery).
+      if (event.id && storage.isWebhookEventProcessed(event.id)) {
+        console.log(`[webhook] duplicate event ${event.id} (${event.type}) — already processed, skipping`);
+        return res.json({ received: true });
+      }
+
       // ── checkout.session.completed ─────────────────────────────────────────
       if (event.type === "checkout.session.completed") {
         const session = event.data.object;
@@ -1093,8 +1105,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
           };
           storage.upsertUser(proData);
           storage.logEvent({ event_name: "subscription_started", email, metadata: JSON.stringify({ session_id: session.id, source: "webhook" }) });
-          syncToSupabase("users", proData, "upsert").catch(() => {});
-          syncToSupabase("event_log", { event_name: "subscription_started", email, metadata: { session_id: session.id, source: "webhook" } }, "insert").catch(() => {});
           sendProWelcome(email).catch(() => {});
         } else {
           console.warn(`[webhook] checkout.session.completed ignored: session ${session.id ?? "unknown"} is not a paid subscription checkout`);
@@ -1114,8 +1124,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
           };
           storage.upsertUser(downgradeData);
           storage.logEvent({ event_name: "subscription_canceled", email: user.email, metadata: JSON.stringify({ subscription_id: sub.id, customer_id: sub.customer }) });
-          syncToSupabase("users", downgradeData, "upsert").catch(() => {});
-          syncToSupabase("event_log", { event_name: "subscription_canceled", email: user.email, metadata: { subscription_id: sub.id } }, "insert").catch(() => {});
           console.log(`[webhook] subscription.deleted: ${user.email} downgraded to free`);
         } else {
           console.warn(`[webhook] subscription.deleted: no user found for customer ${sub.customer}`);
@@ -1137,15 +1145,29 @@ export function registerRoutes(httpServer: Server, app: Express) {
           };
           storage.upsertUser(failData);
           storage.logEvent({ event_name: "payment_failed", email: user.email, metadata: JSON.stringify({ invoice_id: invoice.id, attempt: invoice.attempt_count, next_attempt: invoice.next_payment_attempt }) });
-          syncToSupabase("users", failData, "upsert").catch(() => {});
-          syncToSupabase("event_log", { event_name: "payment_failed", email: user.email, metadata: { invoice_id: invoice.id, attempt: invoice.attempt_count } }, "insert").catch(() => {});
           // Email stub — fires when Resend is configured
           sendBillingRetryEmail(user.email, invoice.attempt_count ?? 1).catch(() => {});
           console.log(`[webhook] invoice.payment_failed: ${user.email} marked past_due (attempt ${invoice.attempt_count})`);
         }
       }
 
-    } catch (e) { console.error("[webhook]", e); }
+      // ── Idempotency guard (record) ─────────────────────────────────────────
+      // Reached only after all event-type processing above succeeded. Recording
+      // here (rather than at the top) preserves retry recovery: a throw anywhere
+      // above skips this line, returns 500, and leaves the event unrecorded so
+      // Stripe's retry re-runs it. Residual risk: if processing fully succeeds
+      // but something between the last operation and this line throws, the event
+      // stays unrecorded and the retry re-runs it, which can write a duplicate
+      // logEvent row (upsertUser is idempotent; the emails are fire-and-forget
+      // and already sent). That window is a few synchronous statements with no
+      // I/O, so a throw there is highly unlikely, and a duplicate analytics row
+      // is a benign, accepted cost versus losing retry recovery on real failures.
+      if (event.id) storage.markWebhookEventProcessed(event.id);
+
+    } catch (e) {
+      console.error("[webhook]", e);
+      return res.status(500).json({ error: "internal error processing webhook" });
+    }
     res.json({ received: true });
   });
 
