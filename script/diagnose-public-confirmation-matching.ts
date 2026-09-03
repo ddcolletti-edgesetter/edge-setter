@@ -2,7 +2,9 @@
  * Diagnostic: why do ESPN-created NFL/CFB situations never get a public
  * confirmation from official team RSS feeds?
  *
- * For each recent ESPN-created situation, find official-RSS raw_events in a time
+ * For each recent NFL/CFB injury situation (ESPN is the injury source for these
+ * leagues; `situations` has no source_id column to filter on directly — see note in
+ * main()), find official-RSS raw_events in a time
  * window for the same team, reconstruct the NormalizedEvent EXACTLY as the
  * pipeline does (situations-adapter), and run the REAL matcher against the
  * situation. Prints the per-factor score breakdown and whether it clears the
@@ -64,10 +66,11 @@ function parseRaw(row: any): RawEvent {
   return { ...row, payload: safeJson(row.payload) } as RawEvent;
 }
 function parseSituation(row: any): Situation & { latest_snapshot_at?: string | null } {
+  // Real columns are teams_json / players_json (situations-store.ts schema).
   return {
     ...row,
-    players: safeJson(row.players) ?? [],
-    teams: safeJson(row.teams) ?? [],
+    players: safeJson(row.players_json) ?? [],
+    teams: safeJson(row.teams_json) ?? [],
   };
 }
 function safeJson(v: unknown): any {
@@ -87,26 +90,32 @@ function main() {
     return;
   }
 
+  // NOTE: `situations` has no source_id column, and its creator lineage is
+  // created_from_event_id — a `ne_<hash>` normalized-event id (situations-engine.ts:167),
+  // NOT a raw_events.id, and the hash can't be reliably recomputed to join back to a
+  // source. So we can't filter by "created by ESPN" at the DB level. Instead we take
+  // recent NFL/CFB *injury* situations (ESPN is the injury source for these leagues,
+  // per espn-nfl.ts / espn-cfb.ts) and print created_from_event_id for eyeballing.
   const leaguesSql = LEAGUES.map(() => "?").join(",");
   const situations = db.prepare(
     `SELECT * FROM situations
-     WHERE league IN (${leaguesSql}) AND situation_type='injury' AND source_id='espn'
+     WHERE league IN (${leaguesSql}) AND situation_type='injury'
      ORDER BY created_at DESC LIMIT 5`
   ).all(...LEAGUES).map(parseSituation);
 
-  console.log(`\nESPN-created injury situations (NFL/CFB), most recent 5: ${situations.length} found`);
+  console.log(`\nNFL/CFB injury situations, most recent 5: ${situations.length} found`);
   if (situations.length === 0) {
-    console.log("  (none — either no ESPN injury situations, or situations.source_id isn't 'espn'.)");
-    console.log("  Fallback — situation source_id distribution for these leagues:");
+    console.log("  (none — no injury situations for these leagues.)");
+    console.log("  Fallback — situation_type distribution for these leagues:");
     for (const r of db.prepare(
-      `SELECT source_id, situation_type, COUNT(*) c FROM situations WHERE league IN (${leaguesSql})
-       GROUP BY source_id, situation_type ORDER BY c DESC LIMIT 20`).all(...LEAGUES))
-      console.log("   ", (r as any).source_id, (r as any).situation_type, "n=" + (r as any).c);
+      `SELECT league, situation_type, COUNT(*) c FROM situations WHERE league IN (${leaguesSql})
+       GROUP BY league, situation_type ORDER BY c DESC LIMIT 20`).all(...LEAGUES))
+      console.log("   ", (r as any).league, (r as any).situation_type, "n=" + (r as any).c);
   }
 
   const rssSql = OFFICIAL_RSS.map(() => "?").join(",");
   for (const sit of situations) {
-    console.log(`\n──────── situation ${sit.situation_id} | ${sit.league} | teams=${JSON.stringify(sit.teams)} players=${JSON.stringify(sit.players)} created=${sit.created_at}`);
+    console.log(`\n──────── situation ${sit.situation_id} | ${sit.league} | teams=${JSON.stringify(sit.teams)} players=${JSON.stringify(sit.players)} created=${sit.created_at} from_event=${sit.created_from_event_id ?? "—"}`);
     const rss = db.prepare(
       `SELECT * FROM raw_events
        WHERE source_id IN (${rssSql})
