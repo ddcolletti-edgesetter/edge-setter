@@ -53,7 +53,7 @@ export function scoreCandidate(
   candidate: Situation & { latest_snapshot_at?: string | null },
 ): SituationMatchResult {
   const factors: SituationMatchFactor[] = [
-    buildFactor("player_overlap", setOverlap(incoming.players, candidate.players), `Players overlap: ${describeOverlap(incoming.players, candidate.players)}`),
+    buildFactor("player_overlap", playerOverlap(incoming.players, candidate.players), `Players overlap: ${describePlayerOverlap(incoming.players, candidate.players)}`),
     buildFactor("team_overlap", setOverlap(incoming.teams, candidate.teams), `Teams overlap: ${describeOverlap(incoming.teams, candidate.teams)}`),
     buildFactor("game_overlap", gameOverlap(incoming.game_id, candidate.game_id), incoming.game_id && candidate.game_id ? "Same game context" : "No shared game context"),
     buildFactor("injury_semantics", semanticSimilarity(incoming.semantic_fingerprint, candidate.semantic_fingerprint), "Semantic fingerprint similarity"),
@@ -95,6 +95,98 @@ function describeOverlap(left: readonly string[], right: readonly string[]): str
   const b = new Set(normalizeSituationTokens(right));
   const shared = a.filter((item) => b.has(item));
   return shared.length ? shared.join(", ") : "none";
+}
+
+// ─── Player-name matching ──────────────────────────────────────────────────────
+//
+// Player names reach us in two vocabularies that plain token overlap (setOverlap)
+// never reconciles: ESPN's athlete.displayName ("Patrick Surtain II") vs a name
+// parsed from an RSS headline ("Pat Surtain", "P. Surtain", "Surtain"). Comparing
+// those as raw token sets scores 0, which starves player_overlap and — because
+// player_overlap carries the largest single weight — leaves genuine RSS-vs-detection
+// confirmations unable to clear the merge threshold.
+//
+// This comparator is used ONLY here, inside scoreCandidate. It deliberately does NOT
+// touch normalizeSituationToken / normalizeSituationTokens, which feed
+// generateCanonicalSituationId and the replay hashes (situations-hash.ts) and must
+// stay byte-stable.
+//
+// Matching rule (tolerant, but conservative — a false player-match risks a false
+// MERGE, not just a missed confirmation, so anything ambiguous returns no match):
+//   1. Exact match after suffix-stripping (Jr/Sr/II/III/IV/V).
+//   2. Same last name AND compatible first names, where "compatible" means equal, an
+//      initial that matches (one side is a single letter), or one being a strict
+//      prefix of the other ("Pat"→"Patrick", "Rob"→"Robert"). Distinct first names
+//      that merely share an initial ("James" vs "Jared") do NOT match, and a name
+//      with no first token (last-name-only, e.g. "Surtain") only matches by rule 1.
+
+const NAME_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
+
+interface ParsedPlayerName {
+  readonly valid: boolean;
+  readonly key: string;          // full normalized name after suffix strip
+  readonly first: string | null; // null when only a single token is present
+  readonly last: string | null;
+}
+
+function parsePlayerName(value: string): ParsedPlayerName {
+  const cleaned = String(value ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, " ") // drop punctuation: "P." → "p", "De'Von" → "de von"
+    .trim()
+    .replace(/\s+/g, " ");
+  if (!cleaned) return { valid: false, key: "", first: null, last: null };
+  let tokens = cleaned.split(" ");
+  while (tokens.length > 1 && NAME_SUFFIXES.has(tokens[tokens.length - 1])) {
+    tokens = tokens.slice(0, -1);
+  }
+  if (tokens.length === 0) return { valid: false, key: "", first: null, last: null };
+  return {
+    valid: true,
+    key: tokens.join(" "),
+    first: tokens.length >= 2 ? tokens[0] : null,
+    last: tokens[tokens.length - 1],
+  };
+}
+
+function firstNameCompatible(a: string | null, b: string | null): boolean {
+  if (!a || !b) return false;              // need a first name on BOTH sides
+  if (a === b) return true;
+  if (a.length === 1 || b.length === 1) return a[0] === b[0]; // initial vs full
+  return a.startsWith(b) || b.startsWith(a);                  // "pat" ⊂ "patrick"
+}
+
+function playerNamesMatch(a: ParsedPlayerName, b: ParsedPlayerName): boolean {
+  if (!a.valid || !b.valid) return false;
+  if (a.key === b.key) return true;
+  if (a.last !== null && a.last === b.last && firstNameCompatible(a.first, b.first)) return true;
+  return false;
+}
+
+/** Fraction of the larger list whose players find a tolerant match in the other. */
+function playerOverlap(left: readonly string[], right: readonly string[]): number {
+  const a = left.map(parsePlayerName).filter((n) => n.valid);
+  const b = right.map(parsePlayerName).filter((n) => n.valid);
+  if (a.length === 0 || b.length === 0) return 0;
+  const used = new Array(b.length).fill(false);
+  let shared = 0;
+  for (const na of a) {
+    const idx = b.findIndex((nb, i) => !used[i] && playerNamesMatch(na, nb));
+    if (idx >= 0) { used[idx] = true; shared++; }
+  }
+  return shared / Math.max(a.length, b.length);
+}
+
+function describePlayerOverlap(left: readonly string[], right: readonly string[]): string {
+  const a = left.map(parsePlayerName).filter((n) => n.valid);
+  const b = right.map(parsePlayerName).filter((n) => n.valid);
+  const used = new Array(b.length).fill(false);
+  const matched: string[] = [];
+  for (const na of a) {
+    const idx = b.findIndex((nb, i) => !used[i] && playerNamesMatch(na, nb));
+    if (idx >= 0) { used[idx] = true; matched.push(na.key); }
+  }
+  return matched.length ? matched.join(", ") : "none";
 }
 
 function gameOverlap(left: string | null, right: string | null): number {
