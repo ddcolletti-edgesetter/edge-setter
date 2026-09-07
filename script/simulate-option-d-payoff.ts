@@ -13,12 +13,14 @@
  * This answers ONE question: does fixing game_id alone get enough pairs over 0.62
  * to justify building Option D? No live code is touched — read-only, prints only.
  *
- * NOTE: This mirrors the structure of script/diagnose-public-confirmation-matching.ts
- * but broadens the situation query (no LIMIT 5) to approximate the same-team-filtered
- * ~156-pair dataset referenced in prior sessions. If a committed
- * same-team-filtered script already exists in the repo, prefer running that one's
- * query logic — this is a best-effort reconstruction from the matcher + the base
- * diagnostic script only.
+ * Same-team filter is now IDENTICAL to script/diagnose-same-team-confirmation-matching.ts:
+ * situations are the recent NFL/CFB injuries (LIMIT 50); RSS candidates are pulled per
+ * situation with source_type='rss' AND league = <situation league> in SQL, then filtered
+ * to genuine same-team pairs using normalizeSituationToken/normalizeSituationTokens — the
+ * SAME normalizer setOverlap() uses — so the filter can't disagree with how team_overlap
+ * is scored. (Prior versions restricted RSS to two hardcoded official feeds and matched
+ * teams with a naive .toLowerCase(); those numbers were a two-team best-effort slice, not
+ * the real same-team dataset.)
  *
  * Run on Render:
  *   PIPELINE_DATA_DIR=/var/data npx tsx script/simulate-option-d-payoff.ts
@@ -32,13 +34,14 @@ import fs from "node:fs";
 import Database from "better-sqlite3";
 import { scoreCandidate } from "../server/pipeline/situations-matching";
 import { rawEventToNormalizedEvent } from "../server/pipeline/situations-adapter";
+import { normalizeSituationToken, normalizeSituationTokens } from "../server/pipeline/situations-hash";
 import type { LiveSignal, RawEvent } from "../server/pipeline/types";
 import type { Situation } from "../server/pipeline/situations-contract";
 
-const OFFICIAL_RSS = ["rss_broncos_official", "rss_cowboys_official"];
 const LEAGUES = ["NFL", "CFB"];
 const WINDOW_HOURS = 48;
 const THRESHOLD = 0.62;
+const SITUATION_LIMIT = 50; // scan this many recent injury situations looking for same-team RSS coverage
 const GAME_OVERLAP_WEIGHT = 0.18; // must match MATCH_WEIGHTS.game_overlap in situations-matching.ts
 
 function resolveDbPath(): string {
@@ -86,11 +89,17 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+/** Team-token set exactly as setOverlap() would see it (situations-matching.ts). */
+function teamTokens(teams: readonly string[]): Set<string> {
+  return new Set(normalizeSituationTokens(teams));
+}
+
 function main() {
   const dbPath = resolveDbPath();
   console.log(`\nDB: ${dbPath}`);
   if (!fs.existsSync(dbPath)) { console.log("!! DB file does not exist at that path."); return; }
   const db = new Database(dbPath, { readonly: true });
+  db.pragma("busy_timeout = 5000"); // fail fast instead of blocking forever on a live-write lock
 
   const has = (t: string) => !!db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?").get(t);
   if (!has("situations") || !has("raw_events")) {
@@ -100,34 +109,46 @@ function main() {
 
   const leaguesSql = LEAGUES.map(() => "?").join(",");
   const situations = db.prepare(
-    `SELECT * FROM situations WHERE league IN (${leaguesSql}) AND situation_type='injury' ORDER BY created_at DESC`
+    `SELECT * FROM situations WHERE league IN (${leaguesSql}) AND situation_type='injury' ORDER BY created_at DESC LIMIT ${SITUATION_LIMIT}`
   ).all(...LEAGUES).map(parseSituation);
 
-  console.log(`NFL/CFB injury situations considered: ${situations.length}`);
+  console.log(`NFL/CFB injury situations considered: ${situations.length} (LIMIT ${SITUATION_LIMIT})`);
 
-  const rssSql = OFFICIAL_RSS.map(() => "?").join(",");
   let pairsSeen = 0;
   let realCleared = 0;
   let simCleared = 0;
   const simScores: number[] = [];
   const deltas: number[] = [];
 
+  let processed = 0;
   for (const sit of situations) {
-    const sitTeams = new Set((sit.teams ?? []).map((t: string) => t.toLowerCase()));
-    const rss = db.prepare(
+    processed++;
+    if (processed % 50 === 0 || processed === situations.length) {
+      console.log(`  ...processed ${processed}/${situations.length} situations, ${pairsSeen} pairs found so far`);
+    }
+
+    const sitTokens = teamTokens(sit.teams ?? []);
+    if (sitTokens.size === 0) continue; // no usable team on the situation — nothing could match on team
+
+    // Same league, within window, from ANY RSS feed. Team match applied in JS below with
+    // the SAME normalizer the matcher uses, so the filter agrees with team_overlap scoring.
+    const rssCandidates = db.prepare(
       `SELECT * FROM raw_events
-       WHERE source_id IN (${rssSql})
+       WHERE source_type='rss'
+         AND league = ?
          AND created_at >= datetime(?, '-${WINDOW_HOURS} hours')
          AND created_at <= datetime(?, '+${WINDOW_HOURS} hours')
        ORDER BY created_at DESC`
-    ).all(...OFFICIAL_RSS, sit.created_at, sit.created_at).map(parseRaw);
+    ).all(sit.league, sit.created_at, sit.created_at).map(parseRaw);
 
-    for (const raw of rss) {
+    const sameTeam = rssCandidates.filter((raw) => {
+      const t = normalizeSituationToken((raw as any).team ?? "");
+      return t.length > 0 && sitTokens.has(t);
+    });
+
+    for (const raw of sameTeam) {
       const norm = rawEventToNormalizedEvent(raw, stubSignal(raw));
       if (norm.situation_type !== sit.situation_type) continue; // Gate 1 — out of scope for this sim, D doesn't touch it
-      const normTeams = new Set((norm.teams ?? []).map((t: string) => t.toLowerCase()));
-      const sameTeam = [...normTeams].some((t) => sitTeams.has(t));
-      if (!sameTeam) continue; // this is the same-team filter
 
       pairsSeen++;
       const real = scoreCandidate(norm, sit);
