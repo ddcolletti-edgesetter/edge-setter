@@ -460,6 +460,46 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     CREATE INDEX IF NOT EXISTS idx_signal_detections_player
       ON signal_detections(player_name, league);
 
+    -- Active-roster gazetteer, refreshed daily from the ESPN roster API.
+    -- One row per current athlete per team; a daily refresh replaces the whole
+    -- team's rows (see replaceTeamRoster) so cuts/adds/IR moves stay current.
+    -- Coaches/GMs are never inserted (fetcher reads only the athletes groups,
+    -- not the separate ESPN "coach" key), and former players simply fall out on
+    -- the next refresh — satisfying the "exclude ex-players and non-player staff"
+    -- requirement at the source.
+    CREATE TABLE IF NOT EXISTS roster_players (
+      league      TEXT NOT NULL,
+      team        TEXT NOT NULL,   -- internal abbr (KC, DAL, …), not ESPN's WSH
+      espn_id     TEXT,
+      full_name   TEXT NOT NULL,
+      first_name  TEXT,
+      last_name   TEXT NOT NULL,
+      position    TEXT,
+      status      TEXT,            -- roster group: active/injuredReserveOrOut/practiceSquad/…
+      updated_at  TEXT NOT NULL,
+      PRIMARY KEY (league, team, full_name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_roster_players_team
+      ON roster_players(league, team);
+
+    -- Coaching/front-office staff per team, refreshed alongside the roster.
+    -- Used ONLY to exclude staff surnames from the low-confidence last-name tier
+    -- of the RSS matcher (e.g. "Campbell" → HC Dan Campbell, not LB Jack
+    -- Campbell). Head coach comes from the ESPN roster payload coach key;
+    -- coordinators/GMs are supplemented from a small static list.
+    CREATE TABLE IF NOT EXISTS roster_staff (
+      league      TEXT NOT NULL,
+      team        TEXT NOT NULL,
+      full_name   TEXT NOT NULL,
+      first_name  TEXT,
+      last_name   TEXT NOT NULL,
+      role        TEXT,            -- HC / OC / DC / GM / …
+      updated_at  TEXT NOT NULL,
+      PRIMARY KEY (league, team, full_name)
+    );
+    CREATE INDEX IF NOT EXISTS idx_roster_staff_team
+      ON roster_staff(league, team);
+
   `);
 
   // Migrate existing DBs that predate home_score/away_score columns on games
@@ -469,6 +509,11 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   addColumnIfMissing(db, "live_signals", "is_archived", "INTEGER NOT NULL DEFAULT 0");
   // Migrate live_signals to track when the signal was first observed
   addColumnIfMissing(db, "live_signals", "first_seen_at", "TEXT");
+  // Roster-gazetteer candidate (separate from the regex-driven `player` column —
+  // never overwrites it). *_confidence is the match-strength flag: "full_name"
+  // (high) or "last_name" (low, single-surname fallback).
+  addColumnIfMissing(db, "raw_events", "player_candidate", "TEXT");
+  addColumnIfMissing(db, "raw_events", "player_candidate_confidence", "TEXT");
 }
 
 /* ─── Live signal archival ───────────────────────────────────────────────────
@@ -1050,6 +1095,135 @@ function deserializeRawEvent(row: any): RawEvent {
     payload: JSON.parse(row.payload ?? "{}"),
     processed: row.processed === 1,
   };
+}
+
+/* ─── Roster gazetteer ───────────────────────────────────────────────────────
+ * Team-scoped active-roster names, used by the RSS headline matcher to write a
+ * player_candidate without touching the regex-driven `player` column.
+ */
+
+export interface RosterPlayer {
+  league: string;
+  team: string;
+  espn_id: string | null;
+  full_name: string;
+  first_name: string | null;
+  last_name: string;
+  position: string | null;
+  status: string | null;
+}
+
+/** Replace one team's roster atomically. Deleting first (rather than upserting)
+ *  drops players who were cut/waived since the last refresh — the daily refresh
+ *  is the mechanism that keeps former players out of the gazetteer. Returns the
+ *  number of rows written. */
+export function replaceTeamRoster(
+  league: string,
+  team: string,
+  players: Array<Omit<RosterPlayer, "league" | "team">>,
+  db: Database.Database = getPipelineDb(),
+): number {
+  const now = new Date().toISOString();
+  const del = db.prepare(`DELETE FROM roster_players WHERE league=? AND team=?`);
+  const ins = db.prepare(
+    `INSERT OR REPLACE INTO roster_players
+       (league,team,espn_id,full_name,first_name,last_name,position,status,updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?)`,
+  );
+  const tx = db.transaction(() => {
+    del.run(league, team);
+    let n = 0;
+    for (const p of players) {
+      if (!p.full_name || !p.last_name) continue;
+      ins.run(league, team, p.espn_id ?? null, p.full_name, p.first_name ?? null, p.last_name, p.position ?? null, p.status ?? null, now);
+      n++;
+    }
+    return n;
+  });
+  return tx();
+}
+
+export function getTeamRoster(
+  league: string,
+  team: string,
+  db: Database.Database = getPipelineDb(),
+): RosterPlayer[] {
+  return db.prepare(
+    `SELECT league,team,espn_id,full_name,first_name,last_name,position,status
+       FROM roster_players WHERE league=? AND team=?`,
+  ).all(league, team) as RosterPlayer[];
+}
+
+export function getRosterSummary(
+  db: Database.Database = getPipelineDb(),
+): { total: number; teams: number; byLeague: Record<string, number>; oldestUpdatedAt: string | null } {
+  const total = (db.prepare(`SELECT COUNT(*) c FROM roster_players`).get() as any).c as number;
+  const teams = (db.prepare(`SELECT COUNT(DISTINCT league || '/' || team) c FROM roster_players`).get() as any).c as number;
+  const rows = db.prepare(`SELECT league, COUNT(*) c FROM roster_players GROUP BY league`).all() as Array<{ league: string; c: number }>;
+  const byLeague: Record<string, number> = {};
+  for (const r of rows) byLeague[r.league] = r.c;
+  const oldest = db.prepare(`SELECT MIN(updated_at) m FROM roster_players`).get() as any;
+  return { total, teams, byLeague, oldestUpdatedAt: oldest?.m ?? null };
+}
+
+export interface RosterStaff {
+  league: string;
+  team: string;
+  full_name: string;
+  first_name: string | null;
+  last_name: string;
+  role: string | null;
+}
+
+/** Replace one team's coaching/front-office staff atomically (same wholesale
+ *  pattern as replaceTeamRoster). Returns the number of rows written. */
+export function replaceTeamStaff(
+  league: string,
+  team: string,
+  staff: Array<Omit<RosterStaff, "league" | "team">>,
+  db: Database.Database = getPipelineDb(),
+): number {
+  const now = new Date().toISOString();
+  const del = db.prepare(`DELETE FROM roster_staff WHERE league=? AND team=?`);
+  const ins = db.prepare(
+    `INSERT OR REPLACE INTO roster_staff
+       (league,team,full_name,first_name,last_name,role,updated_at)
+     VALUES (?,?,?,?,?,?,?)`,
+  );
+  const tx = db.transaction(() => {
+    del.run(league, team);
+    let n = 0;
+    for (const s of staff) {
+      if (!s.full_name || !s.last_name) continue;
+      ins.run(league, team, s.full_name, s.first_name ?? null, s.last_name, s.role ?? null, now);
+      n++;
+    }
+    return n;
+  });
+  return tx();
+}
+
+export function getTeamStaff(
+  league: string,
+  team: string,
+  db: Database.Database = getPipelineDb(),
+): RosterStaff[] {
+  return db.prepare(
+    `SELECT league,team,full_name,first_name,last_name,role FROM roster_staff WHERE league=? AND team=?`,
+  ).all(league, team) as RosterStaff[];
+}
+
+/** Writes the gazetteer match onto an already-inserted raw_event. Kept separate
+ *  from insertRawEvent so the shared insert path (used by every adapter) is
+ *  untouched. */
+export function setPlayerCandidate(
+  rawEventId: string,
+  candidate: string | null,
+  confidence: string | null,
+  db: Database.Database = getPipelineDb(),
+): void {
+  db.prepare(`UPDATE raw_events SET player_candidate=?, player_candidate_confidence=? WHERE id=?`)
+    .run(candidate, confidence, rawEventId);
 }
 
 /* ─── LiveSignal CRUD ───────────────────────────────────── */
