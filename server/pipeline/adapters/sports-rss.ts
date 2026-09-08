@@ -13,7 +13,8 @@
  *   - LockedOn podcast network (team-specific daily updates)
  */
 
-import { insertRawEvent, getRawEvents, loadRssSeenHashes, insertRssSeenHash, purgeOldRssSeenHashes } from "../store";
+import { insertRawEvent, getRawEvents, loadRssSeenHashes, insertRssSeenHash, purgeOldRssSeenHashes, getTeamRoster, getTeamStaff, setPlayerCandidate } from "../store";
+import { matchRosterPlayer } from "../roster-matcher";
 import { createHash } from "crypto";
 
 const SPORTS_RSS_FEEDS = [
@@ -359,6 +360,12 @@ async function processFeed(
   let created = 0;
   let skipped = 0;
 
+  // Gazetteer is team-scoped: only feeds that own a team match against a roster,
+  // and only against THAT team's roster. Loaded once per feed. Empty for feeds
+  // with no team (national aggregators) and for leagues without rosters (CFB).
+  const teamRoster = team ? getTeamRoster(league, team) : [];
+  const teamStaff  = team ? getTeamStaff(league, team) : [];
+
   for (const item of items) {
     const combined = `${item.title} ${item.description}`;
     const hash = itemHash(label, item.title, item.pubDate);
@@ -372,8 +379,12 @@ async function processFeed(
     const player = extractPlayer(item.title);
     const extractedTeam = team ?? extractTeamFromText(combined);
 
+    // Gazetteer match — team-scoped, independent of the regex `player` above.
+    // Written to player_candidate so it never overwrites the regex extraction.
+    const candidate = teamRoster.length ? matchRosterPlayer(item.title, teamRoster, teamStaff) : null;
+
     try {
-      insertRawEvent({
+      const raw = insertRawEvent({
         source_id:   `rss_${label}`,
         source_type: "rss",
         league,
@@ -398,6 +409,7 @@ async function processFeed(
           dedup_hash:    hash,
         },
       });
+      if (candidate) setPlayerCandidate(raw.id, candidate.name, candidate.confidence);
       insertRssSeenHash(hash);
       seenHashes.add(hash);
       created++;

@@ -25,6 +25,7 @@ import { ingestOn3Feeds } from "./adapters/on3";
 import { ingest247SportsFeed } from "./adapters/247sports";
 import { ingestXTier1, ingestXTier2 } from "./adapters/x-twitter";
 import { ingestSportsRSSFeeds, ingestLockedOnFeeds } from "./adapters/sports-rss";
+import { refreshAllRosters } from "./adapters/espn-rosters";
 import { POWER4_SOURCES } from "./adapters/cfb-school-sources";
 import { processRawEvents } from "./processor";
 import { autoSettleFinishedGames } from "./settlement";
@@ -556,12 +557,52 @@ export async function runFastIngestionCycle(): Promise<{
 
 /* ─── Start the scheduler ────────────────────────────────── */
 
+/* ─── Roster gazetteer refresh ───────────────────────────── */
+//
+// Keeps roster_players current for the RSS headline matcher. Rosters change
+// slowly (cuts, IR moves, practice-squad churn), so a daily cadence is right —
+// far cheaper than polling and fresh enough for headline matching. Each run
+// replaces every team's rows wholesale, so departed players drop out.
+
+let _rosterRunning = false;
+
+export async function runRosterRefresh(): Promise<void> {
+  if (_rosterRunning) { console.log("[ingestion] Roster refresh already running — skipping"); return; }
+  _rosterRunning = true;
+  const runId = crypto.randomUUID();
+  const start = Date.now();
+  logIngestion("RosterStart", runId, runId, "Daily roster gazetteer refresh started");
+  try {
+    const results = await refreshAllRosters();
+    const summary = results
+      .map(r => `${r.league}: ${r.teams_updated} teams / ${r.players_written} players${r.teams_failed ? ` / ${r.teams_failed} failed` : ""}`)
+      .join(" · ");
+    const errors = results.flatMap(r => r.errors);
+    logIngestion("RosterComplete", runId, "espn-rosters", `${Date.now() - start}ms — ${summary}`, errors.length ? errors.slice(0, 10).join("; ") : undefined);
+    recordPipelineHealth("roster_refresh", results.some(r => r.teams_failed > 0) ? "warning" : "ok", {
+      elapsed_ms:      Date.now() - start,
+      players_written: results.reduce((n, r) => n + r.players_written, 0),
+      teams_failed:    results.reduce((n, r) => n + r.teams_failed, 0),
+    });
+  } catch (e: any) {
+    const msg = e?.message ?? String(e);
+    console.error("[ingestion] Roster refresh failed:", msg);
+    logIngestion("RosterFailed", runId, runId, `Roster refresh failed after ${Date.now() - start}ms`, msg);
+  } finally {
+    _rosterRunning = false;
+  }
+}
+
 export function startIngestionScheduler() {
   const FAST_INTERVAL_MS     = 5 * 60 * 1000;   // tier1 + SID — the timing-advantage tier
   const STANDARD_INTERVAL_MS = 15 * 60 * 1000;  // tier2–5, aggregators, odds, settlement
+  const ROSTER_INTERVAL_MS   = 24 * 60 * 60 * 1000; // roster gazetteer — daily
 
   // First run: 45 seconds after server start (let DB warm up)
   const INITIAL_DELAY_MS = 45_000;
+  // Roster gazetteer: seed shortly after boot (before the first RSS cycle can
+  // use it), then refresh once every 24h.
+  const ROSTER_INITIAL_DELAY_MS = 20_000;
 
   // Active hours: 7am–1am ET = 12:00–06:00 UTC
   const isActiveHours = () => {
@@ -595,5 +636,14 @@ export function startIngestionScheduler() {
 
   }, INITIAL_DELAY_MS);
 
-  console.log(`[ingestion] Scheduler started — first run in ${INITIAL_DELAY_MS / 1000}s, then fast tier every ${FAST_INTERVAL_MS / 60000}m, standard tier every ${STANDARD_INTERVAL_MS / 60000}m`);
+  // Roster gazetteer: independent daily cadence, own mutex — a slow roster sync
+  // never delays an ingest cycle and vice versa.
+  setTimeout(async () => {
+    await runRosterRefresh().catch(e => console.error("[ingestion] Initial roster refresh error:", e.message));
+    setInterval(() => {
+      runRosterRefresh().catch(e => console.error("[ingestion] Roster refresh error:", e.message));
+    }, ROSTER_INTERVAL_MS);
+  }, ROSTER_INITIAL_DELAY_MS);
+
+  console.log(`[ingestion] Scheduler started — first run in ${INITIAL_DELAY_MS / 1000}s, then fast tier every ${FAST_INTERVAL_MS / 60000}m, standard tier every ${STANDARD_INTERVAL_MS / 60000}m, roster gazetteer daily`);
 }
