@@ -25,4 +25,28 @@ describe("extractPlayer", () => {
   it("6 — position abbreviation before name: \"WR Name\"", () => {
     expect(extractPlayer("Eagles WR Dallas Goedert questionable with hamstring")).toBe("Dallas Goedert");
   });
+
+  it("7 — colon delimiter (Rotowire NFL): \"Darius Slayton: Cut loose by Giants\"", () => {
+    expect(extractPlayer("Darius Slayton: Cut loose by Giants")).toBe("Darius Slayton");
+  });
+
+  it("8 — colon delimiter (Rotowire NFL): \"Zach Charbonnet: Progressing in rehab\"", () => {
+    expect(extractPlayer("Zach Charbonnet: Progressing in rehab")).toBe("Zach Charbonnet");
+  });
+
+  it("9 — colon delimiter (Rotowire CFB): \"Jeremiah Smith: Ruled out with ankle injury\"", () => {
+    expect(extractPlayer("Jeremiah Smith: Ruled out with ankle injury")).toBe("Jeremiah Smith");
+  });
+
+  it("10 — negative: CFB team label before colon is not a player", () => {
+    expect(extractPlayer("Ohio State: Bowl-game depth chart shuffle")).toBeNull();
+  });
+
+  it("11 — negative: NFL team label before colon is not a player", () => {
+    expect(extractPlayer("Green Bay: Roster moves ahead of trade deadline")).toBeNull();
+  });
+
+  it("12 — surname that is also a team word still extracts (guard is all-tokens)", () => {
+    expect(extractPlayer("Darnell Washington: Active for Sunday")).toBe("Darnell Washington");
+  });
 });

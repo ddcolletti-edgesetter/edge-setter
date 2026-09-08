@@ -182,6 +182,38 @@ function classifyText(text: string, tierBonus: number): { eventType: EventType; 
   return null; // no signal pattern matched
 }
 
+// Team/section labels are often two title-case words before a colon ("Denver
+// Broncos: …", "Ohio State: …"), which pattern 5 below would otherwise capture as
+// a player. A candidate is treated as a team ONLY when EVERY token is a known team
+// word — so real surnames that happen to be team words ("Darnell Washington",
+// "Ron Rivera") survive, since their other token is not a team word.
+const TEAM_NAME_WORDS = new Set<string>([
+  // NFL nicknames
+  "Cardinals", "Falcons", "Ravens", "Bills", "Panthers", "Bears", "Bengals",
+  "Browns", "Cowboys", "Broncos", "Lions", "Packers", "Texans", "Colts",
+  "Jaguars", "Chiefs", "Raiders", "Chargers", "Rams", "Dolphins", "Vikings",
+  "Patriots", "Saints", "Giants", "Jets", "Eagles", "Steelers", "Seahawks",
+  "Titans", "Commanders", "Buccaneers",
+  // NFL city / place words
+  "Arizona", "Atlanta", "Baltimore", "Buffalo", "Carolina", "Chicago",
+  "Cincinnati", "Cleveland", "Dallas", "Denver", "Detroit", "Green", "Bay",
+  "Houston", "Indianapolis", "Jacksonville", "Kansas", "City", "Las", "Vegas",
+  "Los", "Angeles", "Miami", "Minnesota", "New", "England", "Orleans", "York",
+  "Philadelphia", "Pittsburgh", "San", "Francisco", "Seattle", "Tampa",
+  "Tennessee", "Washington",
+  // CFB schools / places (title-case tokens; mirrors CFB_TEAM_PATTERNS)
+  "Alabama", "Georgia", "Ohio", "State", "Michigan", "Texas", "Tech", "Clemson",
+  "Notre", "Dame", "Oklahoma", "Penn", "Oregon", "Florida", "Auburn", "Arkansas",
+  "Mississippi", "Ole", "Miss",
+]);
+
+/** True only when every whitespace-separated token is a known team word — i.e. the
+ *  phrase is a team/section label, not a player name. */
+function looksLikeTeamName(name: string): boolean {
+  const tokens = name.split(/\s+/).filter(Boolean);
+  return tokens.length > 0 && tokens.every(t => TEAM_NAME_WORDS.has(t));
+}
+
 export function extractPlayer(title: string): string | null {
   // Strip "Report:" / "Sources:" / "Breaking:" / "Update:" prefixes
   const cleaned = title.replace(/^(?:sources?|reports?|breaking|update|developing)\s*:\s*/i, "").trim();
@@ -210,6 +242,14 @@ export function extractPlayer(title: string): string | null {
   //    Anchored to ^ so "Super Bowl Preview (Updated)" at mid-title is skipped
   m = cleaned.match(new RegExp(`^${N}\\s*\\(`));
   if (m) return m[1];
+
+  // 5. Name before a colon / em-dash / hyphen delimiter: "Darius Slayton: Cut loose".
+  //    Rotowire's canonical "{Player}: {status}" shape, which patterns 1–4 all miss.
+  //    Placed LAST so the prose patterns above win first (pattern 1 also anchors on
+  //    ^N but requires a following action verb, so it never competes with a colon).
+  //    Guarded against team/section labels that are also two title-case words + colon.
+  m = cleaned.match(new RegExp(`^${N}\\s*[:—-]`));
+  if (m && !looksLikeTeamName(m[1])) return m[1];
 
   return null;
 }
