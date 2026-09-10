@@ -361,16 +361,19 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
     console.log(`[processor] drained ${passes} passes after ingestion cycle`);
 
     // ── 7. Dispatch alerts for newly scored signals ──────────
+    let alertError: string | undefined;
     const alertResult = await dispatchSignalAlerts().catch(e => {
-      console.error("[ingestion] Alert dispatch error:", e.message);
+      alertError = e?.message ?? String(e);
+      console.error("[ingestion] Alert dispatch error:", alertError);
       return { dispatched: 0, users_notified: 0 };
     });
     if (alertResult.dispatched > 0) {
       console.log(`[ingestion] Alerts: ${alertResult.dispatched} signals → ${alertResult.users_notified} users`);
     }
-    recordPipelineHealth("alerts", "ok", {
+    recordPipelineHealth("alerts", alertError ? "error" : "ok", {
       dispatched:     alertResult.dispatched,
       users_notified: alertResult.users_notified,
+      ...(alertError ? { error: alertError } : {}),
     });
 
     // ── 8. Settle any games that are now final ───────────────
