@@ -62,7 +62,10 @@ function deriveNextState(input: SituationLifecycleInput): SituationLifecycleStat
   if (input.trigger === "stale_tick") return decayState(input.current_state, input.hours_since_latest_evidence);
 
   if (input.confidence >= 88 && input.evidence_count >= 3) return "confirmed";
-  if (input.confidence >= 74 && (input.trigger === "market_reaction" || input.evidence_count >= 2)) return "escalating";
+  // Escalating gate lowered 74 -> 65 (p85 of the real historical confidence distribution; max ever recorded
+  // was 73, median 56, so nothing had ever crossed 74). Flags the top ~15% of situations. Stays above the
+  // developing gate (58) below and under confirmed (88), so the state ordering is preserved.
+  if (input.confidence >= 65 && (input.trigger === "market_reaction" || input.evidence_count >= 2)) return "escalating";
   if (input.confidence >= 58 && input.evidence_count >= 2) return "developing";
   if (input.confidence >= 40 || input.evidence_count > 0) return "emerging";
   return "watching";
