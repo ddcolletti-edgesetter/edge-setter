@@ -111,6 +111,9 @@ export function confidenceInputFromRawEvent(raw: RawEvent, signal: LiveSignal, v
     freshness,
     contradiction_penalty: signal.verdict === "contradicted" ? 30 : Number(payload.contradiction_penalty ?? 0),
     computed_at: raw.received_at,
+    // Drives the non-market factor-cap profile in computeSituationConfidence (market_alignment is inapplicable
+    // to injury/roster/lineup news; its cap is reallocated to official_confirmation).
+    situation_type: situationTypeFromRaw(raw),
   };
 }
 
