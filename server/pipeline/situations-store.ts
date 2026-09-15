@@ -611,6 +611,38 @@ export function listSituationEvents(
   return rows.map(deserializeSituationEvent);
 }
 
+/**
+ * Evidence depth for a situation, deduped to honest counts.
+ *
+ * `evidenceCount` counts DISTINCT observations — a distinct (source_id,
+ * observed_at) pair among the evidentiary events (situation_created /
+ * situation_matched, the kinds appended to a snapshot's evidence_event_ids).
+ * Repeated re-polls / re-ingestions of the same underlying report share that
+ * pair, so they collapse to one observation instead of inflating the count.
+ * (Prod, 2026-09: injury evidence ran ~14x its distinct observations — 138 raw
+ * events vs ~10 distinct — while roster/market/lineup tracked ~1:1.)
+ *
+ * `distinctSourceCount` answers the separate "independent corroboration"
+ * question — how many distinct sources reported at all — which the "confirmed"
+ * lifecycle gate really means to ask. This is computed in SQL (only the three
+ * scalar columns, never the large payload JSON) so it stays cheap on the hot
+ * evolve path.
+ */
+export function summarizeSituationEvidence(
+  situationId: string,
+  db: Database.Database = getPipelineDb(),
+): { evidenceCount: number; distinctSourceCount: number } {
+  ensureSituationSchema(db);
+  const rows = db.prepare(`
+    SELECT DISTINCT source_id, observed_at
+    FROM situation_events
+    WHERE situation_id = ?
+      AND kind IN ('situation_created', 'situation_matched')
+  `).all(situationId) as { source_id: string | null; observed_at: string }[];
+  const sources = new Set(rows.map(row => row.source_id ?? "unknown"));
+  return { evidenceCount: rows.length, distinctSourceCount: sources.size };
+}
+
 export function listSituationConfidenceHistory(
   situationId: string,
   db: Database.Database = getPipelineDb(),
