@@ -12,7 +12,18 @@ export function rawEventToNormalizedEvent(raw: RawEvent, signal: LiveSignal): No
     payload.away_team,
     ...teamsFromMatchup(payload.matchup ?? signal.matchup),
   ]);
-  const players = normalizePlayers([raw.player, payload.player, payload.player_name]);
+  // Player identity feeds player_overlap (the matcher's largest factor). The
+  // regex extractor only resolves a name on ~20% of team-official RSS injury
+  // headlines; when it misses, fall back to the roster-gazetteer's
+  // player_candidate so those headlines can still contribute player_overlap and
+  // confirm an existing situation. Pure fallback — a successful regex/payload
+  // extraction always wins, so this can only ADD players where there were none,
+  // never change or drop an existing one (monotonic: cannot lower a match).
+  const players = (() => {
+    const fromRegex = normalizePlayers([raw.player, payload.player, payload.player_name]);
+    if (fromRegex.length > 0) return fromRegex;
+    return normalizePlayers([raw.player_candidate]);
+  })();
   const situationType = situationTypeFromRaw(raw);
   const semanticFingerprint = semanticFingerprintFor(raw, signal, situationType);
   const seed = {
