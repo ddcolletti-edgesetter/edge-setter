@@ -29,6 +29,7 @@ import {
   listSituationEvents,
   listSituationStateHistory,
 } from "./situations-store";
+import { getPipelineDb } from "./store";
 
 const ACTIVE_LIFECYCLE_STATES = new Set<SituationLifecycleState>([
   "watching",
@@ -134,24 +135,85 @@ export interface CanonicalSituationConfidenceHistoryPreview {
   readonly replayHash: string;
 }
 
+/**
+ * (B) buildComparableSituationCorpus and buildConfidenceBaselines each scan the
+ * whole situations dataset. Rebuilding them on every /api/v2/situations request
+ * was a primary contributor to the endpoint OOM-killing the process at prod
+ * volume (~3,700 situations). Cache both behind a short TTL AND a cheap O(1)
+ * data signature (MAX(rowid) of the append-only situation_snapshots table) so
+ * they build at most once per window and rebuild immediately after any new
+ * snapshot.
+ */
+const BUILD_CACHE_TTL_MS = 45_000;
+const CANDIDATE_POOL_SIZE = 100;
+let corpusCache: { sig: number; at: number; value: readonly ComparableSituationCorpusRecord[] } | null = null;
+let baselinesCache: { sig: number; at: number; value: Map<string, number> } | null = null;
+
+function situationsDataSignature(): number {
+  try {
+    const row = getPipelineDb()
+      .prepare("SELECT MAX(rowid) AS m FROM situation_snapshots")
+      .get() as { m: number | null } | undefined;
+    return row?.m ?? 0;
+  } catch {
+    return -1; // schema not ready / query failed → force a rebuild, never cache
+  }
+}
+
+function cachedComparableCorpus(sig: number): readonly ComparableSituationCorpusRecord[] {
+  const now = Date.now();
+  if (sig >= 0 && corpusCache && corpusCache.sig === sig && now - corpusCache.at < BUILD_CACHE_TTL_MS) {
+    return corpusCache.value;
+  }
+  const value = buildComparableSituationCorpus();
+  if (sig >= 0) corpusCache = { sig, at: now, value };
+  return value;
+}
+
+function cachedConfidenceBaselines(sig: number): Map<string, number> {
+  const now = Date.now();
+  if (sig >= 0 && baselinesCache && baselinesCache.sig === sig && now - baselinesCache.at < BUILD_CACHE_TTL_MS) {
+    return baselinesCache.value;
+  }
+  const value = buildConfidenceBaselines();
+  if (sig >= 0) baselinesCache = { sig, at: now, value };
+  return value;
+}
+
+/** Test/ops hook: drop the corpus + baselines caches so the next call rebuilds. */
+export function resetSituationsApiBuildCaches(): void {
+  corpusCache = null;
+  baselinesCache = null;
+}
+
 export function listCanonicalSituationApiResponses(query: CanonicalSituationApiQuery = {}): CanonicalSituationApiResponse[] {
+  // (A-minimal) operational_visibility_score is computed in JS (below, in
+  // mapCanonicalSituationToApiResponse), so it cannot be ordered/limited in SQL.
+  // Previously this fetched 1000 rows and ranked them in JS — and the per-record
+  // N+1 event/history fetch over 1000 rows OOM-killed the process at prod volume.
+  // Instead, fetch a bounded candidate pool ordered by escalation_score (a
+  // SQL-orderable proxy that dominates the visibility score), rank THAT small set
+  // by operationalVisibilityScore in JS, then slice to the requested limit.
+  const isVisibilityOrder = query.orderBy === "operational_visibility_score";
+  const requestedLimit = sanitizeLimit(query.limit);
   const records = listCanonicalSituations({
     league: normalizeUpper(query.league),
     sport: query.sport?.toLowerCase(),
     situation_type: query.situationType,
     state: query.lifecycleState,
     active_only: query.activeOnly,
-    order_by: query.orderBy === "operational_visibility_score" ? "updated_at" : query.orderBy,
-    limit: query.orderBy === "operational_visibility_score" ? 1000 : query.limit,
+    order_by: isVisibilityOrder ? "escalation_score" : query.orderBy,
+    limit: isVisibilityOrder ? Math.max(requestedLimit, CANDIDATE_POOL_SIZE) : query.limit,
   });
 
   if (records.length === 0) return [];
 
-  const comparableCorpus = buildComparableSituationCorpus();
-  const confidenceBaselines = buildConfidenceBaselines();
+  const sig = situationsDataSignature();
+  const comparableCorpus = cachedComparableCorpus(sig);
+  const confidenceBaselines = cachedConfidenceBaselines(sig);
   const mapped = records.map((record) => mapCanonicalSituationToApiResponse(record, comparableCorpus, confidenceBaselines));
   const sorted = sortCanonicalSituationApiResponses(mapped, query.orderBy ?? "updated_at");
-  return sorted.slice(0, sanitizeLimit(query.limit));
+  return sorted.slice(0, requestedLimit);
 }
 
 export function mapCanonicalSituationToApiResponse(
