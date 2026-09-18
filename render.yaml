@@ -43,4 +43,4 @@ services:
     disk:
       name: edge-setter-data
       mountPath: /var/data
-      sizeGB: 1
+      sizeGB: 50
