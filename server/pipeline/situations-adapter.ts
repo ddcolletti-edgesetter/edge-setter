@@ -12,7 +12,18 @@ export function rawEventToNormalizedEvent(raw: RawEvent, signal: LiveSignal): No
     payload.away_team,
     ...teamsFromMatchup(payload.matchup ?? signal.matchup),
   ]);
-  const players = normalizePlayers([raw.player, payload.player, payload.player_name]);
+  // Player identity feeds player_overlap (the matcher's largest factor). The
+  // regex extractor only resolves a name on ~20% of team-official RSS injury
+  // headlines; when it misses, fall back to the roster-gazetteer's
+  // player_candidate so those headlines can still contribute player_overlap and
+  // confirm an existing situation. Pure fallback — a successful regex/payload
+  // extraction always wins, so this can only ADD players where there were none,
+  // never change or drop an existing one (monotonic: cannot lower a match).
+  const players = (() => {
+    const fromRegex = normalizePlayers([raw.player, payload.player, payload.player_name]);
+    if (fromRegex.length > 0) return fromRegex;
+    return normalizePlayers([raw.player_candidate]);
+  })();
   const situationType = situationTypeFromRaw(raw);
   const semanticFingerprint = semanticFingerprintFor(raw, signal, situationType);
   const seed = {
@@ -83,9 +94,16 @@ export function confidenceInputFromRawEvent(raw: RawEvent, signal: LiveSignal, v
   const sourceCount = Math.max(signal.source_count, Number(payload.source_count ?? 1));
   const confirmation = String(signal.confirmation_strength ?? payload.confirmation ?? "").toLowerCase();
   const sourceTypes = Array.isArray(payload.source_types) ? payload.source_types.map(String) : signal.sources.map((source) => source.type);
-  const official = sourceTypes.some((source) => /official|league|team|statsapi|espn/i.test(source)) ||
-    confirmation.includes("consensus") ||
+  const consensus = confirmation.includes("consensus");
+  // League-tier official data (league_api, team/official feeds, MLB StatsAPI, ESPN NBA) — weight 3.0 in scorer.ts.
+  const leagueTierOfficial =
+    sourceTypes.some((source) => /official|league|team|statsapi|espn/i.test(source)) ||
+    consensus ||
     signal.verdict === "confirmed";
+  // sports_api-tagged feeds (ESPN structured NFL/CFB injuries + transactions) are verified-official too,
+  // but weighted 2.0 vs league_api's 3.0 in scorer.ts — credit them at a lower cap so the trust tier is
+  // preserved instead of erased. Previously these matched nothing here and earned official_confirmation: 0.
+  const sportsApiOfficial = sourceTypes.some((source) => /sports_api/i.test(source));
   const lineDelta = signal.line_movement?.delta ?? Number(payload.line_delta ?? 0);
   const freshness = freshnessScore(raw.received_at, new Date(raw.received_at).toISOString());
   const confidenceBase = Math.max(0, Math.min(100, signal.confidence));
@@ -96,10 +114,17 @@ export function confidenceInputFromRawEvent(raw: RawEvent, signal: LiveSignal, v
     independent_confirmations: Math.min(18, Math.max(0, (sourceCount - 1) * 6 + (confirmation.includes("corroborated") ? 4 : 0))),
     market_alignment: Math.min(16, Math.abs(lineDelta) * 4 + (signal.betting_relevance ? 2 : 0)),
     validator_agreement: validatorAgreement,
-    official_confirmation: official ? Math.min(20, confirmation.includes("consensus") ? 18 : 12) : 0,
+    official_confirmation: leagueTierOfficial
+      ? Math.min(20, consensus ? 18 : 12)
+      : sportsApiOfficial
+        ? Math.min(14, consensus ? 12 : 8)
+        : 0,
     freshness,
     contradiction_penalty: signal.verdict === "contradicted" ? 30 : Number(payload.contradiction_penalty ?? 0),
     computed_at: raw.received_at,
+    // Drives the non-market factor-cap profile in computeSituationConfidence (market_alignment is inapplicable
+    // to injury/roster/lineup news; its cap is reallocated to official_confirmation).
+    situation_type: situationTypeFromRaw(raw),
   };
 }
 
