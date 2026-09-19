@@ -62,6 +62,14 @@ function stubSignal(raw: RawEvent): LiveSignal {
 function normP(values: unknown[]): string[] {
   return Array.from(new Set(values.map((v) => String(v ?? "").trim()).filter(Boolean))).sort();
 }
+/** EXACT replica of the deployed-main derivation (regex/payload only, NO fallback).
+ *  The "old" baseline: what players resolved to BEFORE this PR added the
+ *  player_candidate fallback. Importing rawEventToNormalizedEvent from THIS branch
+ *  already applies the fallback, so it cannot be used to build the old arm. */
+function regexOnlyPlayers(raw: RawEvent): string[] {
+  const payload = (raw.payload ?? {}) as Record<string, any>;
+  return normP([raw.player, payload.player, payload.player_name]);
+}
 const tok = (t: string) => (normalizeSituationTokens([t])[0] ?? "");
 
 function main() {
@@ -117,10 +125,13 @@ function main() {
       const raw = parseRaw(rrow);
       if (tok(String(raw.team ?? "")).length === 0 || sitTokens.has(tok(String(raw.team ?? ""))) === false) continue;
 
-      const oldNorm = rawEventToNormalizedEvent(raw, stubSignal(raw));
+      // NEW arm = this branch's rawEventToNormalizedEvent (the genuine fixed
+      // behavior, incl. the player_candidate fallback). OLD arm = same event with
+      // players forced back to the deployed-main regex-only baseline.
+      const newNorm = rawEventToNormalizedEvent(raw, stubSignal(raw));
       const cand = (raw as any).player_candidate;
-      const fires = oldNorm.players.length === 0 && typeof cand === "string" && cand.trim().length > 0;
-      const newNorm = fires ? { ...oldNorm, players: normP([cand]) } : oldNorm;
+      const oldNorm = { ...newNorm, players: regexOnlyPlayers(raw) };
+      const fires = oldNorm.players.length === 0 && newNorm.players.length > 0;
 
       const oldScore = scoreCandidate(oldNorm, sit).match_confidence;
       const newScore = scoreCandidate(newNorm, sit).match_confidence;
