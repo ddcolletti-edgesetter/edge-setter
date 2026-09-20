@@ -34,25 +34,31 @@ const MATCH_WEIGHTS: Record<MatchFactorName, number> = {
 // a situation type is dropped and its weight budget is handed to the factors that
 // can actually earn it.
 //
-// For the types below, game_overlap AND market_correlation are structurally 0 —
-// verified 0% game_id coverage AND 0% market payload coverage in BOTH the
-// situations table and the incoming raw_events, across the full prod dataset
-// (scope-weight-budget.debug.ts, Part 2a/2b). Keeping them in the budget just
-// depresses every genuine score by a constant 0.26, starving real confirmations
-// below the 0.62 merge threshold. We drop the two dead factors and rescale the
-// surviving five by 1/0.74 so the budget still sums to 1.0.
+// For injury, game_overlap AND market_correlation are structurally 0 — verified 0%
+// game_id coverage AND 0% market payload coverage in BOTH the situations table and
+// the incoming raw_events, across the full prod dataset (scope-weight-budget.debug.ts,
+// Part 2a/2b). Keeping them in the budget just depresses every genuine score by a
+// constant 0.26, starving real confirmations below the 0.62 merge threshold. We drop
+// the two dead factors and rescale the surviving five by 1/0.74 (budget still sums to 1.0).
 //
-// SAFETY: reallocation lifts false pairs (same team, different player) as well as
-// real ones, so pairing safety is proven PER TYPE, never assumed to transfer:
-//   injury          — falseCross 0/471 at full prod scale (scope-weight-budget Part 3)
-//   roster,operator — falseCross measured separately in reallocation-pairing-safety.debug.ts
+// SAFETY: reallocation lifts false pairs (same team, different player) as well as real
+// ones, so pairing safety is proven PER TYPE and NEVER assumed to transfer. This set is
+// injury-ONLY. Do NOT re-add a type without re-running
+// script/reallocation-pairing-safety.debug.ts against prod and confirming falseCross=0:
+//   injury         — SAFE: falseCross 0/2621 at full prod scale (Part 3 + backtest).
+//   roster         — UNSAFE, REJECTED: falseCross 11452/196716, ALL caused by the
+//                    reallocation (newFalseCross == falseCross). Same 0% coverage profile
+//                    as injury, but the pairing does NOT hold: rescaling lifts a large
+//                    population of same-team, different-player transaction pairs over 0.62.
+//                    (Its ~10:1 pair-to-real-match noise ratio, vs injury's ~59:1, is a
+//                    separate too-loose-pairing follow-up — not the weight question.)
+//   operator_note  — UNSAFE, REJECTED: falseCross 420/12443, also entirely reallocation-
+//                    caused (newFalseCross == falseCross).
 //
-// lineup (88.4% game_id) and market (100%/94.7% market payload) are intentionally
-// EXCLUDED: those factors are real for them and reallocation was never tested.
+// lineup (88.4% game_id) and market (100%/94.7% market payload) are also excluded — those
+// factors are real for them and reallocation was never tested.
 const REALLOC_TYPES: ReadonlySet<SituationType> = new Set<SituationType>([
   "injury",
-  "roster",
-  "operator_note",
 ]);
 const REALLOC_DROPPED_FACTORS: ReadonlySet<MatchFactorName> = new Set<MatchFactorName>([
   "game_overlap",

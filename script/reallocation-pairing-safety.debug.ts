@@ -62,15 +62,21 @@ interface TargetSpec {
   readonly sourceClause: string;     // extra source predicate (Part 3 parity for injury)
   readonly note: string;
 }
+// NOTE: this scores with the SHIPPED scoreCandidate, so a type only sees reallocated
+// weights while it is in REALLOC_TYPES (situations-matching.ts). roster/operator_note
+// were tested WITH reallocation on and REJECTED (falseCross 11452/196716 and 420/12443,
+// all reallocation-caused), then removed from REALLOC_TYPES — so a re-run now scores
+// them on BASE weights (newFalseCross=0). To re-test a rejected type, put it back in
+// REALLOC_TYPES first, then run this; newFalseCross MUST be 0 to re-admit it.
 const TARGETS: TargetSpec[] = [
   { type: "injury", eventClause: "event_type = 'injury_update'",
     sourceClause: "AND source_id LIKE 'rss_%_official'",
-    note: "self-check vs known Part 3 result (0/471)" },
+    note: "SHIPPED reallocated type — self-check vs known result (0/2621)" },
   { type: "roster", eventClause: "event_type = 'transaction'",
-    sourceClause: "", note: "reallocation safety (untested before)" },
+    sourceClause: "", note: "REJECTED (falseCross 11452/196716); not reallocated" },
   { type: "operator_note",
     eventClause: `event_type NOT IN (${KNOWN_EVENT_TYPES.map((t) => `'${t}'`).join(", ")})`,
-    sourceClause: "", note: "reallocation safety (untested before)" },
+    sourceClause: "", note: "REJECTED (falseCross 420/12443); not reallocated" },
 ];
 
 const f3 = (n: number) => n.toFixed(3);

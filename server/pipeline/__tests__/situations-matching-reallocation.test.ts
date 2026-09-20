@@ -6,11 +6,15 @@ import type { League } from "../types";
 /**
  * Unit coverage for per-type match-weight reallocation.
  *
- * For injury / roster / operator_note (structurally 0% game_id AND 0% market
- * payload coverage — scope-weight-budget.debug.ts Part 2a/2b, full prod dataset),
- * game_overlap (0.18) and market_correlation (0.08) are dropped from the budget and
- * the surviving five factors are rescaled by 1/0.74 so the budget still sums to 1.0.
- * lineup / market / weather / scheme / game_state keep the base budget unchanged.
+ * Reallocation is injury-ONLY. injury has a 0% game_id AND 0% market payload profile
+ * (scope-weight-budget.debug.ts Part 2a/2b) AND passes pairing safety (falseCross
+ * 0/2621 at full prod scale), so game_overlap (0.18) and market_correlation (0.08)
+ * are dropped and the surviving five factors are rescaled by 1/0.74 (budget still
+ * sums to 1.0). Every other type keeps the base budget — including roster and
+ * operator_note, which share injury's 0% coverage profile but were REJECTED by the
+ * pairing-safety backtest (roster falseCross 11452/196716, operator_note 420/12443,
+ * both entirely reallocation-caused). The roster/operator_note assertions below are a
+ * regression guard against re-adding them without re-running that backtest.
  *
  * These assert the weight MATH directly (matchWeightsForType) plus the observable
  * effect on a scored candidate, independent of the prod backtests.
@@ -29,8 +33,11 @@ const BASE = {
 const KEPT_SUM = 0.74; // 0.22 + 0.18 + 0.18 + 0.10 + 0.06
 const SCALE = 1 / KEPT_SUM;
 
-const REALLOC_TYPES: SituationType[] = ["injury", "roster", "operator_note"];
-const UNTOUCHED_TYPES: SituationType[] = ["lineup", "market", "weather", "scheme", "game_state"];
+const REALLOC_TYPES: SituationType[] = ["injury"];
+// roster + operator_note share injury's 0% coverage but were REJECTED for pairing
+// safety, so they stay on the base budget alongside the naturally-untouched types.
+const UNTOUCHED_TYPES: SituationType[] = ["lineup", "market", "weather", "scheme", "game_state", "roster", "operator_note"];
+const REJECTED_TYPES: SituationType[] = ["roster", "operator_note"];
 
 function sumWeights(w: Record<string, number>): number {
   return Object.values(w).reduce((s, n) => s + n, 0);
@@ -147,12 +154,25 @@ describe("scoreCandidate: reallocation reflected in the breakdown", () => {
     expect(by.get("market_correlation")!.weight).toBe(0.08);
   });
 
-  it("applies reallocation by the candidate's type, consistently for all three reallocated types", () => {
+  it("applies reallocation by the candidate's type for the reallocated set (injury)", () => {
     for (const type of REALLOC_TYPES) {
       const scored = scoreCandidate(makeEvent(type), makeSituation(type));
       const by = new Map(scored.reasoning_breakdown.map((f) => [f.factor, f]));
       expect(by.get("game_overlap")!.contribution).toBe(0);
       expect(by.get("market_correlation")!.contribution).toBe(0);
+    }
+  });
+
+  it("does NOT reallocate roster/operator_note (rejected by the pairing-safety backtest)", () => {
+    // Regression guard: these share injury's 0% coverage profile, but reallocation
+    // manufactured false merges for them (roster 11452/196716, operator_note 420/12443),
+    // so they must keep game_overlap/market_correlation at their real base weights.
+    for (const type of REJECTED_TYPES) {
+      const by = new Map(
+        scoreCandidate(makeEvent(type), makeSituation(type)).reasoning_breakdown.map((f) => [f.factor, f]),
+      );
+      expect(by.get("game_overlap")!.weight).toBe(0.18);
+      expect(by.get("market_correlation")!.weight).toBe(0.08);
     }
   });
 });
