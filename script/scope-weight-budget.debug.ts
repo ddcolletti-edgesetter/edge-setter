@@ -135,26 +135,39 @@ function main() {
   console.log(`  proposal: drop game_overlap(0.18)+market_correlation(0.08); rescale kept 5 by 1/${KEPT_WEIGHT_SUM.toFixed(2)} = ${(1 / KEPT_WEIGHT_SUM).toFixed(4)}`);
   console.log(`  equivalent current-scale threshold to cross ${THRESHOLD}: ${THRESHOLD} * ${KEPT_WEIGHT_SUM.toFixed(2)} = ${(THRESHOLD * KEPT_WEIGHT_SUM).toFixed(4)}`);
 
+  // NOTE: explicit column lists (not SELECT *) to keep per-row memory small — at
+  // prod volume the situations/raw_events tables are bloated and SELECT * over an
+  // 800x nested scan is a likely OOM trigger (see prod OOM incident).
   const sits = db.prepare(
-    `SELECT * FROM situations WHERE situation_type='injury' ORDER BY created_at DESC LIMIT ${SITUATION_LIMIT}`,
+    `SELECT situation_id, league, situation_type, game_id, teams_json, players_json,
+            semantic_fingerprint, created_at
+     FROM situations WHERE situation_type='injury' ORDER BY created_at DESC LIMIT ${SITUATION_LIMIT}`,
   ).all() as any[];
+  console.log(`  Part 3: loaded ${sits.length} injury situations; scanning for fired pairs...`);
+
+  const rssStmt = db.prepare(
+    `SELECT id, source_id, source_type, league, game_id, team, player, event_type,
+            payload, created_at, received_at, player_candidate
+     FROM raw_events
+     WHERE source_id LIKE 'rss_%_official' AND event_type='injury_update' AND league = ?
+       AND created_at >= datetime(?, '-${WINDOW_HOURS} hours')
+       AND created_at <= datetime(?, '+${WINDOW_HOURS} hours')`,
+  );
 
   let fired = 0;
+  let scanned = 0;
   // buckets: [realMatch][crosses]
   let realCross = 0, realNoCross = 0, falseCross = 0, falseNoCross = 0;
   let droppedNonZero = 0; // sanity: pairs where game/market weren't 0 (should be 0)
   let maxReallocReal = 0, maxReallocFalse = 0;
 
   for (const srow of sits) {
+    scanned++;
+    if (scanned % 200 === 0) console.log(`  Part 3: scanned ${scanned}/${sits.length} situations, fired so far=${fired}`);
     const sit = parseSituation(srow);
     const sitTokens = new Set(normalizeSituationTokens(sit.teams));
     if (sitTokens.size === 0) continue;
-    const rss = db.prepare(
-      `SELECT * FROM raw_events
-       WHERE source_id LIKE 'rss_%_official' AND event_type='injury_update' AND league = ?
-         AND created_at >= datetime(?, '-${WINDOW_HOURS} hours')
-         AND created_at <= datetime(?, '+${WINDOW_HOURS} hours')`,
-    ).all(sit.league, sit.created_at, sit.created_at) as any[];
+    const rss = rssStmt.all(sit.league, sit.created_at, sit.created_at) as any[];
 
     for (const rrow of rss) {
       const raw = parseRaw(rrow);
@@ -179,6 +192,7 @@ function main() {
     }
   }
 
+  console.log(`  Part 3: scan complete. situations=${scanned}, fired=${fired}`);
   const realTotal = realCross + realNoCross;
   const falseTotal = falseCross + falseNoCross;
   console.log(`\n  fired pairs: ${fired}   (dropped-factor-nonzero pairs, should be 0: ${droppedNonZero})`);
@@ -193,4 +207,16 @@ function main() {
   console.log("\nDone.");
 }
 
-main();
+// Make any silent death loud: a swallowed throw, an unhandled rejection, or a
+// closed stdout pipe must surface instead of exiting 0 with truncated output.
+process.on("uncaughtException", (e) => { console.error("UNCAUGHT:", e); process.exitCode = 1; });
+process.on("unhandledRejection", (e) => { console.error("UNHANDLED REJECTION:", e); process.exitCode = 1; });
+process.stdout.on("error", (e: any) => { if (e && e.code === "EPIPE") process.exit(0); });
+
+try {
+  main();
+} catch (e) {
+  console.error("FATAL in main():", e);
+  console.log(`\nFATAL in main() (details on stderr): ${(e as Error)?.message ?? e}`);
+  process.exitCode = 1;
+}
