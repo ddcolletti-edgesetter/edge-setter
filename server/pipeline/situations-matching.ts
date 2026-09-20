@@ -1,4 +1,4 @@
-import type { NormalizedEvent, Situation } from "./situations-contract";
+import type { NormalizedEvent, Situation, SituationType } from "./situations-contract";
 import { normalizeSemanticFingerprint, normalizeSituationTokens } from "./situations-hash";
 
 export interface SituationMatchFactor {
@@ -9,13 +9,15 @@ export interface SituationMatchFactor {
   readonly reason: string;
 }
 
+type MatchFactorName = SituationMatchFactor["factor"];
+
 export interface SituationMatchResult {
   readonly matched_situation: Situation | null;
   readonly match_confidence: number;
   readonly reasoning_breakdown: readonly SituationMatchFactor[];
 }
 
-const MATCH_WEIGHTS = {
+const MATCH_WEIGHTS: Record<MatchFactorName, number> = {
   player_overlap: 0.22,
   team_overlap: 0.18,
   game_overlap: 0.18,
@@ -23,7 +25,60 @@ const MATCH_WEIGHTS = {
   timing_proximity: 0.1,
   market_correlation: 0.08,
   roster_context: 0.06,
-} as const;
+};
+
+// ─── Per-type weight reallocation ───────────────────────────────────────────────
+//
+// Mirrors the market_alignment reallocation shipped for confidence scoring in
+// situations-confidence.ts (PR #47): a factor that is structurally inapplicable to
+// a situation type is dropped and its weight budget is handed to the factors that
+// can actually earn it.
+//
+// For the types below, game_overlap AND market_correlation are structurally 0 —
+// verified 0% game_id coverage AND 0% market payload coverage in BOTH the
+// situations table and the incoming raw_events, across the full prod dataset
+// (scope-weight-budget.debug.ts, Part 2a/2b). Keeping them in the budget just
+// depresses every genuine score by a constant 0.26, starving real confirmations
+// below the 0.62 merge threshold. We drop the two dead factors and rescale the
+// surviving five by 1/0.74 so the budget still sums to 1.0.
+//
+// SAFETY: reallocation lifts false pairs (same team, different player) as well as
+// real ones, so pairing safety is proven PER TYPE, never assumed to transfer:
+//   injury          — falseCross 0/471 at full prod scale (scope-weight-budget Part 3)
+//   roster,operator — falseCross measured separately in reallocation-pairing-safety.debug.ts
+//
+// lineup (88.4% game_id) and market (100%/94.7% market payload) are intentionally
+// EXCLUDED: those factors are real for them and reallocation was never tested.
+const REALLOC_TYPES: ReadonlySet<SituationType> = new Set<SituationType>([
+  "injury",
+  "roster",
+  "operator_note",
+]);
+const REALLOC_DROPPED_FACTORS: ReadonlySet<MatchFactorName> = new Set<MatchFactorName>([
+  "game_overlap",
+  "market_correlation",
+]);
+
+/**
+ * Effective factor weights for a situation type. For a REALLOC_TYPE the dropped
+ * factors are zeroed and the survivors are rescaled to keep a total weight of 1.0;
+ * any other type keeps the base budget unchanged. Type-driven, not injury-hardcoded:
+ * the identical rescale applies to every listed type. Exported for direct unit
+ * testing of the weight math.
+ */
+export function matchWeightsForType(situationType: SituationType): Record<MatchFactorName, number> {
+  if (!REALLOC_TYPES.has(situationType)) return MATCH_WEIGHTS;
+  const factorNames = Object.keys(MATCH_WEIGHTS) as MatchFactorName[];
+  const keptSum = factorNames
+    .filter((factor) => !REALLOC_DROPPED_FACTORS.has(factor))
+    .reduce((sum, factor) => sum + MATCH_WEIGHTS[factor], 0); // 0.74
+  const scale = 1 / keptSum;
+  const weights = {} as Record<MatchFactorName, number>;
+  for (const factor of factorNames) {
+    weights[factor] = REALLOC_DROPPED_FACTORS.has(factor) ? 0 : MATCH_WEIGHTS[factor] * scale;
+  }
+  return weights;
+}
 
 export function matchSituation(
   incoming: NormalizedEvent,
@@ -52,14 +107,15 @@ export function scoreCandidate(
   incoming: NormalizedEvent,
   candidate: Situation & { latest_snapshot_at?: string | null },
 ): SituationMatchResult {
+  const weights = matchWeightsForType(candidate.situation_type);
   const factors: SituationMatchFactor[] = [
-    buildFactor("player_overlap", playerOverlap(incoming.players, candidate.players), `Players overlap: ${describePlayerOverlap(incoming.players, candidate.players)}`),
-    buildFactor("team_overlap", setOverlap(incoming.teams, candidate.teams), `Teams overlap: ${describeOverlap(incoming.teams, candidate.teams)}`),
-    buildFactor("game_overlap", gameOverlap(incoming.game_id, candidate.game_id), incoming.game_id && candidate.game_id ? "Same game context" : "No shared game context"),
-    buildFactor("injury_semantics", semanticSimilarity(incoming.semantic_fingerprint, candidate.semantic_fingerprint), "Semantic fingerprint similarity"),
-    buildFactor("timing_proximity", timingProximity(incoming.occurred_at, candidate.latest_snapshot_at ?? candidate.created_at), "Event timing proximity"),
-    buildFactor("market_correlation", marketCorrelation(incoming), incoming.market_context ? "Market movement present and directionally usable" : "No market movement attached"),
-    buildFactor("roster_context", rosterContextScore(incoming), incoming.roster_context ? "Roster context attached" : "No roster context attached"),
+    buildFactor(weights, "player_overlap", playerOverlap(incoming.players, candidate.players), `Players overlap: ${describePlayerOverlap(incoming.players, candidate.players)}`),
+    buildFactor(weights, "team_overlap", setOverlap(incoming.teams, candidate.teams), `Teams overlap: ${describeOverlap(incoming.teams, candidate.teams)}`),
+    buildFactor(weights, "game_overlap", gameOverlap(incoming.game_id, candidate.game_id), incoming.game_id && candidate.game_id ? "Same game context" : "No shared game context"),
+    buildFactor(weights, "injury_semantics", semanticSimilarity(incoming.semantic_fingerprint, candidate.semantic_fingerprint), "Semantic fingerprint similarity"),
+    buildFactor(weights, "timing_proximity", timingProximity(incoming.occurred_at, candidate.latest_snapshot_at ?? candidate.created_at), "Event timing proximity"),
+    buildFactor(weights, "market_correlation", marketCorrelation(incoming), incoming.market_context ? "Market movement present and directionally usable" : "No market movement attached"),
+    buildFactor(weights, "roster_context", rosterContextScore(incoming), incoming.roster_context ? "Roster context attached" : "No roster context attached"),
   ];
 
   const weighted = factors.reduce((sum, factor) => sum + factor.contribution, 0);
@@ -70,8 +126,8 @@ export function scoreCandidate(
   };
 }
 
-function buildFactor(factor: SituationMatchFactor["factor"], score: number, reason: string): SituationMatchFactor {
-  const weight = MATCH_WEIGHTS[factor];
+function buildFactor(weights: Record<MatchFactorName, number>, factor: MatchFactorName, score: number, reason: string): SituationMatchFactor {
+  const weight = weights[factor];
   return {
     factor,
     score: roundScore(score),
