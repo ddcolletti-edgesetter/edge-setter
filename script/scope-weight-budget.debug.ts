@@ -30,7 +30,7 @@ import type { Situation } from "../server/pipeline/situations-contract";
 
 const THRESHOLD = 0.62;
 const WINDOW_HOURS = 72;
-const SITUATION_LIMIT = 800;
+const SITUATION_LIMIT = 2000;
 // Reallocation factor set: the 5 factors that survive dropping game_overlap+market_correlation.
 const KEPT = ["player_overlap", "team_overlap", "injury_semantics", "timing_proximity", "roster_context"] as const;
 const KEPT_WEIGHT_SUM = 0.22 + 0.18 + 0.18 + 0.1 + 0.06; // 0.74
