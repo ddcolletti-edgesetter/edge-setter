@@ -77,6 +77,14 @@ export interface RawEvent {
   game_id: string | null;           // FK → Game.id (if applicable)
   team: string | null;              // short code
   player: string | null;
+  /**
+   * Roster-gazetteer fallback name for headlines the regex `player` extractor
+   * misses (written by setPlayerCandidate on the RSS ingest path). Consumed by
+   * the situations adapter ONLY as a fallback when `player` is empty — it never
+   * overrides a successful regex extraction. Absent on non-RSS sources.
+   */
+  player_candidate?: string | null;
+  player_candidate_confidence?: string | null;
   event_type: RawEventType;
   payload: Record<string, unknown>; // raw JSON from upstream
   processed: boolean;               // has this been turned into a Signal?
