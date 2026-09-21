@@ -234,7 +234,7 @@ function CFBBoardInner() {
           title={profile.boardLabel}
           statusLabel={hasLiveCFBData
             ? `${canonicalSituations.length ? "Verified sources" : "Live coverage"} / ${rankedCFB.length} updates`
-            : `Offseason fallback context / ${rankedCFB.length} watch items`}
+            : `Watching, nothing confirmed / ${rankedCFB.length} watch items`}
           liveCount={hasLiveCFBData ? situations.filter((situation) => situation.lane === "escalating" || situation.lane === "live").length : undefined}
           tabs={CFB_FILTERS.map((filter) => ({ id: filter.key, label: filter.label }))}
           activeTabId={sidebarFilter}
@@ -246,7 +246,7 @@ function CFBBoardInner() {
         <div className="sm:grid sm:grid-cols-[minmax(0,1fr)_220px] sm:items-start sm:gap-4">
           <FeaturedSituation
             situation={featured ? toSituationRowData(featured) : undefined}
-            eyebrow={hasLiveCFBData ? profile.featuredLabel : "Offseason Watch Context"}
+            eyebrow={hasLiveCFBData ? profile.featuredLabel : "Watch Context"}
             title={featuredDetails.title}
             summary={featuredDetails.summary}
             primaryRead={featuredDetails.primaryRead}
@@ -263,7 +263,7 @@ function CFBBoardInner() {
 
         <LiveGameStrip
           title={profile.liveStripLabel}
-          summary="Conference/offseason context. Scheduled games recede unless verified source-backed story pressure attaches."
+          summary="Scheduled games recede unless verified source-backed story pressure attaches."
           games={livePills}
           density="compact"
           activeGameId={activeGameId}
