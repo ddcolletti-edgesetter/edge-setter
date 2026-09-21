@@ -323,12 +323,28 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
         metrics: [],
       };
     }
+    if (league === "NFL") {
+      return {
+        title: "Tonight's NFL watch: injuries, lineups, and pre-game movement",
+        summary: "EdgeSetter is tracking injury designations, lineup confirmations, weather notes, and market movement across this week's slate.",
+        primaryRead: "Injury reports, practice participation, lineup confirmations, and market movement stay on the board before kickoff.",
+        secondaryRead: "The lead area stays useful even when no story has enough source agreement, timing pressure, or market reaction to elevate.",
+        metrics: [],
+      };
+    }
+    if (league === "CFB") {
+      return {
+        title: "This week's CFB watch: injuries, transfers, and market movement",
+        summary: "EdgeSetter is tracking injury designations, transfer portal activity, depth chart changes, and market movement across this week's slate.",
+        primaryRead: "Injury reports, transfer portal moves, depth chart changes, and market movement stay on the board before kickoff.",
+        secondaryRead: "The lead area stays useful even when no story has enough source agreement, timing pressure, or market reaction to elevate.",
+        metrics: [],
+      };
+    }
     return {
-      title: league === "NFL" || league === "CFB" ? "Offseason coverage watch" : "Coverage watch",
+      title: "Coverage watch",
       summary: leagueEmptyCopy[league],
-      primaryRead: league === "NFL" || league === "CFB"
-        ? "Coverage is limited to offseason developing stories, scheduled context, and verified source-backed updates."
-        : "No developing story is above the monitoring threshold yet.",
+      primaryRead: "No developing story is above the monitoring threshold yet.",
       secondaryRead: "Stories only elevate when source agreement, market reaction, or live game state supports it.",
       metrics: [],
     };
