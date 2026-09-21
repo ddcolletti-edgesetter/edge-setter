@@ -25,6 +25,7 @@ import {
   getLatestSituationSnapshot,
   insertSituation,
   listSituationsForMatching,
+  summarizeSituationEvidence,
 } from "./situations-store";
 import { transitionSituationLifecycle, type SituationLifecycleTrigger } from "./situations-lifecycle";
 
@@ -82,13 +83,20 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
     event_id: evidenceEvent.event_id,
   }));
 
+  // Evidence depth is measured AFTER the current evidence event is appended
+  // (above), so this reflects it. evidence_count is distinct observations and
+  // distinct_source_count is independent sources — both deduped, so repeated
+  // re-polls of the same report no longer inflate the lifecycle inputs.
+  const evidence = summarizeSituationEvidence(situation.situation_id);
+
   const lifecycle = transitionSituationLifecycle({
     current_state: previousSnapshot?.lifecycle_state ?? null,
     trigger: (input.lifecycle_trigger === "official_confirmation" && !matched)
       ? defaultLifecycleTrigger(input.event)
       : (input.lifecycle_trigger ?? defaultLifecycleTrigger(input.event)),
     confidence: confidence.score,
-    evidence_count: countEvidence(previousSnapshot) + 1,
+    evidence_count: evidence.evidenceCount,
+    distinct_source_count: evidence.distinctSourceCount,
     hours_since_latest_evidence: hoursBetween(input.event.occurred_at, input.event.received_at),
     official: input.event.event_type === "official_resolution",
     contradiction_count: confidence.factors.contradiction_penalty > 0 ? 1 : 0,
@@ -205,10 +213,6 @@ function defaultLifecycleTrigger(event: NormalizedEvent): SituationLifecycleTrig
   if (event.event_type === "market_reaction" || event.situation_type === "market") return "market_reaction";
   if (event.event_type === "validator_update") return "validator_confirmation";
   return "evidence_added";
-}
-
-function countEvidence(snapshot: SituationSnapshot | null): number {
-  return snapshot?.evidence_event_ids.length ?? 0;
 }
 
 function hoursBetween(leftIso: string, rightIso: string): number {
