@@ -196,7 +196,7 @@ function NFLBoardInner() {
         <BoardCommandBar
           kicker="NFL Story Board"
           title={profile.boardLabel}
-          statusLabel={`${canonicalSituations.length ? "Verified source watch" : isLive ? "Live coverage" : "Offseason watch"} / ${rankedNFL.length} updates`}
+          statusLabel={`${canonicalSituations.length ? "Verified source watch" : isLive ? "Live coverage" : "Watching, nothing confirmed"} / ${rankedNFL.length} updates`}
           liveCount={situations.filter((situation) => situation.lane === "escalating" || situation.lane === "live").length}
           tabs={NFL_FILTERS.map((filter) => ({ id: filter.id, label: filter.label }))}
           activeTabId={activeFilter}
@@ -226,7 +226,7 @@ function NFLBoardInner() {
 
         <LiveGameStrip
           title={profile.liveStripLabel}
-          summary="Offseason context only. Games stay quiet unless verified source-backed story pressure attaches to a real game window."
+          summary="Games stay quiet unless verified source-backed story pressure attaches to a real game window."
           games={livePills}
           density="compact"
           activeGameId={activeGameId}

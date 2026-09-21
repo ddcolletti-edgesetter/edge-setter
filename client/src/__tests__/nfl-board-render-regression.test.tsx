@@ -117,7 +117,7 @@ describe("NFL board render regressions", () => {
     expect(text).toContain("What happened");
     expect(text).toContain("Why it matters");
     expect(text).toContain("Watch next");
-    expect(text).toContain("Offseason context");
+    expect(text).toContain("Games stay quiet unless verified source-backed story pressure attaches");
     expect(text).toContain("Story watch 4");
     expect(text).toContain("Verified notes 4");
     expect(text).not.toContain("Evidence review");
