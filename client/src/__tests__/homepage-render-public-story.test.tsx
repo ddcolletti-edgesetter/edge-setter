@@ -245,8 +245,12 @@ describe("homepage public story render", () => {
       name: "Brandon Aiyuk — OUT",
     }).closest("article");
     expect(leadStory).not.toBeNull();
+    // Stock photos are retired: the lead visual no longer renders a /sports/*.jpg
+    // image. With no roster-backed headshot for this signal it degrades to the
+    // photo-free matchup/team treatment, so no story-image element is present.
     const leadImage = leadStory?.querySelector<HTMLImageElement>("[data-testid='homepage-story-image']");
-    expect(leadImage?.getAttribute("src")).toBe("/sports/nfl/hero.jpg");
+    expect(leadImage).toBeNull();
+    expect(leadStory?.querySelector(".sports-story-visual")).not.toBeNull();
 
     expect(document.querySelector(".edgesetter-sidebar-wordmark img")?.getAttribute("width")).toBe("174");
     expect(document.querySelector(".edgesetter-sidebar-wordmark")).toBeInTheDocument();
@@ -342,7 +346,10 @@ describe("homepage public story render", () => {
 
     const leadHeading = screen.getByRole("heading", { name: "Paul Skenes scratched for Pirates" });
     const leadArticle = leadHeading.closest("article");
+    // Stock photos are retired — no /sports/*.jpg image renders; the lead falls
+    // back to the photo-free team-badge treatment.
     const leadImage = leadArticle?.querySelector<HTMLImageElement>("[data-testid='homepage-story-image']");
-    expect(leadImage?.getAttribute("src")).toBe("/sports/mlb/hero.jpg");
+    expect(leadImage).toBeNull();
+    expect(leadArticle?.querySelector(".sports-story-visual")).not.toBeNull();
   });
 });

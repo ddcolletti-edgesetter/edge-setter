@@ -35,6 +35,7 @@ export function ensureSituationSchema(db: Database.Database = getPipelineDb()): 
       teams_json              TEXT NOT NULL DEFAULT '[]',
       players_json            TEXT NOT NULL DEFAULT '[]',
       player_espn_id          TEXT,
+      player_jersey           TEXT,
       situation_type          TEXT NOT NULL,
       semantic_fingerprint    TEXT NOT NULL,
       created_from_event_id   TEXT,
@@ -153,6 +154,9 @@ export function ensureSituationSchema(db: Database.Database = getPipelineDb()): 
   if (!situationCols.some((c) => c.name === "player_espn_id")) {
     db.prepare("ALTER TABLE situations ADD COLUMN player_espn_id TEXT").run();
   }
+  if (!situationCols.some((c) => c.name === "player_jersey")) {
+    db.prepare("ALTER TABLE situations ADD COLUMN player_jersey TEXT").run();
+  }
 
   installAppendOnlyGuards(db);
   ensureSituationGameResolutionSchema(db);
@@ -190,8 +194,8 @@ export function insertSituation(situation: Situation, db: Database.Database = ge
   const result = db.prepare(`
     INSERT OR IGNORE INTO situations (
       situation_id, canonical_hash, sport, league, game_id, teams_json, players_json,
-      player_espn_id, situation_type, semantic_fingerprint, created_from_event_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      player_espn_id, player_jersey, situation_type, semantic_fingerprint, created_from_event_id, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     situation.situation_id,
     situation.canonical_hash,
@@ -201,6 +205,7 @@ export function insertSituation(situation: Situation, db: Database.Database = ge
     stableJson(situation.teams),
     stableJson(situation.players),
     situation.player_espn_id ?? null,
+    situation.player_jersey ?? null,
     situation.situation_type,
     situation.semantic_fingerprint,
     situation.created_from_event_id,
@@ -772,6 +777,7 @@ function deserializeSituationWithLatestSnapshot(row: any): Situation & { latest_
     teams: parseJson(row.teams_json, []),
     players: parseJson(row.players_json, []),
     player_espn_id: row.player_espn_id ?? null,
+    player_jersey: row.player_jersey ?? null,
     situation_type: row.situation_type,
     semantic_fingerprint: row.semantic_fingerprint,
     created_from_event_id: row.created_from_event_id,

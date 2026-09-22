@@ -40,6 +40,12 @@ export interface CanonicalSituationEvolutionInput {
    * are unaffected.
    */
   readonly player_espn_id?: string | null;
+  /**
+   * Jersey number passenger for a newly-founded situation's primary player,
+   * carried parallel to {@link player_espn_id}. Same rules: build-only, and
+   * never embedded in the hashed NormalizedEvent.
+   */
+  readonly player_jersey?: string | null;
 }
 
 export interface CanonicalSituationEvolutionResult {
@@ -59,7 +65,7 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
     limit: 150,
   });
   const match = matchSituation(input.event, candidates);
-  const situation = match.matched_situation ?? buildSituationFromNormalizedEvent(input.event, input.player_espn_id ?? null);
+  const situation = match.matched_situation ?? buildSituationFromNormalizedEvent(input.event, input.player_espn_id ?? null, input.player_jersey ?? null);
   const matched = Boolean(match.matched_situation);
 
   if (!matched) insertSituation(situation);
@@ -159,7 +165,7 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
   };
 }
 
-export function buildSituationFromNormalizedEvent(event: NormalizedEvent, playerEspnId: string | null = null): Situation {
+export function buildSituationFromNormalizedEvent(event: NormalizedEvent, playerEspnId: string | null = null, playerJersey: string | null = null): Situation {
   const identity = {
     sport: event.sport,
     league: event.league,
@@ -177,9 +183,10 @@ export function buildSituationFromNormalizedEvent(event: NormalizedEvent, player
     game_id: event.game_id,
     teams: [...event.teams].sort(),
     players: [...event.players].sort(),
-    // Display passenger only — intentionally excluded from `identity` above so the
-    // canonical hash / situation id are unchanged by it.
+    // Display passengers only — intentionally excluded from `identity` above so the
+    // canonical hash / situation id are unchanged by them.
     player_espn_id: playerEspnId,
+    player_jersey: playerJersey,
     situation_type: event.situation_type,
     semantic_fingerprint: event.semantic_fingerprint,
     created_from_event_id: event.normalized_event_id,

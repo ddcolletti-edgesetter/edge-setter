@@ -97,6 +97,13 @@ export interface Situation {
    * event replay_hash. Null when no roster match backed the player name.
    */
   readonly player_espn_id?: string | null;
+  /**
+   * Jersey number for the situation's primary player, carried parallel to
+   * {@link player_espn_id}. Same display-passenger status: NOT part of the
+   * canonical identity hash and kept off the NormalizedEvent / replay_hash.
+   * Null when no roster match supplied one.
+   */
+  readonly player_jersey?: string | null;
   readonly situation_type: SituationType;
   readonly semantic_fingerprint: string;
   readonly created_from_event_id: string | null;

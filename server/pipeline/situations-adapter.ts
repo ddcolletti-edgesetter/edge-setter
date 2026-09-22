@@ -106,6 +106,21 @@ export function playerEspnIdFromRaw(raw: RawEvent): string | null {
   return raw.player_candidate ? (raw.player_candidate_espn_id ?? null) : null;
 }
 
+/**
+ * Jersey number that pairs with the roster-matched player name, carried parallel
+ * to {@link playerEspnIdFromRaw}. Same fallback precedence: only a roster
+ * player_candidate (no regex extraction) carries a jersey; a regex/payload
+ * extraction has no roster match and so no jersey (returns null). Like the
+ * espn_id, it is a display passenger kept OFF the hashed NormalizedEvent and
+ * rides to the Situation record instead.
+ */
+export function playerJerseyFromRaw(raw: RawEvent): string | null {
+  const payload = raw.payload as Record<string, any>;
+  const fromRegex = normalizePlayers([raw.player, payload.player, payload.player_name]);
+  if (fromRegex.length > 0) return null;
+  return raw.player_candidate ? (raw.player_candidate_jersey ?? null) : null;
+}
+
 export function confidenceInputFromRawEvent(raw: RawEvent, signal: LiveSignal, validatorAgreement = 0): SituationConfidenceInput {
   const payload = raw.payload as Record<string, any>;
   const sourceCount = Math.max(signal.source_count, Number(payload.source_count ?? 1));

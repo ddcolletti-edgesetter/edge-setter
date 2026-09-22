@@ -66,6 +66,7 @@ interface ESPNAthlete {
   lastName?: string;
   fullName?: string;
   displayName?: string;
+  jersey?: string;
   position?: { abbreviation?: string };
   status?: { name?: string; type?: string };
 }
@@ -139,6 +140,7 @@ export function extractRosterRows(payload: ESPNRosterResponse): RosterRow[] {
       seen.add(key);
       rows.push({
         espn_id: a.id ?? null,
+        jersey: a.jersey ?? null,
         full_name: fullName,
         first_name: a.firstName ?? null,
         last_name: lastName,

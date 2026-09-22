@@ -68,6 +68,9 @@ export interface CanonicalSituationApiResponse {
   /** ESPN athlete id for the primary player, when a roster match resolved one.
    *  Drives the story-card headshot; undefined when no roster-backed id exists. */
   readonly playerEspnId?: string;
+  /** Jersey number for the primary player, carried parallel to {@link playerEspnId}.
+   *  Drives the jersey-number story-card treatment; undefined when none resolved. */
+  readonly playerJersey?: string;
   readonly situationType: string;
   readonly lifecycleState: SituationLifecycleState;
   readonly lifecycleExplanation: string;
@@ -284,6 +287,7 @@ export function mapCanonicalSituationToApiResponse(
     teams: [...record.teams],
     players: [...record.players],
     playerEspnId: record.player_espn_id ?? undefined,
+    playerJersey: record.player_jersey ?? undefined,
     situationType: record.situation_type,
     lifecycleState,
     lifecycleExplanation: explainLifecycleState(lifecycleState),

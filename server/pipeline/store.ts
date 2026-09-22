@@ -471,6 +471,7 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
       league      TEXT NOT NULL,
       team        TEXT NOT NULL,   -- internal abbr (KC, DAL, …), not ESPN's WSH
       espn_id     TEXT,
+      jersey      TEXT,            -- jersey number as ESPN reports it (string, may be "0")
       full_name   TEXT NOT NULL,
       first_name  TEXT,
       last_name   TEXT NOT NULL,
@@ -517,6 +518,12 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   // ESPN athlete id for the gazetteer candidate, carried so story cards can render
   // the player headshot. Written alongside player_candidate; never touches `player`.
   addColumnIfMissing(db, "raw_events", "player_candidate_espn_id", "TEXT");
+  // Jersey number for the gazetteer candidate, carried alongside the espn_id as a
+  // second display passenger for the story-card visual. Never touches `player`.
+  addColumnIfMissing(db, "raw_events", "player_candidate_jersey", "TEXT");
+  // Jersey number on the roster gazetteer itself (new column on an existing table —
+  // pre-jersey DBs read back NULL, which is the correct "no jersey").
+  addColumnIfMissing(db, "roster_players", "jersey", "TEXT");
 }
 
 /* ─── Live signal archival ───────────────────────────────────────────────────
@@ -1109,6 +1116,7 @@ export interface RosterPlayer {
   league: string;
   team: string;
   espn_id: string | null;
+  jersey: string | null;
   full_name: string;
   first_name: string | null;
   last_name: string;
@@ -1130,15 +1138,15 @@ export function replaceTeamRoster(
   const del = db.prepare(`DELETE FROM roster_players WHERE league=? AND team=?`);
   const ins = db.prepare(
     `INSERT OR REPLACE INTO roster_players
-       (league,team,espn_id,full_name,first_name,last_name,position,status,updated_at)
-     VALUES (?,?,?,?,?,?,?,?,?)`,
+       (league,team,espn_id,jersey,full_name,first_name,last_name,position,status,updated_at)
+     VALUES (?,?,?,?,?,?,?,?,?,?)`,
   );
   const tx = db.transaction(() => {
     del.run(league, team);
     let n = 0;
     for (const p of players) {
       if (!p.full_name || !p.last_name) continue;
-      ins.run(league, team, p.espn_id ?? null, p.full_name, p.first_name ?? null, p.last_name, p.position ?? null, p.status ?? null, now);
+      ins.run(league, team, p.espn_id ?? null, p.jersey ?? null, p.full_name, p.first_name ?? null, p.last_name, p.position ?? null, p.status ?? null, now);
       n++;
     }
     return n;
@@ -1152,7 +1160,7 @@ export function getTeamRoster(
   db: Database.Database = getPipelineDb(),
 ): RosterPlayer[] {
   return db.prepare(
-    `SELECT league,team,espn_id,full_name,first_name,last_name,position,status
+    `SELECT league,team,espn_id,jersey,full_name,first_name,last_name,position,status
        FROM roster_players WHERE league=? AND team=?`,
   ).all(league, team) as RosterPlayer[];
 }
@@ -1224,10 +1232,11 @@ export function setPlayerCandidate(
   candidate: string | null,
   confidence: string | null,
   espnId: string | null = null,
+  jersey: string | null = null,
   db: Database.Database = getPipelineDb(),
 ): void {
-  db.prepare(`UPDATE raw_events SET player_candidate=?, player_candidate_confidence=?, player_candidate_espn_id=? WHERE id=?`)
-    .run(candidate, confidence, espnId, rawEventId);
+  db.prepare(`UPDATE raw_events SET player_candidate=?, player_candidate_confidence=?, player_candidate_espn_id=?, player_candidate_jersey=? WHERE id=?`)
+    .run(candidate, confidence, espnId, jersey, rawEventId);
 }
 
 /* ─── LiveSignal CRUD ───────────────────────────────────── */

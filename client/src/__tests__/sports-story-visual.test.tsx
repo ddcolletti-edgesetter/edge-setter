@@ -3,46 +3,75 @@ import { describe, expect, it } from "vitest";
 
 import { SportsStoryVisual } from "@/components/SportsMedia";
 
-describe("SportsStoryVisual image slots", () => {
-  it("uses provided alt text for local image candidates", () => {
+describe("SportsStoryVisual treatments", () => {
+  it("renders the jersey-number treatment (headshot + chip) for a player with a jersey", () => {
     render(
       <SportsStoryVisual
-        league="MLB"
-        primaryTeam="TOR"
-        secondaryTeam="MIA"
-        title="TOR vs MIA watch window"
-        imageAsset={{
-          alt: "MLB matchup image: TOR / MIA",
-          candidateSrcs: ["/sports/mlb/matchup.jpg"],
-          slot: "matchup",
-        }}
+        league="NFL"
+        primaryTeam="SF"
+        player="Brandon Aiyuk"
+        playerEspnId="4360438"
+        playerJersey="11"
+        position="WR"
+        title="Availability watch"
       />,
     );
 
-    expect(screen.getByAltText("MLB matchup image: TOR / MIA")).toHaveAttribute("src", "/sports/mlb/matchup.jpg");
+    const headshot = screen.getByTestId("homepage-story-image");
+    expect(headshot).toHaveAttribute("src", "https://a.espncdn.com/i/headshots/nfl/players/full/4360438.png");
+    expect(screen.getByText("#11 · WR")).toBeInTheDocument();
   });
 
-  it("falls back to the static sports visual after all image candidates fail", () => {
+  it("renders the watermark treatment (headshot, no jersey) when no jersey is present", () => {
     render(
       <SportsStoryVisual
-        league="NBA"
-        primaryTeam="New York Knicks"
-        secondaryTeam="Boston Celtics"
+        league="NFL"
+        primaryTeam="SF"
+        player="Brandon Aiyuk"
+        playerEspnId="4360438"
         title="Availability watch"
-        imageAsset={{
-          alt: "NBA matchup image",
-          candidateSrcs: ["/sports/teams/new-york-knicks.jpg", "/sports/nba/default.jpg"],
-          slot: "featured",
-        }}
       />,
     );
 
-    fireEvent.error(screen.getByAltText("NBA matchup image"));
-    expect(screen.getByAltText("NBA matchup image")).toHaveAttribute("src", "/sports/nba/default.jpg");
+    expect(screen.getByTestId("homepage-story-image")).toHaveAttribute(
+      "src",
+      "https://a.espncdn.com/i/headshots/nfl/players/full/4360438.png",
+    );
+    // No jersey → no number chip.
+    expect(screen.queryByText(/^#/)).not.toBeInTheDocument();
+  });
 
-    fireEvent.error(screen.getByAltText("NBA matchup image"));
-    expect(screen.queryByAltText("NBA matchup image")).not.toBeInTheDocument();
-    expect(screen.getByAltText("NYK")).toBeInTheDocument();
-    expect(screen.getByAltText("BOS")).toBeInTheDocument();
+  it("drops the headshot to a photo-free treatment when it 404s", () => {
+    render(
+      <SportsStoryVisual
+        league="NFL"
+        primaryTeam="SF"
+        secondaryTeam="SEA"
+        player="Brandon Aiyuk"
+        playerEspnId="4360438"
+        title="Availability watch"
+      />,
+    );
+
+    // Headshot resolves first, then 404s → the visual drops back to the matchup
+    // split (two teams), which carries no photo element.
+    fireEvent.error(screen.getByTestId("homepage-story-image"));
+    expect(screen.queryByTestId("homepage-story-image")).not.toBeInTheDocument();
+  });
+
+  it("renders the matchup split (no photo) for two teams with no confirmed player", () => {
+    render(
+      <SportsStoryVisual
+        league="NFL"
+        primaryTeam="SF"
+        secondaryTeam="SEA"
+        title="SF vs SEA watch window"
+      />,
+    );
+
+    expect(screen.queryByTestId("homepage-story-image")).not.toBeInTheDocument();
+    // Both team badges render (treatment backdrop + foreground stage).
+    expect(screen.getAllByAltText("SF").length).toBeGreaterThan(0);
+    expect(screen.getAllByAltText("SEA").length).toBeGreaterThan(0);
   });
 });

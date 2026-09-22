@@ -295,7 +295,7 @@ const CFB_LOGO_URLS: Record<string, string> = {
   CLEM: "https://a.espncdn.com/i/teamlogos/ncaa/500/228.png",
 };
 
-type TeamLogoSport = "nba" | "mlb" | "nfl" | "cfb";
+export type TeamLogoSport = "nba" | "mlb" | "nfl" | "cfb";
 
 export const TEAM_LOGO_URLS: Record<string, string> = { ...NBA_LOGO_URLS, ...MLB_LOGO_URLS, ...NFL_LOGO_URLS, ...CFB_LOGO_URLS };
 

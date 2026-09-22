@@ -607,6 +607,9 @@ function sportsIdentityForSituation(situation: BoardSituation, canonical?: Canon
     // Passenger for the story-card headshot — only present when the canonical
     // situation resolved a roster-backed ESPN id.
     playerEspnId: canonical?.playerEspnId,
+    // Jersey number passenger, parallel to playerEspnId — drives the
+    // jersey-number story-card treatment when present.
+    playerJersey: canonical?.playerJersey,
     sport,
   };
 }

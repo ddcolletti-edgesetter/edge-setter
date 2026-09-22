@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { cn } from "@/lib/utils";
 import { TeamLogoImg, getPlayerHeadshotUrlById, isUnknownTeamAbbr, toTeamAbbr } from "@/components/v2/SportVisuals";
+import { JerseyNumberVisual, MatchupSplitVisual, WatermarkLogoVisual } from "@/components/StoryVisualTreatments";
 import type { SportsImageAsset } from "@/lib/sportsImageAssets";
 
 type Sport = "nba" | "mlb" | "nfl" | "cfb";
@@ -13,9 +14,16 @@ export interface SportsStoryVisualProps {
   secondaryTeam?: string;
   player?: string;
   /** ESPN athlete id for {@link player}. When present (with a resolved sport), the
-   *  visual renders the player's headshot over the stock/logo backdrop, falling
-   *  back to the existing behavior if the headshot 404s. */
+   *  visual renders the player's headshot over a team-badge/jersey backdrop,
+   *  falling back to a photo-free treatment if the headshot 404s. */
   playerEspnId?: string;
+  /** Jersey number for {@link player}, carried parallel to {@link playerEspnId}.
+   *  When present alongside a resolved headshot, selects the jersey-number
+   *  treatment; never invented. */
+  playerJersey?: string;
+  /** Optional position abbreviation for {@link player} (e.g. "WR"), shown on the
+   *  jersey-number chip when available. */
+  position?: string;
   title?: string;
   storyType?: string;
   detail?: string;
@@ -52,12 +60,13 @@ export function SportsStoryVisual({
   secondaryTeam,
   player,
   playerEspnId,
+  playerJersey,
+  position,
   title,
   storyType,
   detail,
   size = "feature",
   className,
-  imageAsset,
 }: SportsStoryVisualProps) {
   const resolvedSport = sport ?? leagueToSport(league);
   const primary = cleanTeamAbbr(primaryTeam) || cleanTeamAbbr(secondaryTeam) || league?.toUpperCase() || "ES";
@@ -66,13 +75,10 @@ export function SportsStoryVisual({
   const leagueLabel = league?.toUpperCase() ?? (resolvedSport ? SPORT_FALLBACKS[resolvedSport].label : "SPORT");
   const subject = player || title || (showMatchup ? `${primary} @ ${secondary}` : primary);
   const texture = resolvedSport ? SPORT_FALLBACKS[resolvedSport].texture : "is-generic";
-  const imageCandidates = useMemo(() => imageAsset?.candidateSrcs ?? [], [imageAsset]);
-  const [imageIndex, setImageIndex] = useState(0);
-  const activeImageSrc = imageCandidates[imageIndex];
 
-  // Player headshot takes precedence over the stock image when we have a resolved
-  // ESPN id for the named player. If the headshot 404s (ESPN lacks the athlete),
-  // onError flips headshotFailed and we fall back to the existing stock/logo path.
+  // Player headshot resolves from the roster-backed ESPN id. If it 404s, onError
+  // flips headshotFailed and the visual drops from a headshot treatment back to the
+  // matchup split (two teams) or the plain team-badge rendering.
   const headshotUrl = player && resolvedSport ? getPlayerHeadshotUrlById(playerEspnId, resolvedSport) : "";
   const [headshotFailed, setHeadshotFailed] = useState(false);
   useEffect(() => {
@@ -80,44 +86,45 @@ export function SportsStoryVisual({
   }, [headshotUrl]);
   const showHeadshot = Boolean(headshotUrl) && !headshotFailed;
 
-  const isLeagueOnlyImage = Boolean(activeImageSrc && !showHeadshot && !player && !showMatchup && primary === leagueLabel);
+  // Treatment selection (see StoryVisualTreatments):
+  //  1. player + resolved headshot + jersey → JerseyNumberVisual
+  //  2. player + resolved headshot, no jersey → WatermarkLogoVisual
+  //  3. two teams, no confirmed-player headshot → MatchupSplitVisual
+  //  4. none of the above → plain TeamLogoImg-only stage (no backdrop layer)
+  const showJerseyTreatment = Boolean(player) && showHeadshot && Boolean(playerJersey);
+  const showWatermarkTreatment = Boolean(player) && showHeadshot && !playerJersey;
+  const showMatchupTreatment = !showHeadshot && showMatchup;
+  const hasBackdrop = showJerseyTreatment || showWatermarkTreatment || showMatchupTreatment;
 
-  useEffect(() => {
-    setImageIndex(0);
-  }, [imageCandidates]);
+  const onHeadshotError = () => setHeadshotFailed(true);
+  const treatmentProps = {
+    primary,
+    secondary,
+    teamAbbr: primary,
+    opponentAbbr: secondary || undefined,
+    headshotUrl: showHeadshot ? headshotUrl : undefined,
+    onHeadshotError,
+    jersey: playerJersey,
+    position,
+    sport: resolvedSport,
+  };
 
   return (
-    <div className={cn("sports-story-visual", `is-${size}`, texture, (activeImageSrc || showHeadshot) && "has-image", className)} aria-label={`${leagueLabel} sports story visual`}>
+    <div className={cn("sports-story-visual", `is-${size}`, texture, hasBackdrop && "has-image", className)} aria-label={`${leagueLabel} sports story visual`}>
       <div className="sports-story-visual-bg" />
-      {showHeadshot ? (
-        <div className="sports-story-image-slot" data-slot="headshot">
-          <img
-            src={headshotUrl}
-            alt={`${player} headshot`}
-            data-testid="homepage-story-image"
-            loading={size === "hero" || size === "feature" ? "eager" : "lazy"}
-            decoding="async"
-            onError={() => setHeadshotFailed(true)}
-          />
-        </div>
-      ) : activeImageSrc && (
-        <div className="sports-story-image-slot" data-slot={imageAsset?.slot}>
-          <img
-            src={activeImageSrc}
-            alt={imageAsset?.alt ?? `${leagueLabel} sports story image`}
-            data-testid="homepage-story-image"
-            loading={size === "hero" || size === "feature" ? "eager" : "lazy"}
-            decoding="async"
-            onError={() => setImageIndex((current) => current + 1)}
-          />
-        </div>
-      )}
+      {showJerseyTreatment ? (
+        <JerseyNumberVisual {...treatmentProps} />
+      ) : showWatermarkTreatment ? (
+        <WatermarkLogoVisual {...treatmentProps} />
+      ) : showMatchupTreatment ? (
+        <MatchupSplitVisual {...treatmentProps} />
+      ) : null}
       <div className="sports-story-visual-top">
         <span>{leagueLabel}</span>
         <strong>{storyType || "Story watch"}</strong>
       </div>
       <div className="sports-story-visual-stage">
-        <TeamLogoImg abbr={primary} sport={resolvedSport} size={isLeagueOnlyImage ? logoSize(size) + 24 : logoSize(size)} />
+        <TeamLogoImg abbr={primary} sport={resolvedSport} size={logoSize(size)} />
         {showMatchup ? (
           <>
             <span className="sports-story-visual-vs">VS</span>
@@ -126,7 +133,7 @@ export function SportsStoryVisual({
         ) : null}
       </div>
       <div className="sports-story-visual-copy">
-        <span>{player ? "Player focus" : showMatchup ? "Matchup focus" : isLeagueOnlyImage ? "League watch" : "Team focus"}</span>
+        <span>{player ? "Player focus" : showMatchup ? "Matchup focus" : "Team focus"}</span>
         <strong>{subject}</strong>
         {detail && <small>{detail}</small>}
       </div>
