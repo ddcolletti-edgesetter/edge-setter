@@ -75,6 +75,7 @@ export interface CanonicalSituation {
   league: Sport;
   teams: string[];
   players: string[];
+  playerEspnId?: string;
   situationType: string;
   lifecycleState: CanonicalSituationLifecycleState;
   lifecycleExplanation: string;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { cn } from "@/lib/utils";
-import { TeamLogoImg, isUnknownTeamAbbr, toTeamAbbr } from "@/components/v2/SportVisuals";
+import { TeamLogoImg, getPlayerHeadshotUrlById, isUnknownTeamAbbr, toTeamAbbr } from "@/components/v2/SportVisuals";
 import type { SportsImageAsset } from "@/lib/sportsImageAssets";
 
 type Sport = "nba" | "mlb" | "nfl" | "cfb";
@@ -12,6 +12,10 @@ export interface SportsStoryVisualProps {
   primaryTeam?: string;
   secondaryTeam?: string;
   player?: string;
+  /** ESPN athlete id for {@link player}. When present (with a resolved sport), the
+   *  visual renders the player's headshot over the stock/logo backdrop, falling
+   *  back to the existing behavior if the headshot 404s. */
+  playerEspnId?: string;
   title?: string;
   storyType?: string;
   detail?: string;
@@ -47,6 +51,7 @@ export function SportsStoryVisual({
   primaryTeam,
   secondaryTeam,
   player,
+  playerEspnId,
   title,
   storyType,
   detail,
@@ -64,16 +69,38 @@ export function SportsStoryVisual({
   const imageCandidates = useMemo(() => imageAsset?.candidateSrcs ?? [], [imageAsset]);
   const [imageIndex, setImageIndex] = useState(0);
   const activeImageSrc = imageCandidates[imageIndex];
-  const isLeagueOnlyImage = Boolean(activeImageSrc && !player && !showMatchup && primary === leagueLabel);
+
+  // Player headshot takes precedence over the stock image when we have a resolved
+  // ESPN id for the named player. If the headshot 404s (ESPN lacks the athlete),
+  // onError flips headshotFailed and we fall back to the existing stock/logo path.
+  const headshotUrl = player && resolvedSport ? getPlayerHeadshotUrlById(playerEspnId, resolvedSport) : "";
+  const [headshotFailed, setHeadshotFailed] = useState(false);
+  useEffect(() => {
+    setHeadshotFailed(false);
+  }, [headshotUrl]);
+  const showHeadshot = Boolean(headshotUrl) && !headshotFailed;
+
+  const isLeagueOnlyImage = Boolean(activeImageSrc && !showHeadshot && !player && !showMatchup && primary === leagueLabel);
 
   useEffect(() => {
     setImageIndex(0);
   }, [imageCandidates]);
 
   return (
-    <div className={cn("sports-story-visual", `is-${size}`, texture, activeImageSrc && "has-image", className)} aria-label={`${leagueLabel} sports story visual`}>
+    <div className={cn("sports-story-visual", `is-${size}`, texture, (activeImageSrc || showHeadshot) && "has-image", className)} aria-label={`${leagueLabel} sports story visual`}>
       <div className="sports-story-visual-bg" />
-      {activeImageSrc && (
+      {showHeadshot ? (
+        <div className="sports-story-image-slot" data-slot="headshot">
+          <img
+            src={headshotUrl}
+            alt={`${player} headshot`}
+            data-testid="homepage-story-image"
+            loading={size === "hero" || size === "feature" ? "eager" : "lazy"}
+            decoding="async"
+            onError={() => setHeadshotFailed(true)}
+          />
+        </div>
+      ) : activeImageSrc && (
         <div className="sports-story-image-slot" data-slot={imageAsset?.slot}>
           <img
             src={activeImageSrc}

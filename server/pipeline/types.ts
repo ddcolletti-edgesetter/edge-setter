@@ -85,6 +85,9 @@ export interface RawEvent {
    */
   player_candidate?: string | null;
   player_candidate_confidence?: string | null;
+  /** ESPN athlete id for {@link player_candidate}, when the roster match resolved
+   *  one. Display passenger for the story-card headshot; absent on non-RSS sources. */
+  player_candidate_espn_id?: string | null;
   event_type: RawEventType;
   payload: Record<string, unknown>; // raw JSON from upstream
   processed: boolean;               // has this been turned into a Signal?
