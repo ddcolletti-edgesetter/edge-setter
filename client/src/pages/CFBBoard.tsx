@@ -313,7 +313,7 @@ function CFBBoardInner() {
             ["Stories", rankedCFB.length],
             ["Confirmed", confirmed],
             ["Urgent stories", situations.filter((situation) => situation.lane === "escalating").length],
-            ["Free stories", FREE_LIMIT],
+            ["Free stories", Math.min(FREE_LIMIT, rankedCFB.length)],
           ].map(([label, value]) => (
             <div key={label} className="rounded border border-border bg-card/80 px-3 py-2">
               <strong className="stat-num-display block text-lg text-primary tabular-nums">{value}</strong>
