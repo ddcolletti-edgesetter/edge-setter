@@ -129,6 +129,7 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           secondaryTeam={story.secondaryTeam}
           player={story.player}
           playerEspnId={identity?.playerEspnId}
+          playerJersey={identity?.playerJersey}
           title={story.headline}
           storyType={story.storyType}
           detail={story.edgeSetterKnows}

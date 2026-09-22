@@ -23,7 +23,7 @@ import {
 } from "./store";
 import { scoreSignal } from "./scorer";
 import { runConsensus } from "./consensus-engine";
-import { rawEventToNormalizedEvent, confidenceInputFromRawEvent, playerEspnIdFromRaw } from "./situations-adapter";
+import { rawEventToNormalizedEvent, confidenceInputFromRawEvent, playerEspnIdFromRaw, playerJerseyFromRaw } from "./situations-adapter";
 import { evolveCanonicalSituation } from "./situations-engine";
 import { matchConfirmationSource, maybeRecordPublicConfirmation } from "./public-confirmation";
 import { sourceScorerOnOutcome } from "../agents";
@@ -628,6 +628,7 @@ function processCanonicalSituationSafe(raw: RawEvent, signal: LiveSignal, valida
       confidence_input: confidenceInputFromRawEvent(raw, signal, validatorAgreement),
       lifecycle_trigger: confirmationSource ? "official_confirmation" : undefined,
       player_espn_id: playerEspnIdFromRaw(raw),
+      player_jersey: playerJerseyFromRaw(raw),
     });
 
     console.log(

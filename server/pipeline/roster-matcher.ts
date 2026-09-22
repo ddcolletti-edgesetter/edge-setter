@@ -33,6 +33,9 @@ export interface RosterMatch {
   confidence: MatchConfidence;
   /** ESPN athlete id when known — lets callers cross-check the matched player. */
   espn_id: string | null;
+  /** Jersey number when the roster supplied one — display passenger only,
+   *  carried parallel to {@link espn_id}, never invented. */
+  jersey: string | null;
 }
 
 const GENERATIONAL_SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
@@ -117,7 +120,7 @@ export function matchRosterPlayer(
     }
   }
   if (best) {
-    return { name: best.p.full_name, confidence: "full_name", espn_id: best.p.espn_id };
+    return { name: best.p.full_name, confidence: "full_name", espn_id: best.p.espn_id, jersey: best.p.jersey ?? null };
   }
 
   // ── Pass 2: unique-surname fallback (low confidence) ─────────────────────────
@@ -142,7 +145,7 @@ export function matchRosterPlayer(
     if ((lastCounts.get(last) ?? 0) !== 1) continue; // ambiguous within the team
     if (!haySet.has(last)) continue;
     if (!capitalisedWords.has(last)) continue;        // lowercase word usage → skip
-    return { name: p.full_name, confidence: "last_name", espn_id: p.espn_id };
+    return { name: p.full_name, confidence: "last_name", espn_id: p.espn_id, jersey: p.jersey ?? null };
   }
 
   return null;

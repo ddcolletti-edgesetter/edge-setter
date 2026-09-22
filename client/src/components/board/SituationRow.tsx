@@ -42,6 +42,9 @@ export interface SituationSportsIdentity {
   /** ESPN athlete id for {@link player}, when the situation resolved one via the
    *  roster gazetteer. Drives the story-card headshot; absent otherwise. */
   playerEspnId?: string;
+  /** Jersey number for {@link player}, parallel to {@link playerEspnId}. Drives the
+   *  jersey-number story-card treatment; absent otherwise. */
+  playerJersey?: string;
   sport?: "nba" | "mlb" | "nfl" | "cfb";
 }
 
