@@ -89,6 +89,23 @@ export function rawEventToNormalizedEvent(raw: RawEvent, signal: LiveSignal): No
   };
 }
 
+/**
+ * ESPN athlete id that pairs with the player name the adapter resolved above.
+ * Mirrors the same fallback precedence as `players` in rawEventToNormalizedEvent:
+ * a successful regex/payload extraction has no roster match, so it carries no id
+ * (returns null); only when the regex path is empty AND the roster gazetteer wrote
+ * a player_candidate do we pass its espn_id through. Deliberately kept OUT of the
+ * NormalizedEvent — that object is embedded verbatim in the append-only situation
+ * event payload and hashed into replay_hash, so it must stay identity-stable. The
+ * id rides to the Situation record instead (see evolveCanonicalSituation).
+ */
+export function playerEspnIdFromRaw(raw: RawEvent): string | null {
+  const payload = raw.payload as Record<string, any>;
+  const fromRegex = normalizePlayers([raw.player, payload.player, payload.player_name]);
+  if (fromRegex.length > 0) return null;
+  return raw.player_candidate ? (raw.player_candidate_espn_id ?? null) : null;
+}
+
 export function confidenceInputFromRawEvent(raw: RawEvent, signal: LiveSignal, validatorAgreement = 0): SituationConfidenceInput {
   const payload = raw.payload as Record<string, any>;
   const sourceCount = Math.max(signal.source_count, Number(payload.source_count ?? 1));

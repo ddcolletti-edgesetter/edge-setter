@@ -514,6 +514,9 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   // (high) or "last_name" (low, single-surname fallback).
   addColumnIfMissing(db, "raw_events", "player_candidate", "TEXT");
   addColumnIfMissing(db, "raw_events", "player_candidate_confidence", "TEXT");
+  // ESPN athlete id for the gazetteer candidate, carried so story cards can render
+  // the player headshot. Written alongside player_candidate; never touches `player`.
+  addColumnIfMissing(db, "raw_events", "player_candidate_espn_id", "TEXT");
 }
 
 /* ─── Live signal archival ───────────────────────────────────────────────────
@@ -1220,10 +1223,11 @@ export function setPlayerCandidate(
   rawEventId: string,
   candidate: string | null,
   confidence: string | null,
+  espnId: string | null = null,
   db: Database.Database = getPipelineDb(),
 ): void {
-  db.prepare(`UPDATE raw_events SET player_candidate=?, player_candidate_confidence=? WHERE id=?`)
-    .run(candidate, confidence, rawEventId);
+  db.prepare(`UPDATE raw_events SET player_candidate=?, player_candidate_confidence=?, player_candidate_espn_id=? WHERE id=?`)
+    .run(candidate, confidence, espnId, rawEventId);
 }
 
 /* ─── LiveSignal CRUD ───────────────────────────────────── */

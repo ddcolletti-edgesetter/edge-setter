@@ -89,6 +89,14 @@ export interface Situation {
   readonly game_id: string | null;
   readonly teams: readonly string[];
   readonly players: readonly string[];
+  /**
+   * ESPN athlete id for the situation's primary player, when the founding event
+   * resolved one via the roster gazetteer. Purely a display passenger (drives the
+   * story-card headshot) — it is NOT part of the canonical identity hash and is
+   * deliberately kept off the NormalizedEvent so it never enters the append-only
+   * event replay_hash. Null when no roster match backed the player name.
+   */
+  readonly player_espn_id?: string | null;
   readonly situation_type: SituationType;
   readonly semantic_fingerprint: string;
   readonly created_from_event_id: string | null;

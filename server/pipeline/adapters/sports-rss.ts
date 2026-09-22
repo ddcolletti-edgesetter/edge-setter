@@ -409,7 +409,7 @@ async function processFeed(
           dedup_hash:    hash,
         },
       });
-      if (candidate) setPlayerCandidate(raw.id, candidate.name, candidate.confidence);
+      if (candidate) setPlayerCandidate(raw.id, candidate.name, candidate.confidence, candidate.espn_id);
       insertRssSeenHash(hash);
       seenHashes.add(hash);
       created++;

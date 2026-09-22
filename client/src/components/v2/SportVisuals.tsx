@@ -317,6 +317,22 @@ export function getTeamLogoUrl(abbr: string, sport?: TeamLogoSport): string {
   return TEAM_LOGO_URLS[upper] ?? "";
 }
 
+// ESPN CDN headshot path segment per sport. a.espncdn.com is already the trusted
+// host used for every team logo above — no new external dependency is introduced.
+const HEADSHOT_SPORT_PATH: Record<TeamLogoSport, string> = { nfl: "nfl", nba: "nba", mlb: "mlb", cfb: "college-football" };
+
+/**
+ * Resolve an ESPN headshot URL from a resolved athlete id (the roster gazetteer's
+ * espn_id, threaded through the situation → API → story card). Distinct from the
+ * legacy name-keyed {@link getPlayerHeadshotUrl}, which maps a small hardcoded set
+ * of names; this one works for any player whose ESPN id we carry. Returns "" when
+ * the id or sport is missing so callers can fall back to their stock/logo visual.
+ */
+export function getPlayerHeadshotUrlById(espnId: string | null | undefined, sport?: TeamLogoSport): string {
+  if (!espnId || !sport) return "";
+  return `https://a.espncdn.com/i/headshots/${HEADSHOT_SPORT_PATH[sport]}/players/full/${espnId}.png`;
+}
+
 interface TeamLogoProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; }
 export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
   if (isUnknownTeamAbbr(abbr)) return <NeutralTeamPlaceholder size={size} shape={shape} />;

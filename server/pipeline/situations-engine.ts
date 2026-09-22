@@ -33,6 +33,13 @@ export interface CanonicalSituationEvolutionInput {
   readonly event: NormalizedEvent;
   readonly confidence_input: SituationConfidenceInput;
   readonly lifecycle_trigger?: SituationLifecycleTrigger;
+  /**
+   * ESPN athlete id passenger for a newly-founded situation's primary player.
+   * Used only when building a fresh Situation (a matched situation keeps its own
+   * founding id). Never embedded in the hashed NormalizedEvent, so replay hashes
+   * are unaffected.
+   */
+  readonly player_espn_id?: string | null;
 }
 
 export interface CanonicalSituationEvolutionResult {
@@ -52,7 +59,7 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
     limit: 150,
   });
   const match = matchSituation(input.event, candidates);
-  const situation = match.matched_situation ?? buildSituationFromNormalizedEvent(input.event);
+  const situation = match.matched_situation ?? buildSituationFromNormalizedEvent(input.event, input.player_espn_id ?? null);
   const matched = Boolean(match.matched_situation);
 
   if (!matched) insertSituation(situation);
@@ -152,7 +159,7 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
   };
 }
 
-export function buildSituationFromNormalizedEvent(event: NormalizedEvent): Situation {
+export function buildSituationFromNormalizedEvent(event: NormalizedEvent, playerEspnId: string | null = null): Situation {
   const identity = {
     sport: event.sport,
     league: event.league,
@@ -170,6 +177,9 @@ export function buildSituationFromNormalizedEvent(event: NormalizedEvent): Situa
     game_id: event.game_id,
     teams: [...event.teams].sort(),
     players: [...event.players].sort(),
+    // Display passenger only — intentionally excluded from `identity` above so the
+    // canonical hash / situation id are unchanged by it.
+    player_espn_id: playerEspnId,
     situation_type: event.situation_type,
     semantic_fingerprint: event.semantic_fingerprint,
     created_from_event_id: event.normalized_event_id,

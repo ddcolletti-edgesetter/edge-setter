@@ -604,6 +604,9 @@ function sportsIdentityForSituation(situation: BoardSituation, canonical?: Canon
     team: guard(situation.team ?? teams[0]),
     opponent: guard(situation.opponent ?? teams[1]),
     player: canonical?.players?.[0] ?? situation.player,
+    // Passenger for the story-card headshot — only present when the canonical
+    // situation resolved a roster-backed ESPN id.
+    playerEspnId: canonical?.playerEspnId,
     sport,
   };
 }

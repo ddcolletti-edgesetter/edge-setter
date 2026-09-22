@@ -34,6 +34,7 @@ export function ensureSituationSchema(db: Database.Database = getPipelineDb()): 
       game_id                 TEXT,
       teams_json              TEXT NOT NULL DEFAULT '[]',
       players_json            TEXT NOT NULL DEFAULT '[]',
+      player_espn_id          TEXT,
       situation_type          TEXT NOT NULL,
       semantic_fingerprint    TEXT NOT NULL,
       created_from_event_id   TEXT,
@@ -145,6 +146,14 @@ export function ensureSituationSchema(db: Database.Database = getPipelineDb()): 
     );
   `);
 
+  // Migrate pre-existing DBs to carry the player headshot passenger. ALTER TABLE
+  // ADD COLUMN is a schema op, not a row UPDATE/DELETE, so the append-only guards
+  // do not fire. Existing rows read back NULL, which is the correct "no headshot".
+  const situationCols = db.prepare("PRAGMA table_info(situations)").all() as { name: string }[];
+  if (!situationCols.some((c) => c.name === "player_espn_id")) {
+    db.prepare("ALTER TABLE situations ADD COLUMN player_espn_id TEXT").run();
+  }
+
   installAppendOnlyGuards(db);
   ensureSituationGameResolutionSchema(db);
 }
@@ -181,8 +190,8 @@ export function insertSituation(situation: Situation, db: Database.Database = ge
   const result = db.prepare(`
     INSERT OR IGNORE INTO situations (
       situation_id, canonical_hash, sport, league, game_id, teams_json, players_json,
-      situation_type, semantic_fingerprint, created_from_event_id, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      player_espn_id, situation_type, semantic_fingerprint, created_from_event_id, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     situation.situation_id,
     situation.canonical_hash,
@@ -191,6 +200,7 @@ export function insertSituation(situation: Situation, db: Database.Database = ge
     situation.game_id,
     stableJson(situation.teams),
     stableJson(situation.players),
+    situation.player_espn_id ?? null,
     situation.situation_type,
     situation.semantic_fingerprint,
     situation.created_from_event_id,
@@ -761,6 +771,7 @@ function deserializeSituationWithLatestSnapshot(row: any): Situation & { latest_
     game_id: row.game_id ?? row.resolved_game_id ?? null,
     teams: parseJson(row.teams_json, []),
     players: parseJson(row.players_json, []),
+    player_espn_id: row.player_espn_id ?? null,
     situation_type: row.situation_type,
     semantic_fingerprint: row.semantic_fingerprint,
     created_from_event_id: row.created_from_event_id,

@@ -240,6 +240,7 @@ function EditorialLeadBlock({ story, onOpen }: { story: SituationStoryCardData; 
           primaryTeam={story.primaryTeam}
           secondaryTeam={story.secondaryTeam}
           player={story.player}
+          playerEspnId={identity?.playerEspnId}
           title={story.headline}
           storyType={story.storyType}
           detail={story.dek}
@@ -444,6 +445,7 @@ function SportsIdentityPanel({ situation, title, compact }: { situation?: Situat
       primaryTeam={identity?.team ?? identity?.awayTeam}
       secondaryTeam={identity?.opponent ?? identity?.homeTeam}
       player={identity?.player}
+      playerEspnId={identity?.playerEspnId}
       title={situation?.matchup ?? title}
       storyType={storyType}
       detail={situation?.sourceProgressLabel ?? situation?.statusLabel}
