@@ -11,6 +11,7 @@
  */
 
 import { insertRawEvent, getRawEvents } from "../store";
+import { shortInjuryTag } from "./injury-tag";
 
 const BASE_URL = "https://api.balldontlie.io/v1";
 const API_KEY  = process.env.BALLDONTLIE_API_KEY ?? "";
@@ -107,7 +108,10 @@ export async function ingestNBAInjuries(): Promise<{ created: number; skipped: n
       payload: {
         designation,
         status: inj.status,
-        body_part: inj.comment ?? "undisclosed",
+        // The BallDontLie injury API exposes only free-text `comment` (a full
+        // announcement sentence), no structured body-part field — so extract a
+        // short tag for the headline while keeping the full comment as `notes`.
+        body_part: shortInjuryTag(inj.comment),
         notes: inj.comment ?? `${playerName} listed ${designation}.`,
         confidence,
         confirmation: isHighImpact ? "Corroborated" : "Developing",
