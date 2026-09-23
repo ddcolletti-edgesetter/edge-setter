@@ -31,6 +31,7 @@ import { processRawEvents } from "./processor";
 import { autoSettleFinishedGames } from "./settlement";
 import { dispatchSignalAlerts } from "../alerts";
 import { recordPipelineHealth, storage } from "../storage";
+import { trackJob } from "../event-loop-monitor";
 
 function logIngestion(stage: string, inputRef: string, outputRef: string, summary: string, error?: string) {
   try {
@@ -612,7 +613,7 @@ export function startIngestionScheduler() {
 
   setTimeout(async () => {
     console.log("[ingestion] Starting initial cycle...");
-    await runIngestionCycle(); // full first run, fast tier included
+    await trackJob("ingestion-initial", () => runIngestionCycle()); // full first run, fast tier included
 
     // Standard tier: everything except tier1 sources (fast tier owns those)
     setInterval(async () => {
@@ -621,7 +622,7 @@ export function startIngestionScheduler() {
         logIngestion("Skipped", "scheduler", "scheduler", `Off-hours at ${new Date().getUTCHours()}:00 UTC — standard cycle skipped`);
         return;
       }
-      await runIngestionCycle({ includeFastTier: false }).catch(e => {
+      await trackJob("ingestion-standard", () => runIngestionCycle({ includeFastTier: false })).catch(e => {
         console.error("[ingestion] Standard cycle error:", e.message);
       });
     }, STANDARD_INTERVAL_MS);
@@ -629,7 +630,7 @@ export function startIngestionScheduler() {
     // Fast tier: tier1 nationals + school SID feeds, every 5 minutes
     setInterval(async () => {
       if (!isActiveHours()) return; // quiet skip — 12 log lines/hour off-hours is noise
-      await runFastIngestionCycle().catch(e => {
+      await trackJob("ingestion-fast", () => runFastIngestionCycle()).catch(e => {
         console.error("[ingestion] Fast cycle error:", e.message);
       });
     }, FAST_INTERVAL_MS);
@@ -639,9 +640,9 @@ export function startIngestionScheduler() {
   // Roster gazetteer: independent daily cadence, own mutex — a slow roster sync
   // never delays an ingest cycle and vice versa.
   setTimeout(async () => {
-    await runRosterRefresh().catch(e => console.error("[ingestion] Initial roster refresh error:", e.message));
+    await trackJob("roster-refresh", runRosterRefresh).catch(e => console.error("[ingestion] Initial roster refresh error:", e.message));
     setInterval(() => {
-      runRosterRefresh().catch(e => console.error("[ingestion] Roster refresh error:", e.message));
+      trackJob("roster-refresh", runRosterRefresh).catch(e => console.error("[ingestion] Roster refresh error:", e.message));
     }, ROSTER_INTERVAL_MS);
   }, ROSTER_INITIAL_DELAY_MS);
 

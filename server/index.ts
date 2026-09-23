@@ -9,6 +9,7 @@ import { archiveOldLiveSignals } from "./pipeline/store";
 import { runDistributionDraft } from "./distribution-draft";
 import { registerPipelineRoutes } from "./pipeline/routes";
 import { startIngestionScheduler } from "./pipeline/ingestion";
+import { startEventLoopMonitor, trackJob, trackRequest } from "./event-loop-monitor";
 
 const app = express();
 const httpServer = createServer(app);
@@ -18,6 +19,15 @@ declare module "http" {
     rawBody: unknown;
   }
 }
+
+// ─── Health check — registered first, no DB, no logging ─────────────────
+// Render's health check must not depend on a data endpoint. Previously it hit
+// /api/signals; any >5s event-loop stall got the instance killed (Sept 22 2026).
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({ ok: true });
+});
+
+startEventLoopMonitor();
 
 app.use(
   express.json({
@@ -40,31 +50,22 @@ export function log(message: string, source = "express") {
   console.log(`${formattedTime} [${source}] ${message}`);
 }
 
+// Request logger: method/path/status/duration only. Response bodies are NOT
+// logged — re-serializing every body blocked the event loop on large payloads
+// (/api/v2/games returns ~1.7k rows) and wrote user email + Stripe IDs to logs.
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  const isApi = path.startsWith("/api");
+  const done = isApi ? trackRequest(`${req.method} ${path}`) : null;
 
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
+  const finish = () => {
+    if (!done) return;
+    done();
+    log(`${req.method} ${path} ${res.statusCode} in ${Date.now() - start}ms`);
   };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        const loggedResponse = path === "/api/billing/portal" && "url" in capturedJsonResponse
-          ? { ...capturedJsonResponse, url: "[redacted]" }
-          : capturedJsonResponse;
-        logLine += ` :: ${JSON.stringify(loggedResponse)}`;
-      }
-
-      log(logLine);
-    }
-  });
+  res.once("finish", finish);
+  res.once("close", () => done?.());
 
   next();
 });
@@ -104,7 +105,7 @@ app.use((req, res, next) => {
   // Initial run 30s after startup (let DB hydration finish)
   setTimeout(async () => {
     try {
-      const result = await runSiteWatch();
+      const result = await trackJob("site-watch", runSiteWatch);
       console.log(`[site-watch] Initial run complete: status=${result.status} checks=${result.checks.length} anomalies=${result.anomalies.length}`);
     } catch (e: any) {
       console.error("[site-watch] Initial run failed:", e.message);
@@ -112,7 +113,7 @@ app.use((req, res, next) => {
     // Then repeat every 5 minutes
     setInterval(async () => {
       try {
-        const result = await runSiteWatch();
+        const result = await trackJob("site-watch", runSiteWatch);
         if (result.status !== "ok") {
           console.warn(`[site-watch] ${result.status.toUpperCase()} — ${result.recommended_action}`);
         } else {
@@ -128,14 +129,14 @@ app.use((req, res, next) => {
   const DIST_DRAFT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
   setTimeout(async () => {
     try {
-      const result = await runDistributionDraft();
+      const result = await trackJob("distribution-draft", runDistributionDraft);
       console.log(`[distribution-draft] Initial run: checked=${result.signals_checked} created=${result.drafts_created} skipped=${result.drafts_skipped}`);
     } catch (e: any) {
       console.error("[distribution-draft] Initial run failed:", e.message);
     }
     setInterval(async () => {
       try {
-        const result = await runDistributionDraft();
+        const result = await trackJob("distribution-draft", runDistributionDraft);
         if (result.drafts_created > 0) {
           console.log(`[distribution-draft] ${result.drafts_created} new draft(s) created`);
         }
@@ -161,13 +162,13 @@ app.use((req, res, next) => {
       // 2027" story that rendered as a top developing story). Now it runs
       // every day as part of ops.
       try {
-        const archived = archiveOldLiveSignals(7);
+        const archived = await trackJob("archive-stale-signals", () => archiveOldLiveSignals(7));
         console.log(`[daily-ops] Archived ${archived} stale live signal(s) (>7 days old)`);
       } catch (e: any) {
         console.error("[daily-ops] Stale-signal archival failed:", e.message);
       }
       try {
-        const result = await runDailyOps({ sendEmailReport: true });
+        const result = await trackJob("daily-ops", () => runDailyOps({ sendEmailReport: true }));
         console.log(`[daily-ops] Completed for ${result.date}: site=${result.site_health.last_status} email=${result.email_sent}`);
       } catch (e: any) {
         console.error("[daily-ops] Scheduled run failed:", e.message);
