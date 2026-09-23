@@ -1123,20 +1123,24 @@ function selectHomepageLead(situations: IntelligenceSituation[], games: LiveGame
   const eligible = situations
     .map((situation) => {
       const rawScore = homepageStoryScore(situation, games);
-      const hasLeagueGames = games.some((g) => g.league === situation.league);
-      // Offseason penalty: no active games for this league today.
+      const inSeason = leagueInSeason(situation.league, games);
+      // Offseason penalty: the league is in true offseason (no games within the
+      // in-season lookahead window), not merely "no game on tonight's slate" —
+      // a fresh in-season story on a quiet weekday must not be penalized like a
+      // story from a league that is genuinely out of season.
       // injury_update signals (confidence-heavy, no urgency window) use a
-      // steeper multiplier than other offseason signal types so that active-
-      // league stories with a game on the slate can take the lead.
-      const base = hasLeagueGames
+      // steeper multiplier than other offseason signal types.
+      const base = inSeason
         ? rawScore
         : isAvailabilitySituation(situation) && situation.raw.signal_type === "injury_update"
           ? rawScore * 0.4
           : rawScore * 0.7;
       const ageHours = ageHoursFrom(situation.timing.firstSeen);
-      return { situation, base, ageHours };
+      return { situation, rawScore, base, ageHours };
     })
-    .filter((entry) => entry.base > -999 && entry.ageHours <= LEAD_MAX_AGE_HOURS);
+    // Filter on the PRE-multiplier rawScore so a hard kill (-1000) can't be
+    // rescued by the offseason multiplier into a still-eligible -400/-700.
+    .filter((entry) => entry.rawScore > -999 && entry.ageHours <= LEAD_MAX_AGE_HOURS);
 
   if (eligible.length === 0) return null;
 
@@ -1187,6 +1191,33 @@ function normalizeMatchupText(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
+// Number of days ahead within which an upcoming game means the league is
+// treated as "in season" (rather than requiring a game on tonight's slate).
+const IN_SEASON_LOOKAHEAD_DAYS = 7;
+
+/**
+ * True when the league is in season, judged by whether it has any game within a
+ * window around now (recently started through IN_SEASON_LOOKAHEAD_DAYS ahead)
+ * rather than only a game on today's slate. Games with a missing/unparseable
+ * time are treated as scheduled (in-season), matching the prior "any game
+ * present" behavior for that case.
+ */
+function leagueInSeason(
+  league: IntelligenceSituation["league"],
+  games: LiveGameSituation[],
+  now: number = Date.now(),
+) {
+  const horizon = now + IN_SEASON_LOOKAHEAD_DAYS * 24 * 60 * 60 * 1000;
+  const recent = now - 24 * 60 * 60 * 1000;
+  return games.some((game) => {
+    if (game.league !== league) return false;
+    if (!game.gameTime) return true;
+    const time = new Date(game.gameTime).getTime();
+    if (Number.isNaN(time)) return true;
+    return time >= recent && time <= horizon;
+  });
+}
+
 const homepageStoryScore = (situation: IntelligenceSituation, games: LiveGameSituation[] = []) => {
   const text = [
     situation.headline,
@@ -1219,8 +1250,10 @@ const homepageStoryScore = (situation: IntelligenceSituation, games: LiveGameSit
 
   if (/(playoff|postseason|clinch|elimination|division|wild card|must-win|finals|championship)/i.test(text)) score += 36;
   if (/(questionable|doubtful|game[- ]time|warmup|late scratch|scratch|limited|practice|shootaround|availability|injury|designation)/i.test(text)) {
-  const hasActiveGames = games.some((g) => g.league === situation.league);
-  score += hasActiveGames ? 28 : 8;
+  // In-season (not merely "a game on tonight's slate") so an in-season injury
+  // on a quiet weekday still earns the full availability weight.
+  const inSeason = leagueInSeason(situation.league, games);
+  score += inSeason ? 28 : 8;
 }
   if (/(lineup|rotation|starter|starting|pitcher|ace|bullpen|minutes|usage|depth chart|qb|quarterback)/i.test(text)) score += 22;
   if (/(mvp|all-star|\bstar\b|captain|ace|qb1|closer|franchise)/i.test(text)) score += 18;
@@ -1243,7 +1276,7 @@ function hasNationalRelevance(text: string, situation: IntelligenceSituation) {
 
 function hasHomepagePressure(text: string, situation: IntelligenceSituation) {
   return Boolean(situation.marketReaction)
-    || /(playoff|postseason|clinch|elimination|division|wild card|must-win|mvp|all-star|\bstar\b|ace|qb|source disagreement|split sources)/i.test(text);
+    || /(playoff|postseason|clinch|elimination|division|wild card|must-win|mvp|all-star|\bstar\b|\bace\b|\bqb\b|source disagreement|split sources)/i.test(text);
 }
 
 function isRoutineRosterMove(text: string, situation: IntelligenceSituation) {

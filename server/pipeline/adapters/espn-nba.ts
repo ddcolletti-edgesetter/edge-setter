@@ -8,6 +8,7 @@
  */
 
 import { insertRawEvent, findGameByTeams, getPipelineDb } from "../store";
+import { shortInjuryTag } from "./injury-tag";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 
@@ -129,7 +130,9 @@ export async function ingestNBAInjuries(): Promise<{ created: number; skipped: n
     const rawStatus   = inj.status ?? "";
     const designation = normalizeDesignation(rawStatus);
     const position    = inj.athlete?.position?.abbreviation ?? "";
-    const bodyPart    = inj.shortComment ?? inj.longComment ?? "undisclosed";
+    // ESPN's shortComment/longComment can be sentence-length prose; reduce to a
+    // short tag so it doesn't leak into the headline parenthetical.
+    const bodyPart    = shortInjuryTag(inj.shortComment ?? inj.longComment);
     const key         = `${playerName}_${designation}`;
 
     if (existingKeys.has(key)) { skipped++; continue; }
