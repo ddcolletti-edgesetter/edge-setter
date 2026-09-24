@@ -426,6 +426,11 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
   }
 
   for (const raw of pending) {
+    // Yield to the event loop between events. better-sqlite3 is synchronous and
+    // each event costs ~125ms (situation matching re-lists candidates per event),
+    // so a 90+ event cycle ran as one 5-9s block every 15 min — long enough to
+    // fail Render's 5s health check (confirmed by [loop-lag], Sept 23 2026).
+    await new Promise<void>((resolve) => setImmediate(resolve));
     try {
       // Route event to Signal fields
       const fields = routeEventToFields(raw);
