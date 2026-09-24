@@ -201,6 +201,7 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     CREATE INDEX IF NOT EXISTS idx_live_signals_created_at  ON live_signals(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_raw_events_processed     ON raw_events(processed);
     CREATE INDEX IF NOT EXISTS idx_raw_events_league        ON raw_events(league);
+    CREATE INDEX IF NOT EXISTS idx_raw_events_source_received ON raw_events(source_id, received_at);
 
     CREATE TABLE IF NOT EXISTS outcomes (
       id              TEXT PRIMARY KEY,

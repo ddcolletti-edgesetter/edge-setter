@@ -246,12 +246,14 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const db = getPipelineDb();
   const recentRows = db.prepare(
-    "SELECT payload FROM raw_events WHERE source_id='mlb_statsapi' AND received_at >= ? LIMIT 500"
-  ).all(cutoff) as Array<{ payload: string }>;
+    `SELECT json_extract(payload, '$.mlb_transaction_id') AS tx_id
+       FROM raw_events
+      WHERE source_id = 'mlb_statsapi'
+        AND received_at >= ?
+        AND json_extract(payload, '$.mlb_transaction_id') IS NOT NULL`
+  ).all(cutoff) as Array<{ tx_id: number | string }>;
   const seenTxIds = new Set<number>(
-    recentRows
-      .map(r => { try { return (JSON.parse(r.payload) as any)?.mlb_transaction_id; } catch { return null; } })
-      .filter((id): id is number => id != null)
+    recentRows.map(r => Number(r.tx_id)).filter(id => Number.isFinite(id))
   );
 
   // SC = Status Change (IL placements + activations), CU = Recalled (IL activation),
