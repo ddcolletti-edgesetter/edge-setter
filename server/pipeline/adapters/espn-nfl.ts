@@ -5,7 +5,7 @@
  * Provides: NFL injury reports, final game scores
  */
 
-import { insertRawEvent, getRawEvents, findGameByTeams } from "../store";
+import { insertRawEvent, findGameByTeams, getPipelineDb } from "../store";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 // Offseason: 75 days covers OTAs + mini-camp + draft weekend. Tighten to 21 for regular season via env var.
@@ -174,12 +174,24 @@ export async function ingestNFLInjuries(): Promise<{ created: number; skipped: n
     raw_events_created: 0,
   };
 
-  const recentEvents = getRawEvents({ league: "NFL", limit: 1000 });
-  const existingKeys = new Set(
-    recentEvents
-      .filter(e => e.event_type === "injury_update")
-      .map(e => `${e.player}_${(e.payload as any).designation}_${String((e.payload as any).occurred_at ?? "").slice(0, 10)}`)
-  );
+  // Dedup via an exact indexed lookup per row rather than pulling a rolling
+  // window of NFL rows into memory. The old getRawEvents({ league: "NFL",
+  // limit: 1000 }) had no usable index (league-only), so on a cold boot it read
+  // every NFL row out of a multi-GB DB just to sort them — ~21s of synchronous
+  // work that blocked the event loop — and its 1000-row window let older
+  // injuries fall out and get re-created every cycle (17-18 dupes/cycle). This
+  // query is served by idx_raw_events_source_player. The key semantics are
+  // unchanged: player + designation + first 10 chars of the date.
+  const db = getPipelineDb();
+  const existsStmt = db.prepare(`SELECT 1 FROM raw_events
+    WHERE source_id = 'espn' AND player = ? AND league = 'NFL' AND event_type = 'injury_update'
+      AND json_extract(payload, '$.designation') = ?
+      AND substr(json_extract(payload, '$.occurred_at'), 1, 10) = ?
+    LIMIT 1`);
+  // Guard against duplicate rows within a single payload (same player twice in
+  // one fetch), which the per-row DB lookup can't catch since neither is
+  // inserted yet.
+  const insertedThisRun = new Set<string>();
 
   for (const inj of injuries) {
     const playerName = inj.athlete?.displayName;
@@ -205,9 +217,10 @@ export async function ingestNFLInjuries(): Promise<{ created: number; skipped: n
     }
     const position = inj.athlete?.position?.abbreviation ?? "";
     const bodyPart = inj.details?.type ?? inj.details?.location ?? "undisclosed";
-    const key = `${playerName}_${designation}_${eventDate?.slice(0, 10) ?? ""}`;
+    const eventDay = eventDate?.slice(0, 10) ?? "";
+    const key = `${playerName}_${designation}_${eventDay}`;
 
-    if (existingKeys.has(key)) {
+    if (insertedThisRun.has(key) || existsStmt.get(playerName, designation, eventDay)) {
       skipped++;
       continue;
     }
@@ -243,7 +256,7 @@ export async function ingestNFLInjuries(): Promise<{ created: number; skipped: n
 
     created++;
     diagnostics.raw_events_created++;
-    existingKeys.add(key);
+    insertedThisRun.add(key);
   }
 
   console.log(`[espn-nfl] NFL injuries diagnostics: ${JSON.stringify(diagnostics)}`);

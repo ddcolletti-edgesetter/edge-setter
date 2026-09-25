@@ -10,6 +10,7 @@ import { runDistributionDraft } from "./distribution-draft";
 import { registerPipelineRoutes } from "./pipeline/routes";
 import { startIngestionScheduler } from "./pipeline/ingestion";
 import { startEventLoopMonitor, trackJob, trackRequest } from "./event-loop-monitor";
+import { startLoopWatchdog } from "./loop-watchdog";
 
 const app = express();
 const httpServer = createServer(app);
@@ -28,6 +29,7 @@ app.get("/healthz", (_req, res) => {
 });
 
 startEventLoopMonitor();
+startLoopWatchdog();
 
 app.use(
   express.json({
