@@ -504,6 +504,19 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     CREATE INDEX IF NOT EXISTS idx_roster_staff_team
       ON roster_staff(league, team);
 
+    -- Per-league throttle + quota guard for The Odds API (see the-odds-api.ts).
+    -- Persisted in SQLite so a Render restart does NOT reset the throttle — the
+    -- instance restarts often and an in-memory throttle would let every boot burn
+    -- another 3 credits/league. One row per league; last_remaining/last_status
+    -- come from the x-requests-remaining header and HTTP status of the last call.
+    CREATE TABLE IF NOT EXISTS odds_fetch_state (
+      league          TEXT PRIMARY KEY,
+      last_success_at TEXT,
+      last_attempt_at TEXT,
+      last_remaining  INTEGER,
+      last_status     INTEGER
+    );
+
   `);
 
   // Migrate existing DBs that predate home_score/away_score columns on games
@@ -543,6 +556,41 @@ export function archiveOldLiveSignals(
     .prepare(`UPDATE live_signals SET is_archived = 1 WHERE created_at < ? AND is_archived = 0`)
     .run(cutoff);
   return result.changes;
+}
+
+/* ─── Odds API fetch state (persistent throttle + quota guard) ────────────── */
+
+export interface OddsFetchState {
+  league: string;
+  last_success_at: string | null;
+  last_attempt_at: string | null;
+  last_remaining: number | null;
+  last_status: number | null;
+}
+
+export function getOddsFetchState(
+  league: string,
+  db: Database.Database = getPipelineDb(),
+): OddsFetchState | null {
+  const row = db
+    .prepare(`SELECT league, last_success_at, last_attempt_at, last_remaining, last_status FROM odds_fetch_state WHERE league = ?`)
+    .get(league) as OddsFetchState | undefined;
+  return row ?? null;
+}
+
+export function recordOddsFetchState(
+  state: OddsFetchState,
+  db: Database.Database = getPipelineDb(),
+): void {
+  db.prepare(`
+    INSERT INTO odds_fetch_state (league, last_success_at, last_attempt_at, last_remaining, last_status)
+    VALUES (@league, @last_success_at, @last_attempt_at, @last_remaining, @last_status)
+    ON CONFLICT(league) DO UPDATE SET
+      last_success_at = excluded.last_success_at,
+      last_attempt_at = excluded.last_attempt_at,
+      last_remaining  = excluded.last_remaining,
+      last_status     = excluded.last_status
+  `).run(state);
 }
 
 /* ─── T1 signal detection logging ─────────────────────────────────────────── * Records the moment EdgeSetter first detects a named-player signal. * This is T1 — the backtesting clock starts here. * Only fires for new signals (not updates) with a non-null player and a * recognized signal_type. Additive only — does not touch live_signals. */

@@ -74,6 +74,25 @@ function isCFBSeason(): boolean {
   return m >= 8 || m === 1;
 }
 
+/** NBA season: Oct 15 – Jun 30 (includes playoffs + Finals; no games Jul–early Oct). */
+function isNBASeason(): boolean {
+  const d = new Date();
+  const m = d.getMonth() + 1; // 1-indexed
+  const day = d.getDate();
+  if (m === 10) return day >= 15;
+  return m >= 11 || m <= 6;
+}
+
+/** MLB season: Mar 20 – Nov 5 (spring-tail through postseason). */
+function isMLBSeason(): boolean {
+  const d = new Date();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  if (m === 3) return day >= 20;
+  if (m === 11) return day <= 5;
+  return m >= 4 && m <= 10;
+}
+
 /* ─── Run one full ingest cycle ──────────────────────────── */
 
 export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}): Promise<{
@@ -136,13 +155,22 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
 
   try {
     // ── 1. Odds (line data) ────────────────────────────────
+    // Season-gate every league — an off-season league has no games, so calling
+    // The Odds API for it just burns credits (3 per call). NBA in particular sat
+    // idle all summer racking up cost.
+    const nbaSeason = isNBASeason();
+    const mlbSeason = isMLBSeason();
     const nflSeason = isNFLSeason();
     const cfbSeason = isCFBSeason();
 
     const oddsErrors: string[] = [];
     const [nbaOdds, mlbOdds, nflOdds, cfbOdds] = await Promise.all([
-      ingestOdds("NBA").catch(e => { const msg = e.message; console.error("[ingestion] NBA odds error:", msg); oddsErrors.push(`NBA odds: ${msg}`); return { games: 0, events: 0 }; }),
-      ingestOdds("MLB").catch(e => { const msg = e.message; console.error("[ingestion] MLB odds error:", msg); oddsErrors.push(`MLB odds: ${msg}`); return { games: 0, events: 0 }; }),
+      nbaSeason
+        ? ingestOdds("NBA").catch(e => { const msg = e.message; console.error("[ingestion] NBA odds error:", msg); oddsErrors.push(`NBA odds: ${msg}`); return { games: 0, events: 0 }; })
+        : Promise.resolve({ games: 0, events: 0 }),
+      mlbSeason
+        ? ingestOdds("MLB").catch(e => { const msg = e.message; console.error("[ingestion] MLB odds error:", msg); oddsErrors.push(`MLB odds: ${msg}`); return { games: 0, events: 0 }; })
+        : Promise.resolve({ games: 0, events: 0 }),
       nflSeason
         ? ingestOdds("NFL").catch(e => { const msg = e.message; console.error("[ingestion] NFL odds error:", msg); oddsErrors.push(`NFL odds: ${msg}`); return { games: 0, events: 0 }; })
         : Promise.resolve(null),
@@ -155,7 +183,7 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
       "Odds",
       runId,
       "the-odds-api",
-      `NBA: ${nbaOdds.games}g/${nbaOdds.events}e · MLB: ${mlbOdds.games}g/${mlbOdds.events}e · NFL: ${nflOdds?.games ?? "off-season"}g · CFB: ${cfbOdds?.games ?? "off-season"}g`,
+      `NBA: ${nbaSeason ? `${nbaOdds.games}g/${nbaOdds.events}e` : "off-season"} · MLB: ${mlbSeason ? `${mlbOdds.games}g/${mlbOdds.events}e` : "off-season"} · NFL: ${nflOdds?.games ?? "off-season"}g · CFB: ${cfbOdds?.games ?? "off-season"}g`,
       oddsErrors.length ? oddsErrors.join("; ") : undefined,
     );
 
