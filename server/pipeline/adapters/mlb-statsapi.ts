@@ -10,8 +10,16 @@
  *   - IL transactions → transaction RawEvents
  */
 
-import { insertRawEvent, upsertGame, getGame, findGameByTeams, getRawEvents, getPipelineDb } from "../store";
+import {
+  insertRawEvent, upsertGame, getGame, findGameByTeams, getPipelineDb,
+  findExistingSignal, lineupConfirmRawEventExists, touchLiveSignalUpdatedAt,
+} from "../store";
 import { canonicalGameId, mlbCanonicalTeamCode } from "../canonical-game-id";
+
+// Mirrors processor.ts DEFAULT_DEDUP_LOOKBACK_MS (4h) — the window the processor's
+// fingerprint lookup uses for lineup_confirm. We reuse the SAME findExistingSignal
+// match rule so the signal we refresh is exactly the one processOne would merge onto.
+const LINEUP_CONFIRM_DEDUP_LOOKBACK_MS = 4 * 60 * 60 * 1000;
 
 const BASE_URL = "https://statsapi.mlb.com/api/v1";
 
@@ -346,18 +354,10 @@ export async function fetchProbablePitchers(): Promise<Array<{
 
 /* ─── Ingest probable pitcher confirmations ──────────────── */
 
-export async function ingestProbablePitchers(): Promise<{ created: number }> {
+export async function ingestProbablePitchers(): Promise<{ created: number; refreshed: number }> {
   const pitchers = await fetchProbablePitchers();
   let created = 0;
-
-  // Dedup against unprocessed raw events only — after processing, re-insert each cycle
-  // so the derived live_signal's updated_at stays current and time-decay doesn't bury it.
-  const recentPitcherEvents = getRawEvents({ league: "MLB", processed: false, limit: 500 });
-  const seenPitcherKeys = new Set<string>(
-    recentPitcherEvents
-      .filter(e => e.event_type === "lineup_confirm")
-      .map(e => `${e.game_id}|${e.team}|${e.player}`)
-  );
+  let refreshed = 0;
 
   for (const p of pitchers) {
     const game = getGame(p.game_id);
@@ -365,8 +365,27 @@ export async function ingestProbablePitchers(): Promise<{ created: number }> {
 
     for (const [side, pitcher] of [[game.home_team, p.home_pitcher], [game.away_team, p.away_pitcher]] as [string, string | null][]) {
       if (!pitcher) continue;
-      const pitcherKey = `${p.game_id}|${side}|${pitcher}`;
-      if (seenPitcherKeys.has(pitcherKey)) continue;
+
+      // Known game/team/pitcher combo (raw event already exists, processed or not):
+      // do NOT re-insert. The old code re-inserted every cycle to keep the derived
+      // live_signal fresh, but each re-insert ran the full processOne fan-out
+      // (upsertLiveSignal + insertSignalDetection + canonical situation_events/
+      // snapshots/history + raw_event_ids growth) — a main storage-growth driver
+      // (situation_events 1.67GB, 177k lineup_confirm rows). The re-scored value is
+      // unchanged in practice (recency bonus is already pinned at its max by the
+      // 15-min cadence), so we just bump the existing signal's updated_at instead,
+      // finding it via the SAME fingerprint lookup the processor uses.
+      if (lineupConfirmRawEventExists(p.game_id, side, pitcher)) {
+        const since = new Date(Date.now() - LINEUP_CONFIRM_DEDUP_LOOKBACK_MS).toISOString();
+        const existing = findExistingSignal({
+          league: "MLB", team: side, player: pitcher, signal_type: "lineup_confirm", since,
+        });
+        if (existing && touchLiveSignalUpdatedAt(existing.id)) refreshed++;
+        continue;
+      }
+
+      // Genuinely new game/team/pitcher (including a pitcher change): insert once so
+      // the processor builds the signal + situation exactly as before.
       insertRawEvent({
         source_id: "mlb_statsapi",
         source_type: "api",
@@ -389,12 +408,11 @@ export async function ingestProbablePitchers(): Promise<{ created: number }> {
           matchup: `${game.away_team} @ ${game.home_team}`,
         },
       });
-      seenPitcherKeys.add(pitcherKey);
       created++;
     }
   }
 
-  console.log(`[mlb-statsapi] Probable pitchers: ${created} RawEvents created`);
-  return { created };
+  console.log(`[mlb-statsapi] Probable pitchers: ${created} new RawEvents, ${refreshed} signals refreshed`);
+  return { created, refreshed };
 }
 
