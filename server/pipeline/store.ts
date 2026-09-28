@@ -540,6 +540,42 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   // Jersey number on the roster gazetteer itself (new column on an existing table —
   // pre-jersey DBs read back NULL, which is the correct "no jersey").
   addColumnIfMissing(db, "roster_players", "jersey", "TEXT");
+
+  // Settlement hardening (fix/settlement-stale-matches):
+  //   • settlement_expired — a null-game signal that never found a final game
+  //     inside its per-league window is parked terminally so it stops being
+  //     re-scanned every cycle by getUnsettledSignalsWithoutGameId.
+  //   • outcomes.excluded_stale — an outcome whose signal (null game_id) matched
+  //     a game far beyond its league window is a bad match; kept for audit but
+  //     excluded from every accuracy/calibration query.
+  addColumnIfMissing(db, "live_signals", "settlement_expired", "INTEGER NOT NULL DEFAULT 0");
+  addColumnIfMissing(db, "outcomes", "excluded_stale", "INTEGER NOT NULL DEFAULT 0");
+
+  // Fast paths for the settlement queue + the game/outcome join.
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_live_signals_unsettled_nullgame
+      ON live_signals(created_at)
+      WHERE game_id IS NULL AND outcome_id IS NULL AND betting_relevance=1;
+    CREATE INDEX IF NOT EXISTS idx_live_signals_game_outcome
+      ON live_signals(game_id, outcome_id);
+  `);
+}
+
+/* ─── Settlement windows ──────────────────────────────────────────────────────
+ * How long after a null-game signal is created we still allow it to be matched
+ * to that team's next final game. A June transaction must not settle against a
+ * September game. Values are generous per sport (off-days, byes) and easy to
+ * tune. Unknown leagues fall back to the widest window. */
+export const SETTLEMENT_WINDOW_DAYS: Record<string, number> = {
+  MLB: 2,
+  NBA: 3,
+  NFL: 8,
+  CFB: 8,
+};
+
+export function settlementWindowDays(league: string | null | undefined): number {
+  const key = (league ?? "").toUpperCase();
+  return SETTLEMENT_WINDOW_DAYS[key] ?? 8;
 }
 
 /* ─── Live signal archival ───────────────────────────────────────────────────
@@ -1019,6 +1055,7 @@ export function getUnsettledSignalsWithoutGameId(): any[] {
       AND betting_relevance = 1
       AND outcome_id IS NULL
       AND team IS NOT NULL
+      AND settlement_expired = 0
     ORDER BY created_at ASC
     LIMIT 500
   `).all();
@@ -1035,6 +1072,10 @@ export function findNextFinalGameForTeam(
 ): any | null {
   const db = getPipelineDb();
   const t = team.toUpperCase();
+  const windowDays = settlementWindowDays(league);
+  // Upper bound: only match a final game within `windowDays` of signal creation.
+  // julianday() compares instants numerically, so it is immune to the ISO-vs-
+  // "YYYY-MM-DD HH:MM:SS" formatting mismatch a string comparison would hit.
   return db.prepare(`
     SELECT * FROM games
     WHERE league = ?
@@ -1042,13 +1083,26 @@ export function findNextFinalGameForTeam(
       AND home_score IS NOT NULL
       AND away_score IS NOT NULL
       AND game_time > ?
+      AND julianday(game_time) <= julianday(?) + ?
       AND (
         UPPER(home_team) = ? OR UPPER(away_team) = ?
         OR UPPER(home_team) LIKE ? OR UPPER(away_team) LIKE ?
       )
     ORDER BY game_time ASC
     LIMIT 1
-  `).get(league, afterTimestamp, t, t, `%${t}%`, `%${t}%`) ?? null;
+  `).get(league, afterTimestamp, afterTimestamp, windowDays, t, t, `%${t}%`, `%${t}%`) ?? null;
+}
+
+/**
+ * Park a null-game signal terminally: it never found a final game for its team
+ * inside the league window, so it is excluded from future settlement scans.
+ * The row is preserved (not deleted); callers also record a SETTLEMENT_EXPIRED
+ * state-history entry for the audit trail.
+ */
+export function expireNullGameSignal(signalId: string): void {
+  getPipelineDb()
+    .prepare("UPDATE live_signals SET settlement_expired = 1 WHERE id = ?")
+    .run(signalId);
 }
 
 /**
@@ -1299,7 +1353,8 @@ export type SignalLifecycleState =
   | "SETTLED_WIN"
   | "SETTLED_LOSS"
   | "VOID"
-  | "EXPIRED";
+  | "EXPIRED"
+  | "SETTLEMENT_EXPIRED";
 
 export interface SignalHistoryRow {
   id: string;
@@ -1740,6 +1795,7 @@ export function getTrackRecord(league: string): TrackRecord {
     JOIN live_signals s ON s.id = o.signal_id
     WHERE s.league = ?
       AND o.hit IS NOT NULL
+      AND o.excluded_stale = 0
   `).get(league) as any;
 
   // Per-signal_type breakdown
@@ -1754,6 +1810,7 @@ export function getTrackRecord(league: string): TrackRecord {
     JOIN live_signals s ON s.id = o.signal_id
     WHERE s.league = ?
       AND o.hit IS NOT NULL
+      AND o.excluded_stale = 0
     GROUP BY s.signal_type
     ORDER BY total_signals DESC
   `).all(league) as any[];

@@ -420,6 +420,22 @@ sqlite.exec(`
   }
 })();
 
+// Migration: add excluded_stale to settled_outcomes if missing.
+// Mirrors outcomes.excluded_stale in pipeline.db — settled_outcomes feeds the
+// user-facing leaderboard (getVerifiedCountBySource) and accuracy sync, so bad
+// null-game→far-future-game matches must be filterable here too. Row kept for audit.
+(function migrateSettledOutcomeStale() {
+  try {
+    const cols = (sqlite.prepare("PRAGMA table_info(settled_outcomes)").all() as any[]).map((c: any) => c.name);
+    if (!cols.includes("excluded_stale")) {
+      sqlite.exec("ALTER TABLE settled_outcomes ADD COLUMN excluded_stale INTEGER NOT NULL DEFAULT 0;");
+      console.log("[db] migrated: settled_outcomes.excluded_stale added");
+    }
+  } catch (e: any) {
+    console.warn("[db] settled_outcomes excluded_stale migration skipped:", e.message);
+  }
+})();
+
 (function migrateSignalStateHistory() {
   try {
     sqlite.exec(`
@@ -1413,6 +1429,7 @@ export function getSettledOutcomesForAccuracy(): Array<{
     SELECT signal_id, league, signal_type, sources, hit, clv
     FROM settled_outcomes
     WHERE hit IS NOT NULL
+      AND excluded_stale = 0
   `).all() as any[];
 }
 
@@ -1421,9 +1438,40 @@ export function getVerifiedCountBySource(): Map<string, number> {
     SELECT json_extract(src.value, '$.name') AS src_name, COUNT(*) AS cnt
     FROM settled_outcomes, json_each(sources) AS src
     WHERE hit IS NOT NULL
+      AND excluded_stale = 0
     GROUP BY json_extract(src.value, '$.name')
   `).all() as any[];
   return new Map(rows.map(r => [r.src_name as string, r.cnt as number]));
+}
+
+/**
+ * Mirror the pipeline's stale-outcome flag into storage.db. Bad null-game→
+ * far-future matches are flagged (not deleted) so the leaderboard/accuracy
+ * queries above exclude them. Chunked to keep the IN(...) list bounded.
+ * Returns the number of rows actually flipped to 1.
+ */
+export function markSettledOutcomesStale(signalIds: string[]): number {
+  if (signalIds.length === 0) return 0;
+  const stmtCache = new Map<number, ReturnType<typeof sqlite.prepare>>();
+  let changed = 0;
+  const CHUNK = 500;
+  const tx = sqlite.transaction((ids: string[]) => {
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      const slice = ids.slice(i, i + CHUNK);
+      let stmt = stmtCache.get(slice.length);
+      if (!stmt) {
+        const placeholders = slice.map(() => "?").join(",");
+        stmt = sqlite.prepare(
+          `UPDATE settled_outcomes SET excluded_stale = 1
+           WHERE excluded_stale = 0 AND signal_id IN (${placeholders})`,
+        );
+        stmtCache.set(slice.length, stmt);
+      }
+      changed += (stmt.run as (...args: unknown[]) => { changes: number })(...slice).changes;
+    }
+  });
+  tx(signalIds);
+  return changed;
 }
 
 /* ─── Backfill Progress (persistent — survives restarts) ──────────────────── */
