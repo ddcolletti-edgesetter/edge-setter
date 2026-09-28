@@ -15,6 +15,8 @@
  * appearances across events will.
  */
 
+import { watchdogJobEvent } from "./loop-watchdog";
+
 const CHECK_MS = 500;
 const WARN_THRESHOLD_MS = 1000;
 
@@ -26,10 +28,12 @@ let nextId = 1;
 export async function trackJob<T>(name: string, fn: () => Promise<T> | T): Promise<T> {
   const id = nextId++;
   activeJobs.set(id, { name, startedAt: Date.now() });
+  watchdogJobEvent("start", id, name);
   try {
     return await fn();
   } finally {
     activeJobs.delete(id);
+    watchdogJobEvent("end", id, name);
   }
 }
 
@@ -37,8 +41,10 @@ export async function trackJob<T>(name: string, fn: () => Promise<T> | T): Promi
 export function trackRequest(label: string): () => void {
   const id = nextId++;
   inFlightRequests.set(id, { name: label, startedAt: Date.now() });
+  watchdogJobEvent("start", id, label);
   return () => {
     inFlightRequests.delete(id);
+    watchdogJobEvent("end", id, label);
   };
 }
 
