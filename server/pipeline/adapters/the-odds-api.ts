@@ -13,12 +13,76 @@
  * Called by the ingestion scheduler every 15 minutes during active hours.
  */
 
-import { upsertGame, getGame, insertRawEvent, insertOddsSnapshot } from "../store";
+import { upsertGame, getGame, insertRawEvent, insertOddsSnapshot, getOddsFetchState, recordOddsFetchState, type OddsFetchState } from "../store";
 import type { League } from "../types";
 import { canonicalGameId } from "../canonical-game-id";
 
 const API_KEY = process.env.THE_ODDS_API_KEY ?? "";
 const BASE_URL = "https://api.the-odds-api.com/v4";
+
+/* ─── Persistent throttle + quota guard ───────────────────────
+ *
+ * The 20K-credit plan was burning ~34k credits/month: every /odds call costs 3
+ * credits (spreads,totals,h2h × us region) and we fired 4 leagues every 15 min
+ * plus on every boot, then kept hammering 401s once the quota ran dry. This guard
+ * throttles each league to at most once per ODDS_MIN_INTERVAL_MIN and stops
+ * calling entirely for the rest of the UTC month once credits are exhausted
+ * (credits reset on the 1st at 00:00 UTC). State lives in SQLite so the frequent
+ * Render restarts don't reset it.
+ */
+
+/** Minimum minutes between successful odds fetches per league (env-tunable). */
+function oddsMinIntervalMin(): number {
+  const v = Number(process.env.ODDS_MIN_INTERVAL_MIN);
+  return Number.isFinite(v) && v > 0 ? v : 60;
+}
+
+/** True when `iso` falls in the same UTC year+month as `now` (credit-reset boundary). */
+function sameUTCMonth(iso: string, now: Date): boolean {
+  const d = new Date(iso);
+  return d.getUTCFullYear() === now.getUTCFullYear() && d.getUTCMonth() === now.getUTCMonth();
+}
+
+/**
+ * Decide whether to skip an odds fetch for a league, given its persisted state.
+ * Pure + exported so the skip rules can be unit-tested without a DB or network.
+ *
+ * Skip when:
+ *   a) the last success was within `minIntervalMin` minutes (throttle), or
+ *   b) last_remaining is known and < 3 and the last attempt was this UTC month
+ *      (out of credits — they only reset on the 1st at 00:00 UTC), or
+ *   c) the last status was 401 and the last attempt was this UTC month.
+ */
+export function shouldSkipOddsFetch(
+  state: OddsFetchState | null | undefined,
+  now: Date,
+  minIntervalMin: number,
+): { skip: boolean; reason?: string } {
+  if (!state) return { skip: false };
+
+  // a) throttle window since last SUCCESS
+  if (state.last_success_at) {
+    const ageMs = now.getTime() - new Date(state.last_success_at).getTime();
+    if (ageMs >= 0 && ageMs < minIntervalMin * 60_000) {
+      return { skip: true, reason: `throttled — last success ${Math.round(ageMs / 60_000)}m ago (< ${minIntervalMin}m)` };
+    }
+  }
+
+  // b) low remaining credits, same UTC month as the last attempt
+  if (
+    state.last_remaining !== null && state.last_remaining !== undefined && state.last_remaining < 3 &&
+    state.last_attempt_at && sameUTCMonth(state.last_attempt_at, now)
+  ) {
+    return { skip: true, reason: `low credits — ${state.last_remaining} remaining this UTC month` };
+  }
+
+  // c) out of credits (401), same UTC month as the last attempt
+  if (state.last_status === 401 && state.last_attempt_at && sameUTCMonth(state.last_attempt_at, now)) {
+    return { skip: true, reason: `out of credits — last call returned 401 this UTC month` };
+  }
+
+  return { skip: false };
+}
 
 // Betting key numbers — thresholds where public/sharp behavior shifts sharply.
 // Same list the client scorer uses (client/src/lib/signalScorer.ts scoreMarketImpact),
@@ -70,7 +134,13 @@ interface OddsAPIOutcome {
 
 /* ─── Fetch odds for a league ─────────────────────────────── */
 
-export async function fetchOdds(league: League): Promise<OddsAPIGame[]> {
+interface FetchOddsResult {
+  games: OddsAPIGame[];
+  status: number;             // HTTP status; 0 on a network/transport error
+  remaining: number | null;   // x-requests-remaining header, if present
+}
+
+export async function fetchOdds(league: League): Promise<FetchOddsResult> {
   if (!API_KEY) {
     throw new Error("THE_ODDS_API_KEY is not set — odds fetch skipped");
   }
@@ -78,26 +148,57 @@ export async function fetchOdds(league: League): Promise<OddsAPIGame[]> {
   const sportKey = SPORT_KEYS[league];
   const url = `${BASE_URL}/sports/${sportKey}/odds/?apiKey=${API_KEY}&regions=us&markets=spreads,totals,h2h&oddsFormat=american&dateFormat=iso`;
 
+  const parseInt10 = (v: string | null): number | null => {
+    if (v === null) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  };
+
   try {
     const resp = await fetch(url);
+    const remaining = parseInt10(resp.headers.get("x-requests-remaining"));
     if (!resp.ok) {
-      const remaining = resp.headers.get("x-requests-remaining");
       console.error(`[odds-api] HTTP ${resp.status} for ${league}. Remaining quota: ${remaining}`);
-      return [];
+      return { games: [], status: resp.status, remaining };
     }
-    const remaining = resp.headers.get("x-requests-remaining");
-    console.log(`[odds-api] ${league} fetched. Remaining quota: ${remaining}`);
-    return await resp.json() as OddsAPIGame[];
+    const used = resp.headers.get("x-requests-used");
+    const last = resp.headers.get("x-requests-last");
+    console.log(`[odds-api] ${league} fetched. Remaining: ${remaining} · used: ${used} · last: ${last}`);
+    return { games: (await resp.json()) as OddsAPIGame[], status: resp.status, remaining };
   } catch (err: any) {
     console.error(`[odds-api] Fetch error for ${league}:`, err.message);
-    return [];
+    return { games: [], status: 0, remaining: null };
   }
 }
 
 /* ─── Normalize & ingest ──────────────────────────────────── */
 
 export async function ingestOdds(league: League): Promise<{ games: number; events: number }> {
-  const apiGames = await fetchOdds(league);
+  // Persistent throttle + quota guard — skip the call entirely when we're inside
+  // the throttle window or out of credits for the month (see shouldSkipOddsFetch).
+  const now = new Date();
+  const priorState = getOddsFetchState(league);
+  const decision = shouldSkipOddsFetch(priorState, now, oddsMinIntervalMin());
+  if (decision.skip) {
+    console.log(`[odds-api] ${league} skipped: ${decision.reason}`);
+    return { games: 0, events: 0 };
+  }
+
+  const result = await fetchOdds(league);
+
+  // Record the attempt outcome so the throttle survives restarts. last_success_at
+  // only advances on a 2xx; otherwise we carry the prior value forward.
+  const nowIso = now.toISOString();
+  const ok = result.status >= 200 && result.status < 300;
+  recordOddsFetchState({
+    league,
+    last_success_at: ok ? nowIso : (priorState?.last_success_at ?? null),
+    last_attempt_at: nowIso,
+    last_remaining: result.remaining ?? priorState?.last_remaining ?? null,
+    last_status: result.status,
+  });
+
+  const apiGames = result.games;
   let gamesUpserted = 0;
   let eventsCreated = 0;
 
