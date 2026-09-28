@@ -9,6 +9,7 @@ import { archiveOldLiveSignals } from "./pipeline/store";
 import { runDistributionDraft } from "./distribution-draft";
 import { registerPipelineRoutes } from "./pipeline/routes";
 import { startIngestionScheduler } from "./pipeline/ingestion";
+import { runSettlementBacklogMigration } from "./pipeline/settlement";
 import { startEventLoopMonitor, trackJob, trackRequest } from "./event-loop-monitor";
 import { startLoopWatchdog } from "./loop-watchdog";
 
@@ -78,6 +79,19 @@ app.use((req, res, next) => {
   // ─── Pipeline: register routes + start ingestion scheduler ───────────────
   registerPipelineRoutes(app);
   startIngestionScheduler();
+
+  // One-time (idempotent) settlement backlog cleanup: park never-matchable
+  // null-game signals and flag stale far-future matches. Chunked + yielding, so
+  // it can't block the loop; fire-and-forget so startup is not delayed.
+  void trackJob("settlement-backlog-migration", () => runSettlementBacklogMigration())
+    .then((r) =>
+      console.log(
+        `[startup] Settlement backlog migration done: scanned=${r.scanned} ` +
+        `expired=${r.expired} stale_flagged=${r.stale_outcomes_flagged} ` +
+        `stale_mirrored=${r.stale_outcomes_mirrored}`,
+      ),
+    )
+    .catch((e: any) => console.error("[startup] Settlement backlog migration failed:", e.message));
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

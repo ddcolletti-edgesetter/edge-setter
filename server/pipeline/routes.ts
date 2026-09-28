@@ -39,7 +39,7 @@ import { listCanonicalSituationApiResponses, type CanonicalSituationOrderBy } fr
 import { ingestNFLInjuries } from "./adapters/espn-nfl";
 import { ingestCFBInjuries } from "./adapters/espn-cfb";
 import { ingestOdds } from "./adapters/the-odds-api";
-import { settleGame, autoSettleFinishedGames, computeSourceAccuracy } from "./settlement";
+import { settleGame, autoSettleFinishedGames, computeSourceAccuracy, forceAccuracyRecompute } from "./settlement";
 import { runFullBackfill, getBackfillStatus } from "./backfill";
 import { runCalibration, getStoredCalibration } from "./calibration";
 import { computeSpreadOrTotalClv } from "./clv";
@@ -839,7 +839,9 @@ export function registerPipelineRoutes(app: Express) {
     if (!requireAdmin(req, res)) return;
     try {
       const result = await autoSettleFinishedGames();
-      computeSourceAccuracy();
+      // Manual route: always fully recompute + sync (bypasses the ingestion-cycle
+      // debounce) and reset its clock, so an admin-triggered settle is never a no-op.
+      forceAccuracyRecompute();
       return res.json({ success: true, ...result });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });

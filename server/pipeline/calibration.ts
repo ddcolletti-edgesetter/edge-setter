@@ -141,6 +141,7 @@ export function runCalibration(): CalibrationReport {
     FROM outcomes o
     JOIN live_signals s ON s.id = o.signal_id
     WHERE o.hit IS NOT NULL
+      AND o.excluded_stale = 0
     ORDER BY o.created_at ASC
   `).all() as Array<{
     hit: number;

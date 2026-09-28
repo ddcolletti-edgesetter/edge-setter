@@ -21,15 +21,18 @@ import {
   getCompletedUnfinalGames,
   createOutcome,
   linkOutcomeToSignal,
+  expireNullGameSignal,
+  settlementWindowDays,
  getLatestSnapshotBefore,
 getClosingSnapshot,
 recordSignalStateChange,
 } from "./store";
+import { trackJob } from "../event-loop-monitor";
 import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
 import { fetchNBAFinalScores } from "./adapters/espn-nba";
 import { fetchNFLFinalScores } from "./adapters/espn-nfl";
 import { fetchCFBFinalScores } from "./adapters/espn-cfb";
-import { storage, insertSettledOutcome, getSettledOutcomesForAccuracy } from "../storage";
+import { storage, insertSettledOutcome, getSettledOutcomesForAccuracy, markSettledOutcomesStale, countStaleSettledOutcomes } from "../storage";
 import type { LiveSignal, Game } from "./types";
 import { computeSpreadOrTotalClv } from "./clv";
 
@@ -300,113 +303,165 @@ export interface AutoSettleResult {
   games_updated: number;
   games_settled: number;
   signals_settled: number;
+  signals_expired: number;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/* ─── Accuracy recompute debounce ─────────────────────────────
+ * computeSourceAccuracy() + syncAccuracyToStorageDb() together scan every
+ * settled outcome and block the event loop for seconds. The ingestion cycle
+ * runs frequently, so from that path we recompute at most once per hour.
+ * Manual admin routes call computeSourceAccuracy() directly and are NOT gated
+ * by this. forceAccuracyRecompute() runs it now and resets the clock. */
+const ACCURACY_DEBOUNCE_MS = 60 * 60 * 1000;
+let lastAccuracyComputeAt = 0;
+
+export function forceAccuracyRecompute(): void {
+  computeSourceAccuracy();
+  syncAccuracyToStorageDb();
+  lastAccuracyComputeAt = Date.now();
 }
 
 export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
   const db = getPipelineDb();
   ensureAccuracyTable(db);
 
-  const [mlbScores, nbaScores, nflScores, cfbScores] = await Promise.all([
-    fetchMLBFinalScores().catch(() => []),
-    fetchNBAFinalScores().catch(() => []),
-    fetchNFLFinalScores().catch(() => []),
-    fetchCFBFinalScores().catch(() => []),
-  ]);
+  const [mlbScores, nbaScores, nflScores, cfbScores] = await trackJob(
+    "settlement:fetch-scores",
+    () => Promise.all([
+      fetchMLBFinalScores().catch(() => []),
+      fetchNBAFinalScores().catch(() => []),
+      fetchNFLFinalScores().catch(() => []),
+      fetchCFBFinalScores().catch(() => []),
+    ]),
+  );
 
-  let gamesUpdated = 0;
   const allScores = [...mlbScores, ...nbaScores, ...nflScores, ...cfbScores];
 
-  for (const { game_id, home_score, away_score } of allScores) {
-    const game = getGame(game_id);
-    if (!game) continue;
-    if (game.status === "final" && game.home_score != null) continue;
-    updateGameFinal(game_id, home_score, away_score);
-    gamesUpdated++;
-  }
+  const gamesUpdated = await trackJob("settlement:update-finals", () => {
+    let updated = 0;
+    for (const { game_id, home_score, away_score } of allScores) {
+      const game = getGame(game_id);
+      if (!game) continue;
+      if (game.status === "final" && game.home_score != null) continue;
+      updateGameFinal(game_id, home_score, away_score);
+      updated++;
+    }
+    return updated;
+  });
 
-  const settleable = getSettleable();
   let gamesSettled = 0, signalsSettled = 0;
 
-  for (const game of settleable) {
-    if (game.home_score == null || game.away_score == null) continue;
-    const result = settleGame(game.id, game.home_score, game.away_score);
-    if (result.settled > 0 || result.skipped > 0) gamesSettled++;
-    signalsSettled += result.settled;
-  }
+  await trackJob("settlement:settle-linked", () => {
+    const settleable = getSettleable();
+    for (const game of settleable) {
+      if (game.home_score == null || game.away_score == null) continue;
+      const result = settleGame(game.id, game.home_score, game.away_score);
+      if (result.settled > 0 || result.skipped > 0) gamesSettled++;
+      signalsSettled += result.settled;
+    }
+  });
 
-  const nullGameSignals = getUnsettledSignalsWithoutGameId();
-  for (const raw of nullGameSignals) {
-    const signal = deserializeSignal(raw);
-    if (!signal.team) continue;
+  let signalsExpired = 0;
+  await trackJob("settlement:settle-nullgame", () => {
+    const nullGameSignals = getUnsettledSignalsWithoutGameId();
+    const now = Date.now();
 
-    const game = findNextFinalGameForTeam(signal.league, signal.team, signal.created_at);
-    if (!game) continue;
-    if (game.home_score == null || game.away_score == null) continue;
+    for (const raw of nullGameSignals) {
+      const signal = deserializeSignal(raw);
+      if (!signal.team) continue;
 
-    try {
-      const result = settleSignal(
-        signal,
-        { ...game, home_score: game.home_score, away_score: game.away_score },
-        game.home_score,
-        game.away_score,
-      );
+      const game = findNextFinalGameForTeam(signal.league, signal.team, signal.created_at);
 
-      const outcome = createOutcome({
-        signal_id: signal.id,
-        game_id: game.id,
-        market: result.market,
-        home_score: game.home_score,
-        away_score: game.away_score,
-        line_at_signal: result.lineAtSignal,
-        closing_line: result.closingLine,
-        actual_result: result.actualResult,
-        hit: result.hit,
-        clv: result.clv,
-        recorded_at: new Date().toISOString(),
-      });
+      if (!game || game.home_score == null || game.away_score == null) {
+        // No final game inside the league window. Once the signal is older than
+        // window + 1 day, no future game can ever fall inside the window, so park
+        // it terminally to stop it being re-scanned every cycle forever.
+        const windowMs = (settlementWindowDays(signal.league) + 1) * DAY_MS;
+        const createdMs = Date.parse(signal.created_at);
+        if (Number.isFinite(createdMs) && now - createdMs > windowMs) {
+          expireNullGameSignal(signal.id);
+          recordSignalStateChange({
+            signal_id: signal.id,
+            previous_state: "UPDATED",
+            new_state: "SETTLEMENT_EXPIRED",
+            reason: `No final ${signal.league} game for ${signal.team} within ${settlementWindowDays(signal.league)}d window`,
+            metadata: { league: signal.league, team: signal.team, window_days: settlementWindowDays(signal.league) },
+          });
+          signalsExpired++;
+        }
+        continue;
+      }
 
-      linkOutcomeToSignal(signal.id, outcome.id);
-      recordSignalStateChange({
-        signal_id: signal.id,
-        previous_state: "UPDATED",
-        new_state: result.hit ? "SETTLED_WIN" : "SETTLED_LOSS",
-        reason: "Outcome settlement completed",
-        metadata: {
+      try {
+        const result = settleSignal(
+          signal,
+          { ...game, home_score: game.home_score, away_score: game.away_score },
+          game.home_score,
+          game.away_score,
+        );
+
+        const outcome = createOutcome({
+          signal_id: signal.id,
           game_id: game.id,
           market: result.market,
+          home_score: game.home_score,
+          away_score: game.away_score,
+          line_at_signal: result.lineAtSignal,
+          closing_line: result.closingLine,
+          actual_result: result.actualResult,
+          hit: result.hit,
           clv: result.clv,
-        },
-      });
-      insertSettledOutcome({
-        signal_id:      signal.id,
-        game_id:        game.id,
-        league:         signal.league,
-        signal_type:    signal.signal_type,
-        sources:        JSON.stringify(signal.sources),
-        team:           signal.team ?? null,
-        market:         result.market,
-        home_score:     game.home_score,
-        away_score:     game.away_score,
-        line_at_signal: result.lineAtSignal,
-        closing_line:   result.closingLine,
-        actual_result:  result.actualResult,
-        hit:            result.hit,
-        clv:            result.clv,
-        recorded_at:    new Date().toISOString(),
-      });
+          recorded_at: new Date().toISOString(),
+        });
 
-      if (result.hit !== null) {
-        signalsSettled++;
-        gamesSettled++;
+        linkOutcomeToSignal(signal.id, outcome.id);
+        recordSignalStateChange({
+          signal_id: signal.id,
+          previous_state: "UPDATED",
+          new_state: result.hit ? "SETTLED_WIN" : "SETTLED_LOSS",
+          reason: "Outcome settlement completed",
+          metadata: {
+            game_id: game.id,
+            market: result.market,
+            clv: result.clv,
+          },
+        });
+        insertSettledOutcome({
+          signal_id:      signal.id,
+          game_id:        game.id,
+          league:         signal.league,
+          signal_type:    signal.signal_type,
+          sources:        JSON.stringify(signal.sources),
+          team:           signal.team ?? null,
+          market:         result.market,
+          home_score:     game.home_score,
+          away_score:     game.away_score,
+          line_at_signal: result.lineAtSignal,
+          closing_line:   result.closingLine,
+          actual_result:  result.actualResult,
+          hit:            result.hit,
+          clv:            result.clv,
+          recorded_at:    new Date().toISOString(),
+        });
+
+        if (result.hit !== null) {
+          signalsSettled++;
+          gamesSettled++;
+        }
+      } catch (err: any) {
+        console.error(`[settlement] Error settling null-game signal ${signal.id}:`, err.message);
       }
-    } catch (err: any) {
-      console.error(`[settlement] Error settling null-game signal ${signal.id}:`, err.message);
     }
-  }
+  });
 
-  if (signalsSettled > 0) {
-    computeSourceAccuracy();
-    syncAccuracyToStorageDb();
+  if (signalsSettled > 0 && Date.now() - lastAccuracyComputeAt >= ACCURACY_DEBOUNCE_MS) {
+    await trackJob("settlement:compute-accuracy", () => {
+      computeSourceAccuracy();
+      syncAccuracyToStorageDb();
+    });
+    lastAccuracyComputeAt = Date.now();
   }
 
   return {
@@ -414,6 +469,7 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
     games_updated: gamesUpdated,
     games_settled: gamesSettled,
     signals_settled: signalsSettled,
+    signals_expired: signalsExpired,
   };
 }
 
@@ -445,7 +501,7 @@ export function computeSourceAccuracy(): void {
         AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END)  AS avg_clv
       FROM outcomes o
       JOIN live_signals s ON s.id = o.signal_id
-      WHERE s.league = ? AND o.hit IS NOT NULL
+      WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
     `).get(league) as any;
 
     upsertAccuracy(db, league, null, null, null, null, overall);
@@ -460,7 +516,7 @@ export function computeSourceAccuracy(): void {
         AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END)  AS avg_clv
       FROM outcomes o
       JOIN live_signals s ON s.id = o.signal_id
-      WHERE s.league = ? AND o.hit IS NOT NULL
+      WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
       GROUP BY s.signal_type
     `).all(league) as any[];
 
@@ -475,7 +531,7 @@ export function computeSourceAccuracy(): void {
              o.hit, o.clv
       FROM outcomes o
       JOIN live_signals s ON s.id = o.signal_id
-      WHERE s.league = ? AND o.hit IS NOT NULL
+      WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
     `).all(league) as any[];
 
     // Tally hits/misses per source_id
@@ -634,4 +690,156 @@ export function syncAccuracyToStorageDb(): void {
   } catch (err: any) {
     console.error("[settlement] syncAccuracyToStorageDb failed:", err.message);
   }
+}
+
+/* ─── One-time backlog migration ──────────────────────────────
+ * Prod (Sept 28 2026) carried ~39k null-game signals that will never match a
+ * final game and ~51k outcomes whose null-game signal matched a game far beyond
+ * its league window (a June transaction "settled" against a September game).
+ *
+ * This idempotent, chunked, event-loop-yielding migration:
+ *   1. Parks each never-matchable null-game signal (SETTLEMENT_EXPIRED) so the
+ *      settlement queue stops re-scanning it every cycle.
+ *   2. Flags stale outcomes (excluded_stale=1) in pipeline.db AND mirrors the
+ *      flag into storage.db settled_outcomes — rows are kept, never deleted.
+ *   3. Forces one accuracy recompute so the leaderboard/calibration reflect the
+ *      now-excluded rows immediately.
+ *
+ * Re-running is a no-op: every step only touches rows still at their default
+ * flag value that still meet the age/window criteria. */
+export interface SettlementBacklogMigrationResult {
+  scanned: number;
+  expired: number;
+  stale_outcomes_flagged: number;
+  stale_outcomes_mirrored: number;
+}
+
+const BACKLOG_CHUNK = 1000;
+const yieldToLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+export async function runSettlementBacklogMigration(): Promise<SettlementBacklogMigrationResult> {
+  const db = getPipelineDb();
+  ensureAccuracyTable(db);
+
+  // ── Step 1: expire never-matchable null-game backlog, chunked ────────────
+  // Candidates: the same rows the settlement queue scans, minus already-parked
+  // ones. Snapshot ids up front (small: id/league/team/created_at only) so that
+  // flipping settlement_expired mid-loop can't disturb pagination.
+  const candidates = db.prepare(`
+    SELECT id, league, team, created_at
+    FROM live_signals
+    WHERE game_id IS NULL
+      AND betting_relevance = 1
+      AND outcome_id IS NULL
+      AND team IS NOT NULL
+      AND settlement_expired = 0
+    ORDER BY created_at ASC
+  `).all() as Array<{ id: string; league: string; team: string; created_at: string }>;
+
+  const now = Date.now();
+  let scanned = 0;
+  let expired = 0;
+
+  // Commit each chunk's writes as ONE transaction: under WAL + synchronous=FULL
+  // an auto-committed statement fsyncs per row (~2 fsyncs/row), so writing 39k
+  // rows one at a time blocks the loop for minutes. One commit per 1000-row
+  // chunk collapses that to a handful of fsyncs, and we yield between chunks.
+  const expireChunk = db.transaction(
+    (items: Array<{ id: string; league: string; team: string; windowDays: number }>) => {
+      for (const it of items) {
+        expireNullGameSignal(it.id);
+        recordSignalStateChange({
+          signal_id: it.id,
+          previous_state: "UPDATED",
+          new_state: "SETTLEMENT_EXPIRED",
+          reason: `Backlog migration: no final ${it.league} game for ${it.team} within ${it.windowDays}d window`,
+          metadata: { league: it.league, team: it.team, window_days: it.windowDays, migration: true },
+        });
+      }
+    },
+  );
+
+  let pending: Array<{ id: string; league: string; team: string; windowDays: number }> = [];
+  const flushPending = () => {
+    if (pending.length === 0) return;
+    expireChunk(pending);
+    expired += pending.length;
+    pending = [];
+  };
+
+  for (const c of candidates) {
+    scanned++;
+    const windowDays = settlementWindowDays(c.league);
+    const createdMs = Date.parse(c.created_at);
+    // Only park rows old enough that no future game can still land in-window.
+    if (Number.isFinite(createdMs) && now - createdMs > (windowDays + 1) * DAY_MS) {
+      // Confirm there is genuinely no final game inside the window before parking
+      // it (guards the rare case a matchable in-window game is simply queue-starved).
+      const game = findNextFinalGameForTeam(c.league, c.team, c.created_at);
+      if (!game) {
+        pending.push({ id: c.id, league: c.league, team: c.team, windowDays });
+      }
+    }
+    if (scanned % BACKLOG_CHUNK === 0) {
+      flushPending();
+      await yieldToLoop();
+    }
+  }
+  flushPending();
+
+  // ── Step 2: flag stale outcomes in pipeline.db (kept, not deleted) ───────
+  // A null-game signal whose matched game is more than its league window past
+  // the signal's creation is a bad match. UPDATE…FROM joins the signal in.
+  const staleUpdate = db.prepare(`
+    UPDATE outcomes
+    SET excluded_stale = 1
+    FROM live_signals AS s
+    WHERE s.id = outcomes.signal_id
+      AND outcomes.excluded_stale = 0
+      AND s.game_id IS NULL
+      AND EXISTS (
+        SELECT 1 FROM games g
+        WHERE g.id = outcomes.game_id
+          AND julianday(g.game_time) - julianday(s.created_at) >
+              (CASE s.league
+                 WHEN 'MLB' THEN 2 WHEN 'NBA' THEN 3
+                 WHEN 'NFL' THEN 8 WHEN 'CFB' THEN 8 ELSE 8 END)
+      )
+  `).run();
+  const staleFlagged = staleUpdate.changes;
+  await yieldToLoop();
+
+  // ── Step 2b: mirror the flag into storage.db settled_outcomes ────────────
+  // Skip entirely when nothing new was flagged AND storage.db already holds the
+  // same number of stale rows as pipeline.db — i.e. a prior run already synced.
+  const pipelineStaleCount = (db.prepare(
+    "SELECT COUNT(*) AS n FROM outcomes WHERE excluded_stale = 1",
+  ).get() as { n: number }).n;
+  const storageStaleCount = countStaleSettledOutcomes();
+
+  let staleMirrored = 0;
+  if (staleFlagged === 0 && storageStaleCount === pipelineStaleCount) {
+    // storage.db is already in sync — no mirror pass needed.
+  } else {
+    const staleSignalIds = (db.prepare(
+      "SELECT signal_id FROM outcomes WHERE excluded_stale = 1",
+    ).all() as Array<{ signal_id: string }>).map((r) => r.signal_id);
+    staleMirrored = markSettledOutcomesStale(staleSignalIds);
+  }
+  await yieldToLoop();
+
+  // ── Step 3: force one recompute so exclusions take effect immediately ────
+  forceAccuracyRecompute();
+
+  console.log(
+    `[settlement] Backlog migration: scanned=${scanned} expired=${expired} ` +
+    `stale_flagged=${staleFlagged} stale_mirrored=${staleMirrored}`,
+  );
+
+  return {
+    scanned,
+    expired,
+    stale_outcomes_flagged: staleFlagged,
+    stale_outcomes_mirrored: staleMirrored,
+  };
 }
