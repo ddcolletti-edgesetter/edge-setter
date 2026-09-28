@@ -16,7 +16,7 @@ import { sendWaitlistConfirmation, sendProWelcome, sendBillingRetryEmail } from 
 import express from "express";
 import { syncToSupabase } from "./supabase-sync";
 import { isProUser } from "@shared/pro-utils";
-import { getPipelineDb, archiveOldLiveSignals } from "./pipeline/store";
+import { getPipelineDb, archiveOldLiveSignals, applyReadTimeUrgency } from "./pipeline/store";
 import type { LiveSignal } from "./pipeline/types";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import type { Request, Response } from "express";
@@ -395,7 +395,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       ? `SELECT * FROM live_signals WHERE league=? ORDER BY created_at DESC LIMIT 100`
       : `SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100`;
     const rows: any[] = league ? pdb.prepare(sql).all(league) : pdb.prepare(sql).all();
-    return res.json(rows.map(row => mapLiveSignalToFrontend({
+    const signals = rows.map(row => ({
       ...row,
       sources: JSON.parse(row.sources ?? "[]"),
       line_movement: row.line_movement ? JSON.parse(row.line_movement) : null,
@@ -403,7 +403,9 @@ export function registerRoutes(httpServer: Server, app: Express) {
       raw_event_ids: JSON.parse(row.raw_event_ids ?? "[]"),
       betting_relevance: row.betting_relevance === 1,
       fantasy_relevance: row.fantasy_relevance === 1,
-    })));
+    }));
+    // Recompute urgency at delivery (finished/aged games demote to NOTE).
+    return res.json(applyReadTimeUrgency(signals).map(mapLiveSignalToFrontend));
   });
 
   // ─── Sources ─────────────────────────────────────────────────────────────────
@@ -894,7 +896,7 @@ export function registerRoutes(httpServer: Server, app: Express) {
       ? `SELECT * FROM live_signals WHERE league=? ORDER BY created_at DESC LIMIT 100`
       : `SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100`;
     const rows: any[] = league ? pdb.prepare(sql).all(league) : pdb.prepare(sql).all();
-    return res.json(rows.map(row => mapLiveSignalToFrontend({
+    const signals = rows.map(row => ({
       ...row,
       sources: JSON.parse(row.sources ?? "[]"),
       line_movement: row.line_movement ? JSON.parse(row.line_movement) : null,
@@ -902,7 +904,9 @@ export function registerRoutes(httpServer: Server, app: Express) {
       raw_event_ids: JSON.parse(row.raw_event_ids ?? "[]"),
       betting_relevance: row.betting_relevance === 1,
       fantasy_relevance: row.fantasy_relevance === 1,
-    })));
+    }));
+    // Recompute urgency at delivery (finished/aged games demote to NOTE).
+    return res.json(applyReadTimeUrgency(signals).map(mapLiveSignalToFrontend));
   });
   app.get("/api/signals/all", (req, res) => {
     if (!requireAdmin(req, res)) return;

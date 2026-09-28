@@ -23,6 +23,7 @@ import {
   linkOutcomeToSignal,
   expireNullGameSignal,
   settlementWindowDays,
+  archiveFinishedMarketSignals,
  getLatestSnapshotBefore,
 getClosingSnapshot,
 recordSignalStateChange,
@@ -304,6 +305,7 @@ export interface AutoSettleResult {
   games_settled: number;
   signals_settled: number;
   signals_expired: number;
+  market_signals_archived: number;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -464,12 +466,24 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
     lastAccuracyComputeAt = Date.now();
   }
 
+  // Retire market signals (line_move) whose game is over so they stop reading as
+  // URGENT/WATCH on the board. Read-time urgency already demotes them to NOTE;
+  // this removes them from the active feed entirely. One indexed UPDATE.
+  const marketSignalsArchived = await trackJob(
+    "settlement:archive-finished-market",
+    () => archiveFinishedMarketSignals(),
+  );
+  if (marketSignalsArchived > 0) {
+    console.log(`[settlement] Archived ${marketSignalsArchived} finished market signal(s)`);
+  }
+
   return {
     scores_fetched: { NBA: nbaScores.length, MLB: mlbScores.length, NFL: nflScores.length, CFB: cfbScores.length },
     games_updated: gamesUpdated,
     games_settled: gamesSettled,
     signals_settled: signalsSettled,
     signals_expired: signalsExpired,
+    market_signals_archived: marketSignalsArchived,
   };
 }
 
