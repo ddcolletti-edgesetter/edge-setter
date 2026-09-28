@@ -32,7 +32,7 @@ import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
 import { fetchNBAFinalScores } from "./adapters/espn-nba";
 import { fetchNFLFinalScores } from "./adapters/espn-nfl";
 import { fetchCFBFinalScores } from "./adapters/espn-cfb";
-import { storage, insertSettledOutcome, getSettledOutcomesForAccuracy, markSettledOutcomesStale } from "../storage";
+import { storage, insertSettledOutcome, getSettledOutcomesForAccuracy, markSettledOutcomesStale, countStaleSettledOutcomes } from "../storage";
 import type { LiveSignal, Game } from "./types";
 import { computeSpreadOrTotalClv } from "./clv";
 
@@ -740,6 +740,33 @@ export async function runSettlementBacklogMigration(): Promise<SettlementBacklog
   let scanned = 0;
   let expired = 0;
 
+  // Commit each chunk's writes as ONE transaction: under WAL + synchronous=FULL
+  // an auto-committed statement fsyncs per row (~2 fsyncs/row), so writing 39k
+  // rows one at a time blocks the loop for minutes. One commit per 1000-row
+  // chunk collapses that to a handful of fsyncs, and we yield between chunks.
+  const expireChunk = db.transaction(
+    (items: Array<{ id: string; league: string; team: string; windowDays: number }>) => {
+      for (const it of items) {
+        expireNullGameSignal(it.id);
+        recordSignalStateChange({
+          signal_id: it.id,
+          previous_state: "UPDATED",
+          new_state: "SETTLEMENT_EXPIRED",
+          reason: `Backlog migration: no final ${it.league} game for ${it.team} within ${it.windowDays}d window`,
+          metadata: { league: it.league, team: it.team, window_days: it.windowDays, migration: true },
+        });
+      }
+    },
+  );
+
+  let pending: Array<{ id: string; league: string; team: string; windowDays: number }> = [];
+  const flushPending = () => {
+    if (pending.length === 0) return;
+    expireChunk(pending);
+    expired += pending.length;
+    pending = [];
+  };
+
   for (const c of candidates) {
     scanned++;
     const windowDays = settlementWindowDays(c.league);
@@ -750,19 +777,15 @@ export async function runSettlementBacklogMigration(): Promise<SettlementBacklog
       // it (guards the rare case a matchable in-window game is simply queue-starved).
       const game = findNextFinalGameForTeam(c.league, c.team, c.created_at);
       if (!game) {
-        expireNullGameSignal(c.id);
-        recordSignalStateChange({
-          signal_id: c.id,
-          previous_state: "UPDATED",
-          new_state: "SETTLEMENT_EXPIRED",
-          reason: `Backlog migration: no final ${c.league} game for ${c.team} within ${windowDays}d window`,
-          metadata: { league: c.league, team: c.team, window_days: windowDays, migration: true },
-        });
-        expired++;
+        pending.push({ id: c.id, league: c.league, team: c.team, windowDays });
       }
     }
-    if (scanned % BACKLOG_CHUNK === 0) await yieldToLoop();
+    if (scanned % BACKLOG_CHUNK === 0) {
+      flushPending();
+      await yieldToLoop();
+    }
   }
+  flushPending();
 
   // ── Step 2: flag stale outcomes in pipeline.db (kept, not deleted) ───────
   // A null-game signal whose matched game is more than its league window past
@@ -787,10 +810,22 @@ export async function runSettlementBacklogMigration(): Promise<SettlementBacklog
   await yieldToLoop();
 
   // ── Step 2b: mirror the flag into storage.db settled_outcomes ────────────
-  const staleSignalIds = (db.prepare(
-    "SELECT signal_id FROM outcomes WHERE excluded_stale = 1",
-  ).all() as Array<{ signal_id: string }>).map((r) => r.signal_id);
-  const staleMirrored = markSettledOutcomesStale(staleSignalIds);
+  // Skip entirely when nothing new was flagged AND storage.db already holds the
+  // same number of stale rows as pipeline.db — i.e. a prior run already synced.
+  const pipelineStaleCount = (db.prepare(
+    "SELECT COUNT(*) AS n FROM outcomes WHERE excluded_stale = 1",
+  ).get() as { n: number }).n;
+  const storageStaleCount = countStaleSettledOutcomes();
+
+  let staleMirrored = 0;
+  if (staleFlagged === 0 && storageStaleCount === pipelineStaleCount) {
+    // storage.db is already in sync — no mirror pass needed.
+  } else {
+    const staleSignalIds = (db.prepare(
+      "SELECT signal_id FROM outcomes WHERE excluded_stale = 1",
+    ).all() as Array<{ signal_id: string }>).map((r) => r.signal_id);
+    staleMirrored = markSettledOutcomesStale(staleSignalIds);
+  }
   await yieldToLoop();
 
   // ── Step 3: force one recompute so exclusions take effect immediately ────

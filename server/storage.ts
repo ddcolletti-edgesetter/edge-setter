@@ -1474,6 +1474,14 @@ export function markSettledOutcomesStale(signalIds: string[]): number {
   return changed;
 }
 
+/** Count of settled_outcomes rows already flagged stale — lets the backlog
+ *  migration skip the mirror pass when storage.db is already in sync. */
+export function countStaleSettledOutcomes(): number {
+  return (sqlite.prepare(
+    "SELECT COUNT(*) AS n FROM settled_outcomes WHERE excluded_stale = 1",
+  ).get() as { n: number }).n;
+}
+
 /* ─── Backfill Progress (persistent — survives restarts) ──────────────────── */
 
 export interface BackfillPhase {

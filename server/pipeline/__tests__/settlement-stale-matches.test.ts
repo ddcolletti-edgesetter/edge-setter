@@ -21,7 +21,17 @@ import path from "path";
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "es-stale-settle-"));
 process.env.PIPELINE_DATA_DIR = TMP_DIR;
 
-const markSettledOutcomesStaleMock = vi.fn((ids: string[]) => ids.length);
+// Stateful storage.db mirror stub: markSettledOutcomesStale accumulates the
+// flagged signal ids (returning how many were newly added), and
+// countStaleSettledOutcomes reports the running total — so the migration's
+// "storage already in sync" skip check behaves like the real thing.
+const storageStale = new Set<string>();
+const markSettledOutcomesStaleMock = vi.fn((ids: string[]) => {
+  const before = storageStale.size;
+  for (const id of ids) storageStale.add(id);
+  return storageStale.size - before;
+});
+const countStaleSettledOutcomesMock = vi.fn(() => storageStale.size);
 
 vi.mock("../../storage", () => ({
   markBackfillPhase: vi.fn(),
@@ -32,6 +42,7 @@ vi.mock("../../storage", () => ({
   insertSettledOutcome: vi.fn(),
   getSettledOutcomesForAccuracy: vi.fn(() => []),
   markSettledOutcomesStale: markSettledOutcomesStaleMock,
+  countStaleSettledOutcomes: countStaleSettledOutcomesMock,
 }));
 
 vi.mock("../adapters/mlb-statsapi", () => ({ fetchMLBFinalScores: vi.fn(() => Promise.resolve([])) }));
@@ -134,6 +145,7 @@ beforeEach(() => {
     db.prepare(`DELETE FROM ${t}`).run();
   }
   vi.clearAllMocks();
+  storageStale.clear();
 });
 
 describe("findNextFinalGameForTeam window bound", () => {
@@ -278,6 +290,7 @@ describe("runSettlementBacklogMigration idempotency", () => {
     const first = await settlement.runSettlementBacklogMigration();
     expect(first.expired).toBe(1);
     expect(first.stale_outcomes_flagged).toBe(1);
+    expect(first.stale_outcomes_mirrored).toBe(1);
 
     // Flag is persisted, row is kept (not deleted).
     const flagged = db.prepare("SELECT excluded_stale FROM outcomes WHERE id = ?").get(o.id) as any;
@@ -285,11 +298,16 @@ describe("runSettlementBacklogMigration idempotency", () => {
     expect((db.prepare("SELECT COUNT(*) AS n FROM outcomes").get() as any).n).toBe(1);
 
     // Mirror into storage.db was invoked with the stale signal id.
-    expect(markSettledOutcomesStaleMock).toHaveBeenCalled();
+    expect(markSettledOutcomesStaleMock).toHaveBeenCalledTimes(1);
     expect(markSettledOutcomesStaleMock.mock.calls[0][0]).toContain(staleMatchSig);
 
+    // Second run: nothing new to expire OR flag, and storage.db is already in
+    // sync, so the mirror pass is skipped entirely (0 flagged, 0 mirrored).
     const second = await settlement.runSettlementBacklogMigration();
     expect(second.expired).toBe(0);
     expect(second.stale_outcomes_flagged).toBe(0);
+    expect(second.stale_outcomes_mirrored).toBe(0);
+    // markSettledOutcomesStale must NOT be called again on the no-op run.
+    expect(markSettledOutcomesStaleMock).toHaveBeenCalledTimes(1);
   });
 });
