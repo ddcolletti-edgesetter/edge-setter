@@ -204,6 +204,18 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     CREATE INDEX IF NOT EXISTS idx_raw_events_source_received ON raw_events(source_id, received_at);
     CREATE INDEX IF NOT EXISTS idx_raw_events_league_received ON raw_events(league, received_at);
     CREATE INDEX IF NOT EXISTS idx_raw_events_source_player ON raw_events(source_id, player);
+    -- getRawEvents/getUnprocessedRawEvents filter by (league, processed) and order
+    -- by received_at. After PR #64 added (league, received_at) the planner used it
+    -- for {league, processed:false} and walked every MLB row (32s cold-boot freeze);
+    -- this covering (league, processed, received_at) index makes that lookup seek-only.
+    CREATE INDEX IF NOT EXISTS idx_raw_events_league_processed_received ON raw_events(league, processed, received_at);
+    -- espn-nfl.ts dedups an injury by (player, designation, day-of occurred_at). This
+    -- partial expression index makes that lookup index-only (was a 23s cold scan).
+    CREATE INDEX IF NOT EXISTS idx_raw_events_nfl_injury_key ON raw_events(player, json_extract(payload,'$.designation'), substr(json_extract(payload,'$.occurred_at'),1,10)) WHERE source_id='espn' AND league='NFL' AND event_type='injury_update';
+    -- ingestProbablePitchers checks whether a lineup_confirm already exists for a
+    -- game/team/pitcher before re-inserting (see lineupConfirmRawEventExists). Partial
+    -- index keyed on the combo keeps that an indexed seek over the lineup_confirm rows.
+    CREATE INDEX IF NOT EXISTS idx_raw_events_lineup_confirm_combo ON raw_events(game_id, team, player) WHERE event_type='lineup_confirm';
 
     CREATE TABLE IF NOT EXISTS outcomes (
       id              TEXT PRIMARY KEY,
@@ -1156,6 +1168,35 @@ function deserializeRawEvent(row: any): RawEvent {
     payload: JSON.parse(row.payload ?? "{}"),
     processed: row.processed === 1,
   };
+}
+
+/** True if a lineup_confirm raw event already exists for this game/team/pitcher
+ *  (processed OR not). Indexed seek via idx_raw_events_lineup_confirm_combo — used
+ *  by ingestProbablePitchers to avoid re-inserting (and re-fanning-out) an already
+ *  known probable starter. */
+export function lineupConfirmRawEventExists(
+  game_id: string,
+  team: string,
+  player: string,
+  db: Database.Database = getPipelineDb(),
+): boolean {
+  const row = db.prepare(
+    `SELECT 1 FROM raw_events
+      WHERE event_type='lineup_confirm' AND game_id=? AND team=? AND player=?
+      LIMIT 1`,
+  ).get(game_id, team, player);
+  return row !== undefined;
+}
+
+/** Bump a live signal's updated_at without touching its score or any other field.
+ *  Returns true if a row was updated. */
+export function touchLiveSignalUpdatedAt(
+  id: string,
+  db: Database.Database = getPipelineDb(),
+): boolean {
+  const r = db.prepare(`UPDATE live_signals SET updated_at=? WHERE id=?`)
+    .run(new Date().toISOString(), id);
+  return r.changes > 0;
 }
 
 /* ─── Roster gazetteer ───────────────────────────────────────────────────────
