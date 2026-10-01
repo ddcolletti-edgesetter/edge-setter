@@ -32,6 +32,7 @@
  */
 
 import type { LiveSignal, ScoreBand, UrgencyLabel, TrustLabel, ScoreBreakdown } from "./types";
+import { computeUrgency } from "./urgency";
 
 /* ─── Band definitions ─────────────────────────────────── */
 
@@ -228,7 +229,6 @@ export function scoreSignal(inputs: ScoreInputs, gameTimeIso?: string): ScoreRes
   // Game time proximity (for urgency)
   const gameMs = gameTimeIso ? new Date(gameTimeIso).getTime() : null;
   const minutesToGame = gameMs ? (gameMs - now) / 60000 : null;
-  const decisionWindowOpen = minutesToGame === null || minutesToGame > 60; // game >1h away
 
   /* 1. Confidence score  (max 22, nonlinear) */
   const confidenceScore = Math.min(22, 22 * Math.pow(inputs.confidence / 100, 0.7));
@@ -299,29 +299,18 @@ export function scoreSignal(inputs: ScoreInputs, gameTimeIso?: string): ScoreRes
   /* Band */
   const band = getScoreBand(totalScore);
 
-  /* Urgency */
-  let urgencyLabel: UrgencyLabel;
-  let urgencyReason: string;
-
-  const isBreakingInjury = (inputs.injuryDesignation === "OUT" || inputs.injuryDesignation === "IL-60")
-                           && ageMinutes < 60;
-  if ((totalScore >= 80 && ageMinutes < 30) || isBreakingInjury) {
-    urgencyLabel = "LIVE";
-    urgencyReason = isBreakingInjury
-      ? `Breaking: ${inputs.injuryDesignation} confirmed within 60 minutes — adjust bets immediately`
-      : "Real-time edge — line may still be moving, act within the next 15 minutes";
-  } else if (totalScore >= 65 && ageMinutes < 120 && (inputs.bettingRelevance || (delta > 0)) && decisionWindowOpen) {
-    urgencyLabel = "URGENT";
-    urgencyReason = delta > 0
-      ? `Line moved ${delta} pts — sharp money still flowing, window closing`
-      : "High-confidence signal — decision window open now";
-  } else if (totalScore >= 48 && decisionWindowOpen) {
-    urgencyLabel = "WATCH";
-    urgencyReason = "Actionable signal — monitor for confirmation or market movement";
-  } else {
-    urgencyLabel = "NOTE";
-    urgencyReason = "Context signal — low urgency or closed decision window";
-  }
+  /* Urgency — thresholds live in the shared computeUrgency() so scorer.ts
+     (write time) and the delivery path (read time) never drift. gameFinal is
+     always false here: a signal is scored at creation, before its game ends. */
+  const { label: urgencyLabel, reason: urgencyReason } = computeUrgency({
+    totalScore,
+    ageMinutes,
+    minutesToGame,
+    bettingRelevance: Boolean(inputs.bettingRelevance),
+    lineMovementDelta: delta,
+    injuryDesignation: inputs.injuryDesignation,
+    gameFinal: false,
+  });
 
   /* Trust label */
   const trustMap: Record<string, TrustLabel> = {

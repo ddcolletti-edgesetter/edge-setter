@@ -16,6 +16,7 @@ import path from "path";
 import fs from "fs";
 import { randomUUID } from "crypto";
 import type { Game, RawEvent, LiveSignal, Outcome } from "./types";
+import { recomputeUrgency, GAME_COMPLETED_GRACE_MIN } from "./urgency";
 import {
   markBackfillPhase as _markBackfillPhase,
   getBackfillPhase as _getBackfillPhase,
@@ -563,13 +564,19 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   addColumnIfMissing(db, "live_signals", "settlement_expired", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(db, "outcomes", "excluded_stale", "INTEGER NOT NULL DEFAULT 0");
 
-  // Fast paths for the settlement queue + the game/outcome join.
+  // Indexes created here (not in the CREATE-TABLE block) because settlement_expired
+  // / is_archived are migration columns added just above — indexing them in the
+  // schema exec would fail on a fresh DB.
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_live_signals_unsettled_nullgame
       ON live_signals(created_at)
       WHERE game_id IS NULL AND outcome_id IS NULL AND betting_relevance=1;
     CREATE INDEX IF NOT EXISTS idx_live_signals_game_outcome
       ON live_signals(game_id, outcome_id);
+    -- Drives archiveFinishedMarketSignals: leading (signal_type, is_archived)
+    -- narrows to the tiny active-market lane, game_id feeds the finished-game EXISTS.
+    CREATE INDEX IF NOT EXISTS idx_live_signals_type_archived_game
+      ON live_signals(signal_type, is_archived, game_id);
   `);
 }
 
@@ -604,6 +611,64 @@ export function archiveOldLiveSignals(
     .prepare(`UPDATE live_signals SET is_archived = 1 WHERE created_at < ? AND is_archived = 0`)
     .run(cutoff);
   return result.changes;
+}
+
+/**
+ * Odds/market-derived signal types. These live on the "act before the game"
+ * lane: once the game is over they carry no edge, so the settlement cycle
+ * retires them. `line_move` is the only such type today; add here if more odds
+ * types are introduced.
+ */
+export const MARKET_SIGNAL_TYPES = ["line_move"] as const;
+
+/**
+ * Retire finished market signals: archive (is_archived=1) any active market-type
+ * signal whose game is final or is more than the completed-game grace window past
+ * its start. A single indexed UPDATE (see idx_live_signals_type_archived_game).
+ * Runs from the settlement cycle so stale line_moves stop surfacing on the board.
+ */
+export function archiveFinishedMarketSignals(
+  db: Database.Database = getPipelineDb(),
+): number {
+  const staleGameCutoff = new Date(
+    Date.now() - GAME_COMPLETED_GRACE_MIN * 60 * 1000,
+  ).toISOString();
+  const placeholders = MARKET_SIGNAL_TYPES.map(() => "?").join(",");
+  const result = db
+    .prepare(
+      `UPDATE live_signals
+       SET is_archived = 1
+       WHERE is_archived = 0
+         AND signal_type IN (${placeholders})
+         AND game_id IS NOT NULL
+         AND EXISTS (
+           SELECT 1 FROM games g
+           WHERE g.id = live_signals.game_id
+             AND (g.status = 'final' OR g.game_time < ?)
+         )`,
+    )
+    .run(...MARKET_SIGNAL_TYPES, staleGameCutoff);
+  return result.changes;
+}
+
+/**
+ * Recompute urgency_label / urgency_reason on the way out to clients so an
+ * aged signal or a finished game never keeps a stale URGENT/WATCH. Stored rows
+ * are left untouched; this only rewrites the delivered copy. Game lookups are
+ * cached per game_id so a feed of many signals costs at most one lookup/game.
+ */
+export function applyReadTimeUrgency<T extends LiveSignal>(signals: T[]): T[] {
+  const now = Date.now();
+  const gameCache = new Map<string, Game | null>();
+  return signals.map((s) => {
+    let game: Game | null = null;
+    if (s.game_id) {
+      if (!gameCache.has(s.game_id)) gameCache.set(s.game_id, getGame(s.game_id));
+      game = gameCache.get(s.game_id) ?? null;
+    }
+    const u = recomputeUrgency(s, game, now);
+    return { ...s, urgency_label: u.label, urgency_reason: u.reason };
+  });
 }
 
 /* ─── Odds API fetch state (persistent throttle + quota guard) ────────────── */

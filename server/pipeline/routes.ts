@@ -26,6 +26,7 @@
 import type { Express, Request, Response } from "express";
 import {
   getLiveSignals, getLiveSignal,
+  applyReadTimeUrgency,
   getGames, getRawEvents, insertRawEvent,
   createOutcome, getOutcomes,
   getTrackRecord, getPipelineDb,
@@ -251,7 +252,9 @@ export function registerPipelineRoutes(app: Express) {
     if (band) signals = signals.filter((s) => s.score_band === band);
     if (type) signals = signals.filter((s) => s.signal_type === type);
     if (needsPostFilter) signals = signals.slice(0, limit);
-    return res.json({ signals });
+    // Recompute urgency at delivery so a finished/aged game never reads as
+    // URGENT/WATCH (stored rows unchanged).
+    return res.json({ signals: applyReadTimeUrgency(signals) });
   });
 
   /**
@@ -265,7 +268,7 @@ export function registerPipelineRoutes(app: Express) {
   app.get("/api/v2/signals/:id", (req: Request, res: Response) => {
     const signal = getLiveSignal(req.params.id as string);
     if (!signal) return res.status(404).json({ error: "Signal not found" });
-    return res.json(signal);
+    return res.json(applyReadTimeUrgency([signal])[0]);
   });
 
   /**
@@ -559,7 +562,7 @@ export function registerPipelineRoutes(app: Express) {
   app.get("/api/pipeline/status", (req: Request, res: Response) => {
     if (!requireAdmin(req, res)) return;
     const pending = getRawEvents({ processed: false, limit: 500 });
-    const recent = getLiveSignals({ limit: 20 });
+    const recent = applyReadTimeUrgency(getLiveSignals({ limit: 20 }));
     const byLeague = { NBA: 0, MLB: 0, NFL: 0, CFB: 0 } as Record<string, number>;
     recent.forEach(s => { byLeague[s.league] = (byLeague[s.league] ?? 0) + 1; });
 
