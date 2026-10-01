@@ -27,6 +27,8 @@ import {
  getLatestSnapshotBefore,
 getClosingSnapshot,
 recordSignalStateChange,
+getPipelineMeta,
+setPipelineMeta,
 } from "./store";
 import { trackJob } from "../event-loop-monitor";
 import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
@@ -731,9 +733,24 @@ export interface SettlementBacklogMigrationResult {
 const BACKLOG_CHUNK = 1000;
 const yieldToLoop = () => new Promise<void>((resolve) => setImmediate(resolve));
 
+// Completion marker. This migration is a one-time cleanup: after its first full
+// run it expires nothing new, yet steps 1–2b still re-scan every null-game signal
+// on every boot (a ~17s event-loop block on prod). Once complete we persist this
+// flag and skip the whole body on later boots. Ongoing expiry of newly-aged
+// signals is handled per-cycle by autoSettleFinishedGames, so nothing is lost.
+const BACKLOG_MIGRATION_DONE_KEY = "settlement_backlog_migration_complete";
+
 export async function runSettlementBacklogMigration(): Promise<SettlementBacklogMigrationResult> {
   const db = getPipelineDb();
   ensureAccuracyTable(db);
+
+  // Already finished on a prior boot → skip steps 1–2b entirely (zero candidate
+  // reads, no event-loop block). Nothing is lost: autoSettleFinishedGames keeps
+  // expiring newly-aged null-game signals every cycle.
+  if (getPipelineMeta(BACKLOG_MIGRATION_DONE_KEY, db) !== null) {
+    console.log("[settlement] Backlog migration already complete — skipped");
+    return { scanned: 0, expired: 0, stale_outcomes_flagged: 0, stale_outcomes_mirrored: 0 };
+  }
 
   // ── Step 1: expire never-matchable null-game backlog, chunked ────────────
   // Candidates: the same rows the settlement queue scans, minus already-parked
@@ -844,6 +861,10 @@ export async function runSettlementBacklogMigration(): Promise<SettlementBacklog
 
   // ── Step 3: force one recompute so exclusions take effect immediately ────
   forceAccuracyRecompute();
+
+  // Persist the completion marker so every later boot short-circuits the whole
+  // scan above. Written last, only after the full run succeeded.
+  setPipelineMeta(BACKLOG_MIGRATION_DONE_KEY, new Date().toISOString(), db);
 
   console.log(
     `[settlement] Backlog migration: scanned=${scanned} expired=${expired} ` +
