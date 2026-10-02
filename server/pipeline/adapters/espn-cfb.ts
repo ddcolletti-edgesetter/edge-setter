@@ -5,7 +5,7 @@
  * Provides: College Football injury reports, final game scores
  */
 
-import { insertRawEvent, getRawEvents, findGameByTeams } from "../store";
+import { insertRawEvent, findGameByTeams, getPipelineDb } from "../store";
 import { CFB_DISPLAY_TO_ABBR } from "../cfb-team-lookup";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/college-football";
@@ -72,6 +72,8 @@ export interface ESPNInjuryDiagnostics {
   rows_skipped_stale: number;
   rows_skipped_missing_required: number;
   rows_skipped_non_impactful_status: number;
+  /** Player already stored with this exact designation + team — ESPN's daily re-report. */
+  rows_skipped_unchanged: number;
   raw_events_created: number;
 }
 
@@ -127,6 +129,48 @@ export function isSignalWorthyCFBInjuryStatus(status: string | undefined): boole
   return ["OUT", "Doubtful", "Questionable"].includes(designation);
 }
 
+/**
+ * Most recent ESPN CFB injury_update already stored for a player.
+ *
+ * The CFB twin of LATEST_NFL_INJURY_SQL, fixing the same two faults the NFL
+ * adapter carried. ESPN re-publishes an UNCHANGED injury with a fresh `date`
+ * each day, so a dedup key containing that date never matches the prior row
+ * and mints a raw_event per listed player per day; on NFL that reached ~150/
+ * day and 1,803 events on a single static IR listing, and it is what grew
+ * situation_events to ~1.1GB. The key is now the player's CURRENT state:
+ * skip when designation and team are both unchanged, whatever the date says.
+ *
+ * This also replaces the pre-#64 getRawEvents({ league: "CFB", limit: 1000 })
+ * window, which read a thousand full rows and JSON.parsed every payload on
+ * every cycle just to rebuild a key set — and whose 1,000-row ceiling let
+ * older injuries fall out of the window and be re-created, the same 17-18
+ * dupes/cycle NFL had.
+ *
+ * ORDER BY rowid DESC is a seek, not a sort: every SQLite index trails the
+ * rowid, so idx_raw_events_source_player is really (source_id, player, rowid)
+ * and the planner walks that player's slice backwards to the first match.
+ * ORDER BY received_at DESC instead forces "USE TEMP B-TREE FOR ORDER BY",
+ * sorting all of a player's rows with a json_extract over each payload. rowid
+ * is also the honest "most recent": received_at on rows written before this
+ * fix is ESPN's backdated report date. Nothing deletes from raw_events and
+ * SQLite hands new rows max(rowid)+1, so insertion order cannot regress.
+ *
+ * INDEXED BY is deliberate — the planner's other candidate,
+ * idx_raw_events_source_received(source_id, received_at), reaches one player's
+ * row by walking every 'espn' row. Pinning it makes the plan a property of the
+ * code and a loud error, not a silent scan, if the index is dropped.
+ */
+export const LATEST_CFB_INJURY_SQL = `SELECT json_extract(payload, '$.designation') AS designation, team
+    FROM raw_events INDEXED BY idx_raw_events_source_player
+    WHERE source_id = 'espn' AND player = ? AND league = 'CFB' AND event_type = 'injury_update'
+    ORDER BY rowid DESC
+    LIMIT 1`;
+
+interface LatestCFBInjuryRow {
+  designation: string | null;
+  team: string | null;
+}
+
 export async function fetchCFBInjuries(): Promise<ESPNInjuryEntry[]> {
   try {
     const resp = await fetch(`${ESPN_BASE}/injuries`);
@@ -156,15 +200,19 @@ export async function ingestCFBInjuries(): Promise<{ created: number; skipped: n
     rows_skipped_stale: 0,
     rows_skipped_missing_required: 0,
     rows_skipped_non_impactful_status: 0,
+    rows_skipped_unchanged: 0,
     raw_events_created: 0,
   };
 
-  const recentEvents = getRawEvents({ league: "CFB", limit: 1000 });
-  const existingKeys = new Set(
-    recentEvents
-      .filter(e => e.event_type === "injury_update")
-      .map(e => `${e.player}_${(e.payload as any).designation}_${String((e.payload as any).occurred_at ?? "").slice(0, 10)}`)
-  );
+  // One indexed lookup per row, prepared once and reused for the whole fetch.
+  // See LATEST_CFB_INJURY_SQL for why this replaces the 1,000-row in-memory
+  // window and why the key is state, not date.
+  const db = getPipelineDb();
+  const latestStmt = db.prepare(LATEST_CFB_INJURY_SQL);
+  // Guard against duplicate rows within a single payload (same player twice in
+  // one fetch), which the per-row DB lookup can't catch since neither is
+  // inserted yet.
+  const insertedThisRun = new Set<string>();
 
   for (const inj of injuries) {
     const playerName = inj.athlete?.displayName;
@@ -190,9 +238,16 @@ export async function ingestCFBInjuries(): Promise<{ created: number; skipped: n
     }
     const position = inj.athlete?.position?.abbreviation ?? "";
     const bodyPart = inj.details?.type ?? inj.details?.location ?? "undisclosed";
-    const key = `${playerName}_${designation}_${eventDate?.slice(0, 10) ?? ""}`;
+    const key = `${playerName}_${team}_${designation}`;
 
-    if (existingKeys.has(key)) {
+    // Unchanged state → ESPN is just re-listing a standing injury. Drop it.
+    const latest = latestStmt.get(playerName) as LatestCFBInjuryRow | undefined;
+    const unchanged = latest !== undefined
+      && latest.designation === designation
+      && latest.team === team;
+
+    if (insertedThisRun.has(key) || unchanged) {
+      diagnostics.rows_skipped_unchanged++;
       skipped++;
       continue;
     }
@@ -224,11 +279,17 @@ export async function ingestCFBInjuries(): Promise<{ created: number; skipped: n
         source_count: 1,
         sources: [{ name: "ESPN CFB", type: "sports_api" }],
       },
-    }, { eventTime: eventDate });
+      // No { eventTime } override: received_at/created_at are wall-clock
+      // ARRIVAL time. Passing ESPN's date here backdated received_at to the
+      // report date, which is what the pipeline orders and ages rows by
+      // (getUnprocessedRawEvents, freshness). ESPN's own timestamp is not
+      // lost — it stays in payload.occurred_at/event_time, which is where
+      // situations-adapter reads occurred_at from.
+    });
 
     created++;
     diagnostics.raw_events_created++;
-    existingKeys.add(key);
+    insertedThisRun.add(key);
   }
 
   console.log(`[espn-cfb] CFB injuries diagnostics: ${JSON.stringify(diagnostics)}`);
