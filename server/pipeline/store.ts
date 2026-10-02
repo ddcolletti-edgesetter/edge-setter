@@ -530,6 +530,15 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
       last_status     INTEGER
     );
 
+    -- Small generic key/value store for one-shot pipeline flags that must survive
+    -- a Render restart (e.g. "this one-time migration already finished"), so a
+    -- boot-time job can skip an expensive rescan instead of re-running it forever.
+    CREATE TABLE IF NOT EXISTS pipeline_meta (
+      key        TEXT PRIMARY KEY,
+      value      TEXT,
+      updated_at TEXT NOT NULL
+    );
+
   `);
 
   // Migrate existing DBs that predate home_score/away_score columns on games
@@ -704,6 +713,34 @@ export function recordOddsFetchState(
       last_remaining  = excluded.last_remaining,
       last_status     = excluded.last_status
   `).run(state);
+}
+
+/* ─── Generic pipeline key/value flags ─────────────────────────────────────────
+ * Durable one-shot markers (survive a Render restart). Used e.g. to record that a
+ * one-time migration has finished so its expensive boot-time rescan can be skipped
+ * on every subsequent boot. Returns null when the key has never been set. */
+export function getPipelineMeta(
+  key: string,
+  db: Database.Database = getPipelineDb(),
+): string | null {
+  const row = db
+    .prepare(`SELECT value FROM pipeline_meta WHERE key = ?`)
+    .get(key) as { value: string | null } | undefined;
+  return row ? row.value : null;
+}
+
+export function setPipelineMeta(
+  key: string,
+  value: string,
+  db: Database.Database = getPipelineDb(),
+): void {
+  db.prepare(`
+    INSERT INTO pipeline_meta (key, value, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET
+      value      = excluded.value,
+      updated_at = excluded.updated_at
+  `).run(key, value, new Date().toISOString());
 }
 
 /* ─── T1 signal detection logging ─────────────────────────────────────────── * Records the moment EdgeSetter first detects a named-player signal. * This is T1 — the backtesting clock starts here. * Only fires for new signals (not updates) with a non-null player and a * recognized signal_type. Additive only — does not touch live_signals. */
