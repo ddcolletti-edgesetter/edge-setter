@@ -81,11 +81,22 @@ function stubFetch(payload: unknown) {
   })) as any;
 }
 
-/** Every CFB injury raw event on record, oldest first. */
-function injuryRawEvents() {
-  return store.getRawEvents({ league: "CFB" })
-    .filter((event) => event.event_type === "injury_update")
-    .sort((left, right) => left.received_at.localeCompare(right.received_at));
+/**
+ * Every CFB injury raw event on record, oldest first.
+ *
+ * Ordered by rowid, not received_at: now that received_at is arrival time,
+ * rows written in the same test land in the same millisecond and a
+ * received_at sort is a tie whose order the DB decides. rowid is the true
+ * insertion order — the same property the dedup lookup relies on.
+ */
+function injuryRawEvents(): Array<{ team: string; player: string; payload: any; received_at: string; created_at: string }> {
+  const rows = store.getPipelineDb().prepare(`
+    SELECT team, player, payload, received_at, created_at
+    FROM raw_events
+    WHERE league = 'CFB' AND event_type = 'injury_update'
+    ORDER BY rowid ASC
+  `).all() as Array<{ team: string; player: string; payload: string; received_at: string; created_at: string }>;
+  return rows.map((row) => ({ ...row, payload: JSON.parse(row.payload) }));
 }
 
 beforeAll(async () => {
@@ -214,10 +225,45 @@ describe("ESPN CFB injury ingestion dedup", () => {
     expect((event.payload as any).event_time).toBe(espnDate);
   });
 
+  it("does not churn between two players who share a name on different programs", async () => {
+    // Shared names are everywhere in college football. A name-only lookup
+    // hands each listing the other's row, the teams differ, that reads as a
+    // change, and both write every poll forever.
+    const feed = (date: string) => injuryFeed([
+      { player: "John Smith", team: "ALA", status: "Questionable", date },
+      { player: "John Smith", team: "UGA", status: "Questionable", date },
+    ]);
+
+    stubFetch(feed(daysAgo(3)));
+    const first = await adapter.ingestCFBInjuries();
+    expect(first.created).toBe(2);
+
+    for (const day of [2, 1, 1]) {
+      stubFetch(feed(daysAgo(day)));
+      const run = await adapter.ingestCFBInjuries();
+      expect(run.created).toBe(0);
+      expect(run.diagnostics.rows_skipped_unchanged).toBe(2);
+    }
+
+    const events = injuryRawEvents();
+    expect(events).toHaveLength(2);
+    expect(events.map((event) => event.team).sort()).toEqual(["ALA", "UGA"]);
+
+    // Each namesake still tracks his OWN status: only the UGA listing moves.
+    stubFetch(injuryFeed([
+      { player: "John Smith", team: "ALA", status: "Questionable", date: daysAgo(1) },
+      { player: "John Smith", team: "UGA", status: "Out", date: daysAgo(1) },
+    ]));
+    const moved = await adapter.ingestCFBInjuries();
+    expect(moved.created).toBe(1);
+    expect(injuryRawEvents().filter((event) => event.team === "UGA")).toHaveLength(2);
+    expect(injuryRawEvents().filter((event) => event.team === "ALA")).toHaveLength(1);
+  });
+
   it("seeks the dedup lookup through idx_raw_events_source_player without sorting", () => {
     const plan = store.getPipelineDb()
       .prepare(`EXPLAIN QUERY PLAN ${adapter.LATEST_CFB_INJURY_SQL}`)
-      .all(PLAYER) as Array<{ detail: string }>;
+      .all(PLAYER, TEAM) as Array<{ detail: string }>;
     const detail = plan.map((row) => row.detail).join(" | ");
 
     expect(detail).toContain("idx_raw_events_source_player");
@@ -251,7 +297,7 @@ describe("ESPN CFB injury ingestion dedup", () => {
 
     const latest = store.getPipelineDb()
       .prepare(adapter.LATEST_CFB_INJURY_SQL)
-      .get(PLAYER) as { designation: string; team: string };
+      .get(PLAYER, TEAM) as { designation: string };
 
     expect(latest.designation).toBe("OUT");
 
