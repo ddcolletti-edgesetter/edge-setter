@@ -54,13 +54,14 @@ export function buildComparableSituationCorpus(limit = 500): ComparableSituation
 
 /**
  * Event-loop-friendly corpus build for the background job. Identical output to
- * {@link buildComparableSituationCorpus}, but: (1) it batches the per-situation
- * event/state-history reads into two grouped queries instead of 2×N, and (2) it
- * yields to the event loop between chunks of situations so the synchronous
- * corpus work (including the per-record outcome lookups inside
- * buildComparableSituationCorpusRecord) never blocks the loop long enough to
- * fail a health check. This must never run on a request path — only from the
- * ingestion cycle's background build job.
+ * {@link buildComparableSituationCorpus}, but it fetches only ONE chunk's events
+ * + state history at a time (grouped queries over ~25 ids), builds that chunk,
+ * then yields to the event loop before loading the next chunk. The heavy read is
+ * situation_events.payload_json from the ~1.67GB table; loading all 500
+ * situations' events up front would be one big synchronous blob read that no
+ * amount of between-chunk yielding protects against — the whole point is to keep
+ * each synchronous span small. This must never run on a request path — only from
+ * the ingestion cycle's background build job.
  */
 export async function buildComparableSituationCorpusInChunks(
   opts: { limit?: number; chunkSize?: number } = {},
@@ -68,12 +69,15 @@ export async function buildComparableSituationCorpusInChunks(
   const limit = opts.limit ?? 500;
   const chunkSize = Math.max(1, opts.chunkSize ?? 25);
   const records = listCanonicalSituations({ limit });
-  const ids = records.map((record) => record.situation_id);
-  const eventsById = listSituationEventsBySituationIds(ids);
-  const stateById = listSituationStateHistoryBySituationIds(ids);
   const corpus: ComparableSituationCorpusRecord[] = [];
   for (let i = 0; i < records.length; i += chunkSize) {
-    for (const record of records.slice(i, i + chunkSize)) {
+    const chunk = records.slice(i, i + chunkSize);
+    const chunkIds = chunk.map((record) => record.situation_id);
+    // Fetch only this chunk's events/state inside the loop, so the synchronous
+    // payload_json read stays bounded to ~chunkSize situations before each yield.
+    const eventsById = listSituationEventsBySituationIds(chunkIds);
+    const stateById = listSituationStateHistoryBySituationIds(chunkIds);
+    for (const record of chunk) {
       corpus.push(buildComparableSituationCorpusRecord({
         record,
         events: eventsById.get(record.situation_id) ?? [],

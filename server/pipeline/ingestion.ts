@@ -36,8 +36,10 @@ import { trackJob } from "../event-loop-monitor";
 
 /**
  * Rebuild the situations comparable-corpus + confidence-baseline snapshot that
- * /api/v2/situations reads. Gated on the same flag that drives situation capture,
- * tracked for the loop-lag monitor, and never allowed to fail the ingestion cycle.
+ * /api/v2/situations reads. Called from the standard cycle only. Gated on the same
+ * flag that drives situation capture, tracked for the loop-lag monitor, and never
+ * allowed to fail the ingestion cycle. The build itself no-ops when the data
+ * signature is unchanged or a rebuild ran within the last 10 minutes.
  */
 async function rebuildSituationsEnrichment(): Promise<void> {
   if (process.env.CANONICAL_SITUATIONS_ENABLED !== "true") return;
@@ -566,8 +568,8 @@ export async function runFastIngestionCycle(): Promise<{
     } while (lastR.processed > 0 && passes < 20);
     console.log(`[processor] drained ${passes} passes after ingestion cycle`);
 
-    // Keep the situations enrichment snapshot fresh after the fast tier too.
-    await rebuildSituationsEnrichment();
+    // The situations corpus is rebuilt in the standard cycle only — the fast
+    // tier runs too often to pay for it, and the standard cycle keeps it fresh.
 
     const alertResult = await dispatchSignalAlerts().catch(e => {
       console.error("[ingestion] Fast alert dispatch error:", e.message);

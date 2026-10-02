@@ -181,6 +181,12 @@ const EMPTY_BASELINES: ReadonlyMap<string, number> = new Map();
 let enrichmentCache: SituationsEnrichment | null = null;
 let enrichmentBuildCount = 0;
 
+// Floor on how often the background job actually rebuilds, even when new
+// snapshots have landed. The corpus build is expensive; the standard ingestion
+// cycle can run more often than this, so a cheaper-than-10-min rebuild cadence
+// buys nothing a slightly-staler corpus doesn't already give.
+const ENRICHMENT_REBUILD_MIN_INTERVAL_MS = 10 * 60 * 1000;
+
 /** Cheap O(1) data signature recorded with each build, for observability. */
 function situationsDataSignature(): number {
   try {
@@ -198,16 +204,32 @@ function situationsDataSignature(): number {
  * atomically swap them into the request-read cache. Must be invoked only off the
  * request path — from the ingestion cycle, wrapped in trackJob. Yields to the
  * event loop between chunks of situations so it never blocks a health check.
+ *
+ * Two guards keep it from doing needless work when called every cycle:
+ *   - If the data signature is unchanged since the last build, skip silently —
+ *     no new snapshot means the corpus would be byte-identical.
+ *   - Otherwise rebuild at most once per {@link ENRICHMENT_REBUILD_MIN_INTERVAL_MS},
+ *     so a burst of ingestion cycles can't stack expensive rebuilds.
+ * `force` (tests) bypasses both. A skip returns the existing cache unchanged and
+ * does not increment the build counter.
  */
 export async function buildSituationsEnrichmentCache(
-  opts: { chunkSize?: number } = {},
+  opts: { chunkSize?: number; force?: boolean } = {},
 ): Promise<SituationsEnrichment> {
+  const sig = situationsDataSignature();
+  if (!opts.force && enrichmentCache) {
+    if (sig >= 0 && enrichmentCache.sig === sig) return enrichmentCache;
+    if (Date.now() - enrichmentCache.builtAt < ENRICHMENT_REBUILD_MIN_INTERVAL_MS) return enrichmentCache;
+  }
   const corpus = await buildComparableSituationCorpusInChunks({ chunkSize: opts.chunkSize });
   const baselines = buildConfidenceBaselines();
   const built: SituationsEnrichment = {
     corpus,
     baselines,
     builtAt: Date.now(),
+    // Re-read the signature AFTER the build so a snapshot that landed mid-build
+    // leaves sig ahead of the corpus → the next cycle rebuilds rather than
+    // skipping on a stale match.
     sig: situationsDataSignature(),
     situationCount: corpus.length,
   };

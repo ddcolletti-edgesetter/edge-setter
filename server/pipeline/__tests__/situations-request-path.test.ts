@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -37,10 +37,12 @@ process.env.CANONICAL_SITUATIONS_ENABLED = "true";
 type StoreMod = typeof import("../situations-store");
 type CoreStoreMod = typeof import("../store");
 type ApiMod = typeof import("../situations-api");
+type CorpusMod = typeof import("../situations-comparable-corpus");
 
 let store: StoreMod;
 let coreStore: CoreStoreMod;
 let api: ApiMod;
+let corpus: CorpusMod;
 
 const CREATED_AT = "2026-10-01T12:00:00.000Z";
 
@@ -48,6 +50,7 @@ beforeAll(async () => {
   coreStore = await import("../store");
   store = await import("../situations-store");
   api = await import("../situations-api");
+  corpus = await import("../situations-comparable-corpus");
 });
 
 function seedSituation(id: string, league: string, type: string, score: number): void {
@@ -213,5 +216,60 @@ describe("situations request path never builds the enrichment corpus", () => {
     expect(found?.id).toBe("sit-req-2");
     expect(missing).toBeNull();
     expect(api.getSituationsEnrichmentMetrics().buildCount).toBe(before);
+  });
+});
+
+describe("background rebuild guards", () => {
+  beforeEach(() => {
+    api.resetSituationsApiBuildCaches();
+    seedSituation("sit-req-1", "NFL", "roster", 72);
+    seedSituation("sit-req-2", "NFL", "roster", 64);
+    seedSituation("sit-req-3", "NFL", "injury", 58);
+  });
+
+  it("skips the rebuild when the data signature is unchanged", async () => {
+    await api.buildSituationsEnrichmentCache({ chunkSize: 2 });
+    const afterFirst = api.getSituationsEnrichmentMetrics().buildCount;
+
+    // No new snapshot landed → signature unchanged → silent skip.
+    await api.buildSituationsEnrichmentCache({ chunkSize: 2 });
+
+    expect(api.getSituationsEnrichmentMetrics().buildCount).toBe(afterFirst);
+  });
+
+  it("skips a rebuild within 10 minutes even when the signature changed; force overrides", async () => {
+    await api.buildSituationsEnrichmentCache({ chunkSize: 2 });
+    const afterFirst = api.getSituationsEnrichmentMetrics().buildCount;
+
+    // A brand-new situation moves the signature, but the last build was seconds
+    // ago, so the 10-minute floor skips it.
+    seedSituation("sit-ratelimit-new", "NFL", "roster", 60);
+    await api.buildSituationsEnrichmentCache({ chunkSize: 2 });
+    expect(api.getSituationsEnrichmentMetrics().buildCount).toBe(afterFirst);
+
+    // force bypasses both guards.
+    await api.buildSituationsEnrichmentCache({ chunkSize: 2, force: true });
+    expect(api.getSituationsEnrichmentMetrics().buildCount).toBe(afterFirst + 1);
+  });
+
+  it("fetches events one chunk at a time — chunk count = ceil(n / chunkSize)", async () => {
+    const chunkSize = 2;
+    // Measure n against the same source the builder reads from.
+    const n = store.listCanonicalSituations({ limit: 500 }).length;
+    expect(n).toBeGreaterThanOrEqual(3);
+    const expectedChunks = Math.ceil(n / chunkSize);
+
+    const eventsSpy = vi.spyOn(store, "listSituationEventsBySituationIds");
+    const stateSpy = vi.spyOn(store, "listSituationStateHistoryBySituationIds");
+    try {
+      await corpus.buildComparableSituationCorpusInChunks({ limit: 500, chunkSize });
+      // One grouped events query (and one state query) per chunk — never one big
+      // up-front load of all n situations' payload_json.
+      expect(eventsSpy).toHaveBeenCalledTimes(expectedChunks);
+      expect(stateSpy).toHaveBeenCalledTimes(expectedChunks);
+    } finally {
+      eventsSpy.mockRestore();
+      stateSpy.mockRestore();
+    }
   });
 });
