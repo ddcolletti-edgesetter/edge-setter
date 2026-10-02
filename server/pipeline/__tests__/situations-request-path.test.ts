@@ -157,6 +157,31 @@ function seedSituation(id: string, league: string, type: string, score: number):
   }, db);
 }
 
+/** Append one more snapshot for an existing situation — bumps MAX(rowid) of
+ *  situation_snapshots, i.e. the data signature the rebuild guard reads. */
+function appendExtraSnapshot(situationId: string, tag: string): void {
+  const db = coreStore.getPipelineDb();
+  store.appendSituationSnapshot({
+    snapshot_id: `snap-${situationId}-${tag}`,
+    situation_id: situationId,
+    lifecycle_state: "escalating",
+    confidence: {
+      score: 70,
+      factors: { source_reliability: 14, independent_confirmations: 10, market_alignment: 8, validator_agreement: 8, official_confirmation: 0, freshness: 8, contradiction_penalty: 0 },
+      reasoning: ["extra"],
+      computed_at: CREATED_AT,
+      replay_hash: `conf-${situationId}-${tag}`,
+    },
+    summary: "extra snapshot",
+    escalation_score: 70,
+    timing_pressure: "high",
+    evidence_event_ids: [],
+    replay_hash: `snap-replay-${situationId}-${tag}`,
+    previous_snapshot_hash: null,
+    created_at: CREATED_AT,
+  }, db);
+}
+
 describe("situations request path never builds the enrichment corpus", () => {
   beforeEach(() => {
     api.resetSituationsApiBuildCaches();
@@ -250,6 +275,40 @@ describe("background rebuild guards", () => {
     // force bypasses both guards.
     await api.buildSituationsEnrichmentCache({ chunkSize: 2, force: true });
     expect(api.getSituationsEnrichmentMetrics().buildCount).toBe(afterFirst + 1);
+  });
+
+  it("records the pre-build signature, so a snapshot written during the build rebuilds next cycle", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-01T00:00:00.000Z"));
+      api.resetSituationsApiBuildCaches();
+
+      // Inject a snapshot landing DURING the build: the mock runs after
+      // buildSituationsEnrichmentCache has already captured the pre-build sig.
+      let wrote = false;
+      const buildSpy = vi
+        .spyOn(corpus, "buildComparableSituationCorpusInChunks")
+        .mockImplementation(async () => {
+          if (!wrote) {
+            wrote = true;
+            appendExtraSnapshot("sit-req-1", "midbuild");
+          }
+          return [];
+        });
+      await api.buildSituationsEnrichmentCache({ chunkSize: 2 });
+      buildSpy.mockRestore();
+      const afterFirst = api.getSituationsEnrichmentMetrics().buildCount;
+
+      // Advance past the 10-minute floor so the rate-limit no longer masks the
+      // signature check. The live signature now exceeds the stored pre-build sig
+      // (the mid-build snapshot is not in the cached corpus), so this rebuilds.
+      vi.setSystemTime(new Date("2026-10-01T00:11:00.000Z"));
+      await api.buildSituationsEnrichmentCache({ chunkSize: 2 });
+
+      expect(api.getSituationsEnrichmentMetrics().buildCount).toBe(afterFirst + 1);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("fetches events one chunk at a time — chunk count = ceil(n / chunkSize)", async () => {

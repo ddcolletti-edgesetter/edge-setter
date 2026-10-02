@@ -227,10 +227,12 @@ export async function buildSituationsEnrichmentCache(
     corpus,
     baselines,
     builtAt: Date.now(),
-    // Re-read the signature AFTER the build so a snapshot that landed mid-build
-    // leaves sig ahead of the corpus → the next cycle rebuilds rather than
-    // skipping on a stale match.
-    sig: situationsDataSignature(),
+    // Store the signature captured BEFORE the build, which is what this corpus
+    // actually reflects. A snapshot that lands mid-build is not in this corpus,
+    // so the live signature is already ahead of `sig` and the next cycle rebuilds
+    // to pick it up. (Re-reading the signature here instead would record the
+    // mid-build snapshot as already-included and leave the corpus stale.)
+    sig,
     situationCount: corpus.length,
   };
   enrichmentCache = built;
