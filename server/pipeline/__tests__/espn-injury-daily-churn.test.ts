@@ -209,7 +209,7 @@ describe("ESPN NFL injury ingestion dedup", () => {
     expect((event.payload as any).event_time).toBe(espnDate);
   });
 
-  it("serves the dedup lookup from idx_raw_events_source_player", () => {
+  it("seeks the dedup lookup through idx_raw_events_source_player without sorting", () => {
     const plan = store.getPipelineDb()
       .prepare(`EXPLAIN QUERY PLAN ${adapter.LATEST_NFL_INJURY_SQL}`)
       .all(PLAYER) as Array<{ detail: string }>;
@@ -218,6 +218,50 @@ describe("ESPN NFL injury ingestion dedup", () => {
     expect(detail).toContain("idx_raw_events_source_player");
     // A full table scan here is the ~21s cold-boot stall #64 fixed.
     expect(detail).not.toContain("SCAN raw_events");
+    // ORDER BY rowid DESC rides the index's trailing rowid and stops at the
+    // first match. A temp b-tree means we are instead loading and sorting
+    // every row for the player — 1,803 of them for Chris Collier, with a
+    // json_extract per payload, on every poll for every listed player.
+    expect(detail).not.toContain("TEMP B-TREE");
+  });
+
+  it("returns the newest row by insertion order, not by backdated received_at", async () => {
+    // Rows written before the received_at fix carry ESPN's report date, so a
+    // received_at ordering would read a stale designation as current. The
+    // historic row is backdated AND inserted first; the recent one is the truth.
+    store.insertRawEvent({
+      source_id: "espn",
+      source_type: "api",
+      league: "NFL",
+      game_id: null,
+      team: TEAM,
+      player: PLAYER,
+      event_type: "injury_update",
+      payload: { designation: "Questionable", occurred_at: daysAgo(30) },
+    } as any, { eventTime: daysAgo(30) });
+    store.insertRawEvent({
+      source_id: "espn",
+      source_type: "api",
+      league: "NFL",
+      game_id: null,
+      team: TEAM,
+      player: PLAYER,
+      event_type: "injury_update",
+      payload: { designation: "IR", occurred_at: daysAgo(1) },
+    } as any, { eventTime: daysAgo(40) });
+
+    const latest = store.getPipelineDb()
+      .prepare(adapter.LATEST_NFL_INJURY_SQL)
+      .get(PLAYER) as { designation: string; team: string };
+
+    // IR was inserted last, even though its received_at is the older stamp.
+    expect(latest.designation).toBe("IR");
+
+    // And ESPN re-listing that IR is therefore a no-op.
+    stubFetch(injuryFeed([{ status: "Injured Reserve", date: daysAgo(1) }]));
+    const run = await adapter.ingestNFLInjuries();
+    expect(run.created).toBe(0);
+    expect(run.diagnostics.rows_skipped_unchanged).toBe(1);
   });
 });
 

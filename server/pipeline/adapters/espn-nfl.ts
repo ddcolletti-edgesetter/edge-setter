@@ -161,21 +161,35 @@ export function isSignalWorthyNFLInjuryStatus(status: string | undefined): boole
  * both unchanged, no matter what the date says. A designation change
  * (Questionable → OUT) or a team change is real news and still writes.
  *
- * Served by idx_raw_events_source_player(source_id, player) — the planner
- * seeks that player's handful of rows, filters and sorts just those.
+ * Served by idx_raw_events_source_player(source_id, player), and ordered by
+ * rowid DESC so it is a seek rather than a sort. Every SQLite index carries
+ * the rowid as its trailing column, so this index is really
+ * (source_id, player, rowid): the planner walks that player's slice backwards
+ * and stops at the first match. ORDER BY received_at DESC instead forced
+ * "USE TEMP B-TREE FOR ORDER BY" — loading and sorting ALL of the player's
+ * rows and running json_extract over each payload, 1,803 of them for Chris
+ * Collier, every poll for every listed player. Measured at Collier's row count
+ * that is ~0.65ms vs ~0.026ms per lookup, and the gap widens with real payload
+ * sizes.
+ *
+ * rowid is also the honest "most recent": it is true insertion order, whereas
+ * received_at on rows written before this fix is ESPN's backdated report date.
+ * Nothing in the app deletes from raw_events, and SQLite hands new rows
+ * max(rowid)+1, so the ordering cannot regress.
+ *
  * INDEXED BY is deliberate: the free planner choice here is between this index
- * and idx_raw_events_source_received(source_id, received_at), which satisfies
- * the ORDER BY and so looks cheap, but reaching one player's row through it
- * means walking every 'espn' row newest-first. That is the same shape of full
- * scan that blocked the event loop for ~21s before #64, and it would only show
- * up once prod stats shifted. Pinning the index makes the plan a property of
- * the code, and a loud error rather than a silent scan if the index is dropped.
- * espn-injury-daily-churn.test.ts asserts the plan.
+ * and idx_raw_events_source_received(source_id, received_at), and reaching one
+ * player's row through that one means walking every 'espn' row. That is the
+ * same shape of full scan that blocked the event loop for ~21s before #64, and
+ * it would only show up once prod stats shifted. Pinning the index makes the
+ * plan a property of the code, and a loud error rather than a silent scan if
+ * the index is dropped. espn-injury-daily-churn.test.ts asserts the plan uses
+ * the index with no temp b-tree.
  */
 export const LATEST_NFL_INJURY_SQL = `SELECT json_extract(payload, '$.designation') AS designation, team
     FROM raw_events INDEXED BY idx_raw_events_source_player
     WHERE source_id = 'espn' AND player = ? AND league = 'NFL' AND event_type = 'injury_update'
-    ORDER BY received_at DESC
+    ORDER BY rowid DESC
     LIMIT 1`;
 
 interface LatestNFLInjuryRow {
