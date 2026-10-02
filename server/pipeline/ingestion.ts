@@ -28,24 +28,10 @@ import { ingestSportsRSSFeeds, ingestLockedOnFeeds } from "./adapters/sports-rss
 import { refreshAllRosters } from "./adapters/espn-rosters";
 import { POWER4_SOURCES } from "./adapters/cfb-school-sources";
 import { processRawEvents } from "./processor";
-import { buildSituationsEnrichmentCache } from "./situations-api";
 import { autoSettleFinishedGames } from "./settlement";
 import { dispatchSignalAlerts } from "../alerts";
 import { recordPipelineHealth, storage } from "../storage";
 import { trackJob } from "../event-loop-monitor";
-
-/**
- * Rebuild the situations comparable-corpus + confidence-baseline snapshot that
- * /api/v2/situations reads. Called from the standard cycle only. Gated on the same
- * flag that drives situation capture, tracked for the loop-lag monitor, and never
- * allowed to fail the ingestion cycle. The build itself no-ops when the data
- * signature is unchanged or a rebuild ran within the last 10 minutes.
- */
-async function rebuildSituationsEnrichment(): Promise<void> {
-  if (process.env.CANONICAL_SITUATIONS_ENABLED !== "true") return;
-  await trackJob("situations:build-corpus", () => buildSituationsEnrichmentCache())
-    .catch((e: any) => console.error("[ingestion] Situations corpus build error:", e?.message ?? e));
-}
 
 function logIngestion(stage: string, inputRef: string, outputRef: string, summary: string, error?: string) {
   try {
@@ -403,12 +389,6 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
     } while (lastR.processed > 0 && passes < 20);
     console.log(`[processor] drained ${passes} passes after ingestion cycle`);
 
-    // ── 6b. Rebuild the situations comparable corpus + baselines ──
-    // Off the request path, chunked + yielding, so /api/v2/situations reads a
-    // pre-built snapshot instead of building inline (that blocked the event loop
-    // >40s and got the instance health-check-killed, Oct 2 2026).
-    await rebuildSituationsEnrichment();
-
     // ── 7. Dispatch alerts for newly scored signals ──────────
     const alertResult = await dispatchSignalAlerts().catch(e => {
       console.error("[ingestion] Alert dispatch error:", e.message);
@@ -567,9 +547,6 @@ export async function runFastIngestionCycle(): Promise<{
       await new Promise(resolve => setTimeout(resolve, 100));
     } while (lastR.processed > 0 && passes < 20);
     console.log(`[processor] drained ${passes} passes after ingestion cycle`);
-
-    // The situations corpus is rebuilt in the standard cycle only — the fast
-    // tier runs too often to pay for it, and the standard cycle keeps it fresh.
 
     const alertResult = await dispatchSignalAlerts().catch(e => {
       console.error("[ingestion] Fast alert dispatch error:", e.message);
