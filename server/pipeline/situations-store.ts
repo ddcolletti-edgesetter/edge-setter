@@ -537,6 +537,66 @@ function isUsableSituation(record: CanonicalSituationRecord): boolean {
   return true;
 }
 
+/**
+ * FROM / JOIN clause shared by {@link listCanonicalSituations} and
+ * {@link getCanonicalSituation}. Pulling the latest snapshot via a correlated
+ * subquery (not MAX aggregate) keeps every snapshot column present for
+ * deserializeCanonicalSituationRecord.
+ */
+const CANONICAL_SITUATION_FROM = `
+    FROM situations s
+    LEFT JOIN situation_snapshots latest
+      ON latest.snapshot_id = (
+        SELECT ss.snapshot_id
+        FROM situation_snapshots ss
+        WHERE ss.situation_id = s.situation_id
+        ORDER BY ss.created_at DESC, ss.snapshot_id ASC
+        LIMIT 1
+      )
+    LEFT JOIN situation_game_resolution r ON r.situation_id = s.situation_id
+    LEFT JOIN games g ON g.id = COALESCE(s.game_id, r.resolved_game_id)`;
+
+const CANONICAL_SITUATION_SELECT = `
+    SELECT
+      s.*,
+      latest.snapshot_id,
+      latest.lifecycle_state,
+      latest.confidence_score,
+      latest.confidence_json,
+      latest.summary,
+      latest.escalation_score,
+      latest.timing_pressure,
+      latest.evidence_event_ids_json,
+      latest.replay_hash AS snapshot_replay_hash,
+      latest.previous_snapshot_hash,
+      latest.created_at AS snapshot_created_at,
+      r.resolved_game_id
+    ${CANONICAL_SITUATION_FROM}`;
+
+/** Same future-game / null-game filter listCanonicalSituations always applies. */
+const CANONICAL_ACTIVE_GAME_FILTER =
+  "(COALESCE(s.game_id, r.resolved_game_id) IS NULL OR g.game_time > datetime('now'))";
+
+/**
+ * Fetch one canonical situation directly by id. Mirrors the active-feed filter
+ * listCanonicalSituations applies (future/null game only), so the set of ids a
+ * direct lookup resolves matches the feed — minus the feed's result cap, which a
+ * by-id lookup does not need. Replaces the old /api/v2/situations/:id path that
+ * built up to 500 full API responses just to find one.
+ */
+export function getCanonicalSituation(
+  situationId: string,
+  db: Database.Database = getPipelineDb(),
+): CanonicalSituationRecord | null {
+  ensureSituationSchema(db);
+  const row = db.prepare(`
+    ${CANONICAL_SITUATION_SELECT}
+    WHERE s.situation_id = ?
+      AND ${CANONICAL_ACTIVE_GAME_FILTER}
+  `).get(situationId);
+  return row ? deserializeCanonicalSituationRecord(row) : null;
+}
+
 export function listCanonicalSituations(opts: {
   readonly league?: string;
   readonly sport?: string;
@@ -568,7 +628,7 @@ export function listCanonicalSituations(opts: {
   if (opts.active_only) {
     where.push("(latest.lifecycle_state IS NULL OR latest.lifecycle_state IN ('watching', 'emerging', 'developing', 'escalating', 'confirmed', 'official', 'cooling'))");
   }
-  where.push("(COALESCE(s.game_id, r.resolved_game_id) IS NULL OR g.game_time > datetime('now'))");
+  where.push(CANONICAL_ACTIVE_GAME_FILTER);
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   params.push(opts.limit ?? 100);
   const orderSql =
@@ -579,37 +639,142 @@ export function listCanonicalSituations(opts: {
         : "COALESCE(latest.created_at, s.created_at) DESC, s.situation_id ASC";
 
   const rows = db.prepare(`
-    SELECT
-      s.*,
-      latest.snapshot_id,
-      latest.lifecycle_state,
-      latest.confidence_score,
-      latest.confidence_json,
-      latest.summary,
-      latest.escalation_score,
-      latest.timing_pressure,
-      latest.evidence_event_ids_json,
-      latest.replay_hash AS snapshot_replay_hash,
-      latest.previous_snapshot_hash,
-      latest.created_at AS snapshot_created_at,
-      r.resolved_game_id
-    FROM situations s
-    LEFT JOIN situation_snapshots latest
-      ON latest.snapshot_id = (
-        SELECT ss.snapshot_id
-        FROM situation_snapshots ss
-        WHERE ss.situation_id = s.situation_id
-        ORDER BY ss.created_at DESC, ss.snapshot_id ASC
-        LIMIT 1
-      )
-    LEFT JOIN situation_game_resolution r ON r.situation_id = s.situation_id
-    LEFT JOIN games g ON g.id = COALESCE(s.game_id, r.resolved_game_id)
+    ${CANONICAL_SITUATION_SELECT}
     ${whereSql}
     ORDER BY ${orderSql}
     LIMIT ?
   `).all(...params);
 
   return rows.map(deserializeCanonicalSituationRecord);
+}
+
+/** Split a list into fixed-size chunks (for bounded SQL `IN (...)` lists). */
+function chunkIds<T>(items: readonly T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
+  return out;
+}
+
+// SQLite's default SQLITE_MAX_VARIABLE_NUMBER is 999; stay well under it so a
+// large corpus/feed id set fans out across a few queries instead of one that
+// the driver rejects.
+const SITUATION_IN_CHUNK = 400;
+
+/**
+ * Batched sibling of {@link listSituationEvents}: fetch events for many
+ * situations in one query per ~400 ids and group by situation_id, instead of
+ * one query per situation. Grouped output preserves the same per-situation order
+ * listSituationEvents guarantees (recorded_at ASC, event_id ASC).
+ *
+ * Column selection is deliberately narrowed to exactly the fields the situations
+ * API mapper reads. `observed_at` and `lineage_hash` are NOT fetched — nothing in
+ * the API response derives from them. `payload_json` IS fetched: the mapper reads
+ * nested `normalized_event` (event_type / source_type / market_context /
+ * occurred_at / received_at / summary / payload.signalId), `evidence_lineage`, and
+ * top-level `summary` from it, so it cannot be dropped.
+ */
+export function listSituationEventsBySituationIds(
+  situationIds: readonly string[],
+  db: Database.Database = getPipelineDb(),
+): Map<string, SituationEvent[]> {
+  const result = new Map<string, SituationEvent[]>();
+  if (situationIds.length === 0) return result;
+  ensureSituationSchema(db);
+  for (const ids of chunkIds(situationIds, SITUATION_IN_CHUNK)) {
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = db.prepare(`
+      SELECT situation_id, event_id, kind, raw_event_id, normalized_event_id,
+             source_id, recorded_at, replay_hash, payload_json
+      FROM situation_events
+      WHERE situation_id IN (${placeholders})
+      ORDER BY situation_id ASC, recorded_at ASC, event_id ASC
+    `).all(...ids) as any[];
+    for (const row of rows) {
+      let list = result.get(row.situation_id);
+      if (!list) { list = []; result.set(row.situation_id, list); }
+      list.push(deserializeSituationEventForApi(row));
+    }
+  }
+  return result;
+}
+
+/** Batched sibling of {@link listSituationStateHistory}. */
+export function listSituationStateHistoryBySituationIds(
+  situationIds: readonly string[],
+  db: Database.Database = getPipelineDb(),
+): Map<string, SituationStateHistory[]> {
+  const result = new Map<string, SituationStateHistory[]>();
+  if (situationIds.length === 0) return result;
+  ensureSituationSchema(db);
+  for (const ids of chunkIds(situationIds, SITUATION_IN_CHUNK)) {
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = db.prepare(`
+      SELECT *
+      FROM situation_state_history
+      WHERE situation_id IN (${placeholders})
+      ORDER BY situation_id ASC, created_at ASC, history_id ASC
+    `).all(...ids) as any[];
+    for (const row of rows) {
+      let list = result.get(row.situation_id);
+      if (!list) { list = []; result.set(row.situation_id, list); }
+      list.push(deserializeStateHistory(row));
+    }
+  }
+  return result;
+}
+
+/** Batched sibling of {@link listSituationConfidenceHistory}. */
+export function listSituationConfidenceHistoryBySituationIds(
+  situationIds: readonly string[],
+  db: Database.Database = getPipelineDb(),
+): Map<string, SituationConfidenceHistory[]> {
+  const result = new Map<string, SituationConfidenceHistory[]>();
+  if (situationIds.length === 0) return result;
+  ensureSituationSchema(db);
+  for (const ids of chunkIds(situationIds, SITUATION_IN_CHUNK)) {
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = db.prepare(`
+      SELECT *
+      FROM situation_confidence_history
+      WHERE situation_id IN (${placeholders})
+      ORDER BY situation_id ASC, created_at ASC, history_id ASC
+    `).all(...ids) as any[];
+    for (const row of rows) {
+      let list = result.get(row.situation_id);
+      if (!list) { list = []; result.set(row.situation_id, list); }
+      list.push(deserializeConfidenceHistory(row));
+    }
+  }
+  return result;
+}
+
+/** Batched sibling of {@link getSituationPublicConfirmation}. */
+export function getSituationPublicConfirmationsBySituationIds(
+  situationIds: readonly string[],
+  db: Database.Database = getPipelineDb(),
+): Map<string, SituationPublicConfirmation> {
+  const result = new Map<string, SituationPublicConfirmation>();
+  if (situationIds.length === 0) return result;
+  ensureSituationSchema(db);
+  for (const ids of chunkIds(situationIds, SITUATION_IN_CHUNK)) {
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = db.prepare(`
+      SELECT * FROM situation_public_confirmations
+      WHERE situation_id IN (${placeholders})
+    `).all(...ids) as any[];
+    for (const row of rows) {
+      result.set(row.situation_id, {
+        situation_id: row.situation_id,
+        confirmed_at: row.confirmed_at,
+        detection_lead_minutes: row.detection_lead_minutes,
+        source_name: row.source_name,
+        confirmation_reason: row.confirmation_reason,
+        raw_event_id: row.raw_event_id,
+        created_at: row.created_at,
+      });
+    }
+  }
+  return result;
 }
 
 export function listSituationEvents(
@@ -853,6 +1018,28 @@ function deserializeSituationEvent(row: any): SituationEvent {
     recorded_at: row.recorded_at,
     replay_hash: row.replay_hash,
     lineage_hash: row.lineage_hash,
+    payload: parseJson(row.payload_json, {}),
+  };
+}
+
+/**
+ * Deserialize a situation_events row fetched by {@link listSituationEventsBySituationIds},
+ * whose SELECT omits `observed_at` and `lineage_hash` (unused by the API mapper).
+ * Those two fields are filled type-completely and must not be relied on by any
+ * consumer of this read path.
+ */
+function deserializeSituationEventForApi(row: any): SituationEvent {
+  return {
+    event_id: row.event_id,
+    situation_id: row.situation_id,
+    kind: row.kind,
+    raw_event_id: row.raw_event_id,
+    normalized_event_id: row.normalized_event_id,
+    source_id: row.source_id,
+    observed_at: row.recorded_at, // not fetched on this path; unused by the mapper
+    recorded_at: row.recorded_at,
+    replay_hash: row.replay_hash,
+    lineage_hash: "", // not fetched on this path; unused by the mapper
     payload: parseJson(row.payload_json, {}),
   };
 }

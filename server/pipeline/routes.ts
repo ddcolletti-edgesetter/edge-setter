@@ -36,7 +36,7 @@ import {
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
-import { listCanonicalSituationApiResponses, type CanonicalSituationOrderBy } from "./situations-api";
+import { getCanonicalSituationApiResponse, listCanonicalSituationApiResponses, type CanonicalSituationOrderBy } from "./situations-api";
 import { ingestNFLInjuries } from "./adapters/espn-nfl";
 import { ingestCFBInjuries } from "./adapters/espn-cfb";
 import { ingestOdds } from "./adapters/the-odds-api";
@@ -305,6 +305,7 @@ export function registerPipelineRoutes(app: Express) {
     const validOrder = new Set(["operational_visibility_score", "escalation_score", "confidence", "updated_at"]);
     const requestedOrder = order_by ?? orderBy;
     const requestedActiveOnly = active_only ?? activeOnly;
+    const startedAt = Date.now();
     const situations = listCanonicalSituationApiResponses({
       league,
       sport,
@@ -314,6 +315,7 @@ export function registerPipelineRoutes(app: Express) {
       orderBy: validOrder.has(requestedOrder ?? "") ? requestedOrder : "updated_at",
       limit,
     });
+    console.log(`[situations-api] list league=${league ?? "ALL"} n=${situations.length} in ${Date.now() - startedAt}ms`);
     return res.json({ count: situations.length, situations });
   });
 
@@ -327,8 +329,9 @@ export function registerPipelineRoutes(app: Express) {
   app.get("/api/v2/situations/:id", (req: Request, res: Response) => {
     const rawId = routeParam(req.params.id);
     const id = rawId.replace(/^canonical-/, "");
-    const all = listCanonicalSituationApiResponses({ limit: 500 });
-    const situation = all.find((s) => s.id === id);
+    // Fetch and map just this one situation — never build 500 full responses to
+    // find one (that mapped the whole feed and rebuilt the corpus inline).
+    const situation = getCanonicalSituationApiResponse(id);
     if (!situation) {
       return res.status(404).json({
         error: "Situation not found.",

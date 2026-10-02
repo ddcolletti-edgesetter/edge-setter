@@ -18,17 +18,26 @@ import {
 } from "./situations-confidence-guard";
 import {
   buildComparableSituationCorpus,
+  buildComparableSituationCorpusInChunks,
   buildComparableSituationCorpusRecord,
   matchComparableSituations,
 } from "./situations-comparable-corpus";
 import {
   type CanonicalSituationRecord,
+  getCanonicalSituation,
   getSituationPublicConfirmation,
+  getSituationPublicConfirmationsBySituationIds,
   listCanonicalSituations,
   listSituationConfidenceHistory,
+  listSituationConfidenceHistoryBySituationIds,
   listSituationEvents,
+  listSituationEventsBySituationIds,
   listSituationStateHistory,
+  listSituationStateHistoryBySituationIds,
 } from "./situations-store";
+import type {
+  SituationPublicConfirmation,
+} from "./situations-contract";
 import { getPipelineDb } from "./store";
 
 const ACTIVE_LIFECYCLE_STATES = new Set<SituationLifecycleState>([
@@ -143,18 +152,42 @@ export interface CanonicalSituationConfidenceHistoryPreview {
 
 /**
  * (B) buildComparableSituationCorpus and buildConfidenceBaselines each scan the
- * whole situations dataset. Rebuilding them on every /api/v2/situations request
- * was a primary contributor to the endpoint OOM-killing the process at prod
- * volume (~3,700 situations). Cache both behind a short TTL AND a cheap O(1)
- * data signature (MAX(rowid) of the append-only situation_snapshots table) so
- * they build at most once per window and rebuild immediately after any new
- * snapshot.
+ * whole situations dataset — each doing an N+1 over listSituationEvents (which
+ * reads the multi-GB payload_json column) plus per-signal outcome lookups.
+ *
+ * Earlier this ran inline on every /api/v2/situations request behind a short TTL.
+ * At prod volume one such request blocked the event loop >40s, failed the Render
+ * health check, and the instance was killed (Oct 2 2026 02:38 UTC). A TTL does
+ * not help a cold cache or a request that races the TTL expiry — the build still
+ * happens on *some* request's thread.
+ *
+ * The fix: the corpus + baselines are now built ONLY in the background, by the
+ * ingestion cycle's situations:build-corpus job (see buildSituationsEnrichmentCache).
+ * Requests read the last built snapshot (stale-while-revalidate) and NEVER build.
+ * Before the first background build completes, requests serve responses without
+ * comparable/baseline enrichment rather than building inline.
  */
-const BUILD_CACHE_TTL_MS = 45_000;
 const CANDIDATE_POOL_SIZE = 100;
-let corpusCache: { sig: number; at: number; value: readonly ComparableSituationCorpusRecord[] } | null = null;
-let baselinesCache: { sig: number; at: number; value: Map<string, number> } | null = null;
 
+interface SituationsEnrichment {
+  readonly corpus: readonly ComparableSituationCorpusRecord[];
+  readonly baselines: Map<string, number>;
+  readonly builtAt: number;
+  readonly sig: number;
+  readonly situationCount: number;
+}
+
+const EMPTY_BASELINES: ReadonlyMap<string, number> = new Map();
+let enrichmentCache: SituationsEnrichment | null = null;
+let enrichmentBuildCount = 0;
+
+// Floor on how often the background job actually rebuilds, even when new
+// snapshots have landed. The corpus build is expensive; the standard ingestion
+// cycle can run more often than this, so a cheaper-than-10-min rebuild cadence
+// buys nothing a slightly-staler corpus doesn't already give.
+const ENRICHMENT_REBUILD_MIN_INTERVAL_MS = 10 * 60 * 1000;
+
+/** Cheap O(1) data signature recorded with each build, for observability. */
 function situationsDataSignature(): number {
   try {
     const row = getPipelineDb()
@@ -162,44 +195,85 @@ function situationsDataSignature(): number {
       .get() as { m: number | null } | undefined;
     return row?.m ?? 0;
   } catch {
-    return -1; // schema not ready / query failed → force a rebuild, never cache
+    return -1;
   }
 }
 
-function cachedComparableCorpus(sig: number): readonly ComparableSituationCorpusRecord[] {
-  const now = Date.now();
-  if (sig >= 0 && corpusCache && corpusCache.sig === sig && now - corpusCache.at < BUILD_CACHE_TTL_MS) {
-    return corpusCache.value;
+/**
+ * Rebuild the comparable corpus + confidence baselines in the background and
+ * atomically swap them into the request-read cache. Must be invoked only off the
+ * request path — from the ingestion cycle, wrapped in trackJob. Yields to the
+ * event loop between chunks of situations so it never blocks a health check.
+ *
+ * Two guards keep it from doing needless work when called every cycle:
+ *   - If the data signature is unchanged since the last build, skip silently —
+ *     no new snapshot means the corpus would be byte-identical.
+ *   - Otherwise rebuild at most once per {@link ENRICHMENT_REBUILD_MIN_INTERVAL_MS},
+ *     so a burst of ingestion cycles can't stack expensive rebuilds.
+ * `force` (tests) bypasses both. A skip returns the existing cache unchanged and
+ * does not increment the build counter.
+ */
+export async function buildSituationsEnrichmentCache(
+  opts: { chunkSize?: number; force?: boolean } = {},
+): Promise<SituationsEnrichment> {
+  const sig = situationsDataSignature();
+  if (!opts.force && enrichmentCache) {
+    if (sig >= 0 && enrichmentCache.sig === sig) return enrichmentCache;
+    if (Date.now() - enrichmentCache.builtAt < ENRICHMENT_REBUILD_MIN_INTERVAL_MS) return enrichmentCache;
   }
-  const value = buildComparableSituationCorpus();
-  if (sig >= 0) corpusCache = { sig, at: now, value };
-  return value;
+  const corpus = await buildComparableSituationCorpusInChunks({ chunkSize: opts.chunkSize });
+  const baselines = buildConfidenceBaselines();
+  const built: SituationsEnrichment = {
+    corpus,
+    baselines,
+    builtAt: Date.now(),
+    // Store the signature captured BEFORE the build, which is what this corpus
+    // actually reflects. A snapshot that lands mid-build is not in this corpus,
+    // so the live signature is already ahead of `sig` and the next cycle rebuilds
+    // to pick it up. (Re-reading the signature here instead would record the
+    // mid-build snapshot as already-included and leave the corpus stale.)
+    sig,
+    situationCount: corpus.length,
+  };
+  enrichmentCache = built;
+  enrichmentBuildCount += 1;
+  return built;
 }
 
-function cachedConfidenceBaselines(sig: number): Map<string, number> {
-  const now = Date.now();
-  if (sig >= 0 && baselinesCache && baselinesCache.sig === sig && now - baselinesCache.at < BUILD_CACHE_TTL_MS) {
-    return baselinesCache.value;
-  }
-  const value = buildConfidenceBaselines();
-  if (sig >= 0) baselinesCache = { sig, at: now, value };
-  return value;
+/** Observability/test hook: build count + state of the request-read cache. */
+export function getSituationsEnrichmentMetrics(): {
+  buildCount: number;
+  hasCache: boolean;
+  builtAt: number | null;
+  situationCount: number | null;
+} {
+  return {
+    buildCount: enrichmentBuildCount,
+    hasCache: enrichmentCache != null,
+    builtAt: enrichmentCache?.builtAt ?? null,
+    situationCount: enrichmentCache?.situationCount ?? null,
+  };
 }
 
-/** Test/ops hook: drop the corpus + baselines caches so the next call rebuilds. */
+/** Test/ops hook: drop the request-read enrichment cache. */
 export function resetSituationsApiBuildCaches(): void {
-  corpusCache = null;
-  baselinesCache = null;
+  enrichmentCache = null;
+}
+
+/** All per-record data a single API response is mapped from. */
+interface PreloadedSituationData {
+  readonly events: readonly SituationEvent[];
+  readonly stateHistory: readonly SituationStateHistory[];
+  readonly confidenceHistory: readonly SituationConfidenceHistory[];
+  readonly publicConfirmation: SituationPublicConfirmation | null;
 }
 
 export function listCanonicalSituationApiResponses(query: CanonicalSituationApiQuery = {}): CanonicalSituationApiResponse[] {
   // (A-minimal) operational_visibility_score is computed in JS (below, in
-  // mapCanonicalSituationToApiResponse), so it cannot be ordered/limited in SQL.
-  // Previously this fetched 1000 rows and ranked them in JS — and the per-record
-  // N+1 event/history fetch over 1000 rows OOM-killed the process at prod volume.
-  // Instead, fetch a bounded candidate pool ordered by escalation_score (a
-  // SQL-orderable proxy that dominates the visibility score), rank THAT small set
-  // by operationalVisibilityScore in JS, then slice to the requested limit.
+  // mapWithPreloaded), so it cannot be ordered/limited in SQL. Fetch a bounded
+  // candidate pool ordered by escalation_score (a SQL-orderable proxy that
+  // dominates the visibility score), rank THAT small set by
+  // operationalVisibilityScore in JS, then slice to the requested limit.
   const isVisibilityOrder = query.orderBy === "operational_visibility_score";
   const requestedLimit = sanitizeLimit(query.limit);
   const records = listCanonicalSituations({
@@ -214,23 +288,77 @@ export function listCanonicalSituationApiResponses(query: CanonicalSituationApiQ
 
   if (records.length === 0) return [];
 
-  const sig = situationsDataSignature();
-  const comparableCorpus = cachedComparableCorpus(sig);
-  const confidenceBaselines = cachedConfidenceBaselines(sig);
-  const mapped = records.map((record) => mapCanonicalSituationToApiResponse(record, comparableCorpus, confidenceBaselines));
+  // Read the last background-built enrichment (never build on the request path).
+  const comparableCorpus = enrichmentCache?.corpus ?? [];
+  const confidenceBaselines = enrichmentCache?.baselines ?? EMPTY_BASELINES;
+
+  // Batch the per-record fetches into one query each (events / state history /
+  // confidence history / public confirmations) instead of 4×N on the request
+  // path. Grouped output preserves each situation's deterministic row order.
+  const ids = records.map((record) => record.situation_id);
+  const eventsById = listSituationEventsBySituationIds(ids);
+  const stateById = listSituationStateHistoryBySituationIds(ids);
+  const confidenceById = listSituationConfidenceHistoryBySituationIds(ids);
+  const confirmationById = getSituationPublicConfirmationsBySituationIds(ids);
+
+  const mapped = records.map((record) => mapWithPreloaded(record, {
+    events: eventsById.get(record.situation_id) ?? [],
+    stateHistory: stateById.get(record.situation_id) ?? [],
+    confidenceHistory: confidenceById.get(record.situation_id) ?? [],
+    publicConfirmation: confirmationById.get(record.situation_id) ?? null,
+  }, comparableCorpus, confidenceBaselines));
   const sorted = sortCanonicalSituationApiResponses(mapped, query.orderBy ?? "updated_at");
   return sorted.slice(0, requestedLimit);
 }
 
+/**
+ * Map a single canonical situation to its API response by id, reading the
+ * background-built enrichment (never building inline). Returns null when the id
+ * does not resolve to an active situation. Backs /api/v2/situations/:id.
+ */
+export function getCanonicalSituationApiResponse(id: string): CanonicalSituationApiResponse | null {
+  const record = getCanonicalSituation(id);
+  if (!record) return null;
+  const comparableCorpus = enrichmentCache?.corpus ?? [];
+  const confidenceBaselines = enrichmentCache?.baselines ?? EMPTY_BASELINES;
+  return mapWithPreloaded(record, {
+    events: listSituationEvents(record.situation_id),
+    stateHistory: listSituationStateHistory(record.situation_id),
+    confidenceHistory: listSituationConfidenceHistory(record.situation_id),
+    publicConfirmation: getSituationPublicConfirmation(record.situation_id),
+  }, comparableCorpus, confidenceBaselines);
+}
+
+/**
+ * Standalone single-record mapper. Fetches this situation's own events/history
+ * per-id and, by default, BUILDS the corpus + baselines — so it is only for
+ * offline/one-off callers (validation scripts). The request path never reaches
+ * these defaults: it goes through mapWithPreloaded with the background-built
+ * cache.
+ */
 export function mapCanonicalSituationToApiResponse(
   record: CanonicalSituationRecord,
   comparableCorpus: readonly ComparableSituationCorpusRecord[] = buildComparableSituationCorpus(),
-  confidenceBaselines: Map<string, number> = buildConfidenceBaselines(),
+  confidenceBaselines: ReadonlyMap<string, number> = buildConfidenceBaselines(),
+): CanonicalSituationApiResponse {
+  return mapWithPreloaded(record, {
+    events: listSituationEvents(record.situation_id),
+    stateHistory: listSituationStateHistory(record.situation_id),
+    confidenceHistory: listSituationConfidenceHistory(record.situation_id),
+    publicConfirmation: getSituationPublicConfirmation(record.situation_id),
+  }, comparableCorpus, confidenceBaselines);
+}
+
+function mapWithPreloaded(
+  record: CanonicalSituationRecord,
+  data: PreloadedSituationData,
+  comparableCorpus: readonly ComparableSituationCorpusRecord[],
+  confidenceBaselines: ReadonlyMap<string, number>,
 ): CanonicalSituationApiResponse {
   const snapshot = record.latest_snapshot;
-  const events = listSituationEvents(record.situation_id);
-  const stateHistory = listSituationStateHistory(record.situation_id);
-  const confidenceHistory = listSituationConfidenceHistory(record.situation_id);
+  const events = data.events;
+  const stateHistory = data.stateHistory;
+  const confidenceHistory = data.confidenceHistory;
   // Guard: a situation re-founded past its single legitimate founding carries
   // duplicate founding evidence that inflates its headline confidence. Cap the
   // presented score down to the clean single-founding cohort's baseline for the
@@ -260,7 +388,7 @@ export function mapCanonicalSituationToApiResponse(
     .map((event) => event.source_id)
     .filter(Boolean)).size;
   const lastUpdatedAt = snapshot?.created_at ?? record.created_at;
-  const publicConfirmation = getSituationPublicConfirmation(record.situation_id);
+  const publicConfirmation = data.publicConfirmation;
   const historicalCalibration = deriveSituationHistoricalCalibration({
     record,
     snapshot,

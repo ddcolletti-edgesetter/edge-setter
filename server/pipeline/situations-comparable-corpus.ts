@@ -24,7 +24,9 @@ import {
   type CanonicalSituationRecord,
   listCanonicalSituations,
   listSituationEvents,
+  listSituationEventsBySituationIds,
   listSituationStateHistory,
+  listSituationStateHistoryBySituationIds,
 } from "./situations-store";
 import { getPipelineDb } from "./store";
 
@@ -48,6 +50,45 @@ export function buildComparableSituationCorpus(limit = 500): ComparableSituation
       stateHistory: listSituationStateHistory(record.situation_id),
     }))
     .sort(compareCorpusRecords);
+}
+
+/**
+ * Event-loop-friendly corpus build for the background job. Identical output to
+ * {@link buildComparableSituationCorpus}, but it fetches only ONE chunk's events
+ * + state history at a time (grouped queries over ~25 ids), builds that chunk,
+ * then yields to the event loop before loading the next chunk. The heavy read is
+ * situation_events.payload_json from the ~1.67GB table; loading all 500
+ * situations' events up front would be one big synchronous blob read that no
+ * amount of between-chunk yielding protects against — the whole point is to keep
+ * each synchronous span small. This must never run on a request path — only from
+ * the ingestion cycle's background build job.
+ */
+export async function buildComparableSituationCorpusInChunks(
+  opts: { limit?: number; chunkSize?: number } = {},
+): Promise<ComparableSituationCorpusRecord[]> {
+  const limit = opts.limit ?? 500;
+  const chunkSize = Math.max(1, opts.chunkSize ?? 25);
+  const records = listCanonicalSituations({ limit });
+  const corpus: ComparableSituationCorpusRecord[] = [];
+  for (let i = 0; i < records.length; i += chunkSize) {
+    const chunk = records.slice(i, i + chunkSize);
+    const chunkIds = chunk.map((record) => record.situation_id);
+    // Fetch only this chunk's events/state inside the loop, so the synchronous
+    // payload_json read stays bounded to ~chunkSize situations before each yield.
+    const eventsById = listSituationEventsBySituationIds(chunkIds);
+    const stateById = listSituationStateHistoryBySituationIds(chunkIds);
+    for (const record of chunk) {
+      corpus.push(buildComparableSituationCorpusRecord({
+        record,
+        events: eventsById.get(record.situation_id) ?? [],
+        stateHistory: stateById.get(record.situation_id) ?? [],
+      }));
+    }
+    if (i + chunkSize < records.length) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  }
+  return corpus.sort(compareCorpusRecords);
 }
 
 export function buildComparableSituationCorpusRecord(input: {
