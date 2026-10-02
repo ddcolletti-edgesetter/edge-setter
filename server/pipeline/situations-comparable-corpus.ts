@@ -24,7 +24,9 @@ import {
   type CanonicalSituationRecord,
   listCanonicalSituations,
   listSituationEvents,
+  listSituationEventsBySituationIds,
   listSituationStateHistory,
+  listSituationStateHistoryBySituationIds,
 } from "./situations-store";
 import { getPipelineDb } from "./store";
 
@@ -48,6 +50,41 @@ export function buildComparableSituationCorpus(limit = 500): ComparableSituation
       stateHistory: listSituationStateHistory(record.situation_id),
     }))
     .sort(compareCorpusRecords);
+}
+
+/**
+ * Event-loop-friendly corpus build for the background job. Identical output to
+ * {@link buildComparableSituationCorpus}, but: (1) it batches the per-situation
+ * event/state-history reads into two grouped queries instead of 2×N, and (2) it
+ * yields to the event loop between chunks of situations so the synchronous
+ * corpus work (including the per-record outcome lookups inside
+ * buildComparableSituationCorpusRecord) never blocks the loop long enough to
+ * fail a health check. This must never run on a request path — only from the
+ * ingestion cycle's background build job.
+ */
+export async function buildComparableSituationCorpusInChunks(
+  opts: { limit?: number; chunkSize?: number } = {},
+): Promise<ComparableSituationCorpusRecord[]> {
+  const limit = opts.limit ?? 500;
+  const chunkSize = Math.max(1, opts.chunkSize ?? 25);
+  const records = listCanonicalSituations({ limit });
+  const ids = records.map((record) => record.situation_id);
+  const eventsById = listSituationEventsBySituationIds(ids);
+  const stateById = listSituationStateHistoryBySituationIds(ids);
+  const corpus: ComparableSituationCorpusRecord[] = [];
+  for (let i = 0; i < records.length; i += chunkSize) {
+    for (const record of records.slice(i, i + chunkSize)) {
+      corpus.push(buildComparableSituationCorpusRecord({
+        record,
+        events: eventsById.get(record.situation_id) ?? [],
+        stateHistory: stateById.get(record.situation_id) ?? [],
+      }));
+    }
+    if (i + chunkSize < records.length) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  }
+  return corpus.sort(compareCorpusRecords);
 }
 
 export function buildComparableSituationCorpusRecord(input: {
