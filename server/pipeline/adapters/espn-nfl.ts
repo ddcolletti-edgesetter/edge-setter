@@ -85,6 +85,8 @@ export interface ESPNInjuryDiagnostics {
   rows_skipped_stale: number;
   rows_skipped_missing_required: number;
   rows_skipped_non_impactful_status: number;
+  /** Player already stored with this exact designation + team — ESPN's daily re-report. */
+  rows_skipped_unchanged: number;
   raw_events_created: number;
 }
 
@@ -142,6 +144,45 @@ export function isSignalWorthyNFLInjuryStatus(status: string | undefined): boole
   return ["OUT", "IR", "PUP", "Doubtful", "Questionable"].includes(designation);
 }
 
+/**
+ * Most recent ESPN NFL injury_update already stored for a player.
+ *
+ * ESPN re-publishes every listed player's UNCHANGED injury with a fresh
+ * `date` every day, so any dedup key containing that date (the old key was
+ * player + designation + first 10 chars of the date) can never match the
+ * prior row: it mints one raw_event per listed player per day — ~150/day,
+ * and before #64's per-poll fix, one per poll. sit_a412cf2fd624c10bb9d80810
+ * (Chris Collier, IR, static all season) collected 1,803 raw events that way,
+ * each fanning out into situation_event + snapshot rows. situation_events
+ * reached ~1.1GB and took /api/v2/situations down.
+ *
+ * So the key is the player's CURRENT state rather than a date: compare
+ * against their latest stored row and skip when the designation and team are
+ * both unchanged, no matter what the date says. A designation change
+ * (Questionable → OUT) or a team change is real news and still writes.
+ *
+ * Served by idx_raw_events_source_player(source_id, player) — the planner
+ * seeks that player's handful of rows, filters and sorts just those.
+ * INDEXED BY is deliberate: the free planner choice here is between this index
+ * and idx_raw_events_source_received(source_id, received_at), which satisfies
+ * the ORDER BY and so looks cheap, but reaching one player's row through it
+ * means walking every 'espn' row newest-first. That is the same shape of full
+ * scan that blocked the event loop for ~21s before #64, and it would only show
+ * up once prod stats shifted. Pinning the index makes the plan a property of
+ * the code, and a loud error rather than a silent scan if the index is dropped.
+ * espn-injury-daily-churn.test.ts asserts the plan.
+ */
+export const LATEST_NFL_INJURY_SQL = `SELECT json_extract(payload, '$.designation') AS designation, team
+    FROM raw_events INDEXED BY idx_raw_events_source_player
+    WHERE source_id = 'espn' AND player = ? AND league = 'NFL' AND event_type = 'injury_update'
+    ORDER BY received_at DESC
+    LIMIT 1`;
+
+interface LatestNFLInjuryRow {
+  designation: string | null;
+  team: string | null;
+}
+
 export async function fetchNFLInjuries(): Promise<ESPNInjuryEntry[]> {
   try {
     const resp = await fetch(`${ESPN_BASE}/injuries`);
@@ -171,6 +212,7 @@ export async function ingestNFLInjuries(): Promise<{ created: number; skipped: n
     rows_skipped_stale: 0,
     rows_skipped_missing_required: 0,
     rows_skipped_non_impactful_status: 0,
+    rows_skipped_unchanged: 0,
     raw_events_created: 0,
   };
 
@@ -179,15 +221,11 @@ export async function ingestNFLInjuries(): Promise<{ created: number; skipped: n
   // limit: 1000 }) had no usable index (league-only), so on a cold boot it read
   // every NFL row out of a multi-GB DB just to sort them — ~21s of synchronous
   // work that blocked the event loop — and its 1000-row window let older
-  // injuries fall out and get re-created every cycle (17-18 dupes/cycle). This
-  // query is served by idx_raw_events_source_player. The key semantics are
-  // unchanged: player + designation + first 10 chars of the date.
+  // injuries fall out and get re-created every cycle (17-18 dupes/cycle).
+  // Prepared once and reused for every row in the fetch.
+  // See LATEST_NFL_INJURY_SQL for why the key is state, not date.
   const db = getPipelineDb();
-  const existsStmt = db.prepare(`SELECT 1 FROM raw_events
-    WHERE source_id = 'espn' AND player = ? AND league = 'NFL' AND event_type = 'injury_update'
-      AND json_extract(payload, '$.designation') = ?
-      AND substr(json_extract(payload, '$.occurred_at'), 1, 10) = ?
-    LIMIT 1`);
+  const latestStmt = db.prepare(LATEST_NFL_INJURY_SQL);
   // Guard against duplicate rows within a single payload (same player twice in
   // one fetch), which the per-row DB lookup can't catch since neither is
   // inserted yet.
@@ -217,10 +255,16 @@ export async function ingestNFLInjuries(): Promise<{ created: number; skipped: n
     }
     const position = inj.athlete?.position?.abbreviation ?? "";
     const bodyPart = inj.details?.type ?? inj.details?.location ?? "undisclosed";
-    const eventDay = eventDate?.slice(0, 10) ?? "";
-    const key = `${playerName}_${designation}_${eventDay}`;
+    const key = `${playerName}_${team}_${designation}`;
 
-    if (insertedThisRun.has(key) || existsStmt.get(playerName, designation, eventDay)) {
+    // Unchanged state → ESPN is just re-listing a standing injury. Drop it.
+    const latest = latestStmt.get(playerName) as LatestNFLInjuryRow | undefined;
+    const unchanged = latest !== undefined
+      && latest.designation === designation
+      && latest.team === team;
+
+    if (insertedThisRun.has(key) || unchanged) {
+      diagnostics.rows_skipped_unchanged++;
       skipped++;
       continue;
     }
@@ -252,7 +296,13 @@ export async function ingestNFLInjuries(): Promise<{ created: number; skipped: n
         source_count: 1,
         sources: [{ name: "ESPN NFL", type: "sports_api" }],
       },
-    }, { eventTime: eventDate });
+      // No { eventTime } override: received_at/created_at are wall-clock
+      // ARRIVAL time. Passing ESPN's date here backdated received_at to the
+      // report date, which is what the pipeline orders and ages rows by
+      // (getUnprocessedRawEvents, freshness, "most recent" above). ESPN's own
+      // timestamp is not lost — it stays in payload.occurred_at/event_time,
+      // which is where situations-adapter reads occurred_at from.
+    });
 
     created++;
     diagnostics.raw_events_created++;
