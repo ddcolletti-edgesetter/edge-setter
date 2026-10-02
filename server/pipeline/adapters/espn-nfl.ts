@@ -145,7 +145,18 @@ export function isSignalWorthyNFLInjuryStatus(status: string | undefined): boole
 }
 
 /**
- * Most recent ESPN NFL injury_update already stored for a player.
+ * Most recent ESPN NFL injury_update already stored for a player ON A TEAM.
+ *
+ * The team belongs in the WHERE, not in the comparison. Two players can share
+ * a name on different teams — Josh Allen plays for BUF and for JAX — and a
+ * name-only lookup hands each of them the other's row. The teams differ, that
+ * reads as a change, and both write: not once a day but once per poll, each
+ * forever re-triggering the other. Scoping the lookup to (player, team) makes
+ * each listing dedup against its own history, and the same scoping absorbs a
+ * team value that flaps (say UNK → BUF → UNK) instead of ping-ponging on it.
+ *
+ * A genuine team change still writes, because the player has no prior row
+ * under the new team — which is why designation alone is compared here.
  *
  * ESPN re-publishes every listed player's UNCHANGED injury with a fresh
  * `date` every day, so any dedup key containing that date (the old key was
@@ -186,15 +197,14 @@ export function isSignalWorthyNFLInjuryStatus(status: string | undefined): boole
  * the index is dropped. espn-injury-daily-churn.test.ts asserts the plan uses
  * the index with no temp b-tree.
  */
-export const LATEST_NFL_INJURY_SQL = `SELECT json_extract(payload, '$.designation') AS designation, team
+export const LATEST_NFL_INJURY_SQL = `SELECT json_extract(payload, '$.designation') AS designation
     FROM raw_events INDEXED BY idx_raw_events_source_player
-    WHERE source_id = 'espn' AND player = ? AND league = 'NFL' AND event_type = 'injury_update'
+    WHERE source_id = 'espn' AND player = ? AND team = ? AND league = 'NFL' AND event_type = 'injury_update'
     ORDER BY rowid DESC
     LIMIT 1`;
 
 interface LatestNFLInjuryRow {
   designation: string | null;
-  team: string | null;
 }
 
 export async function fetchNFLInjuries(): Promise<ESPNInjuryEntry[]> {
@@ -272,10 +282,10 @@ export async function ingestNFLInjuries(): Promise<{ created: number; skipped: n
     const key = `${playerName}_${team}_${designation}`;
 
     // Unchanged state → ESPN is just re-listing a standing injury. Drop it.
-    const latest = latestStmt.get(playerName) as LatestNFLInjuryRow | undefined;
-    const unchanged = latest !== undefined
-      && latest.designation === designation
-      && latest.team === team;
+    // The lookup is already scoped to this player on this team, so a missing
+    // row means news (first sighting, or they changed teams).
+    const latest = latestStmt.get(playerName, team) as LatestNFLInjuryRow | undefined;
+    const unchanged = latest !== undefined && latest.designation === designation;
 
     if (insertedThisRun.has(key) || unchanged) {
       diagnostics.rows_skipped_unchanged++;
