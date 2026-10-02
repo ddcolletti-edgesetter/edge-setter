@@ -71,10 +71,19 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
   if (!matched) insertSituation(situation);
 
   const previousSnapshot = getLatestSituationSnapshot(situation.situation_id);
+
+  // situation_created is a founding event: exactly one per situation_id, ever.
+  // A situation we matched into already exists, and so does one that somehow
+  // already has a snapshot, so both record evidence as situation_matched.
+  // public-confirmation.ts reads the single situation_created event to decide
+  // whether a situation was broken by a wire source, so a second one on an
+  // existing situation would both bloat the log and corrupt that lookup.
+  const situationAlreadyExisted = matched || previousSnapshot != null;
+
   const evidenceLineage = buildSituationEvidenceLineage(input.event);
   const evidenceEvent = appendSituationEvent(buildSituationEvent({
     situation_id: situation.situation_id,
-    kind: matched ? "situation_matched" : "situation_created",
+    kind: situationAlreadyExisted ? "situation_matched" : "situation_created",
     raw_event_id: input.event.raw_event_id,
     normalized_event_id: input.event.normalized_event_id,
     source_id: input.event.source_id,
@@ -125,34 +134,60 @@ export function evolveCanonicalSituation(input: CanonicalSituationEvolutionInput
     created_at: input.event.received_at,
   }));
 
-  const snapshot = appendSituationSnapshot(createSituationSnapshot({
-    situation_id: situation.situation_id,
-    lifecycle_state: lifecycle.new_state,
-    confidence,
-    summary: input.event.summary,
-    escalation_score: deriveEscalationScore(confidence.score, lifecycle.new_state),
-    timing_pressure: deriveTimingPressure(input.event, confidence.score),
-    evidence_event_ids: [...(previousSnapshot?.evidence_event_ids ?? []), evidenceEvent.event_id],
-    previous_snapshot_hash: previousSnapshot?.replay_hash ?? null,
-    created_at: input.event.received_at,
-  }));
+  // A snapshot is the situation's published state. When an event moves none of
+  // the four fields that state is made of, the snapshot it would write is the
+  // same story told twice: it carries a different hash only because a new
+  // evidence id got appended to the list. Those near-identical rows (plus a
+  // snapshot_created event each) are what grew situation_events to ~1.1GB and
+  // crash-looped /api/v2/situations, so we don't write them. The evidence,
+  // confidence and state trails above are still recorded in full, which is
+  // what matching, lifecycle and the audit log actually read.
+  //
+  // Only a matched situation can land here: a freshly founded one has no
+  // previous snapshot, so its first snapshot is always written.
+  const escalationScore = Math.round(deriveEscalationScore(confidence.score, lifecycle.new_state));
+  const snapshotUnchanged = previousSnapshot != null
+    && previousSnapshot.lifecycle_state === lifecycle.new_state
+    && previousSnapshot.confidence.score === confidence.score
+    && previousSnapshot.summary === input.event.summary
+    && previousSnapshot.escalation_score === escalationScore;
 
-  appendSituationEvent(buildSituationEvent({
-    situation_id: situation.situation_id,
-    kind: "snapshot_created",
-    raw_event_id: input.event.raw_event_id,
-    normalized_event_id: input.event.normalized_event_id,
-    source_id: "canonical_situation_engine",
-    observed_at: input.event.received_at,
-    recorded_at: input.event.received_at,
-    payload: {
-      snapshot_id: snapshot.snapshot_id,
-      snapshot_replay_hash: snapshot.replay_hash,
-      evidence_lineage: evidenceLineage,
-      confidence_history_id: confidenceHistory.history_id,
-      state_history_id: stateHistory.history_id,
-    },
-  }));
+  // Carry the still-current snapshot forward so callers always see the
+  // situation's live state, whether or not this event minted a new one.
+  let snapshot: SituationSnapshot;
+
+  if (snapshotUnchanged) {
+    snapshot = previousSnapshot!;
+  } else {
+    snapshot = appendSituationSnapshot(createSituationSnapshot({
+      situation_id: situation.situation_id,
+      lifecycle_state: lifecycle.new_state,
+      confidence,
+      summary: input.event.summary,
+      escalation_score: escalationScore,
+      timing_pressure: deriveTimingPressure(input.event, confidence.score),
+      evidence_event_ids: [...(previousSnapshot?.evidence_event_ids ?? []), evidenceEvent.event_id],
+      previous_snapshot_hash: previousSnapshot?.replay_hash ?? null,
+      created_at: input.event.received_at,
+    }));
+
+    appendSituationEvent(buildSituationEvent({
+      situation_id: situation.situation_id,
+      kind: "snapshot_created",
+      raw_event_id: input.event.raw_event_id,
+      normalized_event_id: input.event.normalized_event_id,
+      source_id: "canonical_situation_engine",
+      observed_at: input.event.received_at,
+      recorded_at: input.event.received_at,
+      payload: {
+        snapshot_id: snapshot.snapshot_id,
+        snapshot_replay_hash: snapshot.replay_hash,
+        evidence_lineage: evidenceLineage,
+        confidence_history_id: confidenceHistory.history_id,
+        state_history_id: stateHistory.history_id,
+      },
+    }));
+  }
 
   return {
     situation,
