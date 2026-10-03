@@ -22,6 +22,7 @@ const APPEND_ONLY_TABLES = [
   "situation_state_history",
   "situation_relationships",
   "situation_public_confirmations",
+  "situation_founding_audit",
 ] as const;
 
 export function ensureSituationSchema(db: Database.Database = getPipelineDb()): void {
@@ -135,6 +136,23 @@ export function ensureSituationSchema(db: Database.Database = getPipelineDb()): 
 
     CREATE INDEX IF NOT EXISTS idx_situation_relationships_target
       ON situation_relationships(target_situation_id, relationship_type, created_at ASC);
+
+    -- Durable record of how many situation_created (founding) rows a situation
+    -- carried BEFORE the retroactive churn cleanup deleted the duplicates. The
+    -- corrupted-situation confidence guard counts those rows to decide whether a
+    -- headline is trustworthy; once they are deleted the live count collapses to
+    -- 1 and the guard would silently stop firing on situations that are still
+    -- corrupted. This table is that count's permanent home, so the read path
+    -- survives the cleanup. One row per situation, written by the cleanup job in
+    -- the same transaction as (and immediately before) that situation's deletes.
+    CREATE TABLE IF NOT EXISTS situation_founding_audit (
+      situation_id            TEXT PRIMARY KEY,
+      founding_row_count      INTEGER NOT NULL,
+      kept_event_id           TEXT,
+      keep_key_source         TEXT NOT NULL,
+      deleted_row_count       INTEGER NOT NULL DEFAULT 0,
+      audited_at              TEXT NOT NULL
+    );
 
     CREATE TABLE IF NOT EXISTS situation_public_confirmations (
       situation_id            TEXT PRIMARY KEY,
@@ -457,12 +475,101 @@ export function listSituationsForMatching(opts: {
 }
 
 /**
+ * Why a situation's surviving founding row was chosen — see
+ * {@link SituationFoundingAudit.keep_key_source}.
+ *
+ * A situation records the normalized event it was founded from in
+ * `situations.created_from_event_id`, so that is the authoritative keep key: the
+ * `situation_created` row whose `normalized_event_id` matches it is the real
+ * founder. Measured on prod 2026-10-02, 450 situations have an EARLIEST
+ * `situation_created` row that is not that founder, so "keep the first row by
+ * recorded_at" would have thrown away the founder on every one of them.
+ * Falling back to the earliest row is correct only when no row matches.
+ */
+export type SituationFoundingKeepKeySource =
+  /** A founding row carried `situations.created_from_event_id`. */
+  | "created_from_event_id"
+  /** `created_from_event_id` is set but no founding row carries it. */
+  | "earliest_no_match"
+  /** `created_from_event_id` is NULL on the situation. */
+  | "earliest_no_created_from";
+
+export interface SituationFoundingAudit {
+  readonly situation_id: string;
+  /** `situation_created` row count BEFORE the cleanup deleted the duplicates. */
+  readonly founding_row_count: number;
+  /** The `situation_created` row kept (the founder, or the earliest fallback). */
+  readonly kept_event_id: string | null;
+  readonly keep_key_source: SituationFoundingKeepKeySource;
+  readonly deleted_row_count: number;
+  readonly audited_at: string;
+}
+
+/**
+ * The audit row for one situation — a primary-key point lookup.
+ *
+ * Deliberately per-situation: a single `GROUP BY ... WHERE kind =
+ * 'situation_created'` over situation_events measured 208s on prod, so no read
+ * path may aggregate that table whole. This touches one PK row instead.
+ */
+export function getSituationFoundingAudit(
+  situationId: string,
+  db: Database.Database = getPipelineDb(),
+): SituationFoundingAudit | null {
+  ensureSituationSchema(db);
+  const row = db.prepare(`
+    SELECT situation_id, founding_row_count, kept_event_id, keep_key_source,
+           deleted_row_count, audited_at
+    FROM situation_founding_audit
+    WHERE situation_id = ?
+  `).get(situationId) as SituationFoundingAudit | undefined;
+  return row ?? null;
+}
+
+/**
+ * Write a situation's founding audit row.
+ *
+ * INSERT OR IGNORE: the table is append-only (guard triggers), and the cleanup
+ * job is resumable, so re-encountering an already-audited situation must be a
+ * no-op rather than an abort. The first write wins, which is the right one —
+ * it was taken before any of that situation's rows were deleted.
+ */
+export function recordSituationFoundingAudit(
+  audit: SituationFoundingAudit,
+  db: Database.Database = getPipelineDb(),
+): void {
+  ensureSituationSchema(db);
+  db.prepare(`
+    INSERT OR IGNORE INTO situation_founding_audit (
+      situation_id, founding_row_count, kept_event_id, keep_key_source,
+      deleted_row_count, audited_at
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `).run(
+    audit.situation_id,
+    audit.founding_row_count,
+    audit.kept_event_id,
+    audit.keep_key_source,
+    audit.deleted_row_count,
+    audit.audited_at,
+  );
+}
+
+/**
  * Latest headline confidence of every "clean" situation — one whose distinct
- * `situation_created` (founding) rows number exactly 1. These are the situations
- * that were detected once and never re-founded, so their confidence is not
- * inflated by duplicate founding evidence. The confidence guard uses this cohort
- * to build a per-(league, situation_type) baseline that corrupted situations are
- * capped to. Rows with no snapshot (null confidence) are excluded.
+ * `situation_created` (founding) rows number exactly 1 AND which carries no
+ * founding-audit row recording a higher historical count. These are the
+ * situations that were detected once and never re-founded, so their confidence
+ * is not inflated by duplicate founding evidence. The confidence guard uses this
+ * cohort to build a per-(league, situation_type) baseline that corrupted
+ * situations are capped to. Rows with no snapshot (null confidence) are excluded.
+ *
+ * The audit clause is what keeps the baseline honest across the retroactive
+ * churn cleanup. That cleanup deletes the duplicate `situation_created` rows, so
+ * every situation it touches would afterwards satisfy `COUNT(*) = 1` and join
+ * this cohort — carrying its INFLATED confidence into the very baseline that is
+ * supposed to cap it, which would raise the cap for every corrupted situation of
+ * the same league + type. A situation that was ever corrupted stays out of the
+ * cohort permanently, whatever its live row count says.
  */
 export function getCleanFoundingSituationConfidences(
   db: Database.Database = getPipelineDb(),
@@ -487,6 +594,15 @@ export function getCleanFoundingSituationConfidences(
         WHERE se.situation_id = s.situation_id
           AND se.kind = 'situation_created'
       ) = 1
+      -- "> 1" mirrors CORRUPTED_FOUNDING_ROW_THRESHOLD (1): more than one
+      -- founding row ever recorded means the situation was mis-founded, so it is
+      -- excluded even though the cleanup has since collapsed its live count to 1.
+      AND NOT EXISTS (
+        SELECT 1
+        FROM situation_founding_audit a
+        WHERE a.situation_id = s.situation_id
+          AND a.founding_row_count > 1
+      )
     )
     WHERE confidence_score IS NOT NULL
   `).all() as { league: string; situation_type: string; confidence_score: number }[];
