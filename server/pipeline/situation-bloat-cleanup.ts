@@ -24,16 +24,29 @@
  *   - dryRun plans everything and deletes nothing.
  * ────────────────────────────────────────────────────────────────────────────
  *
- * ORDER OF OPERATIONS, per situation, inside ONE transaction:
+ * ORDER OF OPERATIONS, per situation:
  *   1. INSERT OR IGNORE the situation_founding_audit row, recording the LIVE
  *      founding count taken BEFORE any delete. Phase 0 (#74) made both guard read
- *      paths consult that row; writing it after the delete, or in a separate
- *      transaction that could fail independently, would hand a still-corrupted
- *      situation's inflated confidence back to customers.
+ *      paths consult that row; writing it after the delete would hand a
+ *      still-corrupted situation's inflated confidence back to customers.
  *   2. Delete the duplicate situation_created events.
  *   3. Delete the redundant snapshots.
  *   4. Delete the snapshot_created events paired with exactly those snapshots —
  *      never the paired event of a snapshot we kept.
+ *
+ * TRANSACTION SHAPE — two paths, and the difference is measured, not stylistic.
+ * A situation whose removable rows fit the chunk target is done in ONE
+ * transaction, batched with its neighbours, audit row and deletes together.
+ *
+ * A situation that does NOT fit cannot be: prod measured deletes at ~1-2ms/row on
+ * 2026-10-04, and the worst churned NFL injury situations carry ~5,400 removable
+ * rows, which is a single 5-10 second transaction. better-sqlite3 is synchronous,
+ * so that is 5-10 seconds of blocked event loop against a health check that gives
+ * up at 5. Those situations commit their audit row FIRST and alone — which is what
+ * makes every later intermediate state safe for customers to see — and then delete
+ * in slices of at most the target, each its own transaction, yielding between.
+ * See cleanLargeSituation for why each slice boundary leaves a valid state and why
+ * a crash part way through re-plans to the same keep set.
  *
  * WHAT IS NOT TOUCHED. The history tables (situation_confidence_history,
  * situation_state_history, situation_relationships,
@@ -53,7 +66,12 @@
 import type Database from "better-sqlite3";
 
 import { trackJob } from "../event-loop-monitor";
-import { computeSituationCleanupPlan, type SituationCleanupPlan } from "./situation-bloat-plan";
+import {
+  computeSituationCleanupPlan,
+  sliceSituationCleanupPlan,
+  type CleanupSlice,
+  type SituationCleanupPlan,
+} from "./situation-bloat-plan";
 import { fetchBloatPlanEvents, fetchBloatPlanSnapshots } from "./situation-bloat-rows";
 import {
   dropSituationCleanupDeleteGuards,
@@ -109,11 +127,25 @@ export interface SituationBloatCleanupOptions {
   readonly dryRun?: boolean;
   readonly db?: Database.Database;
   /**
-   * Test seam. Called inside the chunk transaction AFTER the deletes and BEFORE
-   * the guard triggers are restored; throwing from it proves that a mid-chunk
-   * failure rolls the dropped trigger back along with the rows.
+   * Test seam. Called inside the chunk or slice transaction AFTER the deletes and
+   * BEFORE the guard triggers are restored; throwing from it proves that a failure
+   * part way through rolls the dropped trigger back along with the rows.
    */
   readonly beforeChunkCommit?: (chunkIndex: number) => void;
+  /**
+   * Test seam. Called after each slice of a large situation COMMITS, outside any
+   * transaction — the only place an observer can see an intermediate state of a
+   * part-deleted situation the way a customer request would. The tests use it to
+   * assert the API response stays inside the Phase 0 divergence set at every slice
+   * boundary, which is the property that makes splitting a situation across
+   * transactions safe at all.
+   */
+  readonly onSliceCommitted?: (info: {
+    situationId: string;
+    sliceIndex: number;
+    sliceCount: number;
+    rows: number;
+  }) => void;
 }
 
 export type SituationBloatCleanupStatus =
@@ -153,6 +185,11 @@ export interface SituationBloatCleanupResult {
   readonly chunks: number;
   readonly finalChunkSize: number;
   readonly deleteMs: number;
+  /** Rows in the LARGEST single write transaction of the run. The bound that matters:
+   *  better-sqlite3 is synchronous, so this times how long the event loop was held. */
+  readonly maxTxnRows: number;
+  /** Duration of the slowest single write transaction, ms. */
+  readonly maxTxnMs: number;
   readonly elapsedMs: number;
   readonly cursor: string | null;
   readonly error: string | null;
@@ -171,6 +208,8 @@ interface Progress {
   chunkSize: number;
   lastChunkMs: number;
   deleteMs: number;
+  maxTxnRows: number;
+  maxTxnMs: number;
   situationsScanned: number;
   situationsCleaned: number;
   eventsDeleted: number;
@@ -194,6 +233,8 @@ function idleProgress(): Progress {
     chunkSize: CHUNK_TARGET_ROWS,
     lastChunkMs: 0,
     deleteMs: 0,
+    maxTxnRows: 0,
+    maxTxnMs: 0,
     situationsScanned: 0,
     situationsCleaned: 0,
     eventsDeleted: 0,
@@ -335,6 +376,8 @@ export async function runSituationBloatCleanup(
   let chunks = 0;
   let chunkSize = CHUNK_TARGET_ROWS;
   let deleteMs = 0;
+  let maxTxnRows = 0;
+  let maxTxnMs = 0;
 
   /**
    * Two cursors, because they answer different questions.
@@ -371,6 +414,8 @@ export async function runSituationBloatCleanup(
       chunks,
       chunkSize,
       deleteMs,
+      maxTxnRows,
+      maxTxnMs,
       cursor: committedCursor,
       situationsScanned: counters.situationsScanned,
       situationsCleaned: counters.situationsCleaned,
@@ -384,6 +429,8 @@ export async function runSituationBloatCleanup(
       chunks,
       finalChunkSize: chunkSize,
       deleteMs,
+      maxTxnRows,
+      maxTxnMs,
       elapsedMs: Date.now() - startedAt,
       cursor: committedCursor,
       error,
@@ -396,6 +443,8 @@ export async function runSituationBloatCleanup(
       mb: Math.round(counters.bytesFreed / 1048.576) / 1000,
       chunks,
       deleteMs,
+      maxTxnRows,
+      maxTxnMs,
       elapsedMs: result.elapsedMs,
     })}`);
     return result;
@@ -439,11 +488,15 @@ export async function runSituationBloatCleanup(
   let windowLastId: string | null = null;
 
   /**
-   * Commit one chunk: drop the delete guards, write each situation's audit row and
-   * then its deletes, restore the guards, advance the cursor — all in ONE
-   * transaction. SQLite rolls DDL back with everything else, so a throw anywhere
-   * in here restores the triggers along with the rows: the table is never left
-   * open to deletes, not even for the width of a crash.
+   * Commit one chunk of SMALL situations: drop the delete guards, write each
+   * situation's audit row and then its deletes, restore the guards, advance the
+   * cursor — all in ONE transaction. SQLite rolls DDL back with everything else, so
+   * a throw anywhere in here restores the triggers along with the rows: the table
+   * is never left open to deletes, not even for the width of a crash.
+   *
+   * Situations whose removable rows exceed the chunk target do NOT come through
+   * here; they go to cleanLargeSituation below, which gives up the one-transaction
+   * property on purpose. See the comment there.
    */
   const commitChunk = db.transaction((batch: typeof pending, cursorTo: string | null, chunkIndex: number) => {
     dropSituationCleanupDeleteGuards(db);
@@ -504,28 +557,42 @@ export async function runSituationBloatCleanup(
     const chunkStart = Date.now();
     commitChunk(batch, cursorTo, chunks);
     const chunkMs = Date.now() - chunkStart;
-    deleteMs += chunkMs;
     if (cursorTo !== null) committedCursor = cursorTo;
 
     for (const { plan } of batch) tally(plan);
+    afterTxn(`chunk ${chunks} situations=${batch.length}`, rows, chunkMs);
+  };
 
-    // The verification requirement 6 asks for, and the reason it is ensure-free:
-    // a verify that could re-create the trigger would always report ok.
+  /**
+   * Everything that happens after a write transaction commits, shared by the small
+   * chunk path and the sliced path so the two cannot drift: measure it, verify the
+   * guards came back, log it, adapt the target, checkpoint the WAL, publish
+   * progress.
+   */
+  const afterTxn = (label: string, rows: number, ms: number): void => {
+    deleteMs += ms;
+    if (rows > maxTxnRows) maxTxnRows = rows;
+    if (ms > maxTxnMs) maxTxnMs = ms;
+
+    // The ensure-free verification: a verify that could re-create the trigger
+    // would always report ok, which is why situationAppendOnlyGuardStatus exists.
     const guards = situationAppendOnlyGuardStatus(db);
     if (!guards.ok) {
-      throw new Error(`append-only guards missing after chunk ${chunks}: ${guards.missing.join(", ")}`);
+      throw new Error(`append-only guards missing after ${label}: ${guards.missing.join(", ")}`);
     }
 
-    console.log(`${LOG} chunk ${chunks} situations=${batch.length} rows=${rows} ms=${chunkMs} target=${chunkSize} cumulative={events:${counters.eventsDeleted},snapshots:${counters.snapshotsDeleted},deleteMs:${deleteMs}}`);
+    console.log(`${LOG} ${label} rows=${rows} ms=${ms} target=${chunkSize} cumulative={events:${counters.eventsDeleted},snapshots:${counters.snapshotsDeleted},deleteMs:${deleteMs},maxTxnRows:${maxTxnRows},maxTxnMs:${maxTxnMs}}`);
 
     // Adaptive: measured on the transaction, because that is the span that blocks
-    // the event loop and failed the Render health check in September.
-    if (chunkMs > CHUNK_SLOW_MS && chunkSize > CHUNK_MIN_ROWS) {
+    // the event loop and failed the Render health check in September. A new target
+    // applies to the NEXT situation — the slices of the one in flight are already
+    // packed, and repacking them mid-situation would risk splitting a unit.
+    if (ms > CHUNK_SLOW_MS && chunkSize > CHUNK_MIN_ROWS) {
       chunkSize = Math.max(CHUNK_MIN_ROWS, Math.floor(chunkSize / 2));
-      console.log(`${LOG} chunk ${chunks} took ${chunkMs}ms -> target ${chunkSize}`);
-    } else if (chunkMs < CHUNK_FAST_MS && chunkSize < CHUNK_TARGET_ROWS) {
+      console.log(`${LOG} ${label} took ${ms}ms -> target ${chunkSize}`);
+    } else if (ms < CHUNK_FAST_MS && chunkSize < CHUNK_TARGET_ROWS) {
       chunkSize = Math.min(CHUNK_TARGET_ROWS, chunkSize * 2);
-      console.log(`${LOG} chunk ${chunks} took ${chunkMs}ms -> target ${chunkSize}`);
+      console.log(`${LOG} ${label} took ${ms}ms -> target ${chunkSize}`);
     }
 
     if (chunks % CHECKPOINT_EVERY_CHUNKS === 0) {
@@ -535,12 +602,18 @@ export async function runSituationBloatCleanup(
       console.log(`${LOG} wal_checkpoint(TRUNCATE) after chunk ${chunks}`);
     }
 
+    publishProgress(ms);
+  };
+
+  function publishProgress(lastChunkMs: number): void {
     progress = {
       ...progress,
       chunks,
       chunkSize,
-      lastChunkMs: chunkMs,
+      lastChunkMs,
       deleteMs,
+      maxTxnRows,
+      maxTxnMs,
       cursor: committedCursor,
       situationsScanned: counters.situationsScanned,
       situationsCleaned: counters.situationsCleaned,
@@ -548,18 +621,153 @@ export async function runSituationBloatCleanup(
       snapshotsDeleted: counters.snapshotsDeleted,
       bytesFreed: counters.bytesFreed,
     };
-  };
+  }
 
-  function tally(plan: SituationCleanupPlan): void {
+  /** Per-situation counters: once per situation, however many transactions it took. */
+  function tallySituation(plan: SituationCleanupPlan): void {
     counters.situationsCleaned++;
-    counters.eventsDeleted += plan.deleteEventIds.length;
-    counters.snapshotsDeleted += plan.deleteSnapshotIds.length;
-    counters.duplicateFoundingDeleted += plan.duplicateFoundingCount;
-    counters.redundantSnapshotEventsDeleted += plan.redundantSnapshotEventCount;
-    counters.bytesFreed += plan.bytes;
     if (plan.keepKeySource) counters.keepKey[plan.keepKeySource]++;
     if (plan.founderNotEarliest) counters.keepKey.founder_not_earliest++;
   }
+
+  /** Per-row counters, taken either from a whole plan or from one slice of one. */
+  function tallyRows(part: {
+    events: number; snapshots: number; duplicateFounding: number; redundantSnapshotEvents: number; bytes: number;
+  }): void {
+    counters.eventsDeleted += part.events;
+    counters.snapshotsDeleted += part.snapshots;
+    counters.duplicateFoundingDeleted += part.duplicateFounding;
+    counters.redundantSnapshotEventsDeleted += part.redundantSnapshotEvents;
+    counters.bytesFreed += part.bytes;
+  }
+
+  function tally(plan: SituationCleanupPlan): void {
+    tallySituation(plan);
+    tallyRows({
+      events: plan.deleteEventIds.length,
+      snapshots: plan.deleteSnapshotIds.length,
+      duplicateFounding: plan.duplicateFoundingCount,
+      redundantSnapshotEvents: plan.redundantSnapshotEventCount,
+      bytes: plan.bytes,
+    });
+  }
+
+  /** The audit row alone, in its own transaction. See cleanLargeSituation. */
+  const commitAudit = db.transaction((situationId: string, plan: SituationCleanupPlan) => {
+    const written = insertAudit.run(
+      situationId,
+      plan.foundingRowCount,
+      plan.keptFoundingEventId,
+      plan.keepKeySource,
+      plan.duplicateFoundingCount,
+      new Date().toISOString(),
+    );
+    if (written.changes > 0) counters.auditRowsWritten++;
+  });
+
+  /** One slice of one situation's deletes, guards dropped and restored inside. */
+  const commitSlice = db.transaction((slice: CleanupSlice, cursorTo: string | null, chunkIndex: number) => {
+    dropSituationCleanupDeleteGuards(db);
+    for (const snapshotId of slice.snapshotIds) deleteSnapshot.run(snapshotId);
+    for (const eventId of slice.eventIds) deleteEvent.run(eventId);
+    options.beforeChunkCommit?.(chunkIndex);
+    restoreSituationCleanupDeleteGuards(db);
+    if (cursorTo !== null) writeCursor.run(cursorKey(scope), cursorTo, new Date().toISOString());
+  });
+
+  /**
+   * Delete one situation that is too big for a single transaction.
+   *
+   * Prod measured deletes at ~1-2ms/row on 2026-10-04 (MLB lineup: 149k rows in
+   * 160s of delete time; a typical 300-row chunk in 300-600ms). The worst churned
+   * NFL injury situations carry ~5,400 removable rows — ~3,600 events plus ~1,800
+   * snapshots — which is a single 5-10 second SYNCHRONOUS transaction.
+   * better-sqlite3 blocks the event loop for all of it, and Render's health check
+   * gives up at 5s. The one-transaction-per-situation property is therefore not
+   * affordable here, so it is given up deliberately and in one place.
+   *
+   * What replaces it:
+   *   1. The audit row commits FIRST, alone. It records the pre-delete founding
+   *      count, so from that moment the confidence guard reads the right number
+   *      whatever happens next. This is the step that makes a partially-deleted
+   *      situation safe to be seen by customers, and it is why it cannot share a
+   *      transaction with any delete.
+   *   2. Deletes go out in slices of at most the chunk target, each its own
+   *      transaction with the guard trigger dropped and restored INSIDE it, and the
+   *      event loop handed back between slices.
+   *   3. Slice order keeps every intermediate state valid: a condemned snapshot and
+   *      the snapshot_created event that announced it are one indivisible unit, and
+   *      the duplicate founding rows go last. The founder and the served snapshot
+   *      are never deleted at all, so the keep key and the pin hold at every
+   *      boundary by construction.
+   *   4. Only the LAST slice advances the durable cursor. A crash or a stop part
+   *      way through therefore resumes at this same situation, which re-plans to
+   *      the same keep set over fewer rows — deleted restatements can never have
+   *      been the "last kept" that later snapshots were compared against, so
+   *      removing them cannot change what survives. The audit row is INSERT OR
+   *      IGNORE, so the re-plan cannot overwrite the pre-delete count with a
+   *      post-delete one.
+   */
+  const cleanLargeSituation = async (
+    situationId: string,
+    plan: SituationCleanupPlan,
+    cursorTo: string,
+  ): Promise<"done" | "stopped"> => {
+    const slices = sliceSituationCleanupPlan(plan, chunkSize);
+    tallySituation(plan);
+
+    const sliceTally = (slice: CleanupSlice) => tallyRows({
+      events: slice.eventIds.length,
+      snapshots: slice.snapshotIds.length,
+      duplicateFounding: slice.duplicateFoundingCount,
+      redundantSnapshotEvents: slice.redundantSnapshotEventCount,
+      bytes: slice.bytes,
+    });
+
+    if (dryRun) {
+      for (const slice of slices) {
+        chunks++;
+        if (slice.rows > maxTxnRows) maxTxnRows = slice.rows;
+        sliceTally(slice);
+      }
+      console.log(`${LOG} ${situationId} (dry-run) rows=${plan.deleteEventIds.length + plan.deleteSnapshotIds.length} slices=${slices.length} target=${chunkSize}`);
+      publishProgress(0);
+      return "done";
+    }
+
+    // (1) The audit row, alone, before a single row is deleted.
+    if (plan.foundingRowCount > 0 && plan.keepKeySource) {
+      const auditStart = Date.now();
+      commitAudit(situationId, plan);
+      const auditMs = Date.now() - auditStart;
+      deleteMs += auditMs;
+      if (auditMs > maxTxnMs) maxTxnMs = auditMs;
+      if (maxTxnRows < 1) maxTxnRows = 1;
+    }
+
+    // (2) The deletes, a slice per transaction.
+    for (let index = 0; index < slices.length; index++) {
+      const slice = slices[index];
+      const isLast = index === slices.length - 1;
+      chunks++;
+      const sliceStart = Date.now();
+      commitSlice(slice, isLast ? cursorTo : null, chunks);
+      const sliceMs = Date.now() - sliceStart;
+      if (isLast) committedCursor = cursorTo;
+      sliceTally(slice);
+      afterTxn(`${situationId} slice ${index + 1}/${slices.length}`, slice.rows, sliceMs);
+      options.onSliceCommitted?.({
+        situationId,
+        sliceIndex: index,
+        sliceCount: slices.length,
+        rows: slice.rows,
+      });
+
+      await yieldToLoop();
+      if (!isLast && stopRequested(db)) return "stopped";
+    }
+    return "done";
+  };
 
   let outcome: SituationBloatCleanupStatus = "completed";
 
@@ -589,10 +797,44 @@ export async function runSituationBloatCleanup(
         });
 
         counters.situationsScanned++;
+        const rows = plan.deleteEventIds.length + plan.deleteSnapshotIds.length;
+
+        if (rows > chunkSize) {
+          // Too big for one transaction. Commit the small situations already
+          // waiting first — they come earlier in the walk, and windowLastId still
+          // names the last of THEM, so the cursor cannot jump over this one. Then
+          // hand this situation to the sliced path, which advances the cursor to it
+          // only once its final slice commits.
+          flush();
+          if (counters.situationsCleaned >= maxSituations) { outcome = "capped"; break walk; }
+          if (stopRequested(db)) { outcome = "stopped"; break walk; }
+
+          const sliced = await cleanLargeSituation(situation.situation_id, plan, situation.situation_id);
+          // windowLastId may only name a situation that is FINISHED. Advancing it
+          // on a stop would let the post-loop flush write a cursor past a
+          // situation that still has rows in it, and the next run would skip
+          // straight over them and mark the scope complete. Leaving it where it
+          // was means the resume re-reads this situation, which is exactly what
+          // the sliced path is designed to survive.
+          if (sliced === "stopped") { outcome = "stopped"; break walk; }
+          windowLastId = situation.situation_id;
+          if (counters.situationsCleaned >= maxSituations) { outcome = "capped"; break walk; }
+          continue;
+        }
+
         windowLastId = situation.situation_id;
 
-        const rows = plan.deleteEventIds.length + plan.deleteSnapshotIds.length;
         if (rows > 0) {
+          // Close the open chunk before adding a situation that would push it past
+          // the target. Without this a chunk could reach nearly twice the target —
+          // target-1 rows pending plus a situation holding target rows — and the
+          // whole point of the target is that no transaction runs long enough to
+          // fail the health check.
+          if (pendingRows > 0 && pendingRows + rows > chunkSize) {
+            flush();
+            if (stopRequested(db)) { outcome = "stopped"; break walk; }
+            await yieldToLoop();
+          }
           pending.push({ situationId: situation.situation_id, plan });
           pendingRows += rows;
         }
@@ -607,11 +849,6 @@ export async function runSituationBloatCleanup(
           break walk;
         }
 
-        // A situation's audit row and its deletes are never split across
-        // transactions, so the row budget is a floor to cross rather than a hard
-        // cap: one churned situation can exceed it on its own and becomes its own
-        // chunk. Atomicity per situation is the requirement; the budget is there
-        // to bound how LONG a transaction runs.
         if (pendingRows >= chunkSize) {
           flush();
           if (stopRequested(db)) { outcome = "stopped"; break walk; }

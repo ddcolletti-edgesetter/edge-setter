@@ -518,14 +518,12 @@ describe("bounds on a destructive job", () => {
   });
 
   it("the kill switch stops the job between chunks, keeping committed chunks", async () => {
-    // Situation A alone exceeds the 200-row chunk budget (74 duplicate founding
-    // rows + 74 redundant snapshots + 74 paired events = 222), so it flushes as
-    // chunk 1 and the stop check runs before B is ever committed.
-    const bigSnapshots: SnapshotSpec[] = Array.from({ length: 75 }, (_, i) => ({
-      id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50, at: i,
-    }));
-    const a = seed(db, { situationId: "sit-stop-a", type: "roster", foundingCount: 75, snapshots: bigSnapshots });
-    const b = seed(db, { situationId: "sit-stop-b", type: "roster", foundingCount: 5 });
+    // Three small situations of 100 removable rows each (101 founding, 1 snapshot),
+    // so two of them fill one 200-row chunk exactly and the third starts a second.
+    // The stop is raised during chunk 1, so A and B commit and C is never reached.
+    const a = seed(db, { situationId: "sit-stop-a", type: "roster", foundingCount: 101 });
+    const b = seed(db, { situationId: "sit-stop-b", type: "roster", foundingCount: 101 });
+    const c = seed(db, { situationId: "sit-stop-c", type: "roster", foundingCount: 101 });
 
     const result = await run(db, {
       beforeChunkCommit: (chunkIndex) => {
@@ -535,24 +533,262 @@ describe("bounds on a destructive job", () => {
 
     expect(result.status).toBe("stopped");
     expect(result.chunks).toBe(1);
+    expect(result.maxTxnRows).toBe(200);
 
-    // Chunk 1 committed in full.
+    // Chunk 1 committed in full — both of its situations, not one.
     expect(eventIds(db, "sit-stop-a", "situation_created")).toEqual([a.keeper.event_id]);
-    expect(snapshotIdsOf(db, "sit-stop-a")).toEqual([a.snapshotIds[0], a.snapshotIds[74]]);
-    expect(store.getSituationFoundingAudit("sit-stop-a", db)?.founding_row_count).toBe(75);
+    expect(eventIds(db, "sit-stop-b", "situation_created")).toEqual([b.keeper.event_id]);
+    expect(store.getSituationFoundingAudit("sit-stop-a", db)?.founding_row_count).toBe(101);
 
-    // B was never reached: no deletes, no audit row.
-    expect(eventIds(db, "sit-stop-b", "situation_created")).toHaveLength(5);
-    expect(store.getSituationFoundingAudit("sit-stop-b", db)).toBeNull();
+    // C was never reached: no deletes, no audit row.
+    expect(eventIds(db, "sit-stop-c", "situation_created")).toHaveLength(101);
+    expect(store.getSituationFoundingAudit("sit-stop-c", db)).toBeNull();
 
     // Stopping is not completing: no marker, and the triggers are back.
     expect(cleanup.getSituationBloatCleanupStatus(db).completedScopes).toEqual([]);
     expect(store.situationAppendOnlyGuardStatus(db).ok).toBe(true);
 
-    // Starting again supersedes the stop and finishes B.
+    // Starting again supersedes the stop and finishes C.
     const resumed = await run(db);
     expect(resumed.status).toBe("completed");
-    expect(eventIds(db, "sit-stop-b", "situation_created")).toEqual([b.keeper.event_id]);
+    expect(eventIds(db, "sit-stop-c", "situation_created")).toEqual([c.keeper.event_id]);
+  });
+
+  it("holds every transaction at or under the chunk target", async () => {
+    // Deliberately awkward sizes: each situation alone fits the target, but naive
+    // accumulation would pack two of them into one ~340-row transaction.
+    for (const i of [0, 1, 2, 3, 4]) {
+      seed(db, { situationId: `sit-txncap-${i}`, type: "roster", foundingCount: 171 });
+    }
+    const result = await run(db);
+    expect(result.status).toBe("completed");
+    expect(result.maxTxnRows).toBeLessThanOrEqual(200);
+    // ...and it really is being exercised near the limit, not trivially under it.
+    expect(result.maxTxnRows).toBeGreaterThan(100);
+    expect(result.eventsDeleted).toBe(5 * 170);
+  });
+});
+
+/* ─── 3b. Situations too big for one transaction ──────────── */
+
+/**
+ * Prod measured deletes at ~1-2ms/row on 2026-10-04 and the worst churned NFL
+ * injury situations carry ~5,400 removable rows, so a one-transaction-per-situation
+ * job would hold the event loop for 5-10s against a 5s health check. Those
+ * situations are sliced instead. These tests cover what that costs: intermediate
+ * states become publicly visible, so they all have to be valid.
+ */
+describe("slicing a situation across transactions", () => {
+  let db: BetterSqlite3.Database;
+  beforeEach(async () => { db = await freshDb(); });
+
+  /** 75 founding rows + 75 snapshots at distinct times = 220 removable rows > 200. */
+  function seedLarge(situationId: string, type = "roster"): Seed {
+    const snapshots: SnapshotSpec[] = Array.from({ length: 75 }, (_, i) => ({
+      id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50, at: i,
+    }));
+    return seed(db, { situationId, type, foundingCount: 75, snapshots });
+  }
+
+  /**
+   * Everything about a situation that the cleanup could possibly have changed.
+   *
+   * `audited_at` is excluded because it is the wall clock at the moment the audit
+   * row was written, which two runs cannot share and which nothing reads; it is
+   * asserted present separately. Every other field — including the pre-delete
+   * founding count and which row was kept — is compared exactly.
+   */
+  function finalState(dbHandle: BetterSqlite3.Database, situationId: string) {
+    const audit = store.getSituationFoundingAudit(situationId, dbHandle);
+    expect(audit?.audited_at).toBeTruthy();
+    const { audited_at: _ignored, ...auditWithoutClock } = audit ?? { audited_at: null };
+    return {
+      events: eventIds(dbHandle, situationId),
+      snapshots: snapshotIdsOf(dbHandle, situationId),
+      audit: auditWithoutClock,
+    };
+  }
+
+  it("slices a large situation and still lands on the same keep set", async () => {
+    const s = seedLarge("sit-big");
+    const result = await run(db);
+
+    expect(result.status).toBe("completed");
+    expect(result.chunks).toBeGreaterThan(1); // it really was split
+    expect(result.maxTxnRows).toBeLessThanOrEqual(200);
+    expect(result.eventsDeleted + result.snapshotsDeleted).toBe(220);
+
+    expect(eventIds(db, "sit-big", "situation_created")).toEqual([s.keeper.event_id]);
+    // First by rowid, plus the served snapshot (the last, at the latest created_at).
+    expect(snapshotIdsOf(db, "sit-big")).toEqual([s.snapshotIds[0], s.snapshotIds[74]]);
+    expect(store.getSituationFoundingAudit("sit-big", db)?.founding_row_count).toBe(75);
+    expect(store.situationAppendOnlyGuardStatus(db).ok).toBe(true);
+  });
+
+  it("commits the audit row BEFORE the first delete, so a partial state is never un-flagged", async () => {
+    seedLarge("sit-auditfirst");
+    const seenAtSliceStart: (number | null)[] = [];
+
+    await run(db, {
+      onSliceCommitted: () => {
+        seenAtSliceStart.push(store.getSituationFoundingAudit("sit-auditfirst", db)?.founding_row_count ?? null);
+      },
+    });
+
+    // The audit row is present at every slice boundary, including the first, and
+    // always holds the PRE-delete count rather than whatever the live count is now.
+    expect(seenAtSliceStart.length).toBeGreaterThan(1);
+    expect(new Set(seenAtSliceStart)).toEqual(new Set([75]));
+  });
+
+  it("never separates a condemned snapshot from its own snapshot_created event", async () => {
+    // The snapshot region must be BIGGER than one transaction, or no slice boundary
+    // ever falls inside it and the test proves nothing. 152 snapshots = 150
+    // redundant = 300 paired rows against a 200-row target, so boundaries land in
+    // the middle of the snapshot run and a split pair would be observed.
+    const snapshots: SnapshotSpec[] = Array.from({ length: 152 }, (_, i) => ({
+      id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50, at: i,
+    }));
+    const s = seed(db, { situationId: "sit-pairs", type: "roster", foundingCount: 5, snapshots });
+
+    const breaches: string[] = [];
+    let boundariesInsideSnapshotRun = 0;
+    const result = await run(db, {
+      onSliceCommitted: () => {
+        const liveSnapshots = new Set(snapshotIdsOf(db, "sit-pairs"));
+        const liveEvents = new Set(eventIds(db, "sit-pairs"));
+        if (liveSnapshots.size > 2) boundariesInsideSnapshotRun++;
+        // At every boundary: no surviving snapshot_created event may point at a
+        // snapshot that is gone, and no surviving snapshot may have lost its event.
+        for (const [snapshotId, eventId] of s.snapshotEventBySnapshotId) {
+          const hasEvent = liveEvents.has(eventId);
+          const hasSnapshot = liveSnapshots.has(snapshotId);
+          if (hasEvent !== hasSnapshot) breaches.push(`${snapshotId} event=${hasEvent} snapshot=${hasSnapshot}`);
+        }
+      },
+    });
+
+    expect(result.status).toBe("completed");
+    expect(breaches).toEqual([]);
+    // Proof the test was actually in a position to see a breach.
+    expect(boundariesInsideSnapshotRun).toBeGreaterThan(0);
+    expect(result.snapshotsDeleted).toBe(150);
+  });
+
+  it("keeps the founder and the served snapshot at every slice boundary", async () => {
+    const s = seedLarge("sit-invariant");
+    const servedBefore = store.getLatestSituationSnapshot("sit-invariant", db);
+
+    const breaches: string[] = [];
+    await run(db, {
+      onSliceCommitted: ({ sliceIndex }) => {
+        const founding = eventIds(db, "sit-invariant", "situation_created");
+        if (!founding.includes(s.keeper.event_id)) breaches.push(`slice ${sliceIndex}: founder gone`);
+        if (founding.length < 1) breaches.push(`slice ${sliceIndex}: no founding row`);
+        const served = store.getLatestSituationSnapshot("sit-invariant", db);
+        if (served?.snapshot_id !== servedBefore?.snapshot_id) breaches.push(`slice ${sliceIndex}: served snapshot moved`);
+        if (served?.replay_hash !== servedBefore?.replay_hash) breaches.push(`slice ${sliceIndex}: replay_hash moved`);
+      },
+    });
+
+    expect(breaches).toEqual([]);
+    expect(store.getLatestSituationSnapshot("sit-invariant", db)).toEqual(servedBefore);
+  });
+
+  it("stopped between slices then resumed lands on the same DB state as one clean run", async () => {
+    // Two DBs, identical fixtures. The event/snapshot ids are content hashes, so
+    // "identical" is literal and the comparison is byte-for-byte.
+    const uninterrupted = await freshDb();
+    const snapshots: SnapshotSpec[] = Array.from({ length: 75 }, (_, i) => ({
+      id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50, at: i,
+    }));
+    seed(uninterrupted, { situationId: "sit-resume", type: "roster", foundingCount: 75, snapshots });
+    seed(db, { situationId: "sit-resume", type: "roster", foundingCount: 75, snapshots });
+
+    const clean = await run(uninterrupted);
+    expect(clean.status).toBe("completed");
+    const expected = finalState(uninterrupted, "sit-resume");
+
+    // Kill between slice 1 and slice 2 of the same situation.
+    const stopped = await run(db, {
+      beforeChunkCommit: (chunkIndex) => {
+        if (chunkIndex === 1) cleanup.requestSituationBloatCleanupStop(db);
+      },
+    });
+    expect(stopped.status).toBe("stopped");
+    // Genuinely mid-situation: some rows gone, but not all of them.
+    const midway = finalState(db, "sit-resume");
+    expect(midway.events.length).toBeGreaterThan(expected.events.length);
+    expect(midway.events.length).toBeLessThan(75 + 75);
+    // The audit row survived the stop, because it was committed on its own first.
+    expect(midway.audit?.founding_row_count).toBe(75);
+    expect(store.situationAppendOnlyGuardStatus(db).ok).toBe(true);
+
+    const resumed = await run(db);
+    expect(resumed.status).toBe("completed");
+
+    expect(finalState(db, "sit-resume")).toEqual(expected);
+  });
+
+  it("re-plans a part-deleted situation to the same keep set", async () => {
+    // The invariant behind resumption: a deleted restatement can never have been
+    // the "last kept" that a later snapshot was compared against, so removing some
+    // of them cannot change which snapshots survive.
+    const s = seedLarge("sit-replan");
+    await run(db, {
+      beforeChunkCommit: (chunkIndex) => {
+        if (chunkIndex === 1) cleanup.requestSituationBloatCleanupStop(db);
+      },
+    });
+
+    const events = (await import("../situation-bloat-rows")).fetchBloatPlanEvents(db, ["sit-replan"]).get("sit-replan") ?? [];
+    const snaps = (await import("../situation-bloat-rows")).fetchBloatPlanSnapshots(db, ["sit-replan"]).get("sit-replan") ?? [];
+    const plan = (await import("../situation-bloat-plan")).computeSituationCleanupPlan({
+      situationId: "sit-replan",
+      createdFromEventId: s.founding[0].normalized_event_id,
+      events,
+      snapshots: snaps,
+    });
+
+    // Same keeper, same served snapshot, fewer rows left to remove.
+    expect(plan.keptFoundingEventId).toBe(s.keeper.event_id);
+    expect(plan.servedSnapshotId).toBe(s.snapshotIds[74]);
+    expect(plan.deleteEventIds.length + plan.deleteSnapshotIds.length).toBeLessThan(220);
+    expect(plan.deleteSnapshotIds).not.toContain(s.snapshotIds[0]);
+    expect(plan.deleteSnapshotIds).not.toContain(s.snapshotIds[74]);
+  });
+
+  it("keeps the guards after a failure injected mid-slice, and resumes to a clean finish", async () => {
+    const s = seedLarge("sit-slicefail");
+
+    // Fail during the SECOND transaction, i.e. after slice 1 has already committed.
+    const result = await run(db, {
+      beforeChunkCommit: (chunkIndex) => {
+        if (chunkIndex === 2) throw new Error("injected mid-slice failure");
+      },
+    });
+
+    expect(result.status).toBe("failed");
+    expect(result.error).toContain("injected mid-slice failure");
+    expect(result.error).not.toContain("GUARDS MISSING");
+
+    const guards = store.situationAppendOnlyGuardStatus(db);
+    expect(guards.ok).toBe(true);
+    expect(guards.missing).toEqual([]);
+    expect(() => db.prepare(`DELETE FROM situation_events WHERE event_id = ?`).run(s.keeper.event_id))
+      .toThrow(/append-only/);
+
+    // Slice 1 stands, slice 2 rolled back whole, and the audit row is there because
+    // it was committed before any of it.
+    expect(store.getSituationFoundingAudit("sit-slicefail", db)?.founding_row_count).toBe(75);
+    expect(eventIds(db, "sit-slicefail").length).toBeLessThan(75 + 75);
+
+    // No completion marker was written, so a retry picks the situation back up.
+    expect(cleanup.getSituationBloatCleanupStatus(db).completedScopes).toEqual([]);
+    const resumed = await run(db);
+    expect(resumed.status).toBe("completed");
+    expect(eventIds(db, "sit-slicefail", "situation_created")).toEqual([s.keeper.event_id]);
+    expect(snapshotIdsOf(db, "sit-slicefail")).toEqual([s.snapshotIds[0], s.snapshotIds[74]]);
   });
 });
 
@@ -641,6 +877,15 @@ describe("dry run", () => {
     seed(db, { situationId: "sit-dry-0", type: "roster", foundingCount: 6, snapshots: specs, matchedCount: 2 });
     seed(db, { situationId: "sit-dry-1", type: "roster", foundingCount: 3, founderIndex: 2 });
     seed(db, { situationId: "sit-dry-2", type: "roster", foundingCount: 1 });
+    // ...plus one that has to be sliced, so the equality covers BOTH paths. A dry
+    // run that only ever previewed the single-transaction path would say nothing
+    // about the situations that actually need the care.
+    seed(db, {
+      situationId: "sit-dry-3", type: "roster", foundingCount: 75,
+      snapshots: Array.from({ length: 75 }, (_, i) => ({
+        id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50, at: i,
+      })),
+    });
 
     const eventsBefore = db.prepare(`SELECT COUNT(*) AS n FROM situation_events`).get() as { n: number };
     const snapshotsBefore = db.prepare(`SELECT COUNT(*) AS n FROM situation_snapshots`).get() as { n: number };
@@ -673,6 +918,14 @@ describe("dry run", () => {
     expect(comparable(dry)).toEqual(comparable(real));
     expect(real.eventsDeleted).toBeGreaterThan(0);
     expect(real.snapshotsDeleted).toBeGreaterThan(0);
+
+    // The dry run also predicts the transaction shape, which is the number an
+    // operator needs before pointing this at prod: how long will the event loop be
+    // held at once. Rows are exact; ms cannot be known without doing the work.
+    expect(dry.maxTxnRows).toBe(real.maxTxnRows);
+    expect(real.maxTxnRows).toBeLessThanOrEqual(200);
+    expect(dry.chunks).toBe(real.chunks);
+    console.log(`[test] fixture max single-transaction rows = ${real.maxTxnRows} (target 200), chunks = ${real.chunks}, maxTxnMs = ${real.maxTxnMs}`);
   });
 
   it("respects maxSituations so a dry run previews the run it is previewing", async () => {
@@ -838,6 +1091,232 @@ describe("API response across a REAL cleanup run", () => {
     expect(moved.filter((field) => !(CLEANUP_SENSITIVE_FIELDS as readonly string[]).includes(field))).toEqual([]);
     pinned(before, after);
     expect(store.getLatestSituationSnapshot("sit-snap-corrupt", pipelineDb)).toEqual(servedBefore);
+  });
+
+  /**
+   * The one that justifies splitting a situation across transactions at all.
+   * Slicing makes a part-deleted situation publicly visible, so the Phase 0
+   * contract has to hold at every boundary, not just at the end — a customer
+   * request landing between slice 3 and slice 4 must see the same answer.
+   */
+  it("stays inside the six-field divergence set at EVERY slice boundary", async () => {
+    const type = "roster_run_sliced";
+    [50, 60, 70].forEach((score, i) => seed(pipelineDb, {
+      situationId: `sit-sliced-clean-${i}`, type, foundingCount: 1,
+      snapshots: [{ id: "a", state: "developing", conf: score, summary: SUMMARY, esc: 50, at: 0 }],
+    }));
+    // 75 founding + 75 snapshots = 220 removable rows, so this one gets sliced.
+    seed(pipelineDb, {
+      situationId: "sit-sliced-corrupt", type, foundingCount: 75,
+      snapshots: Array.from({ length: 75 }, (_, i) => ({
+        id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 99, summary: SUMMARY, esc: 50, at: i,
+      })),
+    });
+
+    const before = responseFor("sit-sliced-corrupt", type);
+    expect(before.confidence).toBe(60); // corrupted -> capped to the clean median
+
+    const boundaries: { sliceIndex: number; moved: string[]; confidence: unknown; replayHash: unknown }[] = [];
+
+    const result = await cleanup.runSituationBloatCleanup({
+      league: LEAGUE, type, maxSituations: 100, db: pipelineDb,
+      onSliceCommitted: ({ sliceIndex }) => {
+        api.resetSituationsApiBuildCaches();
+        const mid = responseFor("sit-sliced-corrupt", type);
+        boundaries.push({
+          sliceIndex,
+          moved: divergentFields(before, mid)
+            .filter((field) => !(CLEANUP_SENSITIVE_FIELDS as readonly string[]).includes(field)),
+          confidence: mid.confidence,
+          replayHash: mid.replayHash,
+        });
+      },
+    });
+
+    expect(result.status).toBe("completed");
+    expect(boundaries.length).toBeGreaterThan(1); // it really was sliced
+
+    // Nothing outside the enumerated set moved at any boundary, and the two things
+    // a customer acts on never moved at all.
+    for (const boundary of boundaries) {
+      expect(boundary.moved).toEqual([]);
+      expect(boundary.confidence).toBe(60);
+      expect(boundary.replayHash).toBe(before.replayHash);
+    }
+
+    api.resetSituationsApiBuildCaches();
+    const after = responseFor("sit-sliced-corrupt", type);
+    expect(divergentFields(before, after)
+      .filter((field) => !(CLEANUP_SENSITIVE_FIELDS as readonly string[]).includes(field))).toEqual([]);
+    pinned(before, after);
+  });
+});
+
+/* ─── 7b. The slicer, as a pure function ──────────────────── */
+
+describe("sliceSituationCleanupPlan", () => {
+  let db: BetterSqlite3.Database;
+  let plan: import("../situation-bloat-plan").SituationCleanupPlan;
+  let slice: typeof import("../situation-bloat-plan").sliceSituationCleanupPlan;
+  /**
+   * GROUND TRUTH, taken from the fixture rather than from the plan.
+   *
+   * An earlier version of this test read the expected pairing off
+   * plan.deleteUnits, which made it vacuous: break the unit construction so that
+   * each snapshot and its event become separate units, and the assertion skipped
+   * every unit and passed. The expectation has to come from the seed.
+   */
+  let expectedPairedEventOf: Map<string, string>;
+  /** Duplicate founding event ids, from the fixture: everything but the founder. */
+  let expectedFoundingDuplicates: Set<string>;
+
+  beforeEach(async () => {
+    db = await freshDb();
+    const rowsModule = await import("../situation-bloat-rows");
+    const planModule = await import("../situation-bloat-plan");
+    slice = planModule.sliceSituationCleanupPlan;
+
+    const snapshots: SnapshotSpec[] = Array.from({ length: 40 }, (_, i) => ({
+      id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50, at: i,
+    }));
+    const s = seed(db, { situationId: "sit-slicer", type: "roster", foundingCount: 31, snapshots });
+    plan = planModule.computeSituationCleanupPlan({
+      situationId: "sit-slicer",
+      createdFromEventId: s.founding[0].normalized_event_id,
+      events: rowsModule.fetchBloatPlanEvents(db, ["sit-slicer"]).get("sit-slicer") ?? [],
+      snapshots: rowsModule.fetchBloatPlanSnapshots(db, ["sit-slicer"]).get("sit-slicer") ?? [],
+    });
+    // 30 duplicate founding rows + 38 redundant snapshots + 38 paired events.
+    // (Snapshot 0 is kept as the first by rowid, snapshot 39 as the served one.)
+    expect(plan.deleteEventIds.length + plan.deleteSnapshotIds.length).toBe(106);
+
+    expectedPairedEventOf = new Map(
+      s.snapshotIds
+        .filter((id) => id !== s.snapshotIds[0] && id !== s.snapshotIds[39])
+        .map((id) => [id, s.snapshotEventBySnapshotId.get(id)!]),
+    );
+    expect(expectedPairedEventOf.size).toBe(38);
+    expectedFoundingDuplicates = new Set(s.duplicates.map((event) => event.event_id));
+    expect(expectedFoundingDuplicates.size).toBe(30);
+  });
+
+  /** At every target from "one unit at a time" to "all of it", the slicing is sound. */
+  for (const maxRows of [2, 3, 7, 25, 100, 105, 106, 500]) {
+    it(`is exact and in-bounds at maxRows=${maxRows}`, () => {
+      const slices = slice(plan, maxRows);
+
+      // No transaction over the bound. The largest unit is 2 rows and a unit that
+      // would overflow starts a new slice rather than being split, so the bound
+      // holds exactly — there is no slack to argue about.
+      for (const s of slices) expect(s.rows).toBeLessThanOrEqual(maxRows);
+
+      // The slices sum back to the plan: same rows, same bytes, nothing dropped
+      // and nothing counted twice. This is what makes dry-run counts equal
+      // real-run counts whether a situation took one transaction or forty.
+      expect(slices.flatMap((s) => s.eventIds).sort()).toEqual([...plan.deleteEventIds].sort());
+      expect(slices.flatMap((s) => s.snapshotIds).sort()).toEqual([...plan.deleteSnapshotIds].sort());
+      expect(slices.reduce((n, s) => n + s.bytes, 0)).toBe(plan.bytes);
+      expect(slices.reduce((n, s) => n + s.duplicateFoundingCount, 0)).toBe(plan.duplicateFoundingCount);
+      expect(slices.reduce((n, s) => n + s.redundantSnapshotEventCount, 0)).toBe(plan.redundantSnapshotEventCount);
+
+      const sliceOfSnapshot = new Map<string, number>();
+      const sliceOfEvent = new Map<string, number>();
+      slices.forEach((s, i) => {
+        for (const id of s.snapshotIds) sliceOfSnapshot.set(id, i);
+        for (const id of s.eventIds) sliceOfEvent.set(id, i);
+      });
+
+      // Every condemned snapshot rides in the same slice as its announcement —
+      // checked against the fixture's own pairing, for all 38 of them.
+      const separated: string[] = [];
+      for (const [snapshotId, eventId] of expectedPairedEventOf) {
+        if (sliceOfSnapshot.get(snapshotId) !== sliceOfEvent.get(eventId)) {
+          separated.push(`${snapshotId} in ${sliceOfSnapshot.get(snapshotId)}, event in ${sliceOfEvent.get(eventId)}`);
+        }
+      }
+      expect(separated).toEqual([]);
+
+      // Duplicate founding rows come last: none may be deleted in an earlier
+      // slice than any snapshot.
+      const lastSnapshotSlice = Math.max(-1, ...[...sliceOfSnapshot.values()]);
+      for (const eventId of expectedFoundingDuplicates) {
+        expect(sliceOfEvent.get(eventId)).toBeGreaterThanOrEqual(lastSnapshotSlice);
+      }
+    });
+  }
+
+  /**
+   * A snapshot can carry more than one announcement. snapshot_id is a content
+   * hash and appendSituationSnapshot is INSERT OR IGNORE, so a re-poll producing a
+   * byte-identical snapshot added no snapshot row while the engine still appended a
+   * snapshot_created event with a fresh recorded_at — a distinct event_id pointing
+   * at the same snapshot. All of them have to go with it.
+   */
+  it("keeps ALL announcements of one snapshot in its unit, overshooting the bound rather than orphaning one", async () => {
+    const planModule = await import("../situation-bloat-plan");
+    const rowsModule = await import("../situation-bloat-rows");
+
+    const specs: SnapshotSpec[] = [
+      { id: "a", state: "developing", conf: 40, summary: "A", esc: 50, at: 0 },
+      { id: "b", state: "developing", conf: 40, summary: "A", esc: 50, at: 10 },
+      { id: "c", state: "developing", conf: 40, summary: "A", esc: 50, at: 20 },
+    ];
+    const s = seed(db, { situationId: "sit-multi", type: "roster", foundingCount: 1, snapshots: specs });
+    // Snapshot "b" is the condemned one (a is first, c is served). Give it three
+    // more announcements, exactly as a re-polled identical snapshot would.
+    const condemned = s.snapshotIds[1];
+    for (const minute of [11, 12, 13]) {
+      store.appendSituationEvent(store.buildSituationEvent({
+        situation_id: "sit-multi", kind: "snapshot_created", raw_event_id: null,
+        normalized_event_id: null, source_id: "canonical_situation_engine",
+        observed_at: iso(minute), recorded_at: iso(minute),
+        payload: { snapshot_id: condemned, snapshot_replay_hash: `snapreplay-${condemned}` },
+      }), db);
+    }
+
+    const multiPlan = planModule.computeSituationCleanupPlan({
+      situationId: "sit-multi",
+      createdFromEventId: s.founding[0].normalized_event_id,
+      events: rowsModule.fetchBloatPlanEvents(db, ["sit-multi"]).get("sit-multi") ?? [],
+      snapshots: rowsModule.fetchBloatPlanSnapshots(db, ["sit-multi"]).get("sit-multi") ?? [],
+    });
+
+    // All four announcements are condemned alongside the snapshot.
+    expect(multiPlan.deleteSnapshotIds).toEqual([condemned]);
+    expect(multiPlan.deleteEventIds).toHaveLength(4);
+    expect(multiPlan.redundantSnapshotEventCount).toBe(4);
+    expect(multiPlan.deleteUnits).toHaveLength(1);
+
+    // A target of 2 cannot hold the 5-row unit, and the slicer overshoots rather
+    // than splitting it — one transaction, nothing orphaned.
+    const slices = slice(multiPlan, 2);
+    expect(slices).toHaveLength(1);
+    expect(slices[0].rows).toBe(5);
+
+    // End to end, the job reports that overshoot in maxTxnRows instead of hiding it.
+    const result = await cleanup.runSituationBloatCleanup({ league: LEAGUE, type: "roster", maxSituations: 10, db });
+    expect(result.status).toBe("completed");
+    expect(result.maxTxnRows).toBeGreaterThanOrEqual(5);
+    expect(snapshotIdsOf(db, "sit-multi")).toEqual([s.snapshotIds[0], s.snapshotIds[2]]);
+    // No surviving event points at the deleted snapshot.
+    const liveSnapshotEvents = db.prepare(
+      `SELECT json_extract(payload_json, '$.snapshot_id') AS sid FROM situation_events
+       WHERE situation_id = ? AND kind = 'snapshot_created'`,
+    ).all("sit-multi") as { sid: string | null }[];
+    expect(liveSnapshotEvents.map((row) => row.sid)).not.toContain(condemned);
+  });
+
+  it("returns nothing for a clean plan", async () => {
+    const planModule = await import("../situation-bloat-plan");
+    const rowsModule = await import("../situation-bloat-rows");
+    seed(db, { situationId: "sit-slicer-clean", type: "roster", foundingCount: 1 });
+    const clean = planModule.computeSituationCleanupPlan({
+      situationId: "sit-slicer-clean",
+      createdFromEventId: null,
+      events: rowsModule.fetchBloatPlanEvents(db, ["sit-slicer-clean"]).get("sit-slicer-clean") ?? [],
+      snapshots: rowsModule.fetchBloatPlanSnapshots(db, ["sit-slicer-clean"]).get("sit-slicer-clean") ?? [],
+    });
+    expect(slice(clean, 200)).toEqual([]);
   });
 });
 
