@@ -52,6 +52,46 @@ export interface BloatPlanSnapshotRow {
   readonly payload_bytes: number;
 }
 
+/**
+ * One INDIVISIBLE delete unit: either a condemned snapshot together with the
+ * snapshot_created event that announced it, or one duplicate founding row.
+ *
+ * Indivisible is the whole point. A big churned situation cannot be deleted in a
+ * single transaction (prod measures deletes at ~1-2ms/row and the worst NFL injury
+ * situation carries ~5,400 removable rows, i.e. a 5-10s synchronous transaction —
+ * too close to the Render health-check limit to rely on), so its deletes are split
+ * across transactions. That makes the INTERMEDIATE states publicly visible, and a
+ * snapshot separated from its own announcement is an invalid intermediate state:
+ * one way round it orphans an event pointing at a snapshot that no longer exists,
+ * the other leaves a kept snapshot with no announcement. Keeping the pair in one
+ * unit means no slice boundary can ever fall between them.
+ */
+export interface CleanupDeleteUnit {
+  /** 0 or 1 snapshot. */
+  readonly snapshotIds: readonly string[];
+  /**
+   * Every snapshot_created event announcing that snapshot (usually one, see
+   * below), or the single duplicate founding row. So a unit is normally 2 rows and
+   * never fewer than 1 — but it is not bounded, which is why the slicer treats
+   * "one unit bigger than the target" as the one allowed overshoot.
+   */
+  readonly eventIds: readonly string[];
+  readonly duplicateFoundingCount: number;
+  readonly redundantSnapshotEventCount: number;
+  readonly bytes: number;
+}
+
+/** Units packed to fit one transaction. Same shape, several units' worth. */
+export interface CleanupSlice {
+  readonly snapshotIds: readonly string[];
+  readonly eventIds: readonly string[];
+  readonly duplicateFoundingCount: number;
+  readonly redundantSnapshotEventCount: number;
+  readonly bytes: number;
+  /** snapshotIds.length + eventIds.length — what a transaction-size bound counts. */
+  readonly rows: number;
+}
+
 export interface SituationCleanupPlan {
   /** The surviving situation_created row, or null when the situation has none. */
   readonly keptFoundingEventId: string | null;
@@ -63,6 +103,16 @@ export interface SituationCleanupPlan {
   readonly foundingRowCount: number;
   /** The snapshot the read path serves today, pinned so the API cannot move. */
   readonly servedSnapshotId: string | null;
+  /**
+   * Every delete this plan calls for, in the order it is safe to apply:
+   * condemned snapshots (each with its paired event) first, duplicate founding
+   * rows LAST. Founding rows go last so that for as long as possible a
+   * partially-cleaned situation still carries the full founding evidence the
+   * confidence guard counts — and by the time they do go, the audit row that
+   * replaces that count has long been committed.
+   */
+  readonly deleteUnits: readonly CleanupDeleteUnit[];
+  /** Flattened {@link deleteUnits}, for callers that apply a plan in one go. */
   readonly deleteEventIds: readonly string[];
   readonly deleteSnapshotIds: readonly string[];
   readonly duplicateFoundingCount: number;
@@ -168,7 +218,6 @@ export function computeSituationCleanupPlan(input: SituationCleanupPlanInput): S
   const served = servedSnapshotId(snapshots);
   const deleteSnapshotIds: string[] = [];
   const keptSnapshotIds = new Set<string>();
-  let bytes = 0;
   let lastKept: BloatPlanSnapshotRow | null = null;
 
   for (const snapshot of snapshots) {
@@ -191,26 +240,33 @@ export function computeSituationCleanupPlan(input: SituationCleanupPlanInput): S
       keptSnapshotIds.add(snapshot.snapshot_id);
     } else {
       deleteSnapshotIds.push(snapshot.snapshot_id);
-      bytes += snapshot.payload_bytes;
     }
   }
   const condemnedSnapshotIds = new Set(deleteSnapshotIds);
+  const snapshotBytes = new Map(snapshots.map((snapshot) => [snapshot.snapshot_id, snapshot.payload_bytes]));
 
   /* ── Founding rows: resolve the keeper first, it can sit anywhere in the log. ── */
   const foundingRows = events.filter((event) => event.kind === "situation_created");
   const kept = resolveKeptFounding(input.createdFromEventId, foundingRows);
 
-  const deleteEventIds: string[] = [];
-  let duplicateFoundingCount = 0;
-  let redundantSnapshotEventCount = 0;
+  /**
+   * Condemned snapshot -> EVERY snapshot_created event that announced it.
+   *
+   * Usually one, but not always, and the exception matters. A snapshot's id is a
+   * content hash and appendSituationSnapshot is INSERT OR IGNORE, so a re-poll that
+   * produced a byte-identical snapshot wrote no new snapshot row — while the engine
+   * still appended a snapshot_created event carrying a fresh recorded_at, whose own
+   * event_id therefore differs. Pre-#72 churn data can hold several announcements of
+   * one snapshot. All of them belong to the same unit: keeping "just the first"
+   * would delete the snapshot and leave the others pointing at nothing, which is
+   * precisely the orphan the pairing exists to prevent.
+   */
+  const pairedEvents = new Map<string, BloatPlanEventRow[]>();
+  const foundingDuplicates: BloatPlanEventRow[] = [];
 
   for (const event of events) {
     if (event.kind === "situation_created") {
-      if (kept && event.event_id !== kept.keptEventId) {
-        deleteEventIds.push(event.event_id);
-        duplicateFoundingCount++;
-        bytes += event.payload_bytes;
-      }
+      if (kept && event.event_id !== kept.keptEventId) foundingDuplicates.push(event);
       continue;
     }
     if (event.kind === "snapshot_created" && event.snapshot_id) {
@@ -219,14 +275,49 @@ export function computeSituationCleanupPlan(input: SituationCleanupPlanInput): S
       // lands in both sets keeps the event.
       if (keptSnapshotIds.has(event.snapshot_id)) continue;
       if (condemnedSnapshotIds.has(event.snapshot_id)) {
-        deleteEventIds.push(event.event_id);
-        redundantSnapshotEventCount++;
-        bytes += event.payload_bytes;
+        const bucket = pairedEvents.get(event.snapshot_id);
+        if (bucket) bucket.push(event);
+        else pairedEvents.set(event.snapshot_id, [event]);
       }
       // An event naming a snapshot_id in neither set announces a snapshot this
       // situation does not hold. Already orphaned; not ours to clean up.
     }
   }
+
+  /* ── Units, in the order it is safe to apply them. ── */
+  const deleteUnits: CleanupDeleteUnit[] = [];
+  let duplicateFoundingCount = 0;
+  let redundantSnapshotEventCount = 0;
+
+  // Snapshots first, each inseparable from its announcement(s).
+  for (const snapshotId of deleteSnapshotIds) {
+    const paired = pairedEvents.get(snapshotId) ?? [];
+    redundantSnapshotEventCount += paired.length;
+    deleteUnits.push({
+      snapshotIds: [snapshotId],
+      eventIds: paired.map((event) => event.event_id),
+      duplicateFoundingCount: 0,
+      redundantSnapshotEventCount: paired.length,
+      bytes: (snapshotBytes.get(snapshotId) ?? 0)
+        + paired.reduce((total, event) => total + event.payload_bytes, 0),
+    });
+  }
+  // Duplicate founding rows last.
+  for (const event of foundingDuplicates) {
+    duplicateFoundingCount++;
+    deleteUnits.push({
+      snapshotIds: [],
+      eventIds: [event.event_id],
+      duplicateFoundingCount: 1,
+      redundantSnapshotEventCount: 0,
+      bytes: event.payload_bytes,
+    });
+  }
+
+  const deleteEventIds = deleteUnits.flatMap((unit) => unit.eventIds);
+  // Summed from the units, so the plan's total and any slicing of it agree by
+  // construction rather than by two parallel accumulations staying in step.
+  const bytes = deleteUnits.reduce((total, unit) => total + unit.bytes, 0);
 
   if (kept && deleteEventIds.includes(kept.keptEventId)) {
     throw new Error(`[bloat-plan] ${input.situationId}: plan would delete its own kept founding row`);
@@ -238,6 +329,7 @@ export function computeSituationCleanupPlan(input: SituationCleanupPlanInput): S
     founderNotEarliest: kept?.founderNotEarliest ?? false,
     foundingRowCount: foundingRows.length,
     servedSnapshotId: served,
+    deleteUnits,
     deleteEventIds,
     deleteSnapshotIds,
     duplicateFoundingCount,
@@ -245,4 +337,61 @@ export function computeSituationCleanupPlan(input: SituationCleanupPlanInput): S
     redundantSnapshotEventCount,
     bytes,
   };
+}
+
+/**
+ * Pack a plan's units into transaction-sized slices.
+ *
+ * A unit that would overflow a non-empty slice starts a new one instead of being
+ * split, so no slice exceeds maxRows — with exactly one exception, and it is a
+ * deliberate ordering of the two guarantees against each other: a single unit that
+ * is itself bigger than maxRows (a snapshot with many announcements) becomes a
+ * slice of its own and overshoots, because splitting it would publish the invalid
+ * intermediate state the unit exists to prevent. Validity wins; the overshoot is
+ * reported as maxTxnRows rather than hidden.
+ *
+ * Unit order is preserved, so every slice boundary leaves a valid intermediate
+ * state: snapshots travel with their announcements, and the duplicate founding
+ * rows are last.
+ *
+ * The slices always sum back to the plan exactly — same rows, same byte total —
+ * which is what keeps the dry run's counts equal to the real run's whether the
+ * situation was applied in one transaction or forty.
+ */
+export function sliceSituationCleanupPlan(
+  plan: SituationCleanupPlan,
+  maxRows: number,
+): CleanupSlice[] {
+  const limit = Math.max(2, Math.floor(maxRows));
+  const slices: CleanupSlice[] = [];
+
+  let snapshotIds: string[] = [];
+  let eventIds: string[] = [];
+  let duplicateFoundingCount = 0;
+  let redundantSnapshotEventCount = 0;
+  let bytes = 0;
+
+  const rows = () => snapshotIds.length + eventIds.length;
+  const close = (): void => {
+    if (rows() === 0) return;
+    slices.push({ snapshotIds, eventIds, duplicateFoundingCount, redundantSnapshotEventCount, bytes, rows: rows() });
+    snapshotIds = [];
+    eventIds = [];
+    duplicateFoundingCount = 0;
+    redundantSnapshotEventCount = 0;
+    bytes = 0;
+  };
+
+  for (const unit of plan.deleteUnits) {
+    const unitRows = unit.snapshotIds.length + unit.eventIds.length;
+    if (rows() > 0 && rows() + unitRows > limit) close();
+    snapshotIds.push(...unit.snapshotIds);
+    eventIds.push(...unit.eventIds);
+    duplicateFoundingCount += unit.duplicateFoundingCount;
+    redundantSnapshotEventCount += unit.redundantSnapshotEventCount;
+    bytes += unit.bytes;
+  }
+  close();
+
+  return slices;
 }
