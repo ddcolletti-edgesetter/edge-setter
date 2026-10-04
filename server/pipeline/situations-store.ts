@@ -851,6 +851,24 @@ export function createHistoryId(prefix: string, payload: unknown): string {
 
 export function verifySituationAppendOnlyGuards(db: Database.Database = getPipelineDb()): { ok: boolean; missing: string[] } {
   ensureSituationSchema(db);
+  return situationAppendOnlyGuardStatus(db);
+}
+
+/**
+ * The same guard check WITHOUT ensureSituationSchema — a single read of
+ * sqlite_master and nothing else.
+ *
+ * The churn cleanup verifies the guards after every chunk, and
+ * ensureSituationSchema runs a full CREATE TABLE / CREATE INDEX / CREATE TRIGGER
+ * script. Calling that from inside the cleanup loop would be wrong twice over:
+ * it is a schema rebuild per chunk on the hot path, and — fatally — it would
+ * RE-CREATE whichever guard trigger the chunk had just legitimately dropped,
+ * so a chunk that crashed with the table unguarded would be papered over and
+ * report ok. This function can only observe, never repair.
+ */
+export function situationAppendOnlyGuardStatus(
+  db: Database.Database = getPipelineDb(),
+): { ok: boolean; missing: string[] } {
   const rows = db.prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'").all() as { name: string }[];
   const triggerNames = new Set(rows.map((row) => row.name));
   const missing: string[] = [];
@@ -863,15 +881,58 @@ export function verifySituationAppendOnlyGuards(db: Database.Database = getPipel
   return { ok: missing.length === 0, missing };
 }
 
-function installAppendOnlyGuards(db: Database.Database): void {
-  for (const table of APPEND_ONLY_TABLES) {
-    db.exec(`
-      CREATE TRIGGER IF NOT EXISTS ${table}_no_update
-      BEFORE UPDATE ON ${table}
-      BEGIN
-        SELECT RAISE(ABORT, '${table} is append-only');
-      END;
+function appendOnlyGuardSql(table: string): string {
+  return `
+    CREATE TRIGGER IF NOT EXISTS ${table}_no_update
+    BEFORE UPDATE ON ${table}
+    BEGIN
+      SELECT RAISE(ABORT, '${table} is append-only');
+    END;
 
+    CREATE TRIGGER IF NOT EXISTS ${table}_no_delete
+    BEFORE DELETE ON ${table}
+    BEGIN
+      SELECT RAISE(ABORT, '${table} is append-only');
+    END;
+  `;
+}
+
+function installAppendOnlyGuards(db: Database.Database): void {
+  for (const table of APPEND_ONLY_TABLES) db.exec(appendOnlyGuardSql(table));
+}
+
+/**
+ * Tables the churn cleanup is allowed to delete from. Nothing else — in
+ * particular not situation_confidence_history / situation_state_history, which
+ * are the audit trail the cleanup exists to protect, nor
+ * situation_founding_audit, which is the record of what it did.
+ */
+export const SITUATION_CLEANUP_DELETABLE_TABLES = [
+  "situation_events",
+  "situation_snapshots",
+] as const;
+
+export type SituationCleanupDeletableTable = typeof SITUATION_CLEANUP_DELETABLE_TABLES[number];
+
+/**
+ * Lift the BEFORE DELETE guard on the cleanup's two tables, and put it back.
+ *
+ * Both are ensure-free raw DDL by design — see
+ * {@link situationAppendOnlyGuardStatus}. The caller MUST run the drop, the
+ * deletes and the restore inside one transaction: SQLite rolls DDL back with
+ * everything else, so a crash mid-chunk restores the trigger along with the rows
+ * rather than leaving an append-only table open to writes. The BEFORE UPDATE
+ * guard is never touched — the cleanup only ever deletes.
+ */
+export function dropSituationCleanupDeleteGuards(db: Database.Database): void {
+  for (const table of SITUATION_CLEANUP_DELETABLE_TABLES) {
+    db.exec(`DROP TRIGGER IF EXISTS ${table}_no_delete`);
+  }
+}
+
+export function restoreSituationCleanupDeleteGuards(db: Database.Database): void {
+  for (const table of SITUATION_CLEANUP_DELETABLE_TABLES) {
+    db.exec(`
       CREATE TRIGGER IF NOT EXISTS ${table}_no_delete
       BEFORE DELETE ON ${table}
       BEGIN
