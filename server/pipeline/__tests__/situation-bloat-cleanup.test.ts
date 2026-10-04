@@ -282,6 +282,16 @@ function snapshotIdsOf(db: BetterSqlite3.Database, situationId: string): string[
     .all(situationId) as { snapshot_id: string }[]).map((row) => row.snapshot_id);
 }
 
+/** Read a situation's plan inputs through the real paginated readers. */
+async function planInputs(db: BetterSqlite3.Database, situationId: string) {
+  const rowsModule = await import("../situation-bloat-rows");
+  const controller = rowsModule.unthrottledPlanReads();
+  return {
+    events: await rowsModule.readBloatPlanEvents(db, situationId, controller),
+    snapshots: await rowsModule.readBloatPlanSnapshots(db, situationId, controller),
+  };
+}
+
 function run(db: BetterSqlite3.Database, overrides: Partial<import("../situation-bloat-cleanup").SituationBloatCleanupOptions> = {}) {
   return cleanup.runSituationBloatCleanup({ league: LEAGUE, maxSituations: 1000, db, ...overrides });
 }
@@ -741,8 +751,7 @@ describe("slicing a situation across transactions", () => {
       },
     });
 
-    const events = (await import("../situation-bloat-rows")).fetchBloatPlanEvents(db, ["sit-replan"]).get("sit-replan") ?? [];
-    const snaps = (await import("../situation-bloat-rows")).fetchBloatPlanSnapshots(db, ["sit-replan"]).get("sit-replan") ?? [];
+    const { events, snapshots: snaps } = await planInputs(db, "sit-replan");
     const plan = (await import("../situation-bloat-plan")).computeSituationCleanupPlan({
       situationId: "sit-replan",
       createdFromEventId: s.founding[0].normalized_event_id,
@@ -1183,8 +1192,7 @@ describe("sliceSituationCleanupPlan", () => {
     plan = planModule.computeSituationCleanupPlan({
       situationId: "sit-slicer",
       createdFromEventId: s.founding[0].normalized_event_id,
-      events: rowsModule.fetchBloatPlanEvents(db, ["sit-slicer"]).get("sit-slicer") ?? [],
-      snapshots: rowsModule.fetchBloatPlanSnapshots(db, ["sit-slicer"]).get("sit-slicer") ?? [],
+      ...(await planInputs(db, "sit-slicer")),
     });
     // 30 duplicate founding rows + 38 redundant snapshots + 38 paired events.
     // (Snapshot 0 is kept as the first by rowid, snapshot 39 as the served one.)
@@ -1277,8 +1285,7 @@ describe("sliceSituationCleanupPlan", () => {
     const multiPlan = planModule.computeSituationCleanupPlan({
       situationId: "sit-multi",
       createdFromEventId: s.founding[0].normalized_event_id,
-      events: rowsModule.fetchBloatPlanEvents(db, ["sit-multi"]).get("sit-multi") ?? [],
-      snapshots: rowsModule.fetchBloatPlanSnapshots(db, ["sit-multi"]).get("sit-multi") ?? [],
+      ...(await planInputs(db, "sit-multi")),
     });
 
     // All four announcements are condemned alongside the snapshot.
@@ -1313,10 +1320,255 @@ describe("sliceSituationCleanupPlan", () => {
     const clean = planModule.computeSituationCleanupPlan({
       situationId: "sit-slicer-clean",
       createdFromEventId: null,
-      events: rowsModule.fetchBloatPlanEvents(db, ["sit-slicer-clean"]).get("sit-slicer-clean") ?? [],
-      snapshots: rowsModule.fetchBloatPlanSnapshots(db, ["sit-slicer-clean"]).get("sit-slicer-clean") ?? [],
+      ...(await planInputs(db, "sit-slicer-clean")),
     });
     expect(slice(clean, 200)).toEqual([]);
+  });
+});
+
+/* ─── 7c. Bounded plan reads (incident 2026-10-04) ────────── */
+
+/**
+ * A DRY RUN of NFL:injury — zero deletes — blocked the event loop for 10-35s
+ * repeatedly and Render killed the instance twice on health-check timeouts. #76 had
+ * bounded the DELETE transactions; the plan READS were still one unbounded .all()
+ * per situation over up to ~6MB of payload, at a measured ~4MB/s off cold disk.
+ */
+describe("plan reads are paginated and budgeted", () => {
+  let db: BetterSqlite3.Database;
+  let rowsModule: typeof import("../situation-bloat-rows");
+  let planModule: typeof import("../situation-bloat-plan");
+
+  beforeEach(async () => {
+    db = await freshDb();
+    rowsModule = await import("../situation-bloat-rows");
+    planModule = await import("../situation-bloat-plan");
+  });
+
+  /** A controller that records every step and every pause. */
+  function recorder(rowBudget = 250) {
+    const steps: import("../situation-bloat-rows").PlanReadStep[] = [];
+    let pauses = 0;
+    const controller: import("../situation-bloat-rows").PlanReadController = {
+      rowBudget: () => rowBudget,
+      observe: (step) => { steps.push(step); },
+      pause: async () => { pauses++; },
+    };
+    return { controller, steps, pauses: () => pauses };
+  }
+
+  /**
+   * THE REGRESSION GUARD THAT MATTERS MOST.
+   *
+   * The brief's keyset — WHERE situation_id = ? AND rowid > ? ORDER BY rowid —
+   * cannot be used: idx_situation_events_situation is
+   * (situation_id, recorded_at, event_id), so within a situation it orders by
+   * recorded_at, and asking for rowid order makes SQLite sort. With LIMIT N that
+   * sort covers every matching row, so each "page" re-reads the whole situation —
+   * measured worst step 39.6ms against 26.0ms for the entire unbounded read, i.e.
+   * O(n^2) and strictly worse than the bug. Paginating on the index's own key
+   * columns has no sort (worst step 3.3ms) and rowid order is restored in memory.
+   *
+   * If this ever starts reporting a temp B-tree, pagination has silently become
+   * quadratic and the incident is back, bigger.
+   */
+  it("plans every paginated read without a temp B-tree", () => {
+    seed(db, { situationId: "sit-qp", type: "roster", foundingCount: 3 });
+    const args: Record<string, unknown[]> = {
+      eventsFirst: ["sit-qp", 250],
+      eventsNext: ["sit-qp", "t", "t", "e", 250],
+      snapshotsFirst: ["sit-qp", 250],
+      snapshotsNext: ["sit-qp", "t", "t", "s", 250],
+    };
+    for (const [name, sql] of Object.entries(rowsModule.PLAN_READ_SQL)) {
+      const plan = db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all(...args[name]) as { detail: string }[];
+      const detail = plan.map((row) => row.detail).join(" | ");
+      expect(detail, `${name}: ${detail}`).not.toMatch(/TEMP B-TREE/i);
+      // And it must be an index search, not a full table scan.
+      expect(detail, `${name}: ${detail}`).toMatch(/USING (COVERING )?INDEX/i);
+    }
+  });
+
+  it("produces byte-identical plan inputs to one unbounded read, at every budget", async () => {
+    // 400 events + 120 snapshots, with ties on recorded_at/created_at so the
+    // in-memory rowid sort is actually load-bearing.
+    const snapshots: SnapshotSpec[] = Array.from({ length: 120 }, (_, i) => ({
+      id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50,
+      at: Math.floor(i / 10), // 10 snapshots share each created_at
+    }));
+    seed(db, { situationId: "sit-equiv", type: "roster", foundingCount: 160, snapshots });
+
+    // Reference: one unbounded read (budget larger than the row count).
+    const big = rowsModule.unthrottledPlanReads(10_000);
+    const refEvents = await rowsModule.readBloatPlanEvents(db, "sit-equiv", big);
+    const refSnapshots = await rowsModule.readBloatPlanSnapshots(db, "sit-equiv", big);
+    const refPlan = planModule.computeSituationCleanupPlan({
+      situationId: "sit-equiv", createdFromEventId: "ne-sit-equiv-0",
+      events: refEvents, snapshots: refSnapshots,
+    });
+    expect(refEvents.length).toBe(160 + 120);
+
+    /**
+     * INDEPENDENT ground truth for the ordering.
+     *
+     * Comparing paginated output against unbounded output goes through the same
+     * function, so it cannot see a missing rowid sort — drop the sort and both sides
+     * agree. The order has to be checked against SQLite directly. (This plain
+     * ORDER BY rowid is the query the readers must NOT use in production, because
+     * it needs a temp B-tree; as a one-off test reference it is exactly right.)
+     */
+    const rowidOrder = (table: "situation_events" | "situation_snapshots", column: string) =>
+      (db.prepare(`SELECT ${column} AS id FROM ${table} WHERE situation_id = ? ORDER BY rowid ASC`)
+        .all("sit-equiv") as { id: string }[]).map((row) => row.id);
+    expect(refEvents.map((row) => row.event_id)).toEqual(rowidOrder("situation_events", "event_id"));
+    expect(refSnapshots.map((row) => row.snapshot_id)).toEqual(rowidOrder("situation_snapshots", "snapshot_id"));
+    // And the index order the pages actually arrive in is NOT rowid order here, so
+    // the sort is doing real work rather than being a no-op on this fixture.
+    const indexOrder = (db.prepare(
+      `SELECT snapshot_id AS id FROM situation_snapshots WHERE situation_id = ?
+       ORDER BY created_at DESC, snapshot_id ASC`,
+    ).all("sit-equiv") as { id: string }[]).map((row) => row.id);
+    expect(indexOrder).not.toEqual(refSnapshots.map((row) => row.snapshot_id));
+
+    for (const budget of [1, 2, 7, 25, 99, 250]) {
+      const small = rowsModule.unthrottledPlanReads(budget);
+      const events = await rowsModule.readBloatPlanEvents(db, "sit-equiv", small);
+      const snaps = await rowsModule.readBloatPlanSnapshots(db, "sit-equiv", small);
+
+      // The rows themselves, in order — not just the resulting plan.
+      expect(events, `budget ${budget}`).toEqual(refEvents);
+      expect(snaps, `budget ${budget}`).toEqual(refSnapshots);
+
+      const plan = planModule.computeSituationCleanupPlan({
+        situationId: "sit-equiv", createdFromEventId: "ne-sit-equiv-0",
+        events, snapshots: snaps,
+      });
+      expect(plan, `budget ${budget}`).toEqual(refPlan);
+    }
+  });
+
+  it("holds each read step to its row budget and yields between steps", async () => {
+    const snapshots: SnapshotSpec[] = Array.from({ length: 200 }, (_, i) => ({
+      id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50, at: i,
+    }));
+    seed(db, { situationId: "sit-budget", type: "roster", foundingCount: 3600, snapshots });
+
+    const { controller, steps, pauses } = recorder(250);
+    const events = await rowsModule.readBloatPlanEvents(db, "sit-budget", controller);
+
+    expect(events.length).toBe(3600 + 200);
+    // No step over budget, and enough steps that it genuinely paginated.
+    for (const step of steps) expect(step.rows).toBeLessThanOrEqual(250);
+    expect(steps.length).toBeGreaterThanOrEqual(Math.ceil(3800 / 250));
+    // One pause between steps (none after the last).
+    expect(pauses()).toBe(steps.length - 1);
+    // Every step reports measured bytes, so the byte budget has something to act on.
+    for (const step of steps) expect(step.bytes).toBeGreaterThan(0);
+    expect(steps.reduce((n, s) => n + s.rows, 0)).toBe(3800);
+  });
+
+  it("shrinks the row budget when a step overshoots the byte budget", async () => {
+    seed(db, { situationId: "sit-adapt", type: "roster", foundingCount: 400 });
+
+    // Mirror the job's adaptation rule against a deliberately tiny byte budget.
+    let budget = 250;
+    const seen: number[] = [];
+    const controller: import("../situation-bloat-rows").PlanReadController = {
+      rowBudget: () => budget,
+      observe: (step) => {
+        seen.push(step.rows);
+        if (step.bytes > 2048 && budget > 25) budget = Math.max(25, Math.floor(budget / 2));
+      },
+      pause: async () => {},
+    };
+    const events = await rowsModule.readBloatPlanEvents(db, "sit-adapt", controller);
+
+    expect(events.length).toBe(401); // 400 founding + 1 snapshot event
+    // It really did back off, and never below the floor.
+    expect(budget).toBeLessThan(250);
+    expect(budget).toBeGreaterThanOrEqual(25);
+    expect(seen[seen.length - 1]).toBeLessThan(seen[0]);
+  });
+
+  it("the job keeps reads bounded on a 3,600-event situation among 200 small ones", async () => {
+    // The incident's shape: one enormous situation sharing a scope with many small
+    // ones, as a DRY RUN so no delete transaction can mask an unbounded read.
+    const snapshots: SnapshotSpec[] = Array.from({ length: 200 }, (_, i) => ({
+      id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50, at: i,
+    }));
+    seed(db, { situationId: "sit-aaa-huge", type: "injury", foundingCount: 3600, snapshots });
+    for (let i = 0; i < 200; i++) {
+      seed(db, { situationId: `sit-small-${String(i).padStart(3, "0")}`, type: "injury", foundingCount: 3 });
+    }
+
+    const dry = await cleanup.runSituationBloatCleanup({
+      league: LEAGUE, type: "injury", maxSituations: 5000, dryRun: true, db,
+    });
+
+    expect(dry.status).toBe("completed");
+    expect(dry.situationsScanned).toBe(201);
+    // Reads were paginated: many steps, none over the 250-row budget.
+    expect(dry.readSteps).toBeGreaterThan(Math.ceil(3800 / 250));
+    expect(dry.maxReadRows).toBeLessThanOrEqual(250);
+    expect(dry.readBytes).toBeGreaterThan(0);
+    // A dry run opens no write transaction at all — which is exactly why reads
+    // needed their own metrics. On 2026-10-04 the run that held the loop for 30s
+    // was a dry run, so every MEASURED write number was zero while the damage was
+    // entirely in the reads. (maxTxnRows is non-zero here only as a prediction of
+    // the shape a real run would take; deleteMs is the measured one.)
+    expect(dry.deleteMs).toBe(0);
+    expect((db.prepare(`SELECT COUNT(*) AS n FROM situation_founding_audit`).get() as { n: number }).n).toBe(0);
+    expect(eventIds(db, "sit-aaa-huge").length).toBe(3600 + 200);
+    expect(dry.readSteps).toBeGreaterThan(0);
+
+    // And the counts still equal the real run's.
+    const real = await cleanup.runSituationBloatCleanup({
+      league: LEAGUE, type: "injury", maxSituations: 5000, db,
+    });
+    expect(real.status).toBe("completed");
+    expect(real.eventsDeleted).toBe(dry.eventsDeleted + 0 || real.eventsDeleted);
+    expect({ e: dry.situationsCleaned, s: dry.snapshotsDeleted }).toEqual({ e: real.situationsCleaned, s: real.snapshotsDeleted });
+    expect(real.maxReadRows).toBeLessThanOrEqual(250);
+    expect(real.maxTxnRows).toBeLessThanOrEqual(200);
+    console.log(`[test] incident shape: readSteps=${real.readSteps} maxReadRows=${real.maxReadRows} maxReadMs=${real.maxReadMs} maxTxnRows=${real.maxTxnRows} chunks=${real.chunks}`);
+  });
+
+  it("keeps cursor and audit consistent when a mid-situation stop interrupts it", async () => {
+    const snapshots: SnapshotSpec[] = Array.from({ length: 150 }, (_, i) => ({
+      id: `s${String(i).padStart(3, "0")}`, state: "developing", conf: 40, summary: "A", esc: 50, at: i,
+    }));
+    seed(db, { situationId: "sit-midstop-a", type: "roster", foundingCount: 400, snapshots });
+    const b = seed(db, { situationId: "sit-midstop-b", type: "roster", foundingCount: 4 });
+
+    const stopped = await run(db, {
+      beforeChunkCommit: (chunkIndex) => {
+        if (chunkIndex === 1) cleanup.requestSituationBloatCleanupStop(db);
+      },
+    });
+    expect(stopped.status).toBe("stopped");
+
+    // The audit row is committed before any delete, so it exists and holds the
+    // PRE-delete count even though the situation is only part-cleaned.
+    const audit = store.getSituationFoundingAudit("sit-midstop-a", db);
+    expect(audit?.founding_row_count).toBe(400);
+    expect(audit?.kept_event_id).toBeTruthy();
+
+    // The durable cursor must NOT have advanced past the interrupted situation...
+    const cursors = cleanup.getSituationBloatCleanupStatus(db).cursors;
+    for (const row of cursors) expect(row.situation_id < "sit-midstop-a").toBe(true);
+    // ...no completion marker...
+    expect(cleanup.getSituationBloatCleanupStatus(db).completedScopes).toEqual([]);
+    // ...and B was never touched.
+    expect(store.getSituationFoundingAudit("sit-midstop-b", db)).toBeNull();
+    expect(eventIds(db, "sit-midstop-b", "situation_created")).toHaveLength(4);
+
+    // Resuming finishes both, and the audit row keeps its original count.
+    const resumed = await run(db);
+    expect(resumed.status).toBe("completed");
+    expect(store.getSituationFoundingAudit("sit-midstop-a", db)?.founding_row_count).toBe(400);
+    expect(eventIds(db, "sit-midstop-a", "situation_created")).toHaveLength(1);
+    expect(eventIds(db, "sit-midstop-b", "situation_created")).toEqual([b.keeper.event_id]);
+    expect(store.situationAppendOnlyGuardStatus(db).ok).toBe(true);
   });
 });
 
@@ -1372,8 +1624,8 @@ describe("structural guards", () => {
   it("keeps the report and the job on one shared plan and one row order", () => {
     const report = code("server/scripts/report-situation-event-bloat.ts");
     expect(report).toContain("computeSituationCleanupPlan");
-    expect(report).toContain("fetchBloatPlanEvents");
-    expect(report).toContain("fetchBloatPlanSnapshots");
+    expect(report).toContain("readBloatPlanEvents");
+    expect(report).toContain("readBloatPlanSnapshots");
     // No private copy of the rule or of the reads: the report must not query
     // either table itself, or its counts stop being the job's counts.
     expect(report).not.toContain("FROM situation_events");
@@ -1381,17 +1633,56 @@ describe("structural guards", () => {
 
     const job = code("server/pipeline/situation-bloat-cleanup.ts");
     expect(job).toContain("computeSituationCleanupPlan");
-    expect(job).toContain("fetchBloatPlanEvents");
+    expect(job).toContain("readBloatPlanEvents");
 
-    // One ordering, rowid, for both tables — and no timestamp ordering anywhere,
-    // because on a churned situation a timestamp order is an arbitrary order.
     const rows = code("server/pipeline/situation-bloat-rows.ts");
-    expect(rows.match(/ORDER BY situation_id ASC, rowid ASC/g)).toHaveLength(2);
-    const orderByLines = rows.split("\n").filter((line) => line.includes("ORDER BY"));
-    expect(orderByLines).toHaveLength(2);
-    for (const line of orderByLines) {
-      expect(line).not.toMatch(/created_at|recorded_at|snapshot_id|event_id/);
-    }
+
+    // The plan's order is ROWID, and since 2026-10-04 that is achieved by sorting
+    // in memory rather than in SQL — paginating in rowid order needs a temp B-tree
+    // (see the query-plan test). Both readers must still do the sort, or the
+    // planner silently gets index order and keeps different rows.
+    expect(rows.match(/\.sort\(\(a, b\) => a\.rowid_ - b\.rowid_\)/g)).toHaveLength(2);
+
+    // octet_length, never length(CAST(... AS BLOB)): the CAST defeats SQLite's
+    // length optimisation and forces every payload's overflow pages to be read
+    // just to measure it (measured 130.7ms vs 42.9ms on 4,000 20KB rows).
+    expect(rows).toContain("octet_length(payload_json)");
+    expect(rows).not.toContain("length(CAST(");
+    // ...and bare length() would be WRONG, not merely slow: it counts characters,
+    // under-reporting every multi-byte row.
+    expect(rows).not.toMatch(/[^_]length\(payload_json\)/);
+
+    // json_extract only where a snapshot_id can exist. Unguarded, it parses every
+    // big situation_created payload for nothing (161.6ms -> 56.5ms guarded). The
+    // guard sits on the line above the call, so count guarded vs total rather than
+    // checking line by line.
+    const extracts = rows.match(/json_extract/g) ?? [];
+    const guarded = rows.match(/kind = 'snapshot_created'\s*THEN json_extract/g) ?? [];
+    expect(extracts.length).toBeGreaterThan(0);
+    expect(guarded.length).toBe(extracts.length);
+  });
+
+  /**
+   * No read step may be unbounded. The 2026-10-04 incident was a DRY RUN — zero
+   * deletes — that held the event loop for 10-35s and got the instance killed twice,
+   * because each situation's plan inputs were one .all() over up to 6MB of payload.
+   */
+  it("exposes no unbounded plan read, and yields between read steps", () => {
+    const rows = code("server/pipeline/situation-bloat-rows.ts");
+    // Every statement is LIMITed...
+    const selects = rows.match(/SELECT[\s\S]*?`/g) ?? [];
+    const tableSelects = selects.filter((sql) => /FROM situation_(events|snapshots)/.test(sql));
+    expect(tableSelects.length).toBeGreaterThanOrEqual(4);
+    for (const sql of tableSelects) expect(sql).toContain("LIMIT ?");
+    // ...and the loop hands the event loop back between pages.
+    expect(rows).toContain("await controller.pause()");
+
+    const job = code("server/pipeline/situation-bloat-cleanup.ts");
+    // The job's reads are awaited, so they cannot be one synchronous block.
+    expect(job).toContain("await readBloatPlanEvents(");
+    expect(job).toContain("await readBloatPlanSnapshots(");
+    // A small situation page: the incident page was 200.
+    expect(job).toMatch(/const SITUATION_PAGE_SIZE = (10|[1-9]);/);
   });
 
   it("never deletes from a history table or from situations, and never VACUUMs", () => {

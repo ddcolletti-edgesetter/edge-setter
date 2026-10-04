@@ -72,7 +72,15 @@ import {
   type CleanupSlice,
   type SituationCleanupPlan,
 } from "./situation-bloat-plan";
-import { fetchBloatPlanEvents, fetchBloatPlanSnapshots } from "./situation-bloat-rows";
+import {
+  READ_BYTE_BUDGET,
+  READ_MIN_ROWS,
+  READ_TARGET_ROWS,
+  readBloatPlanEvents,
+  readBloatPlanSnapshots,
+  type PlanReadController,
+  type PlanReadStep,
+} from "./situation-bloat-rows";
 import {
   dropSituationCleanupDeleteGuards,
   ensureSituationSchema,
@@ -86,8 +94,13 @@ const LOG = "[situation-cleanup]";
 
 const VALID_LEAGUES = ["NBA", "MLB", "NFL", "CFB"] as const;
 
-/** Situations read per keyset page. Read-only; only the page is held in memory. */
-const SITUATION_PAGE_SIZE = 200;
+/**
+ * Situations per keyset page. Small on purpose: a page is read in one synchronous
+ * step, and the 2026-10-04 incident was a 200-situation page of NFL injuries.
+ * Pages are cheap to re-issue and the walk is resumable, so there is no reason to
+ * trade event-loop latency for fewer queries.
+ */
+const SITUATION_PAGE_SIZE = 10;
 
 /** Rows per delete transaction, before adaptation. */
 const CHUNK_TARGET_ROWS = 200;
@@ -101,6 +114,18 @@ const CHUNK_SLOW_MS = 1000;
 const CHUNK_FAST_MS = 200;
 /** WAL truncation cadence. The WAL is what filled /var/data; deletes grow it. */
 const CHECKPOINT_EVERY_CHUNKS = 25;
+
+/** A read step slower than this halves the read row budget. */
+const READ_SLOW_MS = 1000;
+/** A read step faster than this grows it back toward READ_TARGET_ROWS. */
+const READ_FAST_MS = 200;
+/**
+ * Only steps at least this slow get their own log line. On prod's cold disk most
+ * steps clear it, so the detail appears exactly when it is wanted; when reads are
+ * fast, 2,064 situations do not become 30,000 log lines. Every situation gets a
+ * one-line read summary regardless.
+ */
+const READ_STEP_LOG_MS = 100;
 
 const DEFAULT_MAX_SITUATIONS = 25;
 
@@ -190,6 +215,16 @@ export interface SituationBloatCleanupResult {
   readonly maxTxnRows: number;
   /** Duration of the slowest single write transaction, ms. */
   readonly maxTxnMs: number;
+  /**
+   * Duration of the slowest single READ step, ms. The 2026-10-04 incident was a
+   * dry run with zero deletes, so maxTxnMs was 0 while the event loop was held for
+   * 30s: reads need their own number or the dangerous half stays invisible.
+   */
+  readonly maxReadMs: number;
+  /** Rows in the largest single read step, and bytes it pulled. */
+  readonly maxReadRows: number;
+  readonly readBytes: number;
+  readonly readSteps: number;
   readonly elapsedMs: number;
   readonly cursor: string | null;
   readonly error: string | null;
@@ -210,6 +245,11 @@ interface Progress {
   deleteMs: number;
   maxTxnRows: number;
   maxTxnMs: number;
+  maxReadMs: number;
+  maxReadRows: number;
+  readBytes: number;
+  readSteps: number;
+  readRowBudget: number;
   situationsScanned: number;
   situationsCleaned: number;
   eventsDeleted: number;
@@ -235,6 +275,11 @@ function idleProgress(): Progress {
     deleteMs: 0,
     maxTxnRows: 0,
     maxTxnMs: 0,
+    maxReadMs: 0,
+    maxReadRows: 0,
+    readBytes: 0,
+    readSteps: 0,
+    readRowBudget: READ_TARGET_ROWS,
     situationsScanned: 0,
     situationsCleaned: 0,
     eventsDeleted: 0,
@@ -378,6 +423,11 @@ export async function runSituationBloatCleanup(
   let deleteMs = 0;
   let maxTxnRows = 0;
   let maxTxnMs = 0;
+  let maxReadMs = 0;
+  let maxReadRows = 0;
+  let readBytes = 0;
+  let readSteps = 0;
+  let readRowBudget = READ_TARGET_ROWS;
 
   /**
    * Two cursors, because they answer different questions.
@@ -416,6 +466,11 @@ export async function runSituationBloatCleanup(
       deleteMs,
       maxTxnRows,
       maxTxnMs,
+      maxReadMs,
+      maxReadRows,
+      readBytes,
+      readSteps,
+      readRowBudget,
       cursor: committedCursor,
       situationsScanned: counters.situationsScanned,
       situationsCleaned: counters.situationsCleaned,
@@ -431,6 +486,10 @@ export async function runSituationBloatCleanup(
       deleteMs,
       maxTxnRows,
       maxTxnMs,
+      maxReadMs,
+      maxReadRows,
+      readBytes,
+      readSteps,
       elapsedMs: Date.now() - startedAt,
       cursor: committedCursor,
       error,
@@ -445,6 +504,10 @@ export async function runSituationBloatCleanup(
       deleteMs,
       maxTxnRows,
       maxTxnMs,
+      maxReadMs,
+      maxReadRows,
+      readSteps,
+      readMb: Math.round(readBytes / 1048.576) / 1000,
       elapsedMs: result.elapsedMs,
     })}`);
     return result;
@@ -481,6 +544,42 @@ export async function runSituationBloatCleanup(
     INSERT INTO pipeline_meta (key, value, updated_at) VALUES (?, ?, ?)
     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
   `);
+
+  /**
+   * Read policy: the same self-throttling discipline the delete sizing uses, applied
+   * to the reads that the 2026-10-04 incident proved were the dangerous half.
+   *
+   * A step is bounded three ways — rows (adaptive), bytes (the step that overshoots
+   * the budget shrinks the next one), and time — because none of them alone is
+   * enough: row count does not predict bytes when payloads vary from 200B to 6MB,
+   * bytes are only known after the read, and the time it takes depends on how cold
+   * the disk is. The byte budget is the mechanism that normally keeps a step near
+   * 250ms; the time check is the backstop.
+   */
+  const readController: PlanReadController = {
+    rowBudget: () => readRowBudget,
+    observe: (step: PlanReadStep) => {
+      readSteps++;
+      readBytes += step.bytes;
+      if (step.ms > maxReadMs) maxReadMs = step.ms;
+      if (step.rows > maxReadRows) maxReadRows = step.rows;
+
+      if (step.ms >= READ_STEP_LOG_MS) {
+        console.log(`${LOG} read ${step.table} ${step.situationId} rows=${step.rows}/${step.rowBudget} bytes=${step.bytes} ms=${step.ms}`);
+      }
+
+      const previous = readRowBudget;
+      if ((step.ms > READ_SLOW_MS || step.bytes > READ_BYTE_BUDGET) && readRowBudget > READ_MIN_ROWS) {
+        readRowBudget = Math.max(READ_MIN_ROWS, Math.floor(readRowBudget / 2));
+      } else if (step.ms < READ_FAST_MS && step.bytes * 2 < READ_BYTE_BUDGET && readRowBudget < READ_TARGET_ROWS) {
+        readRowBudget = Math.min(READ_TARGET_ROWS, readRowBudget * 2);
+      }
+      if (readRowBudget !== previous) {
+        console.log(`${LOG} read step ${step.rows} rows / ${step.bytes}B / ${step.ms}ms -> row budget ${previous} -> ${readRowBudget}`);
+      }
+    },
+    pause: yieldToLoop,
+  };
 
   /** Situations planned but not yet committed, plus the window's last situation_id. */
   let pending: { situationId: string; plan: SituationCleanupPlan }[] = [];
@@ -614,6 +713,11 @@ export async function runSituationBloatCleanup(
       deleteMs,
       maxTxnRows,
       maxTxnMs,
+      maxReadMs,
+      maxReadRows,
+      readBytes,
+      readSteps,
+      readRowBudget,
       cursor: committedCursor,
       situationsScanned: counters.situationsScanned,
       situationsCleaned: counters.situationsCleaned,
@@ -783,18 +887,23 @@ export async function runSituationBloatCleanup(
       pageCursor = page[page.length - 1].situation_id;
 
       for (const situation of page) {
-        // Rows are fetched one situation at a time rather than a page at a time:
-        // the worst prod situation carries ~1,803 snapshots and ~1,803 events, so
-        // a 200-situation page of those is hundreds of thousands of rows resident
-        // at once. Flat memory matters more than query count on this service.
-        const events = fetchBloatPlanEvents(db, [situation.situation_id]).get(situation.situation_id) ?? [];
-        const snapshots = fetchBloatPlanSnapshots(db, [situation.situation_id]).get(situation.situation_id) ?? [];
+        // Rows are fetched one situation at a time, and WITHIN a situation in
+        // budgeted pages with the event loop handed back between them. The
+        // 2026-10-04 incident was this read: a single .all() per situation, 6MB of
+        // payload, ~4MB/s off cold disk, no yield anywhere in a 200-situation page.
+        const readStart = Date.now();
+        const stepsBefore = readSteps;
+        const events = await readBloatPlanEvents(db, situation.situation_id, readController);
+        const snapshots = await readBloatPlanSnapshots(db, situation.situation_id, readController);
         const plan = computeSituationCleanupPlan({
           situationId: situation.situation_id,
           createdFromEventId: situation.created_from_event_id,
           events,
           snapshots,
         });
+        if (readSteps - stepsBefore > 1) {
+          console.log(`${LOG} ${situation.situation_id} read events=${events.length} snapshots=${snapshots.length} steps=${readSteps - stepsBefore} ms=${Date.now() - readStart} budget=${readRowBudget} maxReadMs=${maxReadMs}`);
+        }
 
         counters.situationsScanned++;
         const rows = plan.deleteEventIds.length + plan.deleteSnapshotIds.length;
@@ -819,6 +928,7 @@ export async function runSituationBloatCleanup(
           if (sliced === "stopped") { outcome = "stopped"; break walk; }
           windowLastId = situation.situation_id;
           if (counters.situationsCleaned >= maxSituations) { outcome = "capped"; break walk; }
+          await yieldToLoop();
           continue;
         }
 
@@ -852,8 +962,14 @@ export async function runSituationBloatCleanup(
         if (pendingRows >= chunkSize) {
           flush();
           if (stopRequested(db)) { outcome = "stopped"; break walk; }
-          await yieldToLoop();
         }
+
+        // Unconditionally, once per situation. A clean situation does no deletes and
+        // may do only one read step, so without this the only yields in the loop were
+        // behind "a chunk filled" and "a page ended" — which is how a dry run, whose
+        // chunks never fill because nothing is deleted, held the loop for a whole
+        // 200-situation page on 2026-10-04.
+        await yieldToLoop();
       }
 
       flush();
