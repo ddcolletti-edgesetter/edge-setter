@@ -23,6 +23,7 @@ import {
 } from "./situations-comparable-corpus";
 import {
   type CanonicalSituationRecord,
+  getSituationFoundingAudit,
   getSituationPublicConfirmation,
   listCanonicalSituations,
   listSituationConfidenceHistory,
@@ -236,9 +237,24 @@ export function mapCanonicalSituationToApiResponse(
   // presented score down to the clean single-founding cohort's baseline for the
   // same league + situation_type. `corrupted` then gates the official-confirmation
   // override below so a mis-founded situation is never lifted to 100.
+  //
+  // The founding-row count is the HIGHER of the live count and the audited
+  // historical count, because the two disagree in opposite directions:
+  //   • before the retroactive churn cleanup there is no audit row, so the live
+  //     count is the only signal (max(0, live) = live — today's behaviour,
+  //     unchanged);
+  //   • after it, the duplicate `situation_created` rows are gone and the live
+  //     count reads 1, which would quietly un-flag a situation that is still
+  //     corrupted and hand its inflated headline straight back to customers.
+  //     The audit row holds the pre-cleanup count and wins.
+  //   • if a situation is somehow re-founded after being audited, the live count
+  //     is higher and wins.
+  // max() is the safe direction either way: it can only keep the guard firing,
+  // never silence it.
+  const foundingAudit = getSituationFoundingAudit(record.situation_id);
   const cap = capCorruptedConfidence({
     rawConfidence: snapshot?.confidence.score ?? 0,
-    foundingRowCount: countFoundingRows(events),
+    foundingRowCount: Math.max(foundingAudit?.founding_row_count ?? 0, countFoundingRows(events)),
     baseline: confidenceBaselines.get(confidenceBaselineKey(record.league, record.situation_type)),
   });
   const rawConfidence = cap.confidence;

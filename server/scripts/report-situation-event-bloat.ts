@@ -19,13 +19,38 @@
  * service is down, which is when you most want this report.
  *
  * What it counts as removable, per situation:
- *   - situation_created events after the first one (a situation is founded
- *     exactly once; the rest are churn),
+ *   - every situation_created event EXCEPT the founder (see "keep key" below),
  *   - snapshots whose lifecycle_state, confidence_score, summary and
  *     escalation_score all match the previous KEPT snapshot — the same test
  *     situations-engine.ts now applies before writing one,
  *   - the snapshot_created event belonging to each of those snapshots.
  * Everything else — real state changes, every evidence event — is kept.
+ *
+ * KEEP KEY. The surviving situation_created row is the one whose
+ * normalized_event_id equals situations.created_from_event_id — the event the
+ * situation records being founded from. It is NOT "the earliest row": measured
+ * on prod 2026-10-02, 450 situations have an earliest situation_created row that
+ * is not their founder, and keeping the earliest would have deleted the founder
+ * on every one of them. Earliest is the fallback, used only when
+ * created_from_event_id is NULL or no founding row carries it; the report counts
+ * both fallback reasons under keep_key_* so the cleanup's exposure is visible
+ * before it runs.
+ *
+ * ON SNAPSHOT BYTES. estimated_bytes_freed is MEASURED (length(CAST(col AS
+ * BLOB)) per row), never modelled, so it does not assume the snapshot payload
+ * grows with snapshot count — and it must not, because it does not. The engine
+ * appends to the previous snapshot's evidence_event_ids
+ * (situations-engine.ts), but getLatestSituationSnapshot resolves "previous" as
+ * ORDER BY created_at DESC, snapshot_id ASC, and snapshot_id is a content hash.
+ * When a situation's snapshots share one created_at — which is what repeated
+ * polling of a single static ESPN report produces — the tiebreak picks the
+ * lexicographically smallest hash rather than the row just written, so each new
+ * snapshot re-forks from a short ancestor instead of extending the chain. The
+ * list's length is then the count of running-minimum hashes, i.e. ~H(n) ≈ ln n,
+ * not n: sit_a412cf2fd624c10bb9d80810 holds 1,803 snapshots whose longest
+ * evidence_event_ids is 9 entries / 271 bytes, and 406KB of snapshot payload in
+ * total. The reclaim here is dominated by situation_events.payload_json (a full
+ * normalized_event per row), not by snapshots.
  *
  * Safe for the Render shell: situations are walked in keyset-paginated chunks,
  * and the per-row queries select lengths rather than payload_json itself, so
@@ -54,12 +79,14 @@ interface SituationRow {
   situation_id: string;
   league: string;
   situation_type: string;
+  created_from_event_id: string | null;
 }
 
 interface EventRow {
   situation_id: string;
   event_id: string;
   kind: string;
+  normalized_event_id: string | null;
   snapshot_id: string | null;
   payload_bytes: number;
 }
@@ -83,6 +110,18 @@ interface Counters {
   snapshots_scanned: number;
   snapshots_removable: number;
   estimated_bytes_freed: number;
+  /** Keeper resolved from situations.created_from_event_id (the good case). */
+  keep_key_from_created_from_event_id: number;
+  /** created_from_event_id is set but no founding row carries it. */
+  keep_key_fallback_no_match: number;
+  /** created_from_event_id is NULL on the situation. */
+  keep_key_fallback_no_created_from: number;
+  /**
+   * Situations where the founder is NOT the earliest founding row — i.e. where
+   * the old "keep the first row" rule would have deleted the founder. Prod
+   * measured 450 of these on 2026-10-02.
+   */
+  keep_key_founder_not_earliest: number;
 }
 
 function emptyCounters(): Counters {
@@ -95,6 +134,10 @@ function emptyCounters(): Counters {
     snapshots_scanned: 0,
     snapshots_removable: 0,
     estimated_bytes_freed: 0,
+    keep_key_from_created_from_event_id: 0,
+    keep_key_fallback_no_match: 0,
+    keep_key_fallback_no_created_from: 0,
+    keep_key_founder_not_earliest: 0,
   };
 }
 
@@ -107,6 +150,10 @@ function addInto(target: Counters, source: Counters): void {
   target.snapshots_scanned += source.snapshots_scanned;
   target.snapshots_removable += source.snapshots_removable;
   target.estimated_bytes_freed += source.estimated_bytes_freed;
+  target.keep_key_from_created_from_event_id += source.keep_key_from_created_from_event_id;
+  target.keep_key_fallback_no_match += source.keep_key_fallback_no_match;
+  target.keep_key_fallback_no_created_from += source.keep_key_fallback_no_created_from;
+  target.keep_key_founder_not_earliest += source.keep_key_founder_not_earliest;
 }
 
 const db = getPipelineDb();
@@ -125,7 +172,7 @@ for (const required of ["situations", "situation_events", "situation_snapshots"]
 // Keyset pagination on the primary key: no OFFSET scan, stable under concurrent
 // appends, and the page is the only thing ever held in memory.
 const situationPage = db.prepare(`
-  SELECT situation_id, league, situation_type
+  SELECT situation_id, league, situation_type, created_from_event_id
   FROM situations
   WHERE situation_id > ?
     ${leagueFilter ? "AND league = ?" : ""}
@@ -140,6 +187,7 @@ function eventsForChunk(ids: string[]): EventRow[] {
     SELECT situation_id,
            event_id,
            kind,
+           normalized_event_id,
            json_extract(payload_json, '$.snapshot_id') AS snapshot_id,
            length(CAST(payload_json AS BLOB)) AS payload_bytes
     FROM situation_events
@@ -232,15 +280,35 @@ for (;;) {
       }
     }
 
-    let seenCreated = false;
+    // Resolve the keep key BEFORE walking the log: the founder can sit anywhere
+    // in the ordering, so "first row wins" is not a decision we can make
+    // streaming. `events` is already ordered (recorded_at ASC, event_id ASC), so
+    // foundingRows[0] is the earliest and the first created_from match is the
+    // earliest match.
+    const foundingRows = events.filter((event) => event.kind === "situation_created");
+    let keptFoundingEventId: string | null = null;
+    if (foundingRows.length > 0) {
+      const founder = situation.created_from_event_id
+        ? foundingRows.find((event) => event.normalized_event_id === situation.created_from_event_id)
+        : undefined;
+      if (founder) {
+        keptFoundingEventId = founder.event_id;
+        counters.keep_key_from_created_from_event_id++;
+        if (founder.event_id !== foundingRows[0].event_id) counters.keep_key_founder_not_earliest++;
+      } else {
+        keptFoundingEventId = foundingRows[0].event_id;
+        if (situation.created_from_event_id) counters.keep_key_fallback_no_match++;
+        else counters.keep_key_fallback_no_created_from++;
+      }
+    }
+
     for (const event of events) {
       let removable = false;
       if (event.kind === "situation_created") {
-        if (seenCreated) {
+        if (event.event_id !== keptFoundingEventId) {
           removable = true;
           counters.duplicate_situation_created++;
         }
-        seenCreated = true;
       } else if (event.kind === "snapshot_created" && event.snapshot_id && redundantSnapshotIds.has(event.snapshot_id)) {
         removable = true;
         counters.redundant_snapshot_created++;
