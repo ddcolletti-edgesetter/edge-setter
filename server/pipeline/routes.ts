@@ -21,6 +21,12 @@
  *   ────────
  *   POST /api/outcomes                — record an outcome + auto-compute CLV
  *   GET  /api/outcomes/:signal_id     — get outcomes for a signal
+ *
+ *   Maintenance (admin-gated, destructive)
+ *   ──────────────────────────────────────
+ *   POST /api/pipeline/admin/situation-cleanup        — start the churn cleanup
+ *   POST /api/pipeline/admin/situation-cleanup/stop   — kill switch
+ *   GET  /api/pipeline/admin/situation-cleanup/status — progress + resume cursors
  */
 
 import type { Express, Request, Response } from "express";
@@ -1014,6 +1020,123 @@ export function registerPipelineRoutes(app: Express) {
         calibration_available: calibration.length > 0,
         calibration_computed_at: calibration[0]?.computed_at ?? null,
       });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /* ══════════════════════════════════════════════════════
+     SITUATION CHURN CLEANUP — admin-gated, destructive
+     ══════════════════════════════════════════════════════
+
+     The retroactive half of the ESPN daily-churn fix (#72/#73). Those stopped
+     new duplicate situation_created events and restated snapshots from being
+     written; this removes the ~1.1GB already in situation_events.
+
+     There is deliberately no other way to start it. No boot hook, no ingestion
+     hook, no cron: the last two situations outages were a boot-time job and an
+     unbounded read loop on a service whose SQLite driver is synchronous, and a
+     destructive job that can start itself is one that will start during a deploy
+     with nobody watching. See server/pipeline/situation-bloat-cleanup.ts. */
+
+  /**
+   * POST /api/pipeline/admin/situation-cleanup
+   *
+   * Starts the cleanup in the BACKGROUND and returns immediately — the walk can
+   * take minutes and an HTTP timeout must never decide whether a destructive job
+   * finished.
+   *
+   * Body:
+   * {
+   *   "password": "...",
+   *   "league": "NFL",            // REQUIRED. NBA | MLB | NFL | CFB
+   *   "type": "roster",           // optional situation_type scope
+   *   "maxSituations": 25,        // optional, default 25 — first runs are small
+   *   "dryRun": false             // optional: plan everything, delete nothing
+   * }
+   *
+   * Resumable: a second call continues from the previous run's cursor. A scope
+   * that already carries a completion marker returns status "skipped" without
+   * reading anything. Poll .../situation-cleanup/status for progress, and POST
+   * .../situation-cleanup/stop to halt between chunks.
+   */
+  app.post("/api/pipeline/admin/situation-cleanup", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const { league, type, maxSituations, dryRun } = req.body ?? {};
+
+      if (typeof league !== "string" || !league.trim()) {
+        return res.status(400).json({ error: "league is required" });
+      }
+      const normalizedLeague = league.trim().toUpperCase();
+      const VALID = ["NBA", "MLB", "NFL", "CFB"];
+      if (!VALID.includes(normalizedLeague)) {
+        return res.status(400).json({ error: `league must be one of: ${VALID.join(", ")}` });
+      }
+      if (type !== undefined && type !== null && (typeof type !== "string" || !type.trim())) {
+        return res.status(400).json({ error: "type, when given, must be a non-empty string" });
+      }
+      if (maxSituations !== undefined && maxSituations !== null) {
+        const parsed = Number(maxSituations);
+        if (!Number.isFinite(parsed) || parsed < 1) {
+          return res.status(400).json({ error: "maxSituations must be a number >= 1" });
+        }
+      }
+
+      const { startSituationBloatCleanup } = await import("./situation-bloat-cleanup");
+      const started = startSituationBloatCleanup({
+        league: normalizedLeague,
+        type: typeof type === "string" ? type.trim() : null,
+        maxSituations: maxSituations === undefined || maxSituations === null ? undefined : Number(maxSituations),
+        dryRun: dryRun === true,
+      });
+
+      if (!started.accepted) {
+        return res.status(409).json({ error: started.reason ?? "already running", scope: started.scope });
+      }
+      return res.status(202).json({
+        accepted: true,
+        scope: started.scope,
+        dryRun: dryRun === true,
+        maxSituations: maxSituations === undefined || maxSituations === null ? 25 : Number(maxSituations),
+        note: "running in background — poll GET /api/pipeline/admin/situation-cleanup/status",
+      });
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/pipeline/admin/situation-cleanup/stop
+   *
+   * The kill switch. Sets a durable pipeline_meta flag that the job checks
+   * between every chunk; the job then exits cleanly, having committed only whole
+   * chunks, and leaves a cursor so a later call resumes where it stopped.
+   * Starting a new run clears the flag.
+   *
+   * Body: { "password": "..." }
+   */
+  app.post("/api/pipeline/admin/situation-cleanup/stop", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const { requestSituationBloatCleanupStop } = await import("./situation-bloat-cleanup");
+      return res.json(requestSituationBloatCleanupStop());
+    } catch (err: any) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * GET /api/pipeline/admin/situation-cleanup/status?password=...
+   *
+   * Live progress of the running job (or the last one to finish), plus the
+   * durable per-scope completion markers and resume cursors.
+   */
+  app.get("/api/pipeline/admin/situation-cleanup/status", async (req: Request, res: Response) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const { getSituationBloatCleanupStatus } = await import("./situation-bloat-cleanup");
+      return res.json(getSituationBloatCleanupStatus());
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
     }

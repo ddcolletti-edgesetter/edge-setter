@@ -10,31 +10,31 @@
  * events, and that is what took /api/v2/situations down and crash-looped #70.
  *
  * This script REPORTS ONLY: every statement it issues is a SELECT. It never
- * deletes, updates or inserts a row — the situations tables are append-only
- * (BEFORE UPDATE / BEFORE DELETE triggers RAISE(ABORT)), so any real cleanup is
- * a separate, deliberate migration. There is no --write mode here on purpose.
- * It opens the DB through the normal getPipelineDb() path rather than a
- * readonly handle, because a readonly connection cannot attach to a WAL
- * database when no other process holds the -shm file — i.e. exactly when the
- * service is down, which is when you most want this report.
+ * deletes, updates or inserts a row. The deletes live in
+ * server/pipeline/situation-bloat-cleanup.ts, behind an authenticated admin POST
+ * — there is no --write mode here on purpose. It opens the DB through the normal
+ * getPipelineDb() path rather than a readonly handle, because a readonly
+ * connection cannot attach to a WAL database when no other process holds the -shm
+ * file — i.e. exactly when the service is down, which is when you most want this
+ * report.
  *
- * What it counts as removable, per situation:
- *   - every situation_created event EXCEPT the founder (see "keep key" below),
- *   - snapshots whose lifecycle_state, confidence_score, summary and
- *     escalation_score all match the previous KEPT snapshot — the same test
- *     situations-engine.ts now applies before writing one,
- *   - the snapshot_created event belonging to each of those snapshots.
- * Everything else — real state changes, every evidence event — is kept.
+ * WHAT IT COUNTS AS REMOVABLE is not decided here. The rule lives in
+ * server/pipeline/situation-bloat-plan.ts and the reads that feed it in
+ * situation-bloat-rows.ts, and the cleanup job calls exactly those two modules.
+ * That is deliberate: a report and a deleter that each implement "what is
+ * removable" are a pair that drifts silently — the report says 1.1GB, the job
+ * removes something else, and nobody finds out until the rows are gone. Sharing
+ * the code makes "dry-run counts equal real-run counts" true by construction
+ * rather than by review, and a test asserts the equality.
  *
- * KEEP KEY. The surviving situation_created row is the one whose
- * normalized_event_id equals situations.created_from_event_id — the event the
- * situation records being founded from. It is NOT "the earliest row": measured
- * on prod 2026-10-02, 450 situations have an earliest situation_created row that
- * is not their founder, and keeping the earliest would have deleted the founder
- * on every one of them. Earliest is the fallback, used only when
- * created_from_event_id is NULL or no founding row carries it; the report counts
- * both fallback reasons under keep_key_* so the cleanup's exposure is visible
- * before it runs.
+ * ORDERING IS ROWID. Earlier revisions of this report walked events by
+ * (recorded_at, event_id) and snapshots by (created_at, snapshot_id). Both are
+ * arbitrary on exactly the situations this is about: the duplicate rows of a
+ * churned situation share one timestamp, and snapshot_id is a content hash, so
+ * the tiebreak is a hash comparison. "The first snapshot" and "unchanged vs the
+ * last kept" are order-dependent judgements, so an arbitrary order made the
+ * report's own answer arbitrary — and made it disagree with whatever order the
+ * cleanup happened to use. Both now order by rowid, SQLite's insertion order.
  *
  * ON SNAPSHOT BYTES. estimated_bytes_freed is MEASURED (length(CAST(col AS
  * BLOB)) per row), never modelled, so it does not assume the snapshot payload
@@ -60,8 +60,11 @@
  *   npx tsx server/scripts/report-situation-event-bloat.ts
  *   npx tsx server/scripts/report-situation-event-bloat.ts --chunk 500
  *   npx tsx server/scripts/report-situation-event-bloat.ts --league NFL
+ *   npx tsx server/scripts/report-situation-event-bloat.ts --league NFL --type roster
  */
 
+import { computeSituationCleanupPlan } from "../pipeline/situation-bloat-plan";
+import { fetchBloatPlanEvents, fetchBloatPlanSnapshots } from "../pipeline/situation-bloat-rows";
 import { getPipelineDb } from "../pipeline/store";
 
 const DEFAULT_CHUNK = 200;
@@ -74,31 +77,14 @@ function argValue(flag: string): string | null {
 
 const chunkSize = Math.max(1, Number(argValue("--chunk") ?? DEFAULT_CHUNK));
 const leagueFilter = argValue("--league");
+/** Mirrors the cleanup job's optional `type`, so a dry run can scope to what a run will. */
+const typeFilter = argValue("--type");
 
 interface SituationRow {
   situation_id: string;
   league: string;
   situation_type: string;
   created_from_event_id: string | null;
-}
-
-interface EventRow {
-  situation_id: string;
-  event_id: string;
-  kind: string;
-  normalized_event_id: string | null;
-  snapshot_id: string | null;
-  payload_bytes: number;
-}
-
-interface SnapshotRow {
-  situation_id: string;
-  snapshot_id: string;
-  lifecycle_state: string;
-  confidence_score: number;
-  summary: string;
-  escalation_score: number;
-  payload_bytes: number;
 }
 
 interface Counters {
@@ -176,53 +162,10 @@ const situationPage = db.prepare(`
   FROM situations
   WHERE situation_id > ?
     ${leagueFilter ? "AND league = ?" : ""}
+    ${typeFilter ? "AND situation_type = ?" : ""}
   ORDER BY situation_id ASC
   LIMIT ?
 `);
-
-/** length(CAST(x AS BLOB)) is bytes, where length(x) on TEXT would be characters. */
-function eventsForChunk(ids: string[]): EventRow[] {
-  const placeholders = ids.map(() => "?").join(",");
-  return db.prepare(`
-    SELECT situation_id,
-           event_id,
-           kind,
-           normalized_event_id,
-           json_extract(payload_json, '$.snapshot_id') AS snapshot_id,
-           length(CAST(payload_json AS BLOB)) AS payload_bytes
-    FROM situation_events
-    WHERE situation_id IN (${placeholders})
-    ORDER BY situation_id ASC, recorded_at ASC, event_id ASC
-  `).all(...ids) as EventRow[];
-}
-
-function snapshotsForChunk(ids: string[]): SnapshotRow[] {
-  const placeholders = ids.map(() => "?").join(",");
-  return db.prepare(`
-    SELECT situation_id,
-           snapshot_id,
-           lifecycle_state,
-           confidence_score,
-           summary,
-           escalation_score,
-           length(CAST(confidence_json AS BLOB))
-             + length(CAST(evidence_event_ids_json AS BLOB))
-             + length(CAST(summary AS BLOB)) AS payload_bytes
-    FROM situation_snapshots
-    WHERE situation_id IN (${placeholders})
-    ORDER BY situation_id ASC, created_at ASC, snapshot_id ASC
-  `).all(...ids) as SnapshotRow[];
-}
-
-function groupRows<T extends { situation_id: string }>(rows: T[]): Map<string, T[]> {
-  const grouped = new Map<string, T[]>();
-  for (const row of rows) {
-    const bucket = grouped.get(row.situation_id);
-    if (bucket) bucket.push(row);
-    else grouped.set(row.situation_id, [row]);
-  }
-  return grouped;
-}
 
 const byGroup = new Map<string, Counters>();
 const totals = emptyCounters();
@@ -241,84 +184,45 @@ let cursor = "";
 let chunks = 0;
 
 for (;;) {
-  const params = leagueFilter ? [cursor, leagueFilter, chunkSize] : [cursor, chunkSize];
+  const params: unknown[] = [cursor];
+  if (leagueFilter) params.push(leagueFilter);
+  if (typeFilter) params.push(typeFilter);
+  params.push(chunkSize);
+
   const page = situationPage.all(...params) as SituationRow[];
   if (page.length === 0) break;
 
   chunks++;
   cursor = page[page.length - 1].situation_id;
   const ids = page.map((row) => row.situation_id);
-  const eventsBySituation = groupRows(eventsForChunk(ids));
-  const snapshotsBySituation = groupRows(snapshotsForChunk(ids));
+  const eventsBySituation = fetchBloatPlanEvents(db, ids);
+  const snapshotsBySituation = fetchBloatPlanSnapshots(db, ids);
 
   for (const situation of page) {
     const events = eventsBySituation.get(situation.situation_id) ?? [];
     const snapshots = snapshotsBySituation.get(situation.situation_id) ?? [];
 
+    // The one and only definition of removable — shared verbatim with the job.
+    const plan = computeSituationCleanupPlan({
+      situationId: situation.situation_id,
+      createdFromEventId: situation.created_from_event_id,
+      events,
+      snapshots,
+    });
+
     const counters = emptyCounters();
     counters.situations = 1;
     counters.events_scanned = events.length;
     counters.snapshots_scanned = snapshots.length;
-
-    // Snapshots first: a redundant snapshot also condemns its snapshot_created
-    // event, so collect their ids before walking the event log.
-    const redundantSnapshotIds = new Set<string>();
-    let lastKept: SnapshotRow | null = null;
-    for (const snapshot of snapshots) {
-      const unchanged = lastKept !== null
-        && lastKept.lifecycle_state === snapshot.lifecycle_state
-        && lastKept.confidence_score === snapshot.confidence_score
-        && lastKept.summary === snapshot.summary
-        && Math.round(lastKept.escalation_score) === Math.round(snapshot.escalation_score);
-
-      if (unchanged) {
-        redundantSnapshotIds.add(snapshot.snapshot_id);
-        counters.snapshots_removable++;
-        counters.estimated_bytes_freed += snapshot.payload_bytes;
-      } else {
-        lastKept = snapshot;
-      }
-    }
-
-    // Resolve the keep key BEFORE walking the log: the founder can sit anywhere
-    // in the ordering, so "first row wins" is not a decision we can make
-    // streaming. `events` is already ordered (recorded_at ASC, event_id ASC), so
-    // foundingRows[0] is the earliest and the first created_from match is the
-    // earliest match.
-    const foundingRows = events.filter((event) => event.kind === "situation_created");
-    let keptFoundingEventId: string | null = null;
-    if (foundingRows.length > 0) {
-      const founder = situation.created_from_event_id
-        ? foundingRows.find((event) => event.normalized_event_id === situation.created_from_event_id)
-        : undefined;
-      if (founder) {
-        keptFoundingEventId = founder.event_id;
-        counters.keep_key_from_created_from_event_id++;
-        if (founder.event_id !== foundingRows[0].event_id) counters.keep_key_founder_not_earliest++;
-      } else {
-        keptFoundingEventId = foundingRows[0].event_id;
-        if (situation.created_from_event_id) counters.keep_key_fallback_no_match++;
-        else counters.keep_key_fallback_no_created_from++;
-      }
-    }
-
-    for (const event of events) {
-      let removable = false;
-      if (event.kind === "situation_created") {
-        if (event.event_id !== keptFoundingEventId) {
-          removable = true;
-          counters.duplicate_situation_created++;
-        }
-      } else if (event.kind === "snapshot_created" && event.snapshot_id && redundantSnapshotIds.has(event.snapshot_id)) {
-        removable = true;
-        counters.redundant_snapshot_created++;
-      }
-
-      if (removable) {
-        counters.events_removable++;
-        counters.estimated_bytes_freed += event.payload_bytes;
-      }
-    }
+    counters.events_removable = plan.deleteEventIds.length;
+    counters.duplicate_situation_created = plan.duplicateFoundingCount;
+    counters.redundant_snapshot_created = plan.redundantSnapshotEventCount;
+    counters.snapshots_removable = plan.deleteSnapshotIds.length;
+    counters.estimated_bytes_freed = plan.bytes;
+    if (plan.keepKeySource === "created_from_event_id") counters.keep_key_from_created_from_event_id = 1;
+    else if (plan.keepKeySource === "earliest_no_match") counters.keep_key_fallback_no_match = 1;
+    else if (plan.keepKeySource === "earliest_no_created_from") counters.keep_key_fallback_no_created_from = 1;
+    if (plan.founderNotEarliest) counters.keep_key_founder_not_earliest = 1;
 
     const key = `${situation.league}|${situation.situation_type}`;
     const bucket = byGroup.get(key) ?? emptyCounters();
@@ -343,6 +247,10 @@ for (;;) {
 
 worst.sort((a, b) => b.bytes - a.bytes);
 
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 const groups = [...byGroup.entries()]
   .map(([key, counters]) => {
     const [league, situation_type] = key.split("|");
@@ -350,16 +258,13 @@ const groups = [...byGroup.entries()]
   })
   .sort((a, b) => b.estimated_bytes_freed - a.estimated_bytes_freed);
 
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
 console.log(JSON.stringify({
   mode: "dry-run",
   deletes_performed: 0,
   generated_at: new Date().toISOString(),
   chunk_size: chunkSize,
   league_filter: leagueFilter,
+  type_filter: typeFilter,
   totals: { ...totals, estimated_mb_freed: round2(totals.estimated_bytes_freed / 1_048_576) },
   by_group: groups,
   top_situations: worst.slice(0, TOP_SITUATIONS),
