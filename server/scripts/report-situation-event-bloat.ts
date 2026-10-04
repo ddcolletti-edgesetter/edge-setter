@@ -64,7 +64,11 @@
  */
 
 import { computeSituationCleanupPlan } from "../pipeline/situation-bloat-plan";
-import { fetchBloatPlanEvents, fetchBloatPlanSnapshots } from "../pipeline/situation-bloat-rows";
+import {
+  readBloatPlanEvents,
+  readBloatPlanSnapshots,
+  unthrottledPlanReads,
+} from "../pipeline/situation-bloat-rows";
 import { getPipelineDb } from "../pipeline/store";
 
 const DEFAULT_CHUNK = 200;
@@ -183,6 +187,16 @@ function recordWorst(entry: typeof worst[number]): void {
 let cursor = "";
 let chunks = 0;
 
+/**
+ * This is a CLI script, so nothing here is racing a health check and the reads are
+ * unthrottled. It still goes through the SAME paginated readers as the job — one
+ * situation at a time, same SQL, same rowid ordering — so the report cannot drift
+ * from what the job will do, and it inherits the cheaper octet_length /
+ * kind-guarded json_extract select (measured 2.9x on a mixed table).
+ */
+const readController = unthrottledPlanReads();
+
+async function walk(): Promise<void> {
 for (;;) {
   const params: unknown[] = [cursor];
   if (leagueFilter) params.push(leagueFilter);
@@ -194,13 +208,10 @@ for (;;) {
 
   chunks++;
   cursor = page[page.length - 1].situation_id;
-  const ids = page.map((row) => row.situation_id);
-  const eventsBySituation = fetchBloatPlanEvents(db, ids);
-  const snapshotsBySituation = fetchBloatPlanSnapshots(db, ids);
 
   for (const situation of page) {
-    const events = eventsBySituation.get(situation.situation_id) ?? [];
-    const snapshots = snapshotsBySituation.get(situation.situation_id) ?? [];
+    const events = await readBloatPlanEvents(db, situation.situation_id, readController);
+    const snapshots = await readBloatPlanSnapshots(db, situation.situation_id, readController);
 
     // The one and only definition of removable — shared verbatim with the job.
     const plan = computeSituationCleanupPlan({
@@ -244,28 +255,35 @@ for (;;) {
     console.error(`[bloat-report] scanned ${totals.situations} situations (${chunks} chunks)…`);
   }
 }
-
-worst.sort((a, b) => b.bytes - a.bytes);
+}
 
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-const groups = [...byGroup.entries()]
-  .map(([key, counters]) => {
-    const [league, situation_type] = key.split("|");
-    return { league, situation_type, ...counters, estimated_mb_freed: round2(counters.estimated_bytes_freed / 1_048_576) };
-  })
-  .sort((a, b) => b.estimated_bytes_freed - a.estimated_bytes_freed);
+/** Walk, then emit. Not top-level await: tsc's module target does not allow it. */
+walk().then(() => {
+  worst.sort((a, b) => b.bytes - a.bytes);
 
-console.log(JSON.stringify({
-  mode: "dry-run",
-  deletes_performed: 0,
-  generated_at: new Date().toISOString(),
-  chunk_size: chunkSize,
-  league_filter: leagueFilter,
-  type_filter: typeFilter,
-  totals: { ...totals, estimated_mb_freed: round2(totals.estimated_bytes_freed / 1_048_576) },
-  by_group: groups,
-  top_situations: worst.slice(0, TOP_SITUATIONS),
-}, null, 2));
+  const groups = [...byGroup.entries()]
+    .map(([key, counters]) => {
+      const [league, situation_type] = key.split("|");
+      return { league, situation_type, ...counters, estimated_mb_freed: round2(counters.estimated_bytes_freed / 1_048_576) };
+    })
+    .sort((a, b) => b.estimated_bytes_freed - a.estimated_bytes_freed);
+
+  console.log(JSON.stringify({
+    mode: "dry-run",
+    deletes_performed: 0,
+    generated_at: new Date().toISOString(),
+    chunk_size: chunkSize,
+    league_filter: leagueFilter,
+    type_filter: typeFilter,
+    totals: { ...totals, estimated_mb_freed: round2(totals.estimated_bytes_freed / 1_048_576) },
+    by_group: groups,
+    top_situations: worst.slice(0, TOP_SITUATIONS),
+  }, null, 2));
+}).catch((err: unknown) => {
+  console.error("[bloat-report] failed:", err instanceof Error ? err.message : err);
+  process.exit(1);
+});
