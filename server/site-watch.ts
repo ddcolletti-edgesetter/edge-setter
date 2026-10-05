@@ -17,6 +17,7 @@
 
 import { storage } from "./storage";
 import { getConfiguredAlertRecipients, sendAlertEmail } from "./email";
+import { trackJob } from "./event-loop-monitor";
 
 const BASE_URL = process.env.BASE_URL ?? "https://edgesetter.net";
 // API health checks use localhost so they hit the actual Express routes regardless
@@ -277,13 +278,16 @@ export async function runSiteWatch(): Promise<SiteWatchOutput> {
   const checks: CheckResult[] = [];
 
   // Run checks in parallel
-  const [homepage, signalsResult, apiLeaderboard, apiSources, opsQueue] = await Promise.all([
+  // These five are HTTP calls against this same process, so the blocks they
+  // produce belong to the API handlers they invoke, not to site-watch itself —
+  // the step name is here so the lag report says which of the two it was.
+  const [homepage, signalsResult, apiLeaderboard, apiSources, opsQueue] = await trackJob("site-watch:checks", () => Promise.all([
     checkHomepageContent(),
     checkSignalsApi(),
     checkRoute("API /api/leaderboard", "/api/leaderboard"),
     checkRoute("API /api/sources", "/api/sources"),
     checkSignalOpsQueue(),
-  ]);
+  ]));
 
   checks.push(homepage, signalsResult.check, apiLeaderboard, apiSources, opsQueue);
 
@@ -304,7 +308,7 @@ export async function runSiteWatch(): Promise<SiteWatchOutput> {
   }
 
   // Funnel anomalies from event_log
-  anomalies.push(...checkFunnelAnomalies());
+  anomalies.push(...await trackJob("site-watch:funnel", () => checkFunnelAnomalies()));
 
   // Determine overall status
   const hasCritical = checks.some(c => c.status === "critical") || anomalies.some(a => a.severity === "critical");
@@ -322,7 +326,7 @@ export async function runSiteWatch(): Promise<SiteWatchOutput> {
   const output: SiteWatchOutput = { timestamp, status, checks, anomalies, recommended_action };
 
   // Write to DB
-  const run = (storage as any).createSiteWatchRun({ status, checks, anomalies, recommended_action });
+  const run = await trackJob("site-watch:persist", () => (storage as any).createSiteWatchRun({ status, checks, anomalies, recommended_action }));
 
   // Log to agent_logs
   agentLog(`${status.toUpperCase()} — ${checks.length} checks, ${anomalies.length} anomalies. ${recommended_action}`);

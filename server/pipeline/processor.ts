@@ -28,6 +28,7 @@ import { evolveCanonicalSituation } from "./situations-engine";
 import { matchConfirmationSource, maybeRecordPublicConfirmation } from "./public-confirmation";
 import { sourceScorerOnOutcome } from "../agents";
 import { storage } from "../storage";
+import { trackJob, yieldToLoop } from "../event-loop-monitor";
 import type { RawEvent, LiveSignal, League, SignalType, LineMovement } from "./types";
 
 /* ─── Helper ────────────────────────────────────────────── */
@@ -409,7 +410,15 @@ function mergeSignalEvidence(
 /* ─── Main process function ─────────────────────────────── */
 
 export async function processRawEvents(): Promise<{ processed: number; errors: number }> {
-  const pending = getUnprocessedRawEvents(500);
+  // Read budget, not 500. The read is one synchronous SELECT over raw_events
+  // with a window function, and every row carries its full JSON payload — on
+  // prod's cold disk (new container after each deploy, ~4MB/s) 500 payload rows
+  // is seconds of uninterruptible block before a single event is processed. The
+  // drain loop in ingestion.ts already re-runs until the queue is empty, so a
+  // smaller page costs passes, not events. PROCESSOR_BATCH_ROWS tunes it without
+  // a deploy.
+  const batchRows = Math.min(500, Math.max(10, Number(process.env.PROCESSOR_BATCH_ROWS) || 50));
+  const pending = await trackJob("processor:read-batch", () => getUnprocessedRawEvents(batchRows));
   let processed = 0;
   let errors = 0;
 
@@ -439,13 +448,13 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
 
       // Consensus evaluation — N independent evaluators score the same event
     const mutableFields = { ...fields };
-    const consensus = runConsensus(raw, mutableFields);
+    const consensus = await trackJob("processor:consensus", () => runConsensus(raw, mutableFields));
     mutableFields.confidence = consensus.blendedConfidence;
     mutableFields.confirmation_strength = consensus.confirmationStrength;
 
       // Score the signal
       const scoreInputs = buildScoreInputs(league, mutableFields, raw);
-      const scoreResult = scoreSignal(scoreInputs, p.game_time ?? undefined);
+      const scoreResult = await trackJob("processor:score", () => scoreSignal(scoreInputs, p.game_time ?? undefined));
 
       // Derive sources array
       const sources = (p.sources as Array<{ id?: string; name: string; type: string }> | undefined) ?? [
@@ -457,10 +466,12 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       // upsert merges rather than creates.
       const signalType = (fields.signal_type ?? "manual") as SignalType;
       const dedupSince = new Date(Date.now() - dedupLookbackMs(signalType)).toISOString();
-      const existingByFingerprint = p.signal_id
+      const existingByFingerprint = await trackJob("processor:dedup-lookup", () => (p.signal_id
         ? null
-        : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: dedupSince });
-      const existingSignal = p.signal_id ? getLiveSignal(p.signal_id) : existingByFingerprint;
+        : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: dedupSince })));
+      const existingSignal = p.signal_id
+        ? await trackJob("processor:dedup-lookup", () => getLiveSignal(p.signal_id))
+        : existingByFingerprint;
       const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
       const signalFirstSeenAt = existingSignal?.first_seen_at ?? now();
       const evidence = mergeSignalEvidence(existingSignal, sources, raw.id, fields.confidence ?? 60);
@@ -505,16 +516,23 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         outcome_id: null,
       };
 
-      upsertLiveSignal(signal);
-      insertSignalDetection(signal, raw);  // T1 logging — new signal detection
-      storage.recordSignalStateTransition(
-        signal.id,
-        signal.verdict,
-        signal.confidence,
-        raw.source_id ?? null,
-      );
+      // The write and the situation evolution are already separate
+      // transactions, so handing the loop back between them changes nothing a
+      // reader could not already observe — and it splits what was one
+      // ~125-900ms span (prod, Oct 5) into two shorter ones.
+      await trackJob("processor:signal-write", () => {
+        upsertLiveSignal(signal);
+        insertSignalDetection(signal, raw);  // T1 logging — new signal detection
+        storage.recordSignalStateTransition(
+          signal.id,
+          signal.verdict,
+          signal.confidence,
+          raw.source_id ?? null,
+        );
+      });
       if (process.env.CANONICAL_SITUATIONS_ENABLED === "true") {
-        processCanonicalSituationSafe(raw, signal, consensus.validatorAgreement);
+        await yieldToLoop();
+        await trackJob("processor:situation-engine", () => processCanonicalSituationSafe(raw, signal, consensus.validatorAgreement));
       }
       markRawEventProcessed(raw.id);
       console.log(`[processor] marked processed: id=${raw.id.slice(0, 8)} league=${raw.league}`);

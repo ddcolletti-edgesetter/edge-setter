@@ -56,17 +56,6 @@ async function sendPush(
   }
 }
 
-/* ─── Ensure alerted_at column exists ────────────────────── */
-
-function ensureAlertedAt(db: ReturnType<typeof getPipelineDb>) {
-  try {
-    const cols = (db.prepare("PRAGMA table_info(live_signals)").all() as any[]).map((c: any) => c.name);
-    if (!cols.includes("alerted_at")) {
-      db.prepare("ALTER TABLE live_signals ADD COLUMN alerted_at TEXT").run();
-    }
-  } catch { /**/ }
-}
-
 /* ─── Main dispatch ───────────────────────────────────────── */
 
 const MAX_EMAILS_PER_CYCLE = 10;
@@ -80,9 +69,14 @@ export async function dispatchSignalAlerts(): Promise<{
     return { dispatched: 0, users_notified: 0 };
   }
 
-  ensureAlertedAt(db);
-
-  // Signals updated in the last ingestion cycle (20 min), eligible confidence, not yet alerted
+  // Signals updated in the last ingestion cycle (20 min), eligible confidence,
+  // not yet alerted. The column and its index live in store.ts's schema init
+  // (idx_live_signals_pending_alert): with neither, this scanned every
+  // live_signals row and sorted them — the worst span of the Oct 5 boot cycle
+  // (15,339ms, 0 signals dispatched). The predicates below must stay in step
+  // with that partial index: `alerted_at IS NULL AND betting_relevance = 1` are
+  // the index's own WHERE clause, and dropping or widening either one here puts
+  // the full scan straight back.
   const cutoff = new Date(Date.now() - 20 * 60 * 1000).toISOString();
   const rawSignals = db.prepare(`
     SELECT * FROM live_signals

@@ -7,7 +7,7 @@
  * Mirrors espn-nfl.ts — same ESPN API shape, different sport path.
  */
 
-import { insertRawEvent, findGameByTeams, getPipelineDb } from "../store";
+import { insertRawEvent, findGameByTeams, loadInjuryDedupKeys } from "../store";
 import { shortInjuryTag } from "./injury-tag";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
@@ -117,10 +117,10 @@ export async function ingestNBAInjuries(): Promise<{ created: number; skipped: n
   let created = 0;
   let skipped = 0;
 
-  const existingRows = getPipelineDb()
-    .prepare("SELECT player, injury_designation FROM live_signals WHERE league='NBA' AND signal_type='injury_update'")
-    .all() as Array<{ player: string; injury_designation: string | null }>;
-  const existingKeys = new Set(existingRows.map(r => `${r.player}_${r.injury_designation ?? ""}`));
+  // Bounded, index-only, yielding — see loadInjuryDedupKeys. The old single
+  // `.all()` here was the 7,956ms span on the Oct 5 03:02 boot, for a run that
+  // created nothing.
+  const existingKeys = await loadInjuryDedupKeys("NBA");
 
   for (const inj of injuries) {
     const playerName = inj.athlete?.displayName;

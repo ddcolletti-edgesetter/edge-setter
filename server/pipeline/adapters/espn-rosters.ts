@@ -16,6 +16,7 @@
  */
 
 import { replaceTeamRoster, replaceTeamStaff, getRosterSummary, type RosterPlayer, type RosterStaff } from "../store";
+import { trackJob } from "../../event-loop-monitor";
 
 const NFL_BASE = "https://site.api.espn.com/apis/site/v2/sports/football/nfl";
 
@@ -186,7 +187,7 @@ async function fetchTeamRoster(espnId: string): Promise<ESPNRosterResponse | nul
  *  to the free ESPN endpoint (32 requests, once daily). */
 export async function refreshNFLRosters(): Promise<RosterRefreshResult> {
   const result: RosterRefreshResult = { league: "NFL", teams_updated: 0, players_written: 0, staff_written: 0, teams_failed: 0, errors: [] };
-  const teams = await fetchNFLTeams();
+  const teams = await trackJob("roster:team-list", () => fetchNFLTeams());
   if (teams.length === 0) {
     result.errors.push("could not fetch NFL team list");
     return result;
@@ -199,8 +200,10 @@ export async function refreshNFLRosters(): Promise<RosterRefreshResult> {
       await sleep(150);
       continue;
     }
-    result.players_written += replaceTeamRoster("NFL", abbr, extractRosterRows(payload));
-    result.staff_written += replaceTeamStaff("NFL", abbr, buildStaffRows(payload, abbr));
+    // One team per step: 32 wholesale replaces in a row is 32 chances to block,
+    // and the step name is what makes a slow one visible in the lag report.
+    result.players_written += await trackJob("roster:write-team", () => replaceTeamRoster("NFL", abbr, extractRosterRows(payload)));
+    result.staff_written += await trackJob("roster:write-staff", () => replaceTeamStaff("NFL", abbr, buildStaffRows(payload, abbr)));
     result.teams_updated++;
     await sleep(150);
   }
@@ -211,7 +214,7 @@ export async function refreshNFLRosters(): Promise<RosterRefreshResult> {
 export async function refreshAllRosters(): Promise<RosterRefreshResult[]> {
   const results: RosterRefreshResult[] = [];
   results.push(await refreshNFLRosters());
-  const summary = getRosterSummary();
+  const summary = await trackJob("roster:summary", () => getRosterSummary());
   console.log(
     `[espn-rosters] refresh complete — ${results.map(r => `${r.league}: ${r.teams_updated}/${r.teams_updated + r.teams_failed} teams, ${r.players_written} players, ${r.staff_written} staff`).join(" · ")} ` +
     `| gazetteer now holds ${summary.total} players across ${summary.teams} teams`,
