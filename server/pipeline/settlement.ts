@@ -30,7 +30,7 @@ recordSignalStateChange,
 getPipelineMeta,
 setPipelineMeta,
 } from "./store";
-import { trackJob } from "../event-loop-monitor";
+import { trackJob, forEachBounded } from "../event-loop-monitor";
 import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
 import { fetchNBAFinalScores } from "./adapters/espn-nba";
 import { fetchNFLFinalScores } from "./adapters/espn-nfl";
@@ -343,38 +343,39 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
 
   const allScores = [...mlbScores, ...nbaScores, ...nflScores, ...cfbScores];
 
-  const gamesUpdated = await trackJob("settlement:update-finals", () => {
+  // One getGame + conditional UPDATE per fetched score. Four leagues of final
+  // scores is a few hundred row lookups in a single span; bounded so a cold disk
+  // cannot turn that into a health-check failure.
+  const gamesUpdated = await trackJob("settlement:update-finals", async () => {
     let updated = 0;
-    for (const { game_id, home_score, away_score } of allScores) {
+    await forEachBounded(allScores, ({ game_id, home_score, away_score }) => {
       const game = getGame(game_id);
-      if (!game) continue;
-      if (game.status === "final" && game.home_score != null) continue;
+      if (!game) return;
+      if (game.status === "final" && game.home_score != null) return;
       updateGameFinal(game_id, home_score, away_score);
       updated++;
-    }
+    });
     return updated;
   });
 
   let gamesSettled = 0, signalsSettled = 0;
 
-  await trackJob("settlement:settle-linked", () => {
-    const settleable = getSettleable();
-    for (const game of settleable) {
-      if (game.home_score == null || game.away_score == null) continue;
-      const result = settleGame(game.id, game.home_score, game.away_score);
-      if (result.settled > 0 || result.skipped > 0) gamesSettled++;
-      signalsSettled += result.settled;
-    }
-  });
+  const settleable = await trackJob("settlement:read-settleable", () => getSettleable());
+  await trackJob("settlement:settle-linked", () => forEachBounded(settleable, (game) => {
+    if (game.home_score == null || game.away_score == null) return;
+    const result = settleGame(game.id, game.home_score, game.away_score);
+    if (result.settled > 0 || result.skipped > 0) gamesSettled++;
+    signalsSettled += result.settled;
+  }));
 
   let signalsExpired = 0;
+  const nullGameSignals = await trackJob("settlement:read-nullgame", () => getUnsettledSignalsWithoutGameId());
   await trackJob("settlement:settle-nullgame", () => {
-    const nullGameSignals = getUnsettledSignalsWithoutGameId();
     const now = Date.now();
 
-    for (const raw of nullGameSignals) {
+    return forEachBounded(nullGameSignals, (raw) => {
       const signal = deserializeSignal(raw);
-      if (!signal.team) continue;
+      if (!signal.team) return;
 
       const game = findNextFinalGameForTeam(signal.league, signal.team, signal.created_at);
 
@@ -395,7 +396,7 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
           });
           signalsExpired++;
         }
-        continue;
+        return;
       }
 
       try {
@@ -457,13 +458,13 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
       } catch (err: any) {
         console.error(`[settlement] Error settling null-game signal ${signal.id}:`, err.message);
       }
-    }
+    });
   });
 
   if (signalsSettled > 0 && Date.now() - lastAccuracyComputeAt >= ACCURACY_DEBOUNCE_MS) {
-    await trackJob("settlement:compute-accuracy", () => {
-      computeSourceAccuracy();
-      syncAccuracyToStorageDb();
+    await trackJob("settlement:compute-accuracy", async () => {
+      await trackJob("settlement:accuracy-compute", () => computeSourceAccuracy());
+      await trackJob("settlement:accuracy-sync", () => syncAccuracyToStorageDb());
     });
     lastAccuracyComputeAt = Date.now();
   }

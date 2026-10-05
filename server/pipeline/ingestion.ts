@@ -164,7 +164,7 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
     const cfbSeason = isCFBSeason();
 
     const oddsErrors: string[] = [];
-    const [nbaOdds, mlbOdds, nflOdds, cfbOdds] = await Promise.all([
+    const [nbaOdds, mlbOdds, nflOdds, cfbOdds] = await trackJob("ingest:odds", () => Promise.all([
       nbaSeason
         ? ingestOdds("NBA").catch(e => { const msg = e.message; console.error("[ingestion] NBA odds error:", msg); oddsErrors.push(`NBA odds: ${msg}`); return { games: 0, events: 0 }; })
         : Promise.resolve({ games: 0, events: 0 }),
@@ -177,7 +177,7 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
       cfbSeason
         ? ingestOdds("CFB").catch(e => { const msg = e.message; console.error("[ingestion] CFB odds error:", msg); oddsErrors.push(`CFB odds: ${msg}`); return { games: 0, events: 0 }; })
         : Promise.resolve(null),
-    ]);
+    ]));
 
     logIngestion(
       "Odds",
@@ -189,11 +189,11 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
 
     // ── 2. NBA injuries ────────────────────────────────────
     let nbaInjError: string | undefined;
-    const nba_injuries = await ingestNBAInjuries().catch(e => {
+    const nba_injuries = await trackJob("ingest:nba-injuries", () => ingestNBAInjuries().catch(e => {
       nbaInjError = e.message;
       console.error("[ingestion] NBA injuries error:", e.message);
       return { created: 0, skipped: 0 };
-    });
+    }));
 
     logIngestion(
       "NBAInjuries",
@@ -205,11 +205,11 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
 
     // ── 3. MLB schedule + transactions + pitchers ──────────
     const mlbErrors: string[] = [];
-    const [mlb_schedule, mlb_transactions, mlb_pitchers] = await Promise.all([
+    const [mlb_schedule, mlb_transactions, mlb_pitchers] = await trackJob("ingest:mlb", () => Promise.all([
       ingestMLBSchedule().catch(e => { const msg = e.message; console.error("[ingestion] MLB schedule error:", msg); mlbErrors.push(`schedule: ${msg}`); return { games: 0 }; }),
       ingestMLBTransactions().catch(e => { const msg = e.message; console.error("[ingestion] MLB txns error:", msg); mlbErrors.push(`txns: ${msg}`); return { created: 0 }; }),
       ingestProbablePitchers().catch(e => { const msg = e.message; console.error("[ingestion] MLB pitchers error:", msg); mlbErrors.push(`pitchers: ${msg}`); return { created: 0 }; }),
-    ]);
+    ]));
 
     logIngestion(
       "MLB",
@@ -221,9 +221,9 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
 
     // ── 4. NFL + CFB injuries (year-round: covers OTAs, minicamp, spring ball) ──
     let nflInjError: string | undefined;
-    const nfl_injuries = await ingestNFLInjuries().catch(e => { nflInjError = e.message; console.error("[ingestion] NFL injuries error:", e.message); return { created: 0, skipped: 0 }; });
+    const nfl_injuries = await trackJob("ingest:nfl-injuries", () => ingestNFLInjuries().catch(e => { nflInjError = e.message; console.error("[ingestion] NFL injuries error:", e.message); return { created: 0, skipped: 0 }; }));
     let cfbInjError: string | undefined;
-    const cfb_injuries = await ingestCFBInjuries().catch(e => { cfbInjError = e.message; console.error("[ingestion] CFB injuries error:", e.message); return { created: 0, skipped: 0 }; });
+    const cfb_injuries = await trackJob("ingest:cfb-injuries", () => ingestCFBInjuries().catch(e => { cfbInjError = e.message; console.error("[ingestion] CFB injuries error:", e.message); return { created: 0, skipped: 0 }; }));
 
     logIngestion(
       "NFLCFBInjuries",
@@ -235,9 +235,9 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
 
     // ── 5. NFL + CFB transactions (year-round: Draft, signings, cuts, transfers) ─
     let nflTxError: string | undefined;
-    const nfl_transactions = await ingestNFLTransactions().catch(e => { nflTxError = e.message; console.error("[ingestion] NFL transactions error:", e.message); return { created: 0, skipped: 0 }; });
+    const nfl_transactions = await trackJob("ingest:nfl-transactions", () => ingestNFLTransactions().catch(e => { nflTxError = e.message; console.error("[ingestion] NFL transactions error:", e.message); return { created: 0, skipped: 0 }; }));
     let cfbTxError: string | undefined;
-    const cfb_transactions = await ingestCFBTransactions().catch(e => { cfbTxError = e.message; console.error("[ingestion] CFB transactions error:", e.message); return { created: 0, skipped: 0 }; });
+    const cfb_transactions = await trackJob("ingest:cfb-transactions", () => ingestCFBTransactions().catch(e => { cfbTxError = e.message; console.error("[ingestion] CFB transactions error:", e.message); return { created: 0, skipped: 0 }; }));
 
     logIngestion(
       "NFLCFBTransactions",
@@ -249,11 +249,11 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
 
     // ── 5b. CFB School SID feeds (eligibility rulings, roster decisions) ──────
     let on3Error: string | undefined;
-    const on3 = await ingestOn3Feeds().catch(e => {
+    const on3 = await trackJob("ingest:on3", () => ingestOn3Feeds().catch(e => {
       on3Error = e.message;
       console.error("[ingestion] On3 feeds error:", e.message);
       return { created: 0, skipped: 0 };
-    });
+    }));
  
     logIngestion(
       "On3Feeds",
@@ -265,11 +265,11 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
  
     // ── 5d. 247Sports feeds (recruiting, portal, CFB + NFL news) ──────────────
     let sports247Error: string | undefined;
-    const sports247 = await ingest247SportsFeed().catch(e => {
+    const sports247 = await trackJob("ingest:247sports", () => ingest247SportsFeed().catch(e => {
       sports247Error = e.message;
       console.error("[ingestion] 247Sports feeds error:", e.message);
       return { created: 0, skipped: 0 };
-    });
+    }));
  
     logIngestion(
       "247SportsFeed",
@@ -280,11 +280,11 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
     );
     let cfbSIDError: string | undefined;
     const cfb_sid = includeFastTier
-      ? await ingestCFBSchoolSIDFeeds().catch(e => {
+      ? await trackJob("ingest:cfb-sid", () => ingestCFBSchoolSIDFeeds().catch(e => {
           cfbSIDError = e.message;
           console.error("[ingestion] CFB SID feeds error:", e.message);
           return { created: 0, skipped: 0 };
-        })
+        }))
       : { created: 0, skipped: 0 };
 
     if (includeFastTier) {
@@ -300,11 +300,11 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
     // ── 5e. X/Twitter — Tier 1 nationals (fast tier; skipped when the 5-min cycle owns it) ──
     let xTier1Error: string | undefined;
     const x_tier1 = includeFastTier
-      ? await ingestXTier1().catch((e: Error) => {
+      ? await trackJob("ingest:x-tier1", () => ingestXTier1().catch((e: Error) => {
           xTier1Error = e.message;
           console.error("[ingestion] X tier1 error:", e.message);
           return { created: 0, skipped: 0, noise: 0, rate_limited: false };
-        })
+        }))
       : { created: 0, skipped: 0, noise: 0, rate_limited: false };
 
     if (includeFastTier) {
@@ -324,11 +324,11 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
     let x_tier2: { created: number; skipped: number; noise: number; rate_limited: boolean } | null = null;
     if (isTier2Window && !x_tier1.rate_limited) {
       let xTier2Error: string | undefined;
-      x_tier2 = await ingestXTier2().catch((e: Error) => {
+      x_tier2 = await trackJob("ingest:x-tier2", () => ingestXTier2().catch((e: Error) => {
         xTier2Error = e.message;
         console.error("[ingestion] X tier2 error:", e.message);
         return { created: 0, skipped: 0, noise: 0, rate_limited: false };
-      });
+      }));
 
       logIngestion(
         "XTier2",
@@ -341,11 +341,11 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
 
     // ── 5g. Sports RSS feeds (PFT, Rotowire, ESPN RSS, NFL.com) ──────────────
     let sportsRSSError: string | undefined;
-    const sports_rss = await ingestSportsRSSFeeds().catch((e: Error) => {
+    const sports_rss = await trackJob("ingest:sports-rss", () => ingestSportsRSSFeeds().catch((e: Error) => {
       sportsRSSError = e.message;
       console.error("[ingestion] Sports RSS error:", e.message);
       return { created: 0, skipped: 0 };
-    });
+    }));
  
     logIngestion(
       "SportsRSS",
@@ -357,11 +357,11 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
  
     // ── 5h. LockedOn podcast feeds (all 32 NFL teams + top CFB programs) ─────
     let lockedonError: string | undefined;
-    const lockedon = await ingestLockedOnFeeds().catch((e: Error) => {
+    const lockedon = await trackJob("ingest:lockedon", () => ingestLockedOnFeeds().catch((e: Error) => {
       lockedonError = e.message;
       console.error("[ingestion] LockedOn feeds error:", e.message);
       return { created: 0, skipped: 0 };
-    });
+    }));
  
     logIngestion(
       "LockedOn",
@@ -390,10 +390,10 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
     console.log(`[processor] drained ${passes} passes after ingestion cycle`);
 
     // ── 7. Dispatch alerts for newly scored signals ──────────
-    const alertResult = await dispatchSignalAlerts().catch(e => {
+    const alertResult = await trackJob("ingest:alerts", () => dispatchSignalAlerts().catch(e => {
       console.error("[ingestion] Alert dispatch error:", e.message);
       return { dispatched: 0, users_notified: 0 };
-    });
+    }));
     if (alertResult.dispatched > 0) {
       console.log(`[ingestion] Alerts: ${alertResult.dispatched} signals → ${alertResult.users_notified} users`);
     }
@@ -403,10 +403,10 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
     });
 
     // ── 8. Settle any games that are now final ───────────────
-    const settlement = await autoSettleFinishedGames().catch(e => {
+    const settlement = await trackJob("ingest:settlement", () => autoSettleFinishedGames().catch(e => {
       console.error("[ingestion] Settlement error:", e.message);
       return { scores_fetched: { NBA: 0, MLB: 0, NFL: 0, CFB: 0 }, games_updated: 0, games_settled: 0, signals_settled: 0, signals_expired: 0, market_signals_archived: 0 };
-    });
+    }));
     if (settlement.signals_settled > 0) {
       console.log(`[ingestion] Settlement: ${settlement.signals_settled} signals settled across ${settlement.games_settled} games`);
     }
@@ -509,7 +509,7 @@ export async function runFastIngestionCycle(): Promise<{
   try {
     let xTier1Error: string | undefined;
     let cfbSIDError: string | undefined;
-    const [x_tier1, cfb_sid] = await Promise.all([
+    const [x_tier1, cfb_sid] = await trackJob("ingest:fast-tier-fetch", () => Promise.all([
       ingestXTier1().catch((e: Error) => {
         xTier1Error = e.message;
         console.error("[ingestion] X tier1 error:", e.message);
@@ -520,7 +520,7 @@ export async function runFastIngestionCycle(): Promise<{
         console.error("[ingestion] CFB SID feeds error:", e.message);
         return { created: 0, skipped: 0 };
       }),
-    ]);
+    ]));
 
     logIngestion(
       "FastTier",
@@ -548,10 +548,10 @@ export async function runFastIngestionCycle(): Promise<{
     } while (lastR.processed > 0 && passes < 20);
     console.log(`[processor] drained ${passes} passes after ingestion cycle`);
 
-    const alertResult = await dispatchSignalAlerts().catch(e => {
+    const alertResult = await trackJob("ingest:alerts", () => dispatchSignalAlerts().catch(e => {
       console.error("[ingestion] Fast alert dispatch error:", e.message);
       return { dispatched: 0, users_notified: 0 };
-    });
+    }));
     if (alertResult.dispatched > 0) {
       console.log(`[ingestion] Fast alerts: ${alertResult.dispatched} signals → ${alertResult.users_notified} users`);
     }
@@ -622,16 +622,34 @@ export async function runRosterRefresh(): Promise<void> {
   }
 }
 
+/**
+ * One boot delay, from an env var, with the current value as the default.
+ *
+ * Why env vars: the Oct 5 crash loop was a timing problem — the boot work landed
+ * on top of the first cold requests — and the only way to move the windows apart
+ * was a deploy, which resets the disk cache and reproduces the problem. These
+ * can be retuned from the Render dashboard with a restart instead.
+ */
+export function bootDelayMs(name: string, defaultMs: number): number {
+  const raw = Number(process.env[name]);
+  if (!Number.isFinite(raw) || raw < 0) return defaultMs;
+  return Math.min(30 * 60_000, Math.round(raw));
+}
+
 export function startIngestionScheduler() {
   const FAST_INTERVAL_MS     = 5 * 60 * 1000;   // tier1 + SID — the timing-advantage tier
   const STANDARD_INTERVAL_MS = 15 * 60 * 1000;  // tier2–5, aggregators, odds, settlement
   const ROSTER_INTERVAL_MS   = 24 * 60 * 60 * 1000; // roster gazetteer — daily
 
-  // First run: 45 seconds after server start (let DB warm up)
-  const INITIAL_DELAY_MS = 45_000;
+  // Boot stagger. On Oct 5 the roster refresh (20s) was still running when
+  // site-watch started (30s), and site-watch's five HTTP self-calls queued behind
+  // it — the instance was killed at 02:59:17 with roster-refresh, site-watch and
+  // GET /api/v2/situations all named in the same freeze. Nothing here overlaps by
+  // default any more, and each delay is tunable without a code change.
+  const INITIAL_DELAY_MS = bootDelayMs("INGESTION_INITIAL_DELAY_MS", 45_000);
   // Roster gazetteer: seed shortly after boot (before the first RSS cycle can
   // use it), then refresh once every 24h.
-  const ROSTER_INITIAL_DELAY_MS = 20_000;
+  const ROSTER_INITIAL_DELAY_MS = bootDelayMs("ROSTER_INITIAL_DELAY_MS", 20_000);
 
   // Active hours: 7am–1am ET = 12:00–06:00 UTC
   const isActiveHours = () => {
@@ -674,5 +692,8 @@ export function startIngestionScheduler() {
     }, ROSTER_INTERVAL_MS);
   }, ROSTER_INITIAL_DELAY_MS);
 
-  console.log(`[ingestion] Scheduler started — first run in ${INITIAL_DELAY_MS / 1000}s, then fast tier every ${FAST_INTERVAL_MS / 60000}m, standard tier every ${STANDARD_INTERVAL_MS / 60000}m, roster gazetteer daily`);
+  console.log(
+    `[ingestion] Scheduler started — roster in ${ROSTER_INITIAL_DELAY_MS / 1000}s, first cycle in ${INITIAL_DELAY_MS / 1000}s, ` +
+    `then fast tier every ${FAST_INTERVAL_MS / 60000}m, standard tier every ${STANDARD_INTERVAL_MS / 60000}m, roster gazetteer daily`,
+  );
 }

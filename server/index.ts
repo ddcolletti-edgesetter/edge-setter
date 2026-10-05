@@ -8,7 +8,7 @@ import { runDailyOps } from "./daily-ops";
 import { archiveOldLiveSignals } from "./pipeline/store";
 import { runDistributionDraft } from "./distribution-draft";
 import { registerPipelineRoutes } from "./pipeline/routes";
-import { startIngestionScheduler } from "./pipeline/ingestion";
+import { startIngestionScheduler, bootDelayMs } from "./pipeline/ingestion";
 import { runSettlementBacklogMigration } from "./pipeline/settlement";
 import { startEventLoopMonitor, trackJob, trackRequest } from "./event-loop-monitor";
 import { startLoopWatchdog } from "./loop-watchdog";
@@ -118,7 +118,12 @@ app.use((req, res, next) => {
 
   // ─── Site Watch scheduler — runs every 5 minutes ─────────────────────────
   const SITE_WATCH_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-  // Initial run 30s after startup (let DB hydration finish)
+  // Initial run well clear of the boot ingestion cycle. It was 30s, which put it
+  // on top of the roster refresh (20s) and, 15s later, the first cycle: on Oct 5
+  // the freeze that killed the instance named roster-refresh, site-watch and
+  // GET /api/v2/situations together. site-watch makes five HTTP calls into this
+  // same process, so it cannot run while something else holds the loop.
+  const SITE_WATCH_INITIAL_DELAY_MS = bootDelayMs("SITE_WATCH_INITIAL_DELAY_MS", 150_000);
   setTimeout(async () => {
     try {
       const result = await trackJob("site-watch", runSiteWatch);
@@ -139,10 +144,14 @@ app.use((req, res, next) => {
         console.error("[site-watch] Scheduled run failed:", e.message);
       }
     }, SITE_WATCH_INTERVAL_MS);
-  }, 30_000);
+  }, SITE_WATCH_INITIAL_DELAY_MS);
 
   // ─── Distribution Draft scheduler — runs every 30 minutes ────────────────
   const DIST_DRAFT_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+  // Last in the boot ladder (roster 20s, ingestion 45s, site-watch 150s): at the
+  // old 60s it started while the first ingestion cycle was still running, which
+  // on Oct 5 was a 40s cycle.
+  const DIST_DRAFT_INITIAL_DELAY_MS = bootDelayMs("DISTRIBUTION_DRAFT_INITIAL_DELAY_MS", 210_000);
   setTimeout(async () => {
     try {
       const result = await trackJob("distribution-draft", runDistributionDraft);
@@ -160,7 +169,7 @@ app.use((req, res, next) => {
         console.error("[distribution-draft] Scheduled run failed:", e.message);
       }
     }, DIST_DRAFT_INTERVAL_MS);
-  }, 60_000); // 60s after startup
+  }, DIST_DRAFT_INITIAL_DELAY_MS);
 
   // ─── Daily Ops scheduler — runs once per day at 06:00 UTC ───────────────
   function scheduleDailyOps() {

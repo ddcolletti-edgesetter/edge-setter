@@ -17,6 +17,7 @@ import fs from "fs";
 import { randomUUID } from "crypto";
 import type { Game, RawEvent, LiveSignal, Outcome } from "./types";
 import { recomputeUrgency, GAME_COMPLETED_GRACE_MIN } from "./urgency";
+import { yieldToLoop } from "../event-loop-monitor";
 import {
   markBackfillPhase as _markBackfillPhase,
   getBackfillPhase as _getBackfillPhase,
@@ -573,6 +574,11 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   addColumnIfMissing(db, "live_signals", "settlement_expired", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(db, "outcomes", "excluded_stale", "INTEGER NOT NULL DEFAULT 0");
 
+  // alerted_at was created lazily by alerts.ts on every dispatch (PRAGMA +
+  // conditional ALTER). It belongs here so the partial index below can be
+  // declared in the same place as the column it depends on.
+  addColumnIfMissing(db, "live_signals", "alerted_at", "TEXT");
+
   // Indexes created here (not in the CREATE-TABLE block) because settlement_expired
   // / is_archived are migration columns added just above — indexing them in the
   // schema exec would fail on a fresh DB.
@@ -586,6 +592,32 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     -- narrows to the tiny active-market lane, game_id feeds the finished-game EXISTS.
     CREATE INDEX IF NOT EXISTS idx_live_signals_type_archived_game
       ON live_signals(signal_type, is_archived, game_id);
+
+    -- dispatchSignalAlerts' pending-alert query. It was
+    --   SELECT * FROM live_signals
+    --   WHERE updated_at >= ? AND score >= 60 AND betting_relevance = 1
+    --     AND alerted_at IS NULL ORDER BY score DESC LIMIT 20
+    -- with no index it could use: a full scan of every live_signals row, reading
+    -- each row's prose and JSON columns off disk, plus a sort. On the Oct 5 boot
+    -- that was the single worst span of the cycle — 15,339ms on boot 2 and
+    -- 6,163ms on boot 3, both with ZERO signals to dispatch.
+    --
+    -- updated_at leads deliberately: the cutoff is 20 minutes, so the seek lands
+    -- on the handful of rows one cycle touched (21 on the Oct 5 boot) instead of
+    -- walking score DESC across the whole table. score is in the index so the
+    -- >= 60 filter needs no row fetch, and sorting a handful of rows costs
+    -- nothing. Partial on the two constant predicates keeps the index small.
+    CREATE INDEX IF NOT EXISTS idx_live_signals_pending_alert
+      ON live_signals(updated_at, score DESC)
+      WHERE alerted_at IS NULL AND betting_relevance = 1;
+
+    -- ingestNBAInjuries prefetches every NBA injury signal's (player,
+    -- designation) pair to dedup the ESPN payload against. With only
+    -- idx_live_signals_league(league) available that was an index scan plus one
+    -- random main-table read per row — 7,956ms on the Oct 5 boot 3, for a call
+    -- that created 0 events. All four columns in the index make it index-only.
+    CREATE INDEX IF NOT EXISTS idx_live_signals_injury_dedup
+      ON live_signals(league, signal_type, player, injury_designation);
   `);
 }
 
@@ -1145,16 +1177,27 @@ export function linkOutcomeToSignal(signalId: string, outcomeId: string): void {
 
 /** All games that have final scores but still have unsettled signals (game_id-linked). */
 export function getSettleable(): any[] {
+  // EXISTS, not DISTINCT over a join. The join plan was `SCAN live_signals` +
+  // one games seek per signal row + a temp B-tree to dedup — so the read set was
+  // the whole of live_signals, the largest table in the file, on a step that runs
+  // in every settlement pass including the one on the boot cycle. EXISTS reads
+  // games (which grows with the schedule, not with signal churn) and probes
+  // idx_live_signals_game_outcome once per final game, short-circuiting on the
+  // first match. Identical rows: id is in the select list, so DISTINCT was only
+  // ever collapsing the join's duplicates of one game.
   return getPipelineDb().prepare(`
-    SELECT DISTINCT g.id, g.league, g.home_team, g.away_team,
+    SELECT g.id, g.league, g.home_team, g.away_team,
            g.spread_line, g.spread_team, g.total_line,
            g.home_score, g.away_score, g.game_time
     FROM games g
-    JOIN live_signals s ON s.game_id = g.id
     WHERE g.home_score IS NOT NULL
       AND g.away_score IS NOT NULL
-      AND s.betting_relevance = 1
-      AND s.outcome_id IS NULL
+      AND EXISTS (
+        SELECT 1 FROM live_signals s
+        WHERE s.game_id = g.id
+          AND s.outcome_id IS NULL
+          AND s.betting_relevance = 1
+      )
   `).all();
 }
 
@@ -1411,6 +1454,72 @@ export function getTeamRoster(
     `SELECT league,team,espn_id,jersey,full_name,first_name,last_name,position,status
        FROM roster_players WHERE league=? AND team=?`,
   ).all(league, team) as RosterPlayer[];
+}
+
+/**
+ * Every (player, designation) pair an injury adapter dedups its payload against,
+ * read in bounded pages with the event loop handed back between them.
+ *
+ * Bounded because this runs on the cold boot path: one `.all()` over a league's
+ * injury signals was a 7,956ms uninterruptible span on the Oct 5 boot. The
+ * covering index (see idx_live_signals_injury_dedup) removes the random
+ * main-table read per row; the paging removes the remaining "however many rows
+ * there are, in one span" property.
+ *
+ * Pages break on PLAYER boundaries, never mid-player: a player's rows carry
+ * different designations and each is a distinct dedup key, so a cursor that
+ * stepped past a partially-read player would silently drop keys and re-create
+ * signals that already exist. A player whose rows fill a whole page is read
+ * whole in one extra query — one player's injury history is small, and this is
+ * the only case where a page can exceed its budget.
+ *
+ * Rows with a NULL player are skipped: their key could never match an adapter
+ * payload, which always carries a display name.
+ */
+export async function loadInjuryDedupKeys(
+  league: string,
+  db: Database.Database = getPipelineDb(),
+  pageRows = 500,
+): Promise<Set<string>> {
+  const page = db.prepare(`
+    SELECT player, injury_designation
+    FROM live_signals
+    WHERE league = ? AND signal_type = 'injury_update'
+      AND player IS NOT NULL AND player > ?
+    ORDER BY player, injury_designation
+    LIMIT ?
+  `);
+  const wholePlayer = db.prepare(`
+    SELECT player, injury_designation
+    FROM live_signals
+    WHERE league = ? AND signal_type = 'injury_update' AND player = ?
+  `);
+
+  type Row = { player: string; injury_designation: string | null };
+  const keys = new Set<string>();
+  const add = (r: Row) => keys.add(`${r.player}_${r.injury_designation ?? ""}`);
+  let cursor = "";
+
+  for (;;) {
+    const rows = page.all(league, cursor, pageRows) as Row[];
+    if (rows.length === 0) break;
+
+    if (rows.length < pageRows) {
+      rows.forEach(add);
+      break;
+    }
+
+    const lastPlayer = rows[rows.length - 1].player;
+    const firstOfLast = rows.findIndex((r) => r.player === lastPlayer);
+    if (firstOfLast === 0) {
+      (wholePlayer.all(league, lastPlayer) as Row[]).forEach(add);
+    } else {
+      rows.slice(0, firstOfLast).forEach(add);
+    }
+    cursor = firstOfLast === 0 ? lastPlayer : rows[firstOfLast - 1].player;
+    await yieldToLoop();
+  }
+  return keys;
 }
 
 export function getRosterSummary(
