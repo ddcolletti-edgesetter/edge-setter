@@ -234,6 +234,27 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
       created_at      TEXT NOT NULL
     );
 
+    -- Outcome lookup by signal. Without this the per-signal lookup is a full
+    -- scan of outcomes, and the situation comparable corpus issues one per
+    -- signal id (~1,200-1,500 per /api/v2/situations request): measured on prod
+    -- at 13.5ms each, 16-20s of a ~22s cold response, 93-95% of the total.
+    -- created_at DESC is in the index so the query's ORDER BY needs no sort.
+    -- Name and columns match the index created by hand on prod on 2026-10-04,
+    -- so IF NOT EXISTS is a no-op there.
+    CREATE INDEX IF NOT EXISTS idx_outcomes_signal_created
+      ON outcomes(signal_id, created_at DESC);
+
+    -- Outcome lookup by game. outcomes.game_id had no index either, and
+    -- exportReplayParityReport fans out one WHERE game_id = ? lookup per
+    -- distinct game_id — so the whole table was scanned once per game, O(n^2).
+    -- Covering (game_id, signal_id) serves both that lookup and the DISTINCT
+    -- game_id pull that produces the fan-out list, with no temp B-tree for
+    -- either. On a 75k-outcome / 8k-game fixture the full report went from
+    -- 132s to 126ms; 5,000 outcome inserts cost 100ms with this index against
+    -- 95ms without.
+    CREATE INDEX IF NOT EXISTS idx_outcomes_game
+      ON outcomes(game_id, signal_id);
+
     CREATE TABLE IF NOT EXISTS replay_audits (
       id                          TEXT PRIMARY KEY,
       game_id                     TEXT NOT NULL,
@@ -1815,10 +1836,16 @@ export function getOutcome(id: string): Outcome | null {
   return { ...row, hit: row.hit === null ? null : row.hit === 1 };
 }
 
+/**
+ * Exported so outcomes-signal-index.test.ts can EXPLAIN the exact string this
+ * runs. Must stay served by idx_outcomes_signal_created.
+ */
+export const OUTCOMES_BY_SIGNAL_SQL = "SELECT * FROM outcomes WHERE signal_id=? ORDER BY created_at DESC";
+
 export function getOutcomes(signal_id?: string): Outcome[] {
   const db = getPipelineDb();
   const rows = signal_id
-    ? db.prepare("SELECT * FROM outcomes WHERE signal_id=? ORDER BY created_at DESC").all(signal_id)
+    ? db.prepare(OUTCOMES_BY_SIGNAL_SQL).all(signal_id)
     : db.prepare("SELECT * FROM outcomes ORDER BY created_at DESC LIMIT 200").all();
   return (rows as any[]).map(r => ({ ...r, hit: r.hit === null ? null : r.hit === 1 }));
 }

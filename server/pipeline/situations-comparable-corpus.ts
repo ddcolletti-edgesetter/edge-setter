@@ -462,15 +462,35 @@ function lineageRecordsFor(events: readonly SituationEvent[]): SituationEvidence
     .map(lineageFromSituationEvent);
 }
 
-function outcomesForSignalIds(signalIds: readonly string[]): Array<{ hit: number | null; clv: number | null }> {
-  if (signalIds.length === 0) return [];
-  const db = getPipelineDb();
-  return signalIds.flatMap((signalId) => db.prepare(`
+/**
+ * The outcome lookup behind every corpus record's settlement/CLV linkage.
+ *
+ * Exported so the index guard in outcomes-signal-index.test.ts explains the
+ * exact string production runs — a copy in the test could drift green while the
+ * real query went back to a full scan.
+ *
+ * It must stay served by idx_outcomes_signal_created (store.ts): the corpus
+ * issues one of these per signal id, ~1,200-1,500 per /api/v2/situations
+ * request, and without the index each one scans all 75k outcome rows. That was
+ * 93-95% of a ~22s cold response on prod (2026-10-04).
+ *
+ * NOTE (reported, not fixed): unlike the accuracy and calibration paths this has
+ * no `excluded_stale = 0` filter, so outcomes that settlement flagged as bad
+ * matches still count toward comparable linkage. See the PR for the measured
+ * effect; changing it is a separate decision.
+ */
+export const OUTCOMES_FOR_SIGNAL_SQL = `
     SELECT hit, clv
     FROM outcomes
     WHERE signal_id = ?
     ORDER BY created_at DESC
-  `).all(signalId) as Array<{ hit: number | null; clv: number | null }>);
+  `;
+
+function outcomesForSignalIds(signalIds: readonly string[]): Array<{ hit: number | null; clv: number | null }> {
+  if (signalIds.length === 0) return [];
+  const db = getPipelineDb();
+  const stmt = db.prepare(OUTCOMES_FOR_SIGNAL_SQL);
+  return signalIds.flatMap((signalId) => stmt.all(signalId) as Array<{ hit: number | null; clv: number | null }>);
 }
 
 function sampleBandFor(outcomeLinkedCount: number, clvLinkedCount: number): SituationCalibrationSampleBand {

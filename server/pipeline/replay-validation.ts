@@ -89,14 +89,34 @@ export function printReplayParitySummary(): string {
   return summary;
 }
 
-export function exportReplayParityReport(): ReplayParityReport {
-  const db = getPipelineDb();
-  const gameRows = db.prepare(`
+/**
+ * The two game_id reads behind exportReplayParityReport's fan-out, exported so
+ * the index guard in outcomes-signal-index.test.ts explains the exact strings
+ * production runs.
+ *
+ * Both must stay served by idx_outcomes_game (store.ts). Before that index
+ * existed outcomes.game_id had none at all, so DISTINCT_GAME_IDS_SQL scanned
+ * the table into a temp B-tree and SIGNAL_IDS_FOR_GAME_SQL scanned it again
+ * once per distinct game_id — the report as a whole was quadratic in the
+ * outcome count. On a 75k-outcome / 8k-game fixture: 132s before, 126ms after.
+ */
+export const DISTINCT_GAME_IDS_SQL = `
     SELECT DISTINCT game_id
     FROM outcomes
     WHERE game_id IS NOT NULL
     ORDER BY game_id ASC
-  `).all() as { game_id: string }[];
+  `;
+
+export const SIGNAL_IDS_FOR_GAME_SQL = `
+    SELECT DISTINCT signal_id
+    FROM outcomes
+    WHERE game_id = ?
+    ORDER BY signal_id ASC
+  `;
+
+export function exportReplayParityReport(): ReplayParityReport {
+  const db = getPipelineDb();
+  const gameRows = db.prepare(DISTINCT_GAME_IDS_SQL).all() as { game_id: string }[];
   const leagueRows = db.prepare(`
     SELECT DISTINCT s.league
     FROM outcomes o
@@ -122,12 +142,7 @@ export function exportReplayParityReport(): ReplayParityReport {
 
 export function validateReplayParityForGame(gameId: string): ReplayParityValidation {
   const db = getPipelineDb();
-  const rows = db.prepare(`
-    SELECT DISTINCT signal_id
-    FROM outcomes
-    WHERE game_id = ?
-    ORDER BY signal_id ASC
-  `).all(gameId) as { signal_id: string }[];
+  const rows = db.prepare(SIGNAL_IDS_FOR_GAME_SQL).all(gameId) as { signal_id: string }[];
 
   return buildParityValidation(
     "game",
