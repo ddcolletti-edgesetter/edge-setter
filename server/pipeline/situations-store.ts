@@ -25,6 +25,41 @@ const APPEND_ONLY_TABLES = [
   "situation_founding_audit",
 ] as const;
 
+/**
+ * Handles whose `situations` table is already known to carry the player-headshot
+ * columns. ensureSituationSchema runs on every situations-store call, and the
+ * /api/v2/situations path makes ~1,500 of them per request — 78ms of pure
+ * PRAGMA table_info(situations) on a prod-shaped DB, re-reading a schema that
+ * cannot have changed. Keyed on the handle (not the path) because getPipelineDb
+ * hands back a new Database when the file is replaced, and a WeakSet lets a
+ * closed test handle be collected.
+ *
+ * Safe to cache because ALTER TABLE ADD COLUMN is the only writer and nothing
+ * in the codebase drops or recreates `situations` — a fresh DB is a fresh
+ * handle, which misses the cache and runs the migration.
+ */
+const playerColumnsReady = new WeakSet<Database.Database>();
+
+/** Test hook: forget the cached result for one handle, so the next call re-checks. */
+export function resetSituationPlayerColumnCache(db: Database.Database): void {
+  playerColumnsReady.delete(db);
+}
+
+function ensureSituationPlayerColumns(db: Database.Database): void {
+  if (playerColumnsReady.has(db)) return;
+  // Migrate pre-existing DBs to carry the player headshot passenger. ALTER TABLE
+  // ADD COLUMN is a schema op, not a row UPDATE/DELETE, so the append-only guards
+  // do not fire. Existing rows read back NULL, which is the correct "no headshot".
+  const situationCols = db.prepare("PRAGMA table_info(situations)").all() as { name: string }[];
+  if (!situationCols.some((c) => c.name === "player_espn_id")) {
+    db.prepare("ALTER TABLE situations ADD COLUMN player_espn_id TEXT").run();
+  }
+  if (!situationCols.some((c) => c.name === "player_jersey")) {
+    db.prepare("ALTER TABLE situations ADD COLUMN player_jersey TEXT").run();
+  }
+  playerColumnsReady.add(db);
+}
+
 export function ensureSituationSchema(db: Database.Database = getPipelineDb()): void {
   db.exec(`
     CREATE TABLE IF NOT EXISTS situations (
@@ -165,16 +200,7 @@ export function ensureSituationSchema(db: Database.Database = getPipelineDb()): 
     );
   `);
 
-  // Migrate pre-existing DBs to carry the player headshot passenger. ALTER TABLE
-  // ADD COLUMN is a schema op, not a row UPDATE/DELETE, so the append-only guards
-  // do not fire. Existing rows read back NULL, which is the correct "no headshot".
-  const situationCols = db.prepare("PRAGMA table_info(situations)").all() as { name: string }[];
-  if (!situationCols.some((c) => c.name === "player_espn_id")) {
-    db.prepare("ALTER TABLE situations ADD COLUMN player_espn_id TEXT").run();
-  }
-  if (!situationCols.some((c) => c.name === "player_jersey")) {
-    db.prepare("ALTER TABLE situations ADD COLUMN player_jersey TEXT").run();
-  }
+  ensureSituationPlayerColumns(db);
 
   installAppendOnlyGuards(db);
   ensureSituationGameResolutionSchema(db);
