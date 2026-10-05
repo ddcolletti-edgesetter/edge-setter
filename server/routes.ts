@@ -16,7 +16,10 @@ import { sendWaitlistConfirmation, sendProWelcome, sendBillingRetryEmail } from 
 import express from "express";
 import { syncToSupabase } from "./supabase-sync";
 import { isProUser } from "@shared/pro-utils";
-import { getPipelineDb, archiveOldLiveSignals, applyReadTimeUrgency } from "./pipeline/store";
+import {
+  getPipelineDb, archiveOldLiveSignals, applyReadTimeUrgency,
+  MVP_SIGNALS_ALL_SQL, MVP_SIGNALS_BY_LEAGUE_SQL,
+} from "./pipeline/store";
 import type { LiveSignal } from "./pipeline/types";
 import { createHash, createHmac, timingSafeEqual } from "crypto";
 import type { Request, Response } from "express";
@@ -296,6 +299,33 @@ function mapLiveSignalToFrontend(s: LiveSignal) {
   };
 }
 
+/**
+ * The legacy MVP signal feed behind GET /api/signal and GET /api/signals.
+ *
+ * Both routes carried a byte-identical copy of this body; they are one function
+ * now so the SQL, the JSON deserialization and the read-time urgency pass
+ * cannot drift apart. The statements live in store.ts
+ * (MVP_SIGNALS_BY_LEAGUE_SQL / MVP_SIGNALS_ALL_SQL) so
+ * request-path-query-plans.test.ts explains the strings these routes actually
+ * prepare. Response shape is unchanged.
+ */
+function readMvpSignalFeed(league: string | undefined) {
+  const pdb = getPipelineDb();
+  const rows: any[] = league
+    ? pdb.prepare(MVP_SIGNALS_BY_LEAGUE_SQL).all(league)
+    : pdb.prepare(MVP_SIGNALS_ALL_SQL).all();
+  const signals = rows.map(row => ({
+    ...row,
+    sources: JSON.parse(row.sources ?? "[]"),
+    line_movement: row.line_movement ? JSON.parse(row.line_movement) : null,
+    breakdown: JSON.parse(row.breakdown ?? "{}"),
+    raw_event_ids: JSON.parse(row.raw_event_ids ?? "[]"),
+    betting_relevance: row.betting_relevance === 1,
+    fantasy_relevance: row.fantasy_relevance === 1,
+  })) as LiveSignal[];
+  return applyReadTimeUrgency(signals).map(mapLiveSignalToFrontend);
+}
+
 export function registerRoutes(httpServer: Server, app: Express) {
   // ─── On-boot seeds ────────────────────────────────────────────────────────────
   // Both run only when SEED_ON_BOOT is explicitly set (default off, incl. production).
@@ -389,23 +419,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ─── Signal Feed ──────────────────────────────────────────────────────────────
   app.get("/api/signal", (req, res) => {
-    const { league } = req.query as Record<string, string>;
-    const pdb = getPipelineDb();
-    const sql = league
-      ? `SELECT * FROM live_signals WHERE league=? ORDER BY created_at DESC LIMIT 100`
-      : `SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100`;
-    const rows: any[] = league ? pdb.prepare(sql).all(league) : pdb.prepare(sql).all();
-    const signals = rows.map(row => ({
-      ...row,
-      sources: JSON.parse(row.sources ?? "[]"),
-      line_movement: row.line_movement ? JSON.parse(row.line_movement) : null,
-      breakdown: JSON.parse(row.breakdown ?? "{}"),
-      raw_event_ids: JSON.parse(row.raw_event_ids ?? "[]"),
-      betting_relevance: row.betting_relevance === 1,
-      fantasy_relevance: row.fantasy_relevance === 1,
-    }));
     // Recompute urgency at delivery (finished/aged games demote to NOTE).
-    return res.json(applyReadTimeUrgency(signals).map(mapLiveSignalToFrontend));
+    return res.json(readMvpSignalFeed((req.query as Record<string, string>).league));
   });
 
   // ─── Sources ─────────────────────────────────────────────────────────────────
@@ -890,23 +905,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
 
   // ─── MVP: Signals ─────────────────────────────────────────────────────────────
   app.get("/api/signals", (req, res) => {
-    const { league } = req.query as Record<string, string>;
-    const pdb = getPipelineDb();
-    const sql = league
-      ? `SELECT * FROM live_signals WHERE league=? ORDER BY created_at DESC LIMIT 100`
-      : `SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100`;
-    const rows: any[] = league ? pdb.prepare(sql).all(league) : pdb.prepare(sql).all();
-    const signals = rows.map(row => ({
-      ...row,
-      sources: JSON.parse(row.sources ?? "[]"),
-      line_movement: row.line_movement ? JSON.parse(row.line_movement) : null,
-      breakdown: JSON.parse(row.breakdown ?? "{}"),
-      raw_event_ids: JSON.parse(row.raw_event_ids ?? "[]"),
-      betting_relevance: row.betting_relevance === 1,
-      fantasy_relevance: row.fantasy_relevance === 1,
-    }));
     // Recompute urgency at delivery (finished/aged games demote to NOTE).
-    return res.json(applyReadTimeUrgency(signals).map(mapLiveSignalToFrontend));
+    return res.json(readMvpSignalFeed((req.query as Record<string, string>).league));
   });
   app.get("/api/signals/all", (req, res) => {
     if (!requireAdmin(req, res)) return;
