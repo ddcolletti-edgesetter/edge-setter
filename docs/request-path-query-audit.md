@@ -286,6 +286,45 @@ and on the shipped set plus #78's, and reports every plan that changed. With the
 shipped set, six changed and all six improved; nothing got slower by more than
 20%.
 
+### Sweep re-run after rebasing onto #78 and #79 (2026-10-06)
+
+#79 merged two further `live_signals` indexes —
+`idx_live_signals_pending_alert` and
+`idx_live_signals_injury_dedup (league, signal_type, player, injury_designation)`
+— after the sweep above was taken, so it was re-run over the composed set.
+Best of three on the 150k-signal / 75k-outcome fixture:
+
+| statement | pre-#78/#79 | +#78 | +#78+#79 (main) | +#80 (HEAD) |
+|---|---|---|---|---|
+| `findExistingSignal` (ingestion hot path) | 0.02ms | 0.01ms | 0.09ms | 0.07ms |
+| settlement accuracy overall | 113ms | 314ms | 291ms | 275ms |
+| settlement accuracy by type | 119ms | 290ms | **446ms** | 369ms |
+| settlement accuracy per source | 150ms | 312ms | 311ms | 274ms |
+| replay signal ids for league | 342ms | 300ms | 294ms | 287ms |
+| calibration settled | 210ms | 181ms | 191ms | 188ms |
+| track-record (pinned) | 116ms | 116ms | 111ms | **11.4ms** |
+
+Two things to take from it.
+
+**This PR is an improvement on every row.** Nothing in the composed set is
+slower than main is today, and the pin delivers the track-record win it was
+built for (111ms → 11.4ms) with #78's competing index present.
+
+**But #78 and #79 together regressed the settlement accuracy family on main,
+and this PR only partly recovers it.** `accuracy by type` is 119ms → 446ms on
+main as it stands. #78 moves the join off the `SCAN o | SEARCH s (pk)` plan, and
+then #79's `idx_live_signals_injury_dedup` gets picked for the bare `s.league=?`
+filter — a four-column index serving a one-column predicate, because its leading
+column is `league`. `idx_outcomes_settled_signal` takes it back to 369ms by
+making the outcomes side covering, which is why the guard in
+`outcomes-signal-index.test.ts` now accepts either outcomes index.
+
+Fixing the rest is **not in this PR** — it is a pre-existing main defect, it is
+the same CROSS JOIN pin applied to three more statements in `settlement.ts` and
+one in `replay-validation.ts`, and per the rule these landmines keep teaching,
+it wants its own measured sweep rather than a change bundled into a rebase.
+Filed as a follow-up.
+
 ## Not in scope, found along the way
 
 - **`ensureSituationSchema` still re-runs its full DDL script per call** — 10

@@ -693,8 +693,11 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     -- the cost, not the scan.
     -- BOOT COST: 34ms and 3.4s respectively, once; +5MB in total.
     -- A plan-regression sweep over every statement in this codebase that
-    -- touches live_signals / outcomes / games found no other plan changed by
-    -- these two (see docs/request-path-query-audit.md). The remaining temp
+    -- touches live_signals / outcomes / games found no other plan changed for
+    -- the worse by these two; re-run after rebasing onto #78 and #79, which
+    -- added two live_signals indexes of their own, it still holds, and this
+    -- partial index improves three settlement statements the two of them had
+    -- regressed (see docs/request-path-query-audit.md). The remaining temp
     -- b-tree groups by a column of the joined table and no index can remove it.
     CREATE INDEX IF NOT EXISTS idx_outcomes_settled_signal
       ON outcomes(signal_id, hit, clv)

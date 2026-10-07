@@ -163,9 +163,14 @@ describe("outcomes index coverage", () => {
 
     // Re-opening must not fail or duplicate.
     expect(() => store.getPipelineDb()).not.toThrow();
+    // The two above, the PRIMARY KEY autoindex, and idx_outcomes_settled_signal
+    // — the partial covering index PR #80 added for the track-record aggregate.
+    // Named as well as counted, so an unplanned fifth index still fails here
+    // and a renamed fourth one does not pass by keeping the count right.
+    expect(names).toContain("idx_outcomes_settled_signal");
     expect((db.prepare(
       "SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'index' AND tbl_name = 'outcomes'",
-    ).get() as any).n).toBe(3); // the two above + the PRIMARY KEY autoindex
+    ).get() as any).n).toBe(4);
   });
 
   /**
@@ -220,13 +225,51 @@ describe("outcomes index coverage", () => {
       ["settlement.ts accuracy overall", ACCURACY_OVERALL, ["NFL"]],
       ["settlement.ts accuracy by type", ACCURACY_BY_TYPE, ["NFL"]],
       ["settlement.ts accuracy per source", ACCURACY_PER_SOURCE, ["NFL"]],
-      ["store.ts getTrackRecord overall", ACCURACY_OVERALL, ["NFL"]],
       ["replay-validation.ts signal ids for league", SIGNAL_IDS_FOR_LEAGUE, ["NFL"]],
     ];
     for (const [name, sql, args] of joins) {
       const plan = planFor(sql, ...args);
-      expect(plan, `${name}: ${plan}`).toMatch(/SEARCH o USING (COVERING )?INDEX idx_outcomes_signal_created/);
+      // Either outcomes index is an acceptable seek here. Since PR #80 added
+      // idx_outcomes_settled_signal — partial on exactly this WHERE
+      // (hit IS NOT NULL AND excluded_stale = 0) and covering (signal_id, hit,
+      // clv) — the planner prefers it for the three settlement statements, and
+      // is right to: on a 150k/75k fixture it is the cheaper of the two plans
+      // (overall 291 -> 275ms, per source 311 -> 274ms). The guard that still
+      // matters is the one below — the outcomes side must not go back to a scan.
+      expect(plan, `${name}: ${plan}`).toMatch(
+        /SEARCH o USING (COVERING )?INDEX (idx_outcomes_signal_created|idx_outcomes_settled_signal)/,
+      );
       expect(plan, `${name}: ${plan}`).not.toMatch(/\bSCAN o\b/);
+    }
+  });
+
+  /**
+   * getTrackRecord is no longer this shape, so it gets its own assertion
+   * against the statement production actually prepares.
+   *
+   * It sat on the list above until PR #80 pinned it with CROSS JOIN, and the
+   * pin exists because of THIS PR: idx_outcomes_signal_created made the planner
+   * drive the join from idx_live_signals_league, which doubled the query
+   * (139 -> 275ms in #80's audit). Pinned, and served by the two covering
+   * indexes, it is 116 -> 11.4ms on the 150k/75k fixture. Leaving the old copy
+   * on that row would have asserted a plan for SQL production no longer runs.
+   */
+  it("keeps getTrackRecord on its pinned covering-index plan", () => {
+    for (const [name, sql] of [
+      ["overall", store.TRACK_RECORD_OVERALL_SQL],
+      ["by type", store.TRACK_RECORD_BY_TYPE_SQL],
+    ] as const) {
+      const plan = planFor(sql, "NFL");
+      expect(plan, `${name}: ${plan}`).toMatch(
+        /SCAN o USING COVERING INDEX idx_outcomes_settled_signal/,
+      );
+      expect(plan, `${name}: ${plan}`).toMatch(
+        /SEARCH s USING COVERING INDEX idx_live_signals_id_league_type/,
+      );
+      // The loop order is what CROSS JOIN pins: outcomes outer, each signal
+      // probed by id. If the planner ever reorders it back to driving from
+      // league, neither covering index applies and the cost returns.
+      expect(plan, `${name}: ${plan}`).not.toMatch(/idx_live_signals_league\b/);
     }
   });
 

@@ -319,6 +319,29 @@ function accountedStatements(work: () => void): number {
   }
 }
 
+/**
+ * The SQL strings a block of code prepares, in order.
+ *
+ * For statements built by concatenation (findExistingSignal), where asserting
+ * against a copy would let the real predicate drift. Patches the same
+ * better-sqlite3 prototype that sql-accounting hooks, and restores it after.
+ */
+function capturedPrepare(run: () => void): string[] {
+  const proto = Object.getPrototypeOf(db) as Record<string, any>;
+  const original = proto.prepare;
+  const seen: string[] = [];
+  proto.prepare = function (this: unknown, sql: string, ...rest: unknown[]) {
+    seen.push(sql);
+    return original.call(this, sql, ...rest);
+  };
+  try {
+    run();
+  } finally {
+    proto.prepare = original;
+  }
+  return seen;
+}
+
 describe("request-path query plans", () => {
   describe("GET /api/v2/signals — the delivery feed", () => {
     /**
@@ -415,16 +438,47 @@ describe("request-path query plans", () => {
     /**
      * The hot-path lookup that index would have broken. Asserted here so the
      * reason the index is absent is a test, not a comment.
+     *
+     * The SQL is CAPTURED from findExistingSignal rather than copied: it is
+     * built by concatenating conditions, so a copy here could keep passing
+     * while the real predicate list changed order or lost a term.
+     *
+     * WHICH index serves it is deliberately not pinned. PR #79's
+     * idx_live_signals_injury_dedup (league, signal_type, player,
+     * injury_designation) supersedes idx_live_signals_type_archived_game for
+     * this predicate, and both are three-column equality seeks of the same
+     * order of cost — measured on the 150k-signal fixture, 0.02ms before #79
+     * and 0.07ms after. What must never happen is the league-slice walk a
+     * live_signals(league, created_at) index would cause: 0.0ms -> 251ms. So
+     * the assertions are the invariant (equality seek on >= 3 columns, no
+     * table scan), not the index name.
      */
-    it("findExistingSignal keeps its three-column equality seek", () => {
-      const plan = planFor(
-        `SELECT * FROM live_signals
-         WHERE league=? AND is_archived=0 AND game_id=? AND team=? AND player=?
-           AND signal_type=? AND created_at>=?
-         ORDER BY created_at DESC LIMIT 1`,
-        ["NFL", "g1", "T1", "Player 1", "injury", iso(10)],
-      );
-      expect(plan).toContain("idx_live_signals_type_archived_game");
+    it("findExistingSignal keeps its multi-column equality seek", () => {
+      const sql = capturedPrepare(() =>
+        store.findExistingSignal({
+          league: "NFL",
+          game_id: "g1",
+          team: "T1",
+          player: "Player 1",
+          signal_type: "injury",
+          since: iso(10),
+        }),
+      ).find((text) => text.includes("FROM live_signals"));
+      expect(sql, "findExistingSignal prepared no live_signals statement").toBeDefined();
+      // The captured statement is the real one, so confirm it still carries the
+      // whole predicate list before trusting the plan below.
+      for (const term of ["league=?", "is_archived=0", "game_id=?", "team=?", "player=?",
+        "signal_type=?", "created_at>=?"]) {
+        expect(sql!, sql!).toContain(term);
+      }
+
+      const plan = planFor(sql!, ["NFL", "g1", "T1", "Player 1", "injury", iso(10)]);
+      const seek = /SEARCH live_signals USING (COVERING )?INDEX (\w+) \(([^)]*)\)/.exec(plan);
+      expect(seek, `expected an index seek, got: ${plan}`).not.toBeNull();
+      // Three or more leading equality terms resolved by the index.
+      const equalities = seek![3].split(" AND ").filter((term) => term.endsWith("=?"));
+      expect(equalities.length, `${plan}`).toBeGreaterThanOrEqual(3);
+      expect(plan, plan).not.toMatch(/SCAN live_signals\b/);
     });
   });
 
@@ -463,9 +517,11 @@ describe("request-path query plans", () => {
      * this query whether or not this PR lands. CROSS JOIN pins the loop order
      * without changing the result.
      *
-     * This test creates #78's index locally so the assertion covers the
-     * composed state, whichever PR lands first. It stays for the describes
-     * below, which only makes their assertions stricter.
+     * #78 has since merged, so initSchema already creates that index and the
+     * exec below is a no-op. It is kept because it is what makes this block's
+     * assertion meaningful on its own terms: the pin is only load-bearing while
+     * a competing outcomes index exists, and the test should not depend on
+     * another module's schema to supply one.
      */
     beforeAll(() => {
       db.exec("CREATE INDEX IF NOT EXISTS idx_outcomes_signal_created ON outcomes(signal_id, created_at DESC)");
