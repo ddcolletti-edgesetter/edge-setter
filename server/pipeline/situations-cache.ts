@@ -50,7 +50,7 @@ import path from "path";
 import { Worker } from "worker_threads";
 import type { CanonicalSituationApiQuery } from "./situations-api";
 import type { SituationsPayload, SituationsWorkerMessage } from "./situations-worker";
-import type { SqlUsage } from "../sql-accounting";
+import { createInFlightBuffer, formatInFlightStatement, type SqlUsage } from "../sql-accounting";
 
 export type SituationsCacheState = "fresh" | "stale" | "cold" | "timeout";
 
@@ -146,6 +146,17 @@ type Pending = {
 
 let worker: Worker | null = null;
 let workerBoot: Promise<Worker | null> | null = null;
+/**
+ * Shared memory the worker writes its in-flight statement into, so the SQL that
+ * was running can be named when the worker is killed rather than lost.
+ *
+ * On the Oct 7 deploy two warm-up builds hit the 30s timeout and the worker was
+ * terminated mid-statement. Nothing said which statement: the accounting hook
+ * logs on completion, and those never completed. One buffer per worker, since a
+ * recycled worker writing into the previous one's buffer would attribute its
+ * statement to a thread that is already dead.
+ */
+let workerInFlight: SharedArrayBuffer | null = null;
 let workerFailures = 0;
 let workerGaveUp = false;
 let warnedNoWorker = false;
@@ -188,10 +199,28 @@ function failPending(error: Error): void {
   pending.clear();
 }
 
+/**
+ * Name the statement the worker was inside when it died, if it was inside one.
+ *
+ * Read BEFORE terminate(): the buffer outlives the thread (it belongs to this
+ * process), but reading first keeps the log line adjacent to the reason. "No
+ * statement in flight" is reported too — it is the answer to a different
+ * question, namely that the thread died outside SQLite.
+ */
+function logInFlightStatement(reason: string): void {
+  const buffer = workerInFlight;
+  workerInFlight = null; // one line per death, not one per later drop
+  if (!buffer) return;
+  const line = formatInFlightStatement(buffer, `situations worker ${reason}`);
+  if (line) console.warn(line);
+  else console.warn(`[situations-worker] ${reason} with no statement in flight`);
+}
+
 function dropWorker(reason: string): void {
   const dying = worker;
   worker = null;
   workerBoot = null;
+  logInFlightStatement(reason);
   failPending(new Error(`situations worker unavailable: ${reason}`));
   if (dying) void dying.terminate().catch(() => {});
 }
@@ -208,8 +237,9 @@ function spawnWorker(): Promise<Worker | null> {
       resolve(value);
     };
     let next: Worker;
+    const inFlightBuffer = createInFlightBuffer();
     try {
-      next = new Worker(entry);
+      next = new Worker(entry, { workerData: { inFlightBuffer } });
     } catch (e: any) {
       console.warn(`[situations-worker] spawn failed: ${e?.message ?? e}`);
       workerFailures++;
@@ -217,6 +247,7 @@ function spawnWorker(): Promise<Worker | null> {
       return;
     }
     next.unref(); // a pending build must never hold the process open
+    workerInFlight = inFlightBuffer;
 
     // Booting opens a cold DB handle and runs the schema check. If that never
     // reports ready, treat the worker as unusable rather than waiting forever.
@@ -554,6 +585,8 @@ export async function shutdownSituationsWorker(): Promise<void> {
   const dying = worker;
   worker = null;
   workerBoot = null;
+  workerInFlight = null; // a deliberate shutdown is not a death to report
+
   workerFailures = 0;
   workerGaveUp = false;
   warnedNoWorker = false;

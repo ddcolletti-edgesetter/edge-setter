@@ -19,6 +19,15 @@
  * slowest. The next cold prod request then names the culprit instead of
  * restating that one exists.
  *
+ * AND THE ONE IT STILL COULD NOT NAME
+ * All of the above logs a statement when it FINISHES. On the Oct 7 deploy two
+ * warm-up builds hit the 30s worker timeout and the worker was terminated
+ * mid-statement, so the statement that ate those 30 seconds finished never and
+ * logged never. A wedged thread cannot postMessage either — its event loop is
+ * not running. So the in-flight statement is published to a SharedArrayBuffer
+ * before it runs, and whoever kills the thread reads it out of shared memory
+ * afterwards. See "The statement in flight" below.
+ *
  * NO BOUND PARAMETERS ARE EVER LOGGED. Only the SQL text is — `Statement.source`
  * for the statement methods, the first argument for `exec`/`pragma`/`prepare`.
  * Those are static strings from this repo; the values bound to `?` placeholders
@@ -169,6 +178,157 @@ function note(elapsedNs: bigint, sqlKind: 0 | 1, target: unknown, args: unknown[
   noteSlow(usage, ms, sql);
 }
 
+/* ─── The statement in flight, readable from another thread ────────────────
+ *
+ * EVERYTHING ABOVE LOGS ON COMPLETION. That is the one case the Oct 7 deploy
+ * could not report: two warm-up builds hit SITUATIONS_BUILD_TIMEOUT_MS (30s) and
+ * the worker was terminated mid-statement, so the statement that ate those 30
+ * seconds never reached `note()` and never appeared in any log. The slowest
+ * statements on the service are precisely the ones that never complete.
+ *
+ * A worker wedged inside a synchronous better-sqlite3 call cannot postMessage —
+ * its event loop is not running, which is the entire reason it is a worker. So
+ * the statement is published to a SharedArrayBuffer BEFORE it runs. Shared
+ * memory needs no event loop at either end: the main thread reads it while the
+ * worker is still inside SQLite, and it survives the worker's termination
+ * because the buffer belongs to the parent.
+ *
+ * LAYOUT (little-endian, fixed offsets; one writer, one reader)
+ *   int32   0  seq     seqlock — odd while a write is in progress
+ *   int32   4  state   1 = a statement is running, 0 = idle
+ *   int32   8  length  UTF-8 bytes of SQL at offset 24
+ *   int32  12  (pad, so the float64 below is 8-byte aligned)
+ *   f64    16  startedAt (Date.now() when the statement began)
+ *   u8     24  SQL text, UTF-8, truncated to IN_FLIGHT_SQL_BYTES
+ *
+ * COST, AND WHY IT IS OPT-IN PER THREAD. Publishing resolves the SQL text on
+ * every statement, which is exactly the string work the accounting fast path
+ * avoids. So it is installed only where it pays for itself — in the worker,
+ * whose statements number ~150 per build — and never on the main thread, which
+ * pays one extra boolean test. The text is re-encoded only when it differs from
+ * the last one published (better-sqlite3 returns the same `source` string for
+ * the same Statement, so a re-run of a prepared statement is a pointer compare).
+ * Measured in situations-worker-in-flight.test.ts.
+ */
+
+/** Header slots, in Int32Array indices. */
+const IF_SEQ = 0, IF_STATE = 1, IF_LENGTH = 2;
+/** Where the f64 start time and then the SQL bytes begin. */
+const IF_TIME_OFFSET = 16;
+const IF_SQL_OFFSET = 24;
+/** SQL bytes published. Long enough for a predicate, short enough to be free. */
+export const IN_FLIGHT_SQL_BYTES = 400;
+export const IN_FLIGHT_BUFFER_BYTES = IF_SQL_OFFSET + IN_FLIGHT_SQL_BYTES;
+
+export interface InFlightStatement {
+  /** SQL text of the statement that was running, truncated. */
+  readonly sql: string;
+  /** How long it had been running when it was read, in ms. */
+  readonly runningMs: number;
+}
+
+let ifHeader: Int32Array | null = null;
+let ifTime: Float64Array | null = null;
+let ifBytes: Uint8Array | null = null;
+/** Hoisted out of the null checks so the hook's fast path is one boolean. */
+let publishing = false;
+let lastPublishedSql = "\u0000"; // a string no SQL can equal
+let lastPublishedLength = 0;
+const encoder = new TextEncoder();
+
+/** A buffer for one worker. One per worker, created by whoever spawns it. */
+export function createInFlightBuffer(): SharedArrayBuffer {
+  return new SharedArrayBuffer(IN_FLIGHT_BUFFER_BYTES);
+}
+
+/**
+ * Publish this thread's in-flight statement into `buffer`. Call with `null` to
+ * stop. Installed in the worker (situations-worker.ts) and nowhere else.
+ */
+export function publishInFlightStatements(buffer: SharedArrayBuffer | null): void {
+  if (!buffer || buffer.byteLength < IN_FLIGHT_BUFFER_BYTES) {
+    ifHeader = null; ifTime = null; ifBytes = null; publishing = false;
+    return;
+  }
+  ifHeader = new Int32Array(buffer, 0, 4);
+  ifTime = new Float64Array(buffer, IF_TIME_OFFSET, 1);
+  ifBytes = new Uint8Array(buffer, IF_SQL_OFFSET, IN_FLIGHT_SQL_BYTES);
+  lastPublishedSql = "\u0000";
+  lastPublishedLength = 0;
+  publishing = true;
+}
+
+function beginInFlight(sqlKind: 0 | 1, target: unknown, args: unknown[]): void {
+  const header = ifHeader;
+  if (!header) return;
+  const sql = sqlKind === 0
+    ? statementSource(target)
+    : (typeof args[0] === "string" ? args[0] : "");
+  Atomics.store(header, IF_SEQ, Atomics.load(header, IF_SEQ) + 1); // odd: writing
+  if (sql !== lastPublishedSql) {
+    lastPublishedSql = sql;
+    // encodeInto writes at most the view's length, so an over-long statement
+    // (ensureSituationSchema's ~4KB DDL) truncates instead of overflowing. The
+    // slice bounds the work for that case the same way collapse() does.
+    const head = sql.length > IN_FLIGHT_SQL_BYTES ? sql.slice(0, IN_FLIGHT_SQL_BYTES) : sql;
+    lastPublishedLength = encoder.encodeInto(head, ifBytes!).written ?? 0;
+  }
+  header[IF_LENGTH] = lastPublishedLength;
+  ifTime![0] = Date.now();
+  header[IF_STATE] = 1;
+  Atomics.store(header, IF_SEQ, Atomics.load(header, IF_SEQ) + 1); // even: readable
+}
+
+function endInFlight(): void {
+  const header = ifHeader;
+  if (header) Atomics.store(header, IF_STATE, 0);
+}
+
+/**
+ * What the thread writing to `buffer` is running right now, or null if it is
+ * between statements (or never published).
+ *
+ * Reads under the seqlock and retries, so a snapshot torn by a writer that is
+ * still moving is reported as "nothing in flight" rather than as garbage SQL.
+ * In the case this exists for — a worker wedged inside one statement — the
+ * writer is not moving and the first read succeeds.
+ */
+export function readInFlightStatement(buffer: SharedArrayBuffer | null): InFlightStatement | null {
+  if (!buffer || buffer.byteLength < IN_FLIGHT_BUFFER_BYTES) return null;
+  const header = new Int32Array(buffer, 0, 4);
+  const time = new Float64Array(buffer, IF_TIME_OFFSET, 1);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const seq = Atomics.load(header, IF_SEQ);
+    if (seq % 2 !== 0) continue; // caught mid-write
+    if (Atomics.load(header, IF_STATE) !== 1) return null;
+    const length = Math.max(0, Math.min(Atomics.load(header, IF_LENGTH), IN_FLIGHT_SQL_BYTES));
+    const sql = new TextDecoder().decode(new Uint8Array(buffer, IF_SQL_OFFSET, length));
+    const startedAt = time[0];
+    if (Atomics.load(header, IF_SEQ) !== seq) continue; // moved under us
+    return { sql: collapse(sql, SLOW_SQL_CHARS), runningMs: Math.max(0, Date.now() - startedAt) };
+  }
+  return null;
+}
+
+/**
+ * The `[sql-slow]` line for a statement that never completed — a worker that
+ * timed out or was terminated with SQL still running. Returns "" when nothing
+ * was in flight, which is itself the answer: the thread died outside SQLite.
+ *
+ * Same `[sql-slow]` prefix as the completion-time line on purpose: one grep for
+ * `sql-slow` in Render's log viewer returns slow statements whether or not they
+ * finished, and `(in flight, never completed)` is what distinguishes them.
+ */
+export function formatInFlightStatement(
+  buffer: SharedArrayBuffer | null,
+  context: string,
+): string {
+  const statement = readInFlightStatement(buffer);
+  if (!statement) return "";
+  return `[sql-slow] ${statement.runningMs.toFixed(1)}ms ${context} ` +
+    `(in flight, never completed) :: ${statement.sql}`;
+}
+
 /**
  * Patch the better-sqlite3 prototypes. Idempotent, and a no-op under
  * SQL_ACCOUNTING=0 so the hook can be taken out of the path without a redeploy
@@ -178,11 +338,34 @@ function note(elapsedNs: bigint, sqlKind: 0 | 1, target: unknown, args: unknown[
  * pulled by the caller's own loop, outside this frame. Nothing on the audited
  * read paths uses it; the patch is there so a future caller still shows up in
  * the statement count.
+ *
+ * Two independent switches ride the same wrapper: `current` (a request is being
+ * accounted) and `publishing` (this thread exports its in-flight statement).
+ * Publishing is deliberately NOT conditional on an open window — the worker's
+ * boot-time `ensureSituationSchema` runs before any build, and a boot that times
+ * out is one of the two cases this reports.
  */
 export function installSqlAccounting(): void {
   if (installed) return;
   if (process.env.SQL_ACCOUNTING === "0") return;
   installed = true;
+
+  // BigInt(0), hoisted: the tsconfig target predates BigInt literals, and this
+  // is the "not accounted, only publishing" branch's placeholder anyway.
+  const ZERO_NS = BigInt(0);
+  const hook = (original: Function, sqlKind: 0 | 1) =>
+    function (this: unknown, ...args: unknown[]) {
+      const accounted = current !== null;
+      if (!accounted && !publishing) return original.apply(this, args);
+      if (publishing) beginInFlight(sqlKind, this, args);
+      const started = accounted ? process.hrtime.bigint() : ZERO_NS;
+      try {
+        return original.apply(this, args);
+      } finally {
+        if (publishing) endInFlight();
+        if (accounted) note(process.hrtime.bigint() - started, sqlKind, this, args);
+      }
+    };
 
   const probe = new Database(":memory:");
   try {
@@ -190,30 +373,14 @@ export function installSqlAccounting(): void {
     for (const method of ["run", "get", "all", "iterate"]) {
       const original = statementProto[method];
       if (typeof original !== "function") continue;
-      statementProto[method] = function (this: unknown, ...args: unknown[]) {
-        if (!current) return original.apply(this, args);
-        const started = process.hrtime.bigint();
-        try {
-          return original.apply(this, args);
-        } finally {
-          note(process.hrtime.bigint() - started, 0, this, args);
-        }
-      };
+      statementProto[method] = hook(original, 0);
     }
 
     const databaseProto = Object.getPrototypeOf(probe) as Record<string, any>;
     for (const method of ["prepare", "exec", "pragma"]) {
       const original = databaseProto[method];
       if (typeof original !== "function") continue;
-      databaseProto[method] = function (this: unknown, ...args: unknown[]) {
-        if (!current) return original.apply(this, args);
-        const started = process.hrtime.bigint();
-        try {
-          return original.apply(this, args);
-        } finally {
-          note(process.hrtime.bigint() - started, 1, this, args);
-        }
-      };
+      databaseProto[method] = hook(original, 1);
     }
   } finally {
     probe.close();

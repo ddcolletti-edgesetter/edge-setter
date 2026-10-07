@@ -41,6 +41,15 @@
  * the main thread. In the default rollback journal it would, and this design
  * would trade a dead instance for a stalled pipeline.
  *
+ * IT PUBLISHES THE STATEMENT IT IS INSIDE
+ * The accounting hook logs a statement when it finishes, and the statements that
+ * matter most here are the ones that do not: on the Oct 7 03:20 deploy two
+ * warm-up builds hit the 30s timeout and were terminated mid-statement, and
+ * nothing named them. This thread cannot postMessage while it is wedged inside
+ * SQLite — not running its event loop is the point of it — so each statement is
+ * written into a SharedArrayBuffer before it runs and the parent reads it out
+ * when it kills the thread. See sql-accounting.ts, "The statement in flight".
+ *
  * THIS FILE IS A BUILT ARTIFACT
  * It ships as dist/situations-worker.cjs (script/build.mjs). `tsx` does not carry
  * its TypeScript loader into worker threads and Node ignores a Worker `execArgv`
@@ -48,7 +57,7 @@
  * there is no worker and the caller falls back to building in-thread, exactly as
  * before this change. See situations-cache.ts.
  */
-import { parentPort } from "worker_threads";
+import { parentPort, workerData } from "worker_threads";
 import {
   listCanonicalSituationApiResponses,
   type CanonicalSituationApiQuery,
@@ -56,7 +65,9 @@ import {
 } from "./situations-api";
 import { ensureSituationSchema } from "./situations-store";
 import { getPipelineDb } from "./store";
-import { beginSqlAccounting, installSqlAccounting, type SqlUsage } from "../sql-accounting";
+import {
+  beginSqlAccounting, installSqlAccounting, publishInFlightStatements, type SqlUsage,
+} from "../sql-accounting";
 
 /** The response body of GET /api/v2/situations, unchanged. */
 export interface SituationsPayload {
@@ -115,6 +126,14 @@ export function buildSituationsPayload(query: CanonicalSituationApiQuery): {
 // does not try to install a message handler on a null parentPort.
 if (parentPort) {
   const port = parentPort;
+  // Publish the statement this thread is inside, to shared memory the parent can
+  // read while this thread is wedged. Installed BEFORE the accounting hook and
+  // before the first statement, so the boot schema check below is covered too: a
+  // worker killed by the boot timeout is one of the two cases this reports.
+  // Absent (an older parent, or the test stubs) it is simply off.
+  publishInFlightStatements(
+    (workerData as { inFlightBuffer?: SharedArrayBuffer } | null)?.inFlightBuffer ?? null,
+  );
   installSqlAccounting();
 
   const bootStarted = Date.now();
