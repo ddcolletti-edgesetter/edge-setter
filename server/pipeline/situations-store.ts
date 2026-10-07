@@ -420,6 +420,11 @@ export function getSituationPublicConfirmation(
     SELECT * FROM situation_public_confirmations WHERE situation_id = ?
   `).get(situationId) as any;
   if (!row) return null;
+  return deserializePublicConfirmation(row);
+}
+
+/** Shared by the single-id and batched readers so both shape rows identically. */
+function deserializePublicConfirmation(row: any): SituationPublicConfirmation {
   return {
     situation_id: row.situation_id,
     confirmed_at: row.confirmed_at,
@@ -766,6 +771,174 @@ export function listSituationEvents(
     ORDER BY recorded_at ASC, event_id ASC
   `).all(situationId);
   return rows.map(deserializeSituationEvent);
+}
+
+/* ─── Batched per-situation readers ────────────────────────────────────────────
+ *
+ * The /api/v2/situations request path read five tables once per situation. On a
+ * prod-shaped fixture (3,700 situations, 150k live_signals, 75k outcomes) a
+ * single `?league=NFL&limit=100` request ran 30,644 statements, and
+ * `?limit=250&order_by=operational_visibility_score` ran 43,544. The per-id
+ * reads themselves are all indexed seeks — the cost is the sheer count, and
+ * worse, every one of those functions opens with ensureSituationSchema, which
+ * is a ~40-statement CREATE TABLE / CREATE INDEX / CREATE TRIGGER script. That
+ * alone was 1,503 repetitions of the full schema script per request.
+ *
+ * These readers take the whole id set, run one statement per 900 ids, and
+ * return a Map keyed by situation_id. Each calls ensureSituationSchema exactly
+ * once.
+ *
+ * ORDERING CONTRACT: every batched statement carries `situation_id ASC` ahead
+ * of the per-situation sort keys the single-id version used, so rows arrive
+ * grouped and each group is in the same order the single-id query returned.
+ * Callers that fed a situation's events into a replay hash therefore see an
+ * identical array. The `situation_id` prefix is also what lets the existing
+ * (situation_id, …) indexes serve the batched form without a temp b-tree.
+ *
+ * MISSING IDS: an id with no rows is absent from the Map, and every caller
+ * reads through `?? []` / `?? null`, matching the single-id functions' empty
+ * array / null.
+ */
+
+/** Largest IN (...) list these readers will build. See store.BATCH_PARAM_LIMIT. */
+const SITUATION_BATCH_LIMIT = 900;
+
+function situationIdChunks(ids: readonly string[]): string[][] {
+  const unique = [...new Set(ids)];
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += SITUATION_BATCH_LIMIT) {
+    chunks.push(unique.slice(i, i + SITUATION_BATCH_LIMIT));
+  }
+  return chunks;
+}
+
+function placeholders(count: number): string {
+  return new Array(count).fill("?").join(",");
+}
+
+/**
+ * Run one batched statement per chunk and group the rows by situation_id.
+ * `sql(count)` receives the chunk's placeholder count so the plan test can
+ * explain the real string for any width.
+ */
+function groupBySituationId<T>(
+  ids: readonly string[],
+  db: Database.Database,
+  sql: (count: number) => string,
+  deserialize: (row: any) => T,
+): Map<string, T[]> {
+  const grouped = new Map<string, T[]>();
+  if (ids.length === 0) return grouped;
+  for (const chunk of situationIdChunks(ids)) {
+    const rows = db.prepare(sql(chunk.length)).all(...chunk) as any[];
+    for (const row of rows) {
+      const bucket = grouped.get(row.situation_id);
+      if (bucket) bucket.push(deserialize(row));
+      else grouped.set(row.situation_id, [deserialize(row)]);
+    }
+  }
+  return grouped;
+}
+
+export function situationEventsByIdsSql(count: number): string {
+  return `
+    SELECT *
+    FROM situation_events
+    WHERE situation_id IN (${placeholders(count)})
+    ORDER BY situation_id ASC, recorded_at ASC, event_id ASC
+  `;
+}
+
+export function listSituationEventsForIds(
+  situationIds: readonly string[],
+  db: Database.Database = getPipelineDb(),
+): Map<string, SituationEvent[]> {
+  if (situationIds.length === 0) return new Map();
+  ensureSituationSchema(db);
+  return groupBySituationId(situationIds, db, situationEventsByIdsSql, deserializeSituationEvent);
+}
+
+export function situationStateHistoryByIdsSql(count: number): string {
+  return `
+    SELECT *
+    FROM situation_state_history
+    WHERE situation_id IN (${placeholders(count)})
+    ORDER BY situation_id ASC, created_at ASC, history_id ASC
+  `;
+}
+
+export function listSituationStateHistoryForIds(
+  situationIds: readonly string[],
+  db: Database.Database = getPipelineDb(),
+): Map<string, SituationStateHistory[]> {
+  if (situationIds.length === 0) return new Map();
+  ensureSituationSchema(db);
+  return groupBySituationId(situationIds, db, situationStateHistoryByIdsSql, deserializeStateHistory);
+}
+
+export function situationConfidenceHistoryByIdsSql(count: number): string {
+  return `
+    SELECT *
+    FROM situation_confidence_history
+    WHERE situation_id IN (${placeholders(count)})
+    ORDER BY situation_id ASC, created_at ASC, history_id ASC
+  `;
+}
+
+export function listSituationConfidenceHistoryForIds(
+  situationIds: readonly string[],
+  db: Database.Database = getPipelineDb(),
+): Map<string, SituationConfidenceHistory[]> {
+  if (situationIds.length === 0) return new Map();
+  ensureSituationSchema(db);
+  return groupBySituationId(situationIds, db, situationConfidenceHistoryByIdsSql, deserializeConfidenceHistory);
+}
+
+export function situationFoundingAuditByIdsSql(count: number): string {
+  return `
+    SELECT situation_id, founding_row_count, kept_event_id, keep_key_source,
+           deleted_row_count, audited_at
+    FROM situation_founding_audit
+    WHERE situation_id IN (${placeholders(count)})
+  `;
+}
+
+/** One row per situation (situation_id is the primary key), so Map not Map-of-array. */
+export function getSituationFoundingAuditForIds(
+  situationIds: readonly string[],
+  db: Database.Database = getPipelineDb(),
+): Map<string, SituationFoundingAudit> {
+  const byId = new Map<string, SituationFoundingAudit>();
+  if (situationIds.length === 0) return byId;
+  ensureSituationSchema(db);
+  for (const chunk of situationIdChunks(situationIds)) {
+    const rows = db.prepare(situationFoundingAuditByIdsSql(chunk.length)).all(...chunk) as SituationFoundingAudit[];
+    for (const row of rows) byId.set(row.situation_id, row);
+  }
+  return byId;
+}
+
+export function situationPublicConfirmationsByIdsSql(count: number): string {
+  return `
+    SELECT *
+    FROM situation_public_confirmations
+    WHERE situation_id IN (${placeholders(count)})
+  `;
+}
+
+/** One row per situation (situation_id is the primary key). */
+export function getSituationPublicConfirmationsForIds(
+  situationIds: readonly string[],
+  db: Database.Database = getPipelineDb(),
+): Map<string, SituationPublicConfirmation> {
+  const byId = new Map<string, SituationPublicConfirmation>();
+  if (situationIds.length === 0) return byId;
+  ensureSituationSchema(db);
+  for (const chunk of situationIdChunks(situationIds)) {
+    const rows = db.prepare(situationPublicConfirmationsByIdsSql(chunk.length)).all(...chunk) as any[];
+    for (const row of rows) byId.set(row.situation_id, deserializePublicConfirmation(row));
+  }
+  return byId;
 }
 
 /**

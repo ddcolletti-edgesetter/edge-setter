@@ -12,6 +12,15 @@ import { startIngestionScheduler, bootDelayMs } from "./pipeline/ingestion";
 import { runSettlementBacklogMigration } from "./pipeline/settlement";
 import { startEventLoopMonitor, trackJob, trackRequest } from "./event-loop-monitor";
 import { startLoopWatchdog } from "./loop-watchdog";
+import {
+  installSqlAccounting, beginSqlAccounting, ACCOUNTED_PATHS, formatSqlUsage,
+  type SqlUsage,
+} from "./sql-accounting";
+
+// Before any module opens a Database handle: the hook patches the shared
+// better-sqlite3 prototypes, so it must be in place before the first statement
+// is prepared, not just before the first request.
+installSqlAccounting();
 
 const app = express();
 const httpServer = createServer(app);
@@ -56,21 +65,35 @@ export function log(message: string, source = "express") {
 // Request logger: method/path/status/duration only. Response bodies are NOT
 // logged — re-serializing every body blocked the event loop on large payloads
 // (/api/v2/games returns ~1.7k rows) and wrote user email + Stripe IDs to logs.
+// SQL accounting rides along for the request-side handlers audited after the
+// Oct 5 cold-boot freeze (see sql-accounting.ts). It is opened and closed
+// around next(): every accounted route is a synchronous handler, so the whole
+// handler — and nothing from any other request — runs inside that window.
+// A slow request then says WHY it was slow: `in 31649ms sql=30644/31649.3ms` is
+// an N+1, `in 1800ms sql=92/1756.0ms` is one bad plan.
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   const isApi = path.startsWith("/api");
   const done = isApi ? trackRequest(`${req.method} ${path}`) : null;
+  let usage: SqlUsage | null = null;
 
   const finish = () => {
     if (!done) return;
     done();
-    log(`${req.method} ${path} ${res.statusCode} in ${Date.now() - start}ms`);
+    log(`${req.method} ${path} ${res.statusCode} in ${Date.now() - start}ms${formatSqlUsage(usage)}`);
   };
   res.once("finish", finish);
   res.once("close", () => done?.());
 
-  next();
+  if (!ACCOUNTED_PATHS.has(path)) return next();
+
+  const finishAccounting = beginSqlAccounting();
+  try {
+    next();
+  } finally {
+    usage = finishAccounting();
+  }
 });
 
 (async () => {

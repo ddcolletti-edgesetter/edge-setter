@@ -20,16 +20,25 @@ import {
   buildComparableSituationCorpus,
   buildComparableSituationCorpusRecord,
   matchComparableSituations,
+  prefetchOutcomesForEventGroups,
+  type OutcomeRow,
 } from "./situations-comparable-corpus";
 import {
   type CanonicalSituationRecord,
   getSituationFoundingAudit,
+  getSituationFoundingAuditForIds,
   getSituationPublicConfirmation,
+  getSituationPublicConfirmationsForIds,
   listCanonicalSituations,
   listSituationConfidenceHistory,
+  listSituationConfidenceHistoryForIds,
   listSituationEvents,
+  listSituationEventsForIds,
   listSituationStateHistory,
+  listSituationStateHistoryForIds,
+  type SituationFoundingAudit,
 } from "./situations-store";
+import type { SituationPublicConfirmation } from "./situations-contract";
 import { getPipelineDb } from "./store";
 
 const ACTIVE_LIFECYCLE_STATES = new Set<SituationLifecycleState>([
@@ -218,20 +227,75 @@ export function listCanonicalSituationApiResponses(query: CanonicalSituationApiQ
   const sig = situationsDataSignature();
   const comparableCorpus = cachedComparableCorpus(sig);
   const confidenceBaselines = cachedConfidenceBaselines(sig);
-  const mapped = records.map((record) => mapCanonicalSituationToApiResponse(record, comparableCorpus, confidenceBaselines));
+  const prefetched = prefetchSituationApiReads(records.map((record) => record.situation_id));
+  const mapped = records.map((record) =>
+    mapCanonicalSituationToApiResponse(record, comparableCorpus, confidenceBaselines, prefetched));
   const sorted = sortCanonicalSituationApiResponses(mapped, query.orderBy ?? "updated_at");
   return sorted.slice(0, requestedLimit);
+}
+
+/**
+ * Everything mapCanonicalSituationToApiResponse reads per situation, fetched
+ * for the whole result set in five statements instead of five per record.
+ *
+ * Each field is the batched equivalent of one single-id store call, and the
+ * accessors below read through the same `?? []` / `?? null` the single-id
+ * functions returned for a situation with no rows — so a prefetched map and a
+ * per-id read are interchangeable, which is what
+ * request-path-query-plans.test.ts asserts response-for-response.
+ */
+export interface PrefetchedSituationApiReads {
+  readonly events: Map<string, SituationEvent[]>;
+  readonly stateHistory: Map<string, SituationStateHistory[]>;
+  readonly confidenceHistory: Map<string, SituationConfidenceHistory[]>;
+  readonly foundingAudit: Map<string, SituationFoundingAudit>;
+  readonly publicConfirmation: Map<string, SituationPublicConfirmation>;
+  /**
+   * Outcome rows for every signal id the delivered situations reference.
+   * comparableSummaryFor builds a corpus record per delivered situation to
+   * score comparables against, and that record resolves its own outcome
+   * linkage — a second per-signal fan-out (800 statements for a 100-situation
+   * response) sitting on top of the corpus build's own.
+   */
+  readonly outcomesBySignal: Map<string, OutcomeRow[]>;
+}
+
+export function prefetchSituationApiReads(situationIds: readonly string[]): PrefetchedSituationApiReads {
+  const events = listSituationEventsForIds(situationIds);
+  return {
+    events,
+    stateHistory: listSituationStateHistoryForIds(situationIds),
+    confidenceHistory: listSituationConfidenceHistoryForIds(situationIds),
+    foundingAudit: getSituationFoundingAuditForIds(situationIds),
+    publicConfirmation: getSituationPublicConfirmationsForIds(situationIds),
+    outcomesBySignal: prefetchOutcomesForEventGroups(
+      situationIds.map((id) => events.get(id) ?? []),
+    ),
+  };
 }
 
 export function mapCanonicalSituationToApiResponse(
   record: CanonicalSituationRecord,
   comparableCorpus: readonly ComparableSituationCorpusRecord[] = buildComparableSituationCorpus(),
   confidenceBaselines: Map<string, number> = buildConfidenceBaselines(),
+  /**
+   * Batched reads for the surrounding result set. Omitted for the single-record
+   * callers (GET /api/v2/situations/:id, tests), which fall back to the per-id
+   * store reads — five statements for one situation is correct; five hundred
+   * for a hundred situations was not.
+   */
+  prefetched?: PrefetchedSituationApiReads,
 ): CanonicalSituationApiResponse {
   const snapshot = record.latest_snapshot;
-  const events = listSituationEvents(record.situation_id);
-  const stateHistory = listSituationStateHistory(record.situation_id);
-  const confidenceHistory = listSituationConfidenceHistory(record.situation_id);
+  const events = prefetched
+    ? prefetched.events.get(record.situation_id) ?? []
+    : listSituationEvents(record.situation_id);
+  const stateHistory = prefetched
+    ? prefetched.stateHistory.get(record.situation_id) ?? []
+    : listSituationStateHistory(record.situation_id);
+  const confidenceHistory = prefetched
+    ? prefetched.confidenceHistory.get(record.situation_id) ?? []
+    : listSituationConfidenceHistory(record.situation_id);
   // Guard: a situation re-founded past its single legitimate founding carries
   // duplicate founding evidence that inflates its headline confidence. Cap the
   // presented score down to the clean single-founding cohort's baseline for the
@@ -251,7 +315,9 @@ export function mapCanonicalSituationToApiResponse(
   //     is higher and wins.
   // max() is the safe direction either way: it can only keep the guard firing,
   // never silence it.
-  const foundingAudit = getSituationFoundingAudit(record.situation_id);
+  const foundingAudit = prefetched
+    ? prefetched.foundingAudit.get(record.situation_id) ?? null
+    : getSituationFoundingAudit(record.situation_id);
   const cap = capCorruptedConfidence({
     rawConfidence: snapshot?.confidence.score ?? 0,
     foundingRowCount: Math.max(foundingAudit?.founding_row_count ?? 0, countFoundingRows(events)),
@@ -276,14 +342,17 @@ export function mapCanonicalSituationToApiResponse(
     .map((event) => event.source_id)
     .filter(Boolean)).size;
   const lastUpdatedAt = snapshot?.created_at ?? record.created_at;
-  const publicConfirmation = getSituationPublicConfirmation(record.situation_id);
+  const publicConfirmation = prefetched
+    ? prefetched.publicConfirmation.get(record.situation_id) ?? null
+    : getSituationPublicConfirmation(record.situation_id);
   const historicalCalibration = deriveSituationHistoricalCalibration({
     record,
     snapshot,
     events,
     confidenceHistory,
     sourceCount: calibrationSourceCount,
-    comparableSummary: comparableSummaryFor(record, events, stateHistory, comparableCorpus),
+    comparableSummary: comparableSummaryFor(
+      record, events, stateHistory, comparableCorpus, prefetched?.outcomesBySignal),
   });
   const operationalVisibilityScore = computeOperationalVisibilityScore({
     confidence,
@@ -446,8 +515,9 @@ function comparableSummaryFor(
   events: readonly SituationEvent[],
   stateHistory: readonly SituationStateHistory[],
   comparableCorpus: readonly ComparableSituationCorpusRecord[],
+  outcomesBySignal?: ReadonlyMap<string, readonly OutcomeRow[]>,
 ) {
-  const target = buildComparableSituationCorpusRecord({ record, events, stateHistory });
+  const target = buildComparableSituationCorpusRecord({ record, events, stateHistory, outcomesBySignal });
   return matchComparableSituations({ target, corpus: comparableCorpus });
 }
 

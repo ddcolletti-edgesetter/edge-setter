@@ -23,10 +23,10 @@ import { lineageFromSituationEvent } from "./situations-lineage";
 import {
   type CanonicalSituationRecord,
   listCanonicalSituations,
-  listSituationEvents,
-  listSituationStateHistory,
+  listSituationEventsForIds,
+  listSituationStateHistoryForIds,
 } from "./situations-store";
-import { getPipelineDb } from "./store";
+import { chunkIds, getPipelineDb } from "./store";
 
 interface OutcomeLinkage {
   readonly outcomeLinkStatus: SituationOutcomeLinkStatus;
@@ -40,12 +40,40 @@ interface OutcomeLinkage {
   readonly clvLinked: boolean;
 }
 
+/**
+ * Build the comparable corpus for the whole situations dataset.
+ *
+ * STATEMENT BUDGET: this used to run 2 statements per situation for the events
+ * and state history (1,000 for the default 500-situation corpus), and then one
+ * outcome lookup per signal id per situation — 4,800 on a prod-shaped fixture,
+ * which with the unindexed `outcomes` table was 30.5s of a 31.6s cold
+ * GET /api/v2/situations. It now runs 1 list + 1 events + 1 state-history
+ * statement plus one chunked outcomes statement per 900 distinct signal ids:
+ * 5-6 statements for the same corpus.
+ *
+ * The outcomes prefetch is sound because resolveOutcomeLinkage only counts the
+ * rows (`.filter(...).length`) — it never reads their order or groups them by
+ * signal — and signalIdsFor returns a deduped set, so one batched read of the
+ * same ids yields the same multiset per situation. Corpus records therefore
+ * hash identically, which is what keeps replay hashes stable.
+ */
 export function buildComparableSituationCorpus(limit = 500): ComparableSituationCorpusRecord[] {
-  return listCanonicalSituations({ limit })
+  const records = listCanonicalSituations({ limit });
+  if (records.length === 0) return [];
+  const situationIds = records.map((record) => record.situation_id);
+  const eventsBySituation = listSituationEventsForIds(situationIds);
+  const stateHistoryBySituation = listSituationStateHistoryForIds(situationIds);
+
+  const outcomesBySignal = prefetchOutcomesForEventGroups(
+    records.map((record) => eventsBySituation.get(record.situation_id) ?? []),
+  );
+
+  return records
     .map((record) => buildComparableSituationCorpusRecord({
       record,
-      events: listSituationEvents(record.situation_id),
-      stateHistory: listSituationStateHistory(record.situation_id),
+      events: eventsBySituation.get(record.situation_id) ?? [],
+      stateHistory: stateHistoryBySituation.get(record.situation_id) ?? [],
+      outcomesBySignal,
     }))
     .sort(compareCorpusRecords);
 }
@@ -54,6 +82,12 @@ export function buildComparableSituationCorpusRecord(input: {
   readonly record: CanonicalSituationRecord;
   readonly events: readonly SituationEvent[];
   readonly stateHistory: readonly SituationStateHistory[];
+  /**
+   * Outcome rows for every signal id in the surrounding corpus, prefetched by
+   * buildComparableSituationCorpus. Omitted by single-record callers, which
+   * fall back to reading this record's own signal ids on demand.
+   */
+  readonly outcomesBySignal?: ReadonlyMap<string, readonly OutcomeRow[]>;
 }): ComparableSituationCorpusRecord {
   const normalizedEvents = normalizedEvidence(input.events);
   const lifecyclePath = lifecyclePathFor(input.record.latest_snapshot?.lifecycle_state ?? "watching", input.stateHistory);
@@ -66,6 +100,7 @@ export function buildComparableSituationCorpusRecord(input: {
     events: input.events,
     lifecycleState,
     replayStatus,
+    outcomesBySignal: input.outcomesBySignal,
   });
   const outcomeStatus = outcomeStatusFor(lifecycleState, replayStatus, outcomeLinkage);
   const seed = {
@@ -380,10 +415,15 @@ function resolveOutcomeLinkage(input: {
   readonly events: readonly SituationEvent[];
   readonly lifecycleState: SituationLifecycleState;
   readonly replayStatus: SituationReplayVerificationStatus;
+  readonly outcomesBySignal?: ReadonlyMap<string, readonly OutcomeRow[]>;
 }): OutcomeLinkage {
   const signalIds = signalIdsFor(input.events);
   const lineageRecords = lineageRecordsFor(input.events);
-  const outcomes = signalIds.length ? outcomesForSignalIds(signalIds) : [];
+  const outcomes = signalIds.length
+    ? (input.outcomesBySignal
+      ? signalIds.flatMap((signalId) => input.outcomesBySignal!.get(signalId) ?? [])
+      : outcomesForSignalIds(signalIds))
+    : [];
   const settled = outcomes.filter((outcome) => outcome.hit !== null);
   const clvLinked = outcomes.filter((outcome) => outcome.clv !== null);
   const hasOutcomeRows = outcomes.length > 0;
@@ -462,17 +502,26 @@ function lineageRecordsFor(events: readonly SituationEvent[]): SituationEvidence
     .map(lineageFromSituationEvent);
 }
 
+export interface OutcomeRow {
+  readonly hit: number | null;
+  readonly clv: number | null;
+}
+
 /**
- * The outcome lookup behind every corpus record's settlement/CLV linkage.
+ * The per-signal outcome lookup behind a corpus record's settlement/CLV
+ * linkage, kept for single-record callers that have no corpus-wide prefetch to
+ * read from. The fan-out callers use outcomesForSignalIdsBatched below.
  *
- * Exported so the index guard in outcomes-signal-index.test.ts explains the
- * exact string production runs — a copy in the test could drift green while the
- * real query went back to a full scan.
+ * Exported so the index guard in outcomes-signal-index.test.ts and the plan
+ * guard in request-path-query-plans.test.ts both explain the exact string
+ * production runs — a copy in a test could drift green while the real query
+ * went back to a full scan.
  *
- * It must stay served by idx_outcomes_signal_created (store.ts): the corpus
- * issues one of these per signal id, ~1,200-1,500 per /api/v2/situations
- * request, and without the index each one scans all 75k outcome rows. That was
- * 93-95% of a ~22s cold response on prod (2026-10-04).
+ * It must stay served by idx_outcomes_signal_created (store.ts): without the
+ * index each call scans all 75k outcome rows. One of these per signal id,
+ * ~1,200-1,500 per /api/v2/situations request, was 93-95% of a ~22s cold
+ * response on prod (2026-10-04). #78 added the index; this PR removed the
+ * fan-out that made the per-call cost matter, and the two compose.
  *
  * NOTE (reported, not fixed): unlike the accuracy and calibration paths this has
  * no `excluded_stale = 0` filter, so outcomes that settlement flagged as bad
@@ -486,11 +535,67 @@ export const OUTCOMES_FOR_SIGNAL_SQL = `
     ORDER BY created_at DESC
   `;
 
-function outcomesForSignalIds(signalIds: readonly string[]): Array<{ hit: number | null; clv: number | null }> {
+function outcomesForSignalIds(signalIds: readonly string[]): OutcomeRow[] {
   if (signalIds.length === 0) return [];
   const db = getPipelineDb();
   const stmt = db.prepare(OUTCOMES_FOR_SIGNAL_SQL);
-  return signalIds.flatMap((signalId) => stmt.all(signalId) as Array<{ hit: number | null; clv: number | null }>);
+  return signalIds.flatMap((signalId) => stmt.all(signalId) as OutcomeRow[]);
+}
+
+/**
+ * Collect the signal ids referenced by several situations' event lists and
+ * fetch all their outcome rows in one batched read.
+ *
+ * Shared by buildComparableSituationCorpus (the 500-situation corpus) and by
+ * the /api/v2/situations response path, which builds a target corpus record per
+ * delivered situation to score comparables against — that second fan-out was
+ * another 800 per-id outcome lookups per request on top of the corpus's own.
+ */
+export function prefetchOutcomesForEventGroups(
+  eventGroups: Iterable<readonly SituationEvent[]>,
+): Map<string, OutcomeRow[]> {
+  const signalIds = new Set<string>();
+  for (const events of eventGroups) {
+    for (const id of signalIdsFor(events)) signalIds.add(id);
+  }
+  return outcomesForSignalIdsBatched([...signalIds]);
+}
+
+/** The batched form, exported for the plan test. */
+export function outcomesBySignalIdsSql(count: number): string {
+  return `
+    SELECT signal_id, hit, clv
+    FROM outcomes
+    WHERE signal_id IN (${new Array(count).fill("?").join(",")})
+  `;
+}
+
+/**
+ * Outcome rows for many signal ids, grouped by signal_id, in one statement per
+ * 900 ids.
+ *
+ * No ORDER BY: the single-id form ordered by created_at DESC, but every
+ * consumer of these rows counts them (`settled.length`, `clvLinked.length`,
+ * `outcomes.length > 0`) and none reads the order, so sorting 75k rows into a
+ * temp b-tree to then ignore the order would be pure cost. The multiset per
+ * signal id is identical, which is what the corpus hash depends on.
+ */
+export function outcomesForSignalIdsBatched(
+  signalIds: readonly string[],
+): Map<string, OutcomeRow[]> {
+  const bySignal = new Map<string, OutcomeRow[]>();
+  if (signalIds.length === 0) return bySignal;
+  const db = getPipelineDb();
+  for (const chunk of chunkIds(signalIds)) {
+    const rows = db.prepare(outcomesBySignalIdsSql(chunk.length)).all(...chunk) as
+      Array<{ signal_id: string; hit: number | null; clv: number | null }>;
+    for (const row of rows) {
+      const bucket = bySignal.get(row.signal_id);
+      if (bucket) bucket.push({ hit: row.hit, clv: row.clv });
+      else bySignal.set(row.signal_id, [{ hit: row.hit, clv: row.clv }]);
+    }
+  }
+  return bySignal;
 }
 
 function sampleBandFor(outcomeLinkedCount: number, clvLinkedCount: number): SituationCalibrationSampleBand {

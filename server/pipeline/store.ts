@@ -113,6 +113,14 @@ function initSchema(db: Database.Database) {
       updated_at      TEXT NOT NULL
     );
 
+    -- getGames(league) backs GET /api/v2/games?league=, the only form the
+    -- league boards call. It was "SCAN games | USE TEMP B-TREE FOR ORDER BY" —
+    -- every game row read and the whole league slice sorted. With game_time in
+    -- the index the walk is already ordered and the temp b-tree is gone.
+    -- (The unfiltered getGames() still sorts; see GAMES_ALL_SQL.)
+    CREATE INDEX IF NOT EXISTS idx_games_league_time
+      ON games(league, game_time);
+
 CREATE TABLE IF NOT EXISTS odds_snapshots (
   id                TEXT PRIMARY KEY,
   game_id           TEXT NOT NULL,
@@ -639,6 +647,63 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     -- that created 0 events. All four columns in the index make it index-only.
     CREATE INDEX IF NOT EXISTS idx_live_signals_injury_dedup
       ON live_signals(league, signal_type, player, injury_designation);
+
+    -- The delivery feed (getLiveSignals / GET /api/v2/signals) was
+    -- "SCAN live_signals | USE TEMP B-TREE FOR ORDER BY": every row read off
+    -- disk, including the large sources/breakdown JSON, then the whole
+    -- unarchived set sorted to return 50. Leading is_archived narrows to the
+    -- live lane, and score DESC, created_at DESC matches the ORDER BY exactly,
+    -- so the limit is satisfied by walking the index. On a 150k-signal
+    -- fixture: 742ms -> 3.1ms unfiltered, 221ms -> 2.8ms with ?league=.
+    -- NOTE: getLiveSignals pins itself to this index with INDEXED BY — see
+    -- liveSignalsFeedSql for why. That makes the index load-bearing: if it is
+    -- ever dropped or renamed, the delivery feed raises "no such index" rather
+    -- than silently going back to 742ms. It is created here, inside initSchema,
+    -- which getPipelineDb runs before handing out the handle, so it exists
+    -- before any read can reach it.
+    -- BOOT COST: building it on a cold 150k-row / 722MB fixture took 4.7s
+    -- (read-bound — the index covers columns spread across every table page) and
+    -- added 5.4MB; on every boot after the first, IF NOT EXISTS is 0ms. That is
+    -- once, against the 14.1s this endpoint was taking per request. Writes cost
+    -- ~7% more with it (5,000 inserts: 82ms -> 88ms).
+    -- WHERE THAT COST LANDS: initSchema runs on the first getPipelineDb(), which
+    -- is runSettlementBacklogMigration's first line, reached synchronously from
+    -- index.ts BEFORE httpServer.listen. So the first deploy after this merges
+    -- binds its port ~8s later (all four indexes together); no live instance's
+    -- event loop is held. See docs/request-path-query-audit.md.
+    CREATE INDEX IF NOT EXISTS idx_live_signals_active_score
+      ON live_signals(is_archived, score DESC, created_at DESC);
+    -- GET /api/stats/track-record aggregates all-time outcomes for a league. It
+    -- was "SCAN o | SEARCH s USING sqlite_autoindex_live_signals_1 (id=?)":
+    -- a full pass over outcomes, and for each row a primary-key lookup into
+    -- live_signals that drags the whole fat row — headline, body, sources and
+    -- breakdown JSON — off disk to read two short columns.
+    --
+    -- These two indexes make both sides index-only:
+    --   • the partial index holds exactly the rows the WHERE keeps (settled and
+    --     not stale, ~24% of the table on prod's distribution) and carries hit
+    --     and clv, so the outcomes side is a covering scan of the qualifying
+    --     subset with no table access;
+    --   • (id, league, signal_type) covers the join's probe — league for the
+    --     filter, signal_type for the GROUP BY — so the live_signals side never
+    --     touches a table page either.
+    -- Measured together on the prod-shaped fixture: 148.5ms -> 7.7ms overall
+    -- and 140.2ms -> 7.9ms by-signal_type. Either index alone is worth only
+    -- ~10% (144.9 -> 129.7ms); the win needs both, because the table lookup is
+    -- the cost, not the scan.
+    -- BOOT COST: 34ms and 3.4s respectively, once; +5MB in total.
+    -- A plan-regression sweep over every statement in this codebase that
+    -- touches live_signals / outcomes / games found no other plan changed for
+    -- the worse by these two; re-run after rebasing onto #78 and #79, which
+    -- added two live_signals indexes of their own, it still holds, and this
+    -- partial index improves three settlement statements the two of them had
+    -- regressed (see docs/request-path-query-audit.md). The remaining temp
+    -- b-tree groups by a column of the joined table and no index can remove it.
+    CREATE INDEX IF NOT EXISTS idx_outcomes_settled_signal
+      ON outcomes(signal_id, hit, clv)
+      WHERE hit IS NOT NULL AND excluded_stale = 0;
+    CREATE INDEX IF NOT EXISTS idx_live_signals_id_league_type
+      ON live_signals(id, league, signal_type);
   `);
 }
 
@@ -716,18 +781,19 @@ export function archiveFinishedMarketSignals(
 /**
  * Recompute urgency_label / urgency_reason on the way out to clients so an
  * aged signal or a finished game never keeps a stale URGENT/WATCH. Stored rows
- * are left untouched; this only rewrites the delivered copy. Game lookups are
- * cached per game_id so a feed of many signals costs at most one lookup/game.
+ * are left untouched; this only rewrites the delivered copy.
+ *
+ * Game lookups are batched: the distinct game_ids in the feed are collected
+ * first and fetched in one statement (see getGamesByIds), rather than one
+ * SELECT per game_id. A missing game resolves to null exactly as the per-id
+ * lookup did, so the delivered urgency is unchanged.
  */
 export function applyReadTimeUrgency<T extends LiveSignal>(signals: T[]): T[] {
   const now = Date.now();
-  const gameCache = new Map<string, Game | null>();
+  const gameIds = signals.map((s) => s.game_id).filter((id): id is string => Boolean(id));
+  const games = getGamesByIds(gameIds);
   return signals.map((s) => {
-    let game: Game | null = null;
-    if (s.game_id) {
-      if (!gameCache.has(s.game_id)) gameCache.set(s.game_id, getGame(s.game_id));
-      game = gameCache.get(s.game_id) ?? null;
-    }
+    const game = s.game_id ? games.get(s.game_id) ?? null : null;
     const u = recomputeUrgency(s, game, now);
     return { ...s, urgency_label: u.label, urgency_reason: u.reason };
   });
@@ -1162,17 +1228,97 @@ export function upsertHistoricalGame(g: Omit<Game, "created_at" | "updated_at">)
   return game;
 }
 
+/**
+ * The two getGames statements, exported so request-path-query-plans.test.ts can
+ * EXPLAIN the exact strings production prepares. GAMES_BY_LEAGUE_SQL must stay
+ * served by idx_games_league_time with no temp b-tree.
+ *
+ * GAMES_ALL_SQL (the unfiltered form) is deliberately left as
+ * "SCAN games | USE TEMP B-TREE FOR ORDER BY". A plain games(game_time) index
+ * removes the temp b-tree but was measured at 65ms -> 54ms on an 8k-game
+ * fixture — the cost is materializing every row, not the sort — and no caller
+ * uses the unfiltered form (every league board passes ?league=). Not worth a
+ * third index on a table the ingestion cycle upserts into.
+ */
+export const GAMES_BY_LEAGUE_SQL = "SELECT * FROM games WHERE league=? ORDER BY game_time ASC";
+export const GAMES_ALL_SQL = "SELECT * FROM games ORDER BY game_time ASC";
+
+/**
+ * The legacy MVP feed behind GET /api/signal and GET /api/signals
+ * (server/routes.ts). Exported here so the plan test explains the strings the
+ * routes prepare.
+ *
+ * The unfiltered form (the only one any client calls) walks
+ * idx_live_signals_created_at with no temp b-tree. The ?league= form is
+ * knowingly left at "SEARCH idx_live_signals_league | USE TEMP B-TREE FOR
+ * ORDER BY", 454ms: the index that fixes it, live_signals(league,
+ * created_at DESC), costs 1.4ms there but re-plans findExistingSignal — the
+ * matcher's per-raw-event dedup lookup — from a three-column equality seek
+ * onto a league-slice walk, 0.0ms to 251ms on the ingestion hot path. A 454ms
+ * query on a parameter no caller passes is not worth that.
+ */
+export const MVP_SIGNALS_BY_LEAGUE_SQL =
+  "SELECT * FROM live_signals WHERE league=? ORDER BY created_at DESC LIMIT 100";
+export const MVP_SIGNALS_ALL_SQL =
+  "SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100";
+
 export function getGames(league?: string): Game[] {
   const db = getPipelineDb();
   const rows = league
-    ? db.prepare("SELECT * FROM games WHERE league=? ORDER BY game_time ASC").all(league)
-    : db.prepare("SELECT * FROM games ORDER BY game_time ASC").all();
+    ? db.prepare(GAMES_BY_LEAGUE_SQL).all(league)
+    : db.prepare(GAMES_ALL_SQL).all();
   return rows as Game[];
 }
 
 export function getGame(id: string): Game | null {
   const db = getPipelineDb();
   return (db.prepare("SELECT * FROM games WHERE id=?").get(id) as Game) ?? null;
+}
+
+/**
+ * Largest number of bind parameters this codebase will put in one IN (...)
+ * list. SQLITE_MAX_VARIABLE_NUMBER is 32,766 on the better-sqlite3 build here,
+ * but older SQLite defaults to 999 and nothing guarantees which build a future
+ * deploy links against, so every batched reader below chunks at this width.
+ * Chunking also keeps one pathological id list from preparing a statement with
+ * thousands of parameters on the request path.
+ */
+export const BATCH_PARAM_LIMIT = 900;
+
+/** Split `ids` into deduped chunks of at most BATCH_PARAM_LIMIT. */
+export function chunkIds(ids: readonly string[]): string[][] {
+  const unique = [...new Set(ids)];
+  const chunks: string[][] = [];
+  for (let i = 0; i < unique.length; i += BATCH_PARAM_LIMIT) {
+    chunks.push(unique.slice(i, i + BATCH_PARAM_LIMIT));
+  }
+  return chunks;
+}
+
+/** The batched games-by-id lookup, exported for the plan test. */
+export function gamesByIdsSql(count: number): string {
+  return `SELECT * FROM games WHERE id IN (${new Array(count).fill("?").join(",")})`;
+}
+
+/**
+ * Games for many ids in one statement per 900 ids.
+ *
+ * applyReadTimeUrgency used to call getGame() once per distinct game_id, which
+ * is 89 statements for GET /api/signals and up to 200 for
+ * GET /api/v2/signals?limit=200. Each one is a cheap primary-key seek, so this
+ * is a statement-count fix rather than a plan fix — but 200 round trips through
+ * prepare() on the request path is 200 chances to sit behind someone else's
+ * write, and it is what makes a request log line unreadable.
+ */
+export function getGamesByIds(ids: readonly string[]): Map<string, Game> {
+  const byId = new Map<string, Game>();
+  if (ids.length === 0) return byId;
+  const db = getPipelineDb();
+  for (const chunk of chunkIds(ids)) {
+    const rows = db.prepare(gamesByIdsSql(chunk.length)).all(...chunk) as Game[];
+    for (const row of rows) byId.set(row.id, row);
+  }
+  return byId;
 }
 
 /** Mark a game as final and store the actual scores. */
@@ -1769,6 +1915,48 @@ if (!existing) {
 return s;
 }
 
+/**
+ * Build the delivery-feed statement for a given filter combination.
+ *
+ * Exported so request-path-query-plans.test.ts can EXPLAIN every combination
+ * the route can produce rather than a copy that might drift.
+ *
+ * WHY `INDEXED BY`: the unarchived form has four shapes (bare, +league, +since,
+ * +league+since) and idx_live_signals_active_score serves all four with no temp
+ * b-tree, because is_archived=0 is an equality seek and the rest filter inside
+ * an already-sorted walk. The planner picks it on its own today — the hint is
+ * armor, and the audit that produced this change is the argument for it.
+ *
+ * Adding a live_signals(league, created_at DESC) index — the obvious fix for
+ * /api/signals?league=, and a reasonable thing for someone to want later —
+ * re-plans the +league+since shape onto it and pays a temp b-tree over the
+ * whole league slice: 2.4ms becomes 191ms on a 150k-signal fixture, on the
+ * shape distribution-draft.ts runs every cycle. (That index is not shipped,
+ * for a worse reason still: it also re-plans findExistingSignal, the matcher's
+ * per-raw-event dedup lookup, from a three-column equality seek onto a
+ * league-slice walk — 0.0ms to 251ms on the ingestion hot path. See
+ * docs/request-path-query-audit.md.)
+ *
+ * So the hint says: this feed's plan is not negotiable by unrelated schema
+ * work. It makes the index load-bearing — drop or rename it and these reads
+ * raise "no such index" instead of quietly going back to 742ms, which is the
+ * better of the two failures. Omitted for includeArchived, which has no
+ * is_archived term to seek on and so cannot use this index at all.
+ */
+export function liveSignalsFeedSql(opts: {
+  league?: string;
+  since?: string;
+  includeArchived?: boolean;
+}): string {
+  const conds: string[] = [];
+  if (!opts.includeArchived) conds.push("is_archived = 0");
+  if (opts.league) conds.push("league=?");
+  if (opts.since) conds.push("created_at>=?");
+  const where = conds.length ? "WHERE " + conds.join(" AND ") : "";
+  const hint = opts.includeArchived ? "" : " INDEXED BY idx_live_signals_active_score";
+  return `SELECT * FROM live_signals${hint} ${where} ORDER BY score DESC, created_at DESC LIMIT ?`;
+}
+
 export function getLiveSignals(opts: {
   league?: string;
   since?: string;       // ISO timestamp
@@ -1776,16 +1964,11 @@ export function getLiveSignals(opts: {
   includeArchived?: boolean;
 } = {}): LiveSignal[] {
   const db = getPipelineDb();
-  const conds: string[] = [];
   const params: unknown[] = [];
-  if (!opts.includeArchived) { conds.push("is_archived = 0"); }
-  if (opts.league) { conds.push("league=?"); params.push(opts.league); }
-  if (opts.since) { conds.push("created_at>=?"); params.push(opts.since); }
-  const where = conds.length ? "WHERE " + conds.join(" AND ") : "";
+  if (opts.league) params.push(opts.league);
+  if (opts.since) params.push(opts.since);
   const limit = opts.limit ?? 100;
-  const rows = db.prepare(
-    `SELECT * FROM live_signals ${where} ORDER BY score DESC, created_at DESC LIMIT ?`
-  ).all(...params, limit);
+  const rows = db.prepare(liveSignalsFeedSql(opts)).all(...params, limit);
   return rows.map(deserializeLiveSignal);
 }
 
@@ -2060,25 +2243,52 @@ export interface TrackRecord {
  * Ignores clv_points where clv IS NULL for avg computation.
  * Window: all-time (no date filter).
  */
-export function getTrackRecord(league: string): TrackRecord {
-  const db = getPipelineDb();
-
-  // Overall aggregate for the league
-  const overallRow = db.prepare(`
+/**
+ * The two track-record aggregates, exported for the plan test.
+ *
+ * WHY `CROSS JOIN`: in SQLite, CROSS JOIN is an inner join that additionally
+ * forbids the planner from reordering the loops — the row set is identical,
+ * only the loop order is pinned. The right order here is outcomes outer: one
+ * pass over the rows the WHERE keeps, each row's signal probed by id. With
+ * idx_outcomes_settled_signal and idx_live_signals_id_league_type (both added
+ * in initSchema) that pass and that probe are each index-only:
+ *
+ *   SCAN o USING COVERING INDEX idx_outcomes_settled_signal
+ *     | SEARCH s USING COVERING INDEX idx_live_signals_id_league_type (id=? AND league=?)
+ *
+ * 148.5ms -> 7.7ms on a prod-shaped fixture (150k live_signals, 75k outcomes).
+ *
+ * The pin matters because the planner will leave that order if something looks
+ * better, and PR #78's idx_outcomes_signal_created does. Measured, best of
+ * three each:
+ *
+ *   main, as-is            139ms  JOIN -> SCAN o | SEARCH s (pk)
+ *   main + #78             275ms  JOIN -> SEARCH s (idx_live_signals_league) | SEARCH o
+ *   main + #78, CROSS JOIN 155ms  SCAN o | SEARCH s (pk)
+ *
+ * So #78 doubles this query's cost on its own, driving from the pre-existing
+ * idx_live_signals_league. Nothing in this PR causes that; the pin is what
+ * makes the two compose. Without it, the covering indexes above would be
+ * ignored in exactly the case they were added for.
+ *
+ * Both statements still carry a temp b-tree for the GROUP BY / ORDER BY on
+ * s.signal_type, which groups on a column of the joined table — no index
+ * removes that.
+ */
+export const TRACK_RECORD_OVERALL_SQL = `
     SELECT
       COUNT(*)                             AS total_signals,
       SUM(CASE WHEN o.hit = 1 THEN 1 ELSE 0 END) AS wins,
       SUM(CASE WHEN o.hit = 0 THEN 1 ELSE 0 END) AS losses,
       AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END) AS avg_clv
     FROM outcomes o
-    JOIN live_signals s ON s.id = o.signal_id
+    CROSS JOIN live_signals s ON s.id = o.signal_id
     WHERE s.league = ?
       AND o.hit IS NOT NULL
       AND o.excluded_stale = 0
-  `).get(league) as any;
+  `;
 
-  // Per-signal_type breakdown
-  const typeRows = db.prepare(`
+export const TRACK_RECORD_BY_TYPE_SQL = `
     SELECT
       s.signal_type,
       COUNT(*)                             AS total_signals,
@@ -2086,13 +2296,22 @@ export function getTrackRecord(league: string): TrackRecord {
       SUM(CASE WHEN o.hit = 0 THEN 1 ELSE 0 END) AS losses,
       AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END) AS avg_clv
     FROM outcomes o
-    JOIN live_signals s ON s.id = o.signal_id
+    CROSS JOIN live_signals s ON s.id = o.signal_id
     WHERE s.league = ?
       AND o.hit IS NOT NULL
       AND o.excluded_stale = 0
     GROUP BY s.signal_type
     ORDER BY total_signals DESC
-  `).all(league) as any[];
+  `;
+
+export function getTrackRecord(league: string): TrackRecord {
+  const db = getPipelineDb();
+
+  // Overall aggregate for the league
+  const overallRow = db.prepare(TRACK_RECORD_OVERALL_SQL).get(league) as any;
+
+  // Per-signal_type breakdown
+  const typeRows = db.prepare(TRACK_RECORD_BY_TYPE_SQL).all(league) as any[];
 
   function toSlice(row: any, signal_type: string | null): TrackRecordSlice {
     const total = row.total_signals ?? 0;
