@@ -17,6 +17,7 @@ import {
   formatSlowestStatements, type SqlUsage,
 } from "./sql-accounting";
 import { scheduleDbDiagnostics } from "./db-diagnostics";
+import { scheduleSituationsWarmup } from "./pipeline/situations-cache";
 
 // Before any module opens a Database handle: the hook patches the shared
 // better-sqlite3 prototypes, so it must be in place before the first statement
@@ -255,6 +256,11 @@ app.use((req, res, next) => {
       // for the tables /api/v2/situations reads). Deferred, bounded, and never
       // a COUNT(*) — see db-diagnostics.ts.
       scheduleDbDiagnostics();
+      // Build the situations payloads the client actually asks for, in the worker,
+      // so the first visitor after a deploy is a cache hit rather than the ~44s
+      // cold build that killed the instance on Oct 7. Costs the main thread
+      // nothing, which is why it can sit on the boot ladder at all.
+      scheduleSituationsWarmup();
     },
   );
 })();
