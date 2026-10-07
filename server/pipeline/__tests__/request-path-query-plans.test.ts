@@ -795,6 +795,10 @@ describe("request-path query plans", () => {
     it("formats the request-log suffix and omits it when not accounted", () => {
       expect(accounting.formatSqlUsage({ statements: 154, ms: 338.42 })).toBe(" sql=154/338.4ms");
       expect(accounting.formatSqlUsage(null)).toBe("");
+      // A usage that came from somewhere else than this process's own window
+      // says so, so a `sql=` number can never be mistaken for main-thread time.
+      expect(accounting.formatSqlUsage({ statements: 130, ms: 22669, origin: "worker" }))
+        .toBe(" sql=130/22669.0ms,worker");
     });
 
     it("accounts exactly the audited request paths", () => {
@@ -809,6 +813,201 @@ describe("request-path query plans", () => {
       // where a single global counter could attribute another request's work.
       expect(accounting.ACCOUNTED_PATHS.has("/api/pipeline/ingest/run")).toBe(false);
       expect(accounting.ACCOUNTED_PATHS.has("/api/v2/signals/abc")).toBe(false);
+    });
+  });
+
+  /**
+   * Per-statement instrumentation (the half of the Oct 7 question a count cannot
+   * answer: prod runs 130 statements in 22,669ms, so WHICH of the 130).
+   */
+  describe("sql accounting — per-statement timing", () => {
+    /** The slowest-statement list for `work`, closed in a finally like above. */
+    function slowestFor(work: () => void, route = "GET /test") {
+      const finish = accounting.beginSqlAccounting(route);
+      try {
+        work();
+        return finish().slowest ?? [];
+      } finally {
+        finish();
+      }
+    }
+
+    /** A statement that burns ~`ms` of real SQLite time, with no I/O. */
+    const burnSql = (rows: number) =>
+      `WITH RECURSIVE burn(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM burn WHERE i < ${rows}) ` +
+      `SELECT count(*) AS c FROM burn`;
+
+    it("ranks the slowest statements of a window, slowest first", () => {
+      const slowest = slowestFor(() => {
+        db.prepare("SELECT 1").get();
+        db.prepare(burnSql(400_000)).get();
+        db.prepare("SELECT 2").get();
+        db.prepare(burnSql(1_200_000)).get();
+        db.prepare("SELECT 3").get();
+      });
+
+      expect(slowest.length).toBe(3);
+      // Monotonically non-increasing, and the two burners are the top two.
+      expect(slowest[0].ms).toBeGreaterThanOrEqual(slowest[1].ms);
+      expect(slowest[1].ms).toBeGreaterThanOrEqual(slowest[2].ms);
+      expect(slowest[0].sql).toContain("RECURSIVE burn");
+      expect(slowest[1].sql).toContain("RECURSIVE burn");
+      // The bigger burn is slower than the smaller one. This is a 3x ratio on
+      // pure CPU in-memory work, which is the one timing comparison in this
+      // suite that is safe to assert on any machine.
+      expect(slowest[0].ms).toBeGreaterThan(slowest[1].ms);
+
+      console.log(
+        `[measured] top sql line: ${accounting.formatSlowestStatements({ statements: 5, ms: 0, slowest })}`,
+      );
+    });
+
+    it("records SQL text only — never a bound parameter value", () => {
+      const secret = "pk_live_do_not_log_me";
+      const slowest = slowestFor(() => {
+        db.prepare("SELECT ? AS leaked").get(secret);
+      });
+      const text = JSON.stringify(slowest);
+      expect(text).toContain("SELECT ? AS leaked");
+      expect(text).not.toContain(secret);
+    });
+
+    it("collapses whitespace and truncates, including a 4KB DDL script", () => {
+      // ensureSituationSchema runs its whole CREATE TABLE script through exec on
+      // every situations-store call, so this is the statement most likely to turn
+      // up in a prod top-3 line. It must still be readable there.
+      const slowest = slowestFor(() => {
+        sitStore.ensureSituationSchema(db);
+      });
+      const ddl = slowest.find((s) => s.sql.includes("CREATE TABLE"));
+      expect(ddl).toBeDefined();
+      expect(ddl!.sql.length).toBeLessThanOrEqual(60);
+      expect(ddl!.sql).not.toMatch(/\s\s/);
+      expect(ddl!.sql).not.toContain("\n");
+    });
+
+    it("truncation never walks the whole SQL string", () => {
+      // A pathological 400KB statement: the hook must not spend milliseconds
+      // collapsing it to produce 60 characters. Bounded by the leading slice in
+      // collapse(), so the cost is flat in the length of the SQL.
+      const padded = `SELECT 1 AS x${" ".repeat(400_000)}`;
+      const started = process.hrtime.bigint();
+      const slowest = slowestFor(() => {
+        db.prepare(padded).get();
+      });
+      const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+      expect(slowest[0].sql.startsWith("SELECT 1 AS x")).toBe(true);
+      console.log(`[measured] 400KB-statement window: ${elapsedMs.toFixed(2)}ms`);
+      expect(elapsedMs).toBeLessThan(50);
+    });
+
+    /**
+     * HOOK OVERHEAD, measured rather than asserted-about.
+     *
+     * The comparison is the same N trivial statements with the window closed
+     * (the ingestion path's cost: one boolean test and an apply) and open (that
+     * plus an hrtime pair, two adds and two compares). Both run against
+     * `SELECT 1` so the measurement is almost entirely hook, not SQLite — which
+     * is the worst case for the hook's relative cost, and the number worth
+     * knowing.
+     *
+     * The assertion is a ceiling loose enough to pass on CI, because the point of
+     * the test is the printed number; the ceiling only catches a regression that
+     * puts string work back on the fast path (resolving Statement.source per
+     * statement, which an earlier draft did, costs ~10x this).
+     */
+    it("costs single-digit microseconds per statement", () => {
+      const N = 20_000;
+      const statement = db.prepare("SELECT 1 AS x");
+
+      const timed = (label: string, open: boolean) => {
+        const finish = open ? accounting.beginSqlAccounting(`GET /overhead/${label}`) : null;
+        const started = process.hrtime.bigint();
+        for (let i = 0; i < N; i++) statement.get();
+        const ns = Number(process.hrtime.bigint() - started);
+        finish?.();
+        return ns / N;
+      };
+
+      // Warm both paths so JIT compilation is not charged to whichever ran first.
+      timed("warm-closed", false);
+      timed("warm-open", true);
+
+      const closedNs = timed("closed", false);
+      const openNs = timed("open", true);
+      const overheadNs = openNs - closedNs;
+
+      console.log(
+        `[measured] sql-accounting overhead per statement: ` +
+        `window closed ${closedNs.toFixed(0)}ns, open ${openNs.toFixed(0)}ns, ` +
+        `delta ${overheadNs.toFixed(0)}ns (${(overheadNs / 1000).toFixed(2)}µs) over ${N} statements`,
+      );
+
+      expect(overheadNs).toBeLessThan(10_000); // 10µs/statement ceiling
+    });
+
+    it("costs less than this measurement can resolve on a real situations build", () => {
+      // The hook's share of a whole situations build, on the request path rather
+      // than on SELECT 1 — and an honest statement of what the measurement can
+      // and cannot see.
+      //
+      // Arms are INTERLEAVED (closed, open, closed, open, …). Running one arm's
+      // runs and then the other's charges whatever the machine did in between to
+      // whichever arm went second, and an earlier draft of this test measured
+      // exactly that: it reported +14.1% on one run and -10.1% on the next, from
+      // the same code. Interleaving plus min-of-N removes the ordering, and the
+      // closed arm's own spread gives the noise floor the result is read against.
+      const query = { league: "NFL", limit: 100 } as const;
+      const PAIRS = 9;
+
+      const once = (open: boolean) => {
+        const finish = open ? accounting.beginSqlAccounting("GET /api/v2/situations") : null;
+        const started = process.hrtime.bigint();
+        sitApi.listCanonicalSituationApiResponses(query);
+        const ms = Number(process.hrtime.bigint() - started) / 1e6;
+        return { ms, usage: finish?.() };
+      };
+
+      // Warm the build caches and let both call sites JIT before measuring.
+      for (let i = 0; i < 3; i++) { once(false); once(true); }
+
+      const closedMs: number[] = [];
+      const openMs: number[] = [];
+      let statements = 0;
+      let sqlMs = 0;
+      for (let i = 0; i < PAIRS; i++) {
+        closedMs.push(once(false).ms);
+        const open = once(true);
+        openMs.push(open.ms);
+        statements = open.usage?.statements ?? statements;
+        sqlMs = open.usage?.ms ?? sqlMs;
+      }
+
+      const min = (xs: number[]) => Math.min(...xs);
+      const closed = min(closedMs);
+      const opened = min(openMs);
+      const delta = opened - closed;
+      /** What a run-to-run difference costs with nothing changed at all. */
+      const noiseFloorMs = Math.max(...closedMs) - closed;
+      /** What the per-statement number predicts for this many statements. */
+      const predictedMs = (statements * 511) / 1e6; // 511ns/statement, measured above
+
+      console.log(
+        `[measured] situations build, ${PAIRS} interleaved pairs, min of each arm: ` +
+        `${closed.toFixed(1)}ms unaccounted vs ${opened.toFixed(1)}ms accounted over ` +
+        `${statements} statements (sql ${sqlMs.toFixed(1)}ms) — delta ${delta.toFixed(2)}ms, ` +
+        `noise floor ${noiseFloorMs.toFixed(2)}ms, predicted from per-statement cost ` +
+        `${predictedMs.toFixed(3)}ms`,
+      );
+
+      expect(statements).toBeGreaterThan(0);
+      // The claim this suite can actually keep: the hook is not resolvable above
+      // the noise of running the same build twice. The per-statement test above
+      // is what bounds the cost itself (511ns x 76 statements = 0.04ms here);
+      // this one exists so a regression that made the hook cost MILLISECONDS per
+      // build — re-reading Statement.source for every statement, re-collapsing a
+      // 4KB DDL script 15 times — would fail instead of hiding in the noise.
+      expect(Math.abs(delta)).toBeLessThan(noiseFloorMs + 2);
     });
   });
 });

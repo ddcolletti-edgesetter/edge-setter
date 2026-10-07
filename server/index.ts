@@ -14,8 +14,9 @@ import { startEventLoopMonitor, trackJob, trackRequest } from "./event-loop-moni
 import { startLoopWatchdog } from "./loop-watchdog";
 import {
   installSqlAccounting, beginSqlAccounting, ACCOUNTED_PATHS, formatSqlUsage,
-  type SqlUsage,
+  formatSlowestStatements, type SqlUsage,
 } from "./sql-accounting";
+import { scheduleDbDiagnostics } from "./db-diagnostics";
 
 // Before any module opens a Database handle: the hook patches the shared
 // better-sqlite3 prototypes, so it must be in place before the first statement
@@ -70,7 +71,15 @@ export function log(message: string, source = "express") {
 // around next(): every accounted route is a synchronous handler, so the whole
 // handler — and nothing from any other request — runs inside that window.
 // A slow request then says WHY it was slow: `in 31649ms sql=30644/31649.3ms` is
-// an N+1, `in 1800ms sql=92/1756.0ms` is one bad plan.
+// an N+1, `in 1800ms sql=92/1756.0ms` is one bad plan — and the `top sql` line
+// that follows names the statement, so "one bad plan" does not need a second
+// prod run to identify.
+//
+// `res.locals.sqlUsage`: a handler that does its SQL somewhere this window
+// cannot see — /api/v2/situations builds in a worker thread — sets its own usage
+// there and it wins. Without that the line would read `sql=0/0.0ms` for the
+// slowest endpoint on the service, which is true of the main thread and useless
+// to whoever is reading the log.
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
@@ -81,14 +90,17 @@ app.use((req, res, next) => {
   const finish = () => {
     if (!done) return;
     done();
-    log(`${req.method} ${path} ${res.statusCode} in ${Date.now() - start}ms${formatSqlUsage(usage)}`);
+    const reported = (res.locals?.sqlUsage as SqlUsage | undefined) ?? usage;
+    log(`${req.method} ${path} ${res.statusCode} in ${Date.now() - start}ms${formatSqlUsage(reported)}`);
+    const top = formatSlowestStatements(reported);
+    if (top) log(`${req.method} ${path} top sql: ${top}`);
   };
   res.once("finish", finish);
   res.once("close", () => done?.());
 
   if (!ACCOUNTED_PATHS.has(path)) return next();
 
-  const finishAccounting = beginSqlAccounting();
+  const finishAccounting = beginSqlAccounting(`${req.method} ${path}`);
   try {
     next();
   } finally {
@@ -239,6 +251,10 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      // One-shot DB shape report (file size, journal_mode, estimated row counts
+      // for the tables /api/v2/situations reads). Deferred, bounded, and never
+      // a COUNT(*) — see db-diagnostics.ts.
+      scheduleDbDiagnostics();
     },
   );
 })();
