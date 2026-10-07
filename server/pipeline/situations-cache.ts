@@ -544,32 +544,109 @@ export async function warmSituationsCache(
 }
 
 /**
+ * A timer that cannot hold the process open, as a promise.
+ *
+ * `unref` matters here: the warm-up now waits minutes, and a boot that is
+ * shutting down must not be kept alive by a pending warm-up.
+ */
+function sleep(ms: number): Promise<void> {
+  if (ms <= 0) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    timer.unref();
+  });
+}
+
+/** Floor on how long after listen the warm-up may start. */
+const warmupFloorMs = () => envInt("SITUATIONS_WARMUP_DELAY_MS", 120_000, 0, 1_800_000);
+/** Cap on how long it will wait for the boot ingestion cycle to finish. */
+const warmupMaxWaitMs = () => envInt("SITUATIONS_WARMUP_MAX_WAIT_MS", 600_000, 0, 1_800_000);
+
+export type WarmupGate = "settled" | "timeout" | "none";
+
+/**
+ * Wait until it is safe to warm: the boot ingestion cycle has finished AND at
+ * least the floor has elapsed since listen.
+ *
+ * WHY, measured on the #81 deploy (Oct 7 03:20 UTC). The warm-up fired 12s after
+ * listen, which landed it on top of the first ingestion cycle. The main thread
+ * then blocked 6.8s in `ingest:settlement` — 6.66s of it in
+ * `settlement:read-nullgame` — while the worker was doing its own cold reads of
+ * the same 5GB file. That step did not block in the #80 boot, which had no
+ * warm-up. The worker keeps the BUILD off the event loop; it does not give the
+ * process a second disk, and 6.8s is over Render's 5s health-check budget.
+ *
+ * BOTH CONDITIONS, not either. The floor alone would still race a slow cycle;
+ * the gate alone would fire the instant a fast cycle finished, possibly while
+ * roster-refresh (20s) or site-watch (150s) is still on the ladder.
+ *
+ * THE CAP IS NOT OPTIONAL. `whenInitialIngestionSettled()` never resolves if the
+ * scheduler was never started (vitest, INGESTION off), and a warm-up that waited
+ * forever would silently stop existing. After the cap it warms anyway and says
+ * so — a warm-up overlapping ingestion is a worse boot, not a dead one.
+ *
+ * Tunable without a deploy, like the rest of the boot ladder:
+ * SITUATIONS_WARMUP_DELAY_MS (floor, 120s) and SITUATIONS_WARMUP_MAX_WAIT_MS
+ * (cap, 600s).
+ */
+export async function awaitWarmupWindow(
+  after: Promise<unknown> | undefined,
+  since: number = Date.now(),
+): Promise<{ waitedMs: number; gate: WarmupGate }> {
+  const floor = warmupFloorMs();
+  let gate: WarmupGate = "none";
+  if (after) {
+    const cap = warmupMaxWaitMs();
+    gate = await Promise.race([
+      after.then(() => "settled" as const, () => "settled" as const),
+      sleep(cap).then(() => "timeout" as const),
+    ]);
+  }
+  const remaining = floor - (Date.now() - since);
+  if (remaining > 0) await sleep(remaining);
+  return { waitedMs: Date.now() - since, gate };
+}
+
+/**
  * Schedule the warm-up for after listen. SITUATIONS_WARMUP=0 disables it.
  *
- * Deferred past the health check and past the DB-shape report, and last on the
- * boot ladder relative to nothing — it runs in the worker, so unlike every other
- * entry on that ladder it does not compete for the event loop. Without a worker
- * (dev, vitest) it would build in-thread and block, so it is skipped there: a
- * warm-up is an optimisation, and an optimisation that blocks the loop for a
- * minute at boot is not one.
+ * `after` is the boot ingestion cycle (index.ts passes
+ * `whenInitialIngestionSettled()`); the warm-up does not start until it has
+ * finished. Passed in rather than imported so this module does not pull the
+ * ingestion graph in behind it.
+ *
+ * Without a worker (dev, vitest) the warm-up would build in-thread and block, so
+ * it is skipped there: a warm-up is an optimisation, and an optimisation that
+ * blocks the loop for a minute at boot is not one.
+ *
+ * Returns a promise that settles when the warm-up has finished, for tests and
+ * for anything that wants to know. Callers at boot ignore it.
  */
-export function scheduleSituationsWarmup(): void {
-  if (process.env.SITUATIONS_WARMUP === "0") return;
+export function scheduleSituationsWarmup(
+  after?: Promise<unknown>,
+): Promise<void> {
+  if (process.env.SITUATIONS_WARMUP === "0") return Promise.resolve();
   if (!situationsWorkerAvailable()) {
     console.log("[situations-cache] warm-up skipped: no worker, and warming in-thread would block the loop");
-    return;
+    return Promise.resolve();
   }
-  const raw = Number(process.env.SITUATIONS_WARMUP_DELAY_MS);
-  const delay = Number.isFinite(raw) && raw >= 0 ? Math.min(600_000, Math.round(raw)) : 12_000;
-  const timer = setTimeout(() => {
+  const listenedAt = Date.now();
+  return (async () => {
+    const window = await awaitWarmupWindow(after, listenedAt);
+    console.log(
+      `[situations-cache] warm-up starting ${window.waitedMs}ms after listen ` +
+      `(ingestion-initial: ${window.gate}, floor ${warmupFloorMs()}ms, cap ${warmupMaxWaitMs()}ms)`,
+    );
     const started = Date.now();
-    void warmSituationsCache()
-      .then((warmed) => console.log(
+    try {
+      const warmed = await warmSituationsCache();
+      console.log(
         `[situations-cache] warm-up cached ${warmed}/${WARMUP_SHAPES.length} shapes in ${Date.now() - started}ms`,
-      ))
-      .catch((e: any) => console.warn(`[situations-cache] warm-up failed: ${e?.message ?? e}`));
-  }, delay);
-  timer.unref();
+      );
+    } catch (e: any) {
+      console.warn(`[situations-cache] warm-up failed: ${e?.message ?? e}`);
+    }
+  })();
 }
 
 /* ─── Test and ops surface ─────────────────────────────────────────────────── */

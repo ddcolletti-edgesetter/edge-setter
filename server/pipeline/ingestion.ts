@@ -636,6 +636,31 @@ export function bootDelayMs(name: string, defaultMs: number): number {
   return Math.min(30 * 60_000, Math.round(raw));
 }
 
+/**
+ * Resolves once the boot ingestion cycle has finished — however it finished.
+ *
+ * The situations warm-up needs this. On the #81 deploy (Oct 7 03:20 UTC) the
+ * warm-up fired 12s after listen and its cold reads in the worker overlapped the
+ * main thread's first ingestion cycle: `settlement:read-nullgame` blocked the
+ * loop for 6.66s inside a 6.8s `ingest:settlement` span, over Render's 5s
+ * health-check budget. The same step did not block in the #80 boot, which did
+ * not have a warm-up. Two threads hitting a cold 5GB file at once is the
+ * difference, so they are separated in time instead.
+ *
+ * Created at module load, not in startIngestionScheduler, so a subscriber that
+ * registers before the scheduler starts still sees it. If the scheduler never
+ * runs at all — vitest, a dev boot with ingestion off — this never resolves,
+ * which is why every waiter must carry its own upper bound.
+ */
+let markInitialIngestionSettled: () => void = () => {};
+const initialIngestionSettled = new Promise<void>((resolve) => {
+  markInitialIngestionSettled = resolve;
+});
+
+export function whenInitialIngestionSettled(): Promise<void> {
+  return initialIngestionSettled;
+}
+
 export function startIngestionScheduler() {
   const FAST_INTERVAL_MS     = 5 * 60 * 1000;   // tier1 + SID — the timing-advantage tier
   const STANDARD_INTERVAL_MS = 15 * 60 * 1000;  // tier2–5, aggregators, odds, settlement
@@ -659,7 +684,16 @@ export function startIngestionScheduler() {
 
   setTimeout(async () => {
     console.log("[ingestion] Starting initial cycle...");
-    await trackJob("ingestion-initial", () => runIngestionCycle()); // full first run, fast tier included
+    const cycleStarted = Date.now();
+    try {
+      await trackJob("ingestion-initial", () => runIngestionCycle()); // full first run, fast tier included
+    } finally {
+      // In a finally, not after the await: a failed cycle is still a finished
+      // one as far as "stop overlapping it" is concerned, and a warm-up that
+      // waited forever on a cycle that threw would never run at all.
+      console.log(`[ingestion] Initial cycle settled after ${Date.now() - cycleStarted}ms`);
+      markInitialIngestionSettled();
+    }
 
     // Standard tier: everything except tier1 sources (fast tier owns those)
     setInterval(async () => {
