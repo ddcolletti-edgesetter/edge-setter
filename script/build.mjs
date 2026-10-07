@@ -44,18 +44,35 @@ async function buildAll() {
   ];
   const externals = allDeps.filter((dep) => !allowlist.includes(dep));
 
-  await esbuild({
-    entryPoints: ["server/index.ts"],
+  const serverBundle = {
     platform: "node",
     bundle: true,
     format: "cjs",
-    outfile: "dist/index.cjs",
     define: {
       "process.env.NODE_ENV": '"production"',
     },
     minify: true,
     external: externals,
     logLevel: "info",
+  };
+
+  await esbuild({
+    ...serverBundle,
+    entryPoints: ["server/index.ts"],
+    outfile: "dist/index.cjs",
+  });
+
+  // The situations build runs in a worker_threads Worker, which needs its own
+  // entry file — a Worker loads a path, not a function. CJS and .cjs on purpose:
+  // Node picks the module system from the extension, and the server bundle is
+  // already CJS. situations-cache.ts looks for exactly this path and falls back
+  // to building in-thread when it is missing, so a stale dist/ degrades rather
+  // than crashing.
+  console.log("building situations worker...");
+  await esbuild({
+    ...serverBundle,
+    entryPoints: ["server/pipeline/situations-worker.ts"],
+    outfile: "dist/situations-worker.cjs",
   });
 }
 

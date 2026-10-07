@@ -42,7 +42,8 @@ import {
 } from "./store";
 import { processRawEvents, processOne } from "./processor";
 import { runIngestionCycle } from "./ingestion";
-import { listCanonicalSituationApiResponses, type CanonicalSituationOrderBy } from "./situations-api";
+import { type CanonicalSituationOrderBy } from "./situations-api";
+import { getSituationsPayload } from "./situations-cache";
 import { ingestNFLInjuries } from "./adapters/espn-nfl";
 import { ingestCFBInjuries } from "./adapters/espn-cfb";
 import { ingestOdds } from "./adapters/the-odds-api";
@@ -282,8 +283,15 @@ export function registerPipelineRoutes(app: Express) {
    *
    * Canonical situation feed for future board/homepage use.
    * Signals remain the public delivery surface during the transition.
+   *
+   * The build runs in a worker thread behind a stale-while-revalidate cache
+   * (situations-cache.ts). better-sqlite3 is synchronous, so a 22s build on this
+   * thread is 22s with nothing else running — including /healthz, which is how
+   * Render killed the instance on Oct 7 02:19 UTC. The response body is byte-for
+   * -byte what the in-thread build produced; `X-Situations-Cache` and
+   * `X-Situations-Age-Ms` are headers, so no client parses anything new.
    */
-  app.get("/api/v2/situations", (req: Request, res: Response) => {
+  app.get("/api/v2/situations", async (req: Request, res: Response) => {
     const {
       league,
       sport,
@@ -311,7 +319,7 @@ export function registerPipelineRoutes(app: Express) {
     const validOrder = new Set(["operational_visibility_score", "escalation_score", "confidence", "updated_at"]);
     const requestedOrder = order_by ?? orderBy;
     const requestedActiveOnly = active_only ?? activeOnly;
-    const situations = listCanonicalSituationApiResponses({
+    const result = await getSituationsPayload({
       league,
       sport,
       situationType: situation_type ?? situationType,
@@ -320,7 +328,13 @@ export function registerPipelineRoutes(app: Express) {
       orderBy: validOrder.has(requestedOrder ?? "") ? requestedOrder : "updated_at",
       limit,
     });
-    return res.json({ count: situations.length, situations });
+    // The main thread ran ~no SQL for this request, so the accounting window
+    // around next() would log `sql=0/0.0ms`. Report the build's own numbers
+    // instead — see sql-accounting.ts and the middleware in index.ts.
+    if (result.usage) res.locals.sqlUsage = result.usage;
+    res.setHeader("X-Situations-Cache", result.state);
+    res.setHeader("X-Situations-Age-Ms", String(result.ageMs));
+    return res.json(result.payload);
   });
 
   /**
@@ -329,13 +343,27 @@ export function registerPipelineRoutes(app: Express) {
    * Returns a single canonical situation by id.
    * Note: pipeline.db location is controlled by PIPELINE_DATA_DIR env var.
    * On Render with a persistent disk mounted, situation data survives dyno restarts.
+   *
+   * This builds 500 situations to answer for one, which is the same unbounded
+   * synchronous build as the list route — it is the story page's endpoint, so
+   * leaving it on the main thread would have left the hole this change exists to
+   * close. It goes through the same cache. Narrowing it to read one situation
+   * instead of five hundred is a separate, better fix.
    */
-  app.get("/api/v2/situations/:id", (req: Request, res: Response) => {
+  app.get("/api/v2/situations/:id", async (req: Request, res: Response) => {
     const rawId = routeParam(req.params.id);
     const id = rawId.replace(/^canonical-/, "");
-    const all = listCanonicalSituationApiResponses({ limit: 500 });
-    const situation = all.find((s) => s.id === id);
+    const result = await getSituationsPayload({ limit: 500 });
+    if (result.usage) res.locals.sqlUsage = result.usage;
+    res.setHeader("X-Situations-Cache", result.state);
+    const situation = result.payload.situations.find((s) => s.id === id);
     if (!situation) {
+      // A cold build that did not finish in time has an EMPTY payload, so "not
+      // in it" does not mean "does not exist". Answering 404 there would tell the
+      // story page a real situation is gone; 503 tells it to come back.
+      if (result.state === "timeout") {
+        return res.status(503).json({ error: "Situation index still building. Retry shortly." });
+      }
       return res.status(404).json({
         error: "Situation not found.",
       });
