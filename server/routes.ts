@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { Server } from "http";
-import { storage, getStorageDb, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress, getVerifiedCountBySource } from "./storage";
+import { storage, getStorageDb, getAlertPreferences, upsertAlertPreferences, getActiveAlertUsers, getPushSubscriptions, upsertPushSubscription, deletePushSubscription, getAllPipelineHealth, getAllBackfillProgress } from "./storage";
+import { getLeaderboard } from "./leaderboard-cache";
 import { runFullBackfill } from "./pipeline/backfill";
 import { insertSignalSchema, insertWaitlistSchema, type User } from "@shared/schema";
 import { sendDailyDigest } from "./email";
@@ -430,14 +431,15 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ─── Source Leaderboard ───────────────────────────────────────────────────────
+  // Behind a 60s TTL cache. The body is unchanged; the cold 1.2s is the
+  // json_each scan of settled_outcomes in getVerifiedCountBySource, and it is a
+  // ~36-row aggregate over the whole table that moves when settlement runs, not
+  // when someone loads the page. See leaderboard-cache.ts.
   app.get("/api/leaderboard", (_req, res) => {
-    const scores = storage.getSourceScores();
-    const verifiedMap = getVerifiedCountBySource();
-    const result = scores.map(s => ({
-      ...s,
-      verified_count: verifiedMap.get(s.source_name) ?? 0,
-    }));
-    res.json(result);
+    const result = getLeaderboard();
+    res.setHeader("X-Leaderboard-Cache", result.state);
+    res.setHeader("X-Leaderboard-Age-Ms", String(result.ageMs));
+    res.json(result.rows);
   });
 
   // ─── Sport Scoreboards (ESPN free API) ───────────────────────────────────────
