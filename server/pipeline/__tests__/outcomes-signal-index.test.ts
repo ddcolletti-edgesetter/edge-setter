@@ -215,33 +215,18 @@ describe("outcomes index coverage", () => {
   });
 
   /**
-   * The accuracy and calibration joins from the brief's audit list. These filter
-   * on live_signals and reach outcomes by signal_id, so the new index is what
-   * keeps the outcomes side a seek. Grouping/ordering a handful of per-league
-   * aggregate rows in a temp B-tree is fine and is not asserted against.
+   * The four accuracy/replay joins that used to be asserted here have moved to
+   * settlement-plan-pins.test.ts, against the exported SQL production now
+   * prepares rather than copies of it.
+   *
+   * They were on a "SEARCH o, never SCAN o" guard, which the follow-up PR
+   * deliberately inverts: pinning the loop order with CROSS JOIN makes the
+   * outcomes side a COVERING SCAN of the partial index and the live_signals side
+   * the seek. SEARCH o was the symptom of driving the join from the wrong table,
+   * not the goal — the same correction getTrackRecord got below when #80 pinned
+   * it. Asserting the old shape against the new SQL would fail; asserting it
+   * against these copies would have passed while production ran something else.
    */
-  it("drives every accuracy join into outcomes by index seek", () => {
-    const joins: Array<[string, string, unknown[]]> = [
-      ["settlement.ts accuracy overall", ACCURACY_OVERALL, ["NFL"]],
-      ["settlement.ts accuracy by type", ACCURACY_BY_TYPE, ["NFL"]],
-      ["settlement.ts accuracy per source", ACCURACY_PER_SOURCE, ["NFL"]],
-      ["replay-validation.ts signal ids for league", SIGNAL_IDS_FOR_LEAGUE, ["NFL"]],
-    ];
-    for (const [name, sql, args] of joins) {
-      const plan = planFor(sql, ...args);
-      // Either outcomes index is an acceptable seek here. Since PR #80 added
-      // idx_outcomes_settled_signal — partial on exactly this WHERE
-      // (hit IS NOT NULL AND excluded_stale = 0) and covering (signal_id, hit,
-      // clv) — the planner prefers it for the three settlement statements, and
-      // is right to: on a 150k/75k fixture it is the cheaper of the two plans
-      // (overall 291 -> 275ms, per source 311 -> 274ms). The guard that still
-      // matters is the one below — the outcomes side must not go back to a scan.
-      expect(plan, `${name}: ${plan}`).toMatch(
-        /SEARCH o USING (COVERING )?INDEX (idx_outcomes_signal_created|idx_outcomes_settled_signal)/,
-      );
-      expect(plan, `${name}: ${plan}`).not.toMatch(/\bSCAN o\b/);
-    }
-  });
 
   /**
    * getTrackRecord is no longer this shape, so it gets its own assertion
@@ -380,33 +365,6 @@ describe("outcomes index coverage", () => {
  * into exported constants would churn three modules for queries whose plans the
  * new index already serves. The assertion that matters — the outcomes side is a
  * seek — holds for the shape, and the shape is what the join fixes. */
-
-const ACCURACY_OVERALL = `
-  SELECT COUNT(*) AS total,
-         SUM(CASE WHEN o.hit = 1 THEN 1 ELSE 0 END) AS wins,
-         SUM(CASE WHEN o.hit = 0 THEN 1 ELSE 0 END) AS losses,
-         AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END) AS avg_clv
-  FROM outcomes o
-  JOIN live_signals s ON s.id = o.signal_id
-  WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
-`;
-
-const ACCURACY_BY_TYPE = `${ACCURACY_OVERALL} GROUP BY s.signal_type`;
-
-const ACCURACY_PER_SOURCE = `
-  SELECT s.id, s.signal_type, s.sources, o.hit, o.clv
-  FROM outcomes o
-  JOIN live_signals s ON s.id = o.signal_id
-  WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
-`;
-
-const SIGNAL_IDS_FOR_LEAGUE = `
-  SELECT DISTINCT o.signal_id
-  FROM outcomes o
-  JOIN live_signals s ON s.id = o.signal_id
-  WHERE s.league = ?
-  ORDER BY o.signal_id ASC
-`;
 
 const CALIBRATION_SETTLED = `
   SELECT o.hit, o.clv, s.league, s.signal_type, s.breakdown

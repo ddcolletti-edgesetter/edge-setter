@@ -615,6 +615,39 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     CREATE INDEX IF NOT EXISTS idx_live_signals_unsettled_nullgame
       ON live_signals(created_at)
       WHERE game_id IS NULL AND outcome_id IS NULL AND betting_relevance=1;
+    -- The index getUnsettledSignalsWithoutGameId actually needs, and the reason
+    -- the one above it was not enough.
+    --
+    -- That one omits settlement_expired, so a parked row is still an index entry
+    -- and still costs a table fetch to find out it is parked. The whole point of
+    -- parking (fix/settlement-stale-matches) was to stop the settlement queue
+    -- re-reading the never-matchable backlog every cycle, and prod's backlog is
+    -- the OLDEST part of the table — exactly the prefix a created_at ASC walk
+    -- hits first. On a fixture shaped like prod's post-migration state (7,733 of
+    -- 8,333 candidates parked, 600 settleable) that prefix costs 64.8ms against
+    -- 9.0ms for this index, which carries the flag and so skips them entirely.
+    --
+    -- WITHOUT THE INDEXED BY PIN BELOW THIS INDEX IS DEAD WEIGHT. The planner
+    -- prefers idx_live_signals_game_outcome's two-column equality seek on
+    -- (game_id IS NULL, outcome_id IS NULL) and then sorts what it finds, so
+    -- adding this index alone changed nothing at all: measured 124ms before and
+    -- after, same plan. That plan also makes the statement's LIMIT 500 useless —
+    -- it materialises every null-game row, parked ones included, sorts them in a
+    -- temp b-tree and then takes 500. 121→9.8ms once pinned to an index that
+    -- supplies the order; SELECT id instead of SELECT * saves 4ms of the 121,
+    -- so the projection was never the cost: the per-candidate row fetch was.
+    --
+    -- BOOT COST: this is built pre-listen, inside initSchema on the first
+    -- getPipelineDb(). Measured in isolation on the 722MB / 150k-row fixture:
+    -- 0.95s and 272KB with 8,333 rows qualifying, 3.7s on a colder run of the
+    -- same file with only 600 qualifying (24KB) — so call it 1-4s, read-bound
+    -- rather than size-bound, because the WHERE has to be evaluated against
+    -- every row of the table whatever ends up in the index. Once, on the first
+    -- boot after this deploys; IF NOT EXISTS is 0ms on every boot after.
+    CREATE INDEX IF NOT EXISTS idx_live_signals_settleable_nullgame
+      ON live_signals(created_at)
+      WHERE game_id IS NULL AND outcome_id IS NULL AND betting_relevance=1
+        AND settlement_expired=0;
     CREATE INDEX IF NOT EXISTS idx_live_signals_game_outcome
       ON live_signals(game_id, outcome_id);
     -- Drives archiveFinishedMarketSignals: leading (signal_type, is_archived)
@@ -1372,9 +1405,21 @@ export function getSettleable(): any[] {
  * Signals with no game_id that are still betting-relevant and unsettled.
  * These are settled by matching team + next final game after signal creation.
  */
-export function getUnsettledSignalsWithoutGameId(): any[] {
-  return getPipelineDb().prepare(`
+/**
+ * Exported for the plan test. `INDEXED BY` is load-bearing, not decoration: the
+ * planner will not choose either null-game partial index on its own, and the
+ * plan it does choose ignores the LIMIT. See the index comment in initSchema.
+ *
+ * The pin makes the index a hard dependency — drop or rename
+ * idx_live_signals_settleable_nullgame and this statement raises "no such
+ * index" instead of quietly going back to 121ms, which is the trade
+ * idx_live_signals_active_score already makes on the delivery feed. The index
+ * is created in initSchema, which getPipelineDb runs before handing out the
+ * handle, so it exists before any caller can reach this.
+ */
+export const UNSETTLED_NULLGAME_SQL = `
     SELECT * FROM live_signals
+    INDEXED BY idx_live_signals_settleable_nullgame
     WHERE game_id IS NULL
       AND betting_relevance = 1
       AND outcome_id IS NULL
@@ -1382,7 +1427,10 @@ export function getUnsettledSignalsWithoutGameId(): any[] {
       AND settlement_expired = 0
     ORDER BY created_at ASC
     LIMIT 500
-  `).all();
+  `;
+
+export function getUnsettledSignalsWithoutGameId(): any[] {
+  return getPipelineDb().prepare(UNSETTLED_NULLGAME_SQL).all();
 }
 
 /**

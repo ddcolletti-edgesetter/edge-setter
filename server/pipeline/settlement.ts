@@ -502,6 +502,75 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
  * All results written to pipeline.db → pipeline_source_accuracy.
  * Then syncAccuracyToStorageDb() copies them to storage.db for persistence.
  */
+/**
+ * The three accuracy statements, exported for the plan test.
+ *
+ * WHY `CROSS JOIN`: all three filter on `s.league = ?` — a predicate on the
+ * JOINED table and nothing else — so the planner drives from `live_signals` and
+ * probes `outcomes` once per signal in the league. That is 37,500 fat rows per
+ * league on a prod-shaped fixture, 150,000 per call, the whole table, to
+ * aggregate the ~6,000 outcomes that qualify. CROSS JOIN is an inner join that
+ * additionally forbids loop reordering — identical row set, pinned order — and
+ * the right order is `outcomes` outer: one pass over the rows the WHERE keeps,
+ * each row's signal probed by id. `idx_outcomes_settled_signal` makes that pass
+ * covering and `idx_live_signals_id_league_type` makes the probe covering for
+ * passes 1 and 2 (pass 3 projects `s.sources`, so it still fetches its row).
+ *
+ * Measured on the 150k-signal / 75k-outcome fixture, warm, best of 3, all four
+ * leagues (12 statements):
+ *
+ *   as shipped before this change   3,890ms
+ *   CROSS JOIN pinned                 353ms
+ *
+ * Per statement, NFL/CFB: pass 1 286→14ms / 272→12ms, pass 2 419→10ms /
+ * 400→16ms, pass 3 277→9ms / 294→89ms. Consistent in both measurement
+ * orderings (shipped-first and pinned-first), so it is not a cache artifact.
+ *
+ * THIS IS THE #80 FOLLOW-UP, and the regression it recovers is #78+#79's, not
+ * this file's: #78's `idx_outcomes_signal_created` moved the join off its
+ * `SCAN o | SEARCH s (pk)` plan, and then #79's
+ * `idx_live_signals_injury_dedup (league, signal_type, player, injury_designation)`
+ * started being picked for the bare `s.league = ?` — a four-column index serving
+ * a one-column predicate, because its leading column is `league`. Confirmed in
+ * the plans: it is chosen for pass 2 (which also needs `s.signal_type`, which
+ * that index covers), and pass 2 is the slowest of the three in every league.
+ * See docs/settlement-boot-block.md and docs/request-path-query-audit.md.
+ *
+ * Pass 2 keeps a `TEMP B-TREE FOR GROUP BY` once pinned: it groups on a column
+ * of the joined table, and no index removes that.
+ */
+export const ACCURACY_OVERALL_SQL = `
+      SELECT
+        COUNT(*)                                                   AS total,
+        SUM(CASE WHEN o.hit = 1 THEN 1 ELSE 0 END)                AS wins,
+        SUM(CASE WHEN o.hit = 0 THEN 1 ELSE 0 END)                AS losses,
+        AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END)  AS avg_clv
+      FROM outcomes o
+      CROSS JOIN live_signals s ON s.id = o.signal_id
+      WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
+    `;
+
+export const ACCURACY_BY_TYPE_SQL = `
+      SELECT
+        s.signal_type,
+        COUNT(*)                                                   AS total,
+        SUM(CASE WHEN o.hit = 1 THEN 1 ELSE 0 END)                AS wins,
+        SUM(CASE WHEN o.hit = 0 THEN 1 ELSE 0 END)                AS losses,
+        AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END)  AS avg_clv
+      FROM outcomes o
+      CROSS JOIN live_signals s ON s.id = o.signal_id
+      WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
+      GROUP BY s.signal_type
+    `;
+
+export const ACCURACY_PER_SOURCE_SQL = `
+      SELECT s.id, s.signal_type, s.sources,
+             o.hit, o.clv
+      FROM outcomes o
+      CROSS JOIN live_signals s ON s.id = o.signal_id
+      WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
+    `;
+
 export function computeSourceAccuracy(): void {
   const db = getPipelineDb();
   ensureAccuracyTable(db);
@@ -510,32 +579,12 @@ export function computeSourceAccuracy(): void {
 
   for (const league of leagues) {
     // ── Pass 1: Overall per league ──────────────────────────
-    const overall = db.prepare(`
-      SELECT
-        COUNT(*)                                                   AS total,
-        SUM(CASE WHEN o.hit = 1 THEN 1 ELSE 0 END)                AS wins,
-        SUM(CASE WHEN o.hit = 0 THEN 1 ELSE 0 END)                AS losses,
-        AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END)  AS avg_clv
-      FROM outcomes o
-      JOIN live_signals s ON s.id = o.signal_id
-      WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
-    `).get(league) as any;
+    const overall = db.prepare(ACCURACY_OVERALL_SQL).get(league) as any;
 
     upsertAccuracy(db, league, null, null, null, null, overall);
 
     // ── Pass 2: Per signal_type ──────────────────────────────
-    const byType = db.prepare(`
-      SELECT
-        s.signal_type,
-        COUNT(*)                                                   AS total,
-        SUM(CASE WHEN o.hit = 1 THEN 1 ELSE 0 END)                AS wins,
-        SUM(CASE WHEN o.hit = 0 THEN 1 ELSE 0 END)                AS losses,
-        AVG(CASE WHEN o.clv IS NOT NULL THEN o.clv ELSE NULL END)  AS avg_clv
-      FROM outcomes o
-      JOIN live_signals s ON s.id = o.signal_id
-      WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
-      GROUP BY s.signal_type
-    `).all(league) as any[];
+    const byType = db.prepare(ACCURACY_BY_TYPE_SQL).all(league) as any[];
 
     for (const row of byType) {
       upsertAccuracy(db, league, row.signal_type, null, null, null, row);
@@ -543,13 +592,7 @@ export function computeSourceAccuracy(): void {
 
     // ── Pass 3: Per individual source (beat writer) ──────────
     // Pull all settled signals for this league with their sources JSON
-    const settledRows = db.prepare(`
-      SELECT s.id, s.signal_type, s.sources,
-             o.hit, o.clv
-      FROM outcomes o
-      JOIN live_signals s ON s.id = o.signal_id
-      WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
-    `).all(league) as any[];
+    const settledRows = db.prepare(ACCURACY_PER_SOURCE_SQL).all(league) as any[];
 
     // Tally hits/misses per source_id
     const sourceTally = new Map<string, {

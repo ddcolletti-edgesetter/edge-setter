@@ -168,15 +168,29 @@ function dedupeValidations(
   });
 }
 
-export function validateReplayParityForLeague(league: string): ReplayParityValidation {
-  const db = getPipelineDb();
-  const rows = db.prepare(`
+/**
+ * Exported for the plan test. `CROSS JOIN` for the same reason as the three
+ * accuracy statements in settlement.ts: `s.league = ?` is a predicate on the
+ * joined table and nothing else, so the planner drives from `live_signals` and
+ * probes `outcomes` once per signal in the league instead of passing over the
+ * outcomes it actually wants. See the comment on ACCURACY_OVERALL_SQL.
+ *
+ * Unlike those three this one has no `hit IS NOT NULL` term, so the partial
+ * `idx_outcomes_settled_signal` cannot serve it; the pinned plan uses #78's
+ * `idx_outcomes_signal_created` for the outer pass. Measured on the
+ * 150k-signal / 75k-outcome fixture: see docs/settlement-boot-block.md.
+ */
+export const LEAGUE_SIGNAL_IDS_SQL = `
     SELECT DISTINCT o.signal_id
     FROM outcomes o
-    JOIN live_signals s ON s.id = o.signal_id
+    CROSS JOIN live_signals s ON s.id = o.signal_id
     WHERE s.league = ?
     ORDER BY o.signal_id ASC
-  `).all(league) as { signal_id: string }[];
+  `;
+
+export function validateReplayParityForLeague(league: string): ReplayParityValidation {
+  const db = getPipelineDb();
+  const rows = db.prepare(LEAGUE_SIGNAL_IDS_SQL).all(league) as { signal_id: string }[];
 
   return buildParityValidation(
     "league",
