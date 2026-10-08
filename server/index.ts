@@ -8,7 +8,7 @@ import { runDailyOps } from "./daily-ops";
 import { archiveOldLiveSignals } from "./pipeline/store";
 import { runDistributionDraft } from "./distribution-draft";
 import { registerPipelineRoutes } from "./pipeline/routes";
-import { startIngestionScheduler, bootDelayMs } from "./pipeline/ingestion";
+import { startIngestionScheduler, bootDelayMs, whenInitialIngestionSettled } from "./pipeline/ingestion";
 import { runSettlementBacklogMigration } from "./pipeline/settlement";
 import { startEventLoopMonitor, trackJob, trackRequest } from "./event-loop-monitor";
 import { startLoopWatchdog } from "./loop-watchdog";
@@ -258,9 +258,17 @@ app.use((req, res, next) => {
       scheduleDbDiagnostics();
       // Build the situations payloads the client actually asks for, in the worker,
       // so the first visitor after a deploy is a cache hit rather than the ~44s
-      // cold build that killed the instance on Oct 7. Costs the main thread
-      // nothing, which is why it can sit on the boot ladder at all.
-      scheduleSituationsWarmup();
+      // cold build that killed the instance on Oct 7.
+      //
+      // NOT WHILE THE BOOT INGESTION CYCLE IS RUNNING. The worker keeps the build
+      // off the event loop; it does not give the process a second disk. On the
+      // Oct 7 03:20 boot the warm-up fired at 12s, landed on the first ingestion
+      // cycle, and the main thread blocked 6.8s in ingest:settlement (6.66s of it
+      // in settlement:read-nullgame) against a 5s health-check budget — a step
+      // that did not block at all in the #80 boot, which had no warm-up. So it
+      // waits for ingestion-initial to finish, and for a 120s floor after listen,
+      // whichever is later. SITUATIONS_WARMUP_DELAY_MS / _MAX_WAIT_MS tune it.
+      void scheduleSituationsWarmup(whenInitialIngestionSettled());
     },
   );
 })();
