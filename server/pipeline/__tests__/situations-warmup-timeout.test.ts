@@ -132,6 +132,23 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 describe("warm-up build timeout", () => {
   it("completes a build the request budget would have killed", async () => {
+    // BOOT THE WORKER FIRST, under a budget that can afford it.
+    //
+    // spawnWorker's boot timer uses buildTimeoutMs() -- the REQUEST budget
+    // (situations-cache.ts:302), the loose end named in #83 -- so the
+    // SHORT_BUDGET_MS set two lines below would be the worker's boot budget as
+    // well as the request budget. A worker-thread spawn under a parallel suite
+    // can exceed 1,000ms, and when it does the worker is dropped and the build
+    // silently falls back in-thread, failing the origin assertion below for a
+    // reason that has nothing to do with what this test is about. That is
+    // exactly what happened when the suite grew by one file.
+    //
+    // A fast shape (the stub only burns for league "SLOW") gets the worker up
+    // while the budget is still generous; afterEach shuts it down again.
+    process.env.SITUATIONS_BUILD_TIMEOUT_MS = "8000";
+    const boot = await cache.getSituationsPayload({ league: "FAST", limit: 1 });
+    expect(boot.usage?.origin).toMatch(/^worker,/);
+
     process.env.SITUATIONS_BUILD_TIMEOUT_MS = String(SHORT_BUDGET_MS);  // < SLOW_BUILD_MS
     process.env.SITUATIONS_WARMUP_BUILD_TIMEOUT_MS = "8000";            // > SLOW_BUILD_MS
 
