@@ -27,6 +27,18 @@ the cost.** `idx_situation_snapshots_situation` does not carry
 to 197ms. The snapshot covering index the brief proposes is worth nothing on
 this statement, and the variant it specifies is not even chosen by the planner.
 
+**On shipping that index (2g):** the build is a 1.35 GiB sequential scan,
+measured at 13.59s and **99 MiB/s on a disk with 3.4x that in headroom — so it
+is CPU-bound, not I/O-bound.** Prod scans the same 1.35 GiB on 0.5 CPU:
+**estimated 30–90s, plan for 2 minutes.** The brief's 60s gate is the wrong
+bar — Render gives the start command **15 minutes**, so a one-time pre-listen
+build fits with an order of magnitude to spare. The rewrite the brief names as
+the fallback was measured on this statement and is **worse** (15,279 ->
+15,849ms); it fixed a different statement. `preDeployCommand` is ruled out
+outright: it has no access to the persistent disk the database lives on.
+**Still a report, not a change** — the natural way to ship E puts the build on
+the main thread 45s after listen, which is a health-check kill.
+
 ## Fixture and method
 
 `scratchpad/prod-shape-fixture.ts`, rebuilt for this report (the copy behind
@@ -302,16 +314,88 @@ index.
 
 ### 2g. `CREATE INDEX` on the 5 GB prod file, and the port-bind question
 
-**Measured:** 14.59s for E on the 2.34 GiB fixture, **warm**, on a laptop NVMe.
-The build is read-bound, not size-bound — a partial index over 7,100 rows still
-has to evaluate `kind` against all 688,700, which is the same 1.35 GiB of
-`payload_json` the statement itself reads. Prod has the same event row count in
-a file 2.1x larger, 35.5% of it freelist, on a network disk, cold. **I did not
-measure that and cannot from here.** The one cold-vs-warm number on this fixture
-family was ~100x, which would put a cold build in minutes, not seconds; a laptop
-NVMe to a Render disk is itself a multiplier. Anything I quote for prod would be
-a guess, and this is the fourth report in a row to say the missing number is a
-cold one.
+**Measured:** 13.59s for E on a fresh copy of the 2.34 GiB fixture, and this
+time the build was decomposed rather than extrapolated. The build is a
+sequential scan: a partial index over 7,100 rows still has to evaluate `kind`
+against all 688,700, which is the 1,349 MiB `situation_events` occupies on this
+fixture's own `dbstat` (56.3% of the file).
+
+| | measured |
+|---|---:|
+| raw sequential read of the whole file, first touch | 2.34 GiB in 7.08s = **338 MiB/s** |
+| same read again | 2.34 GiB in 5.92s = 405 MiB/s |
+| `CREATE INDEX` E | **13.59s**, 0.12 MiB on disk |
+| bytes the build must scan (`dbstat`, `situation_events`) | **1,349 MiB** |
+| implied build throughput | 1,349 MiB / 13.59s = **99 MiB/s** |
+
+**This machine has 7.9 GiB of RAM and 1.3 GiB free against a 2.34 GiB file, so
+the "warm" label on every number in this report is generous — the file was never
+fully cacheable.** More usefully: the build moves at 99 MiB/s while the disk
+underneath it delivers 338 MiB/s. The build is **not disk-throughput bound at
+3.4x headroom; it is bound by b-tree traversal and `kind` evaluation, i.e. CPU.**
+
+**That corrects this report's own earlier extrapolation.** The ~100x cold-vs-warm
+figure quoted on this fixture family came from *random* fat-row probes, where the
+cost is per-seek latency. A `CREATE INDEX` is a *sequential* scan, a different
+I/O pattern entirely, and multiplying it by a random-read penalty was wrong. The
+revised estimate is built from volume and throughput instead:
+
+- **Prod's scan volume is the fixture's**, not 2.1x it. The fixture was built at
+  prod's row counts and prod has ~686,000 `situation_events` against the
+  fixture's 688,700, with the same payload shape — so prod's
+  `situation_events` is also **~1.35 GiB**. Prod's file is 2.1x larger because
+  35.5% of it is freelist and because of the other tables, and the build reads
+  none of that.
+- **Prod's CPU is the variable that matters, and it is worse.** `render.yaml`
+  pins `plan: starter` = **0.5 CPU, 512 MB RAM**. A CPU-bound build on half a
+  core is the dominant term; 512 MB also means no page cache worth having
+  against a 5 GB file, so every page is a real read, and 35.5% freelist makes
+  the scan less sequential than the fixture's.
+
+**Estimate: 30–90s, and I would plan for 2 minutes.** 13.6s x ~2-3 for 0.5 CPU
+gives 27–41s if Render's disk sustains 99 MiB/s; if it sustains only 25–50
+MiB/s the scan floor alone is 27–54s. **Render's disk throughput is the one
+number still unmeasured** — it cannot be had from this machine, and it is the
+difference between the bottom and the top of that range.
+
+### The port-bind budget, which this report previously declined to quote
+
+**15 minutes.** Render's deploy documentation gives the start command a
+15-minute timeout (alongside 120 minutes for the build command and 30 for the
+pre-deploy command). Render's port scanner runs inside that window; the public
+docs and tutorials do not publish a separate port-scan duration, and the only
+figure I found for one was a single community log showing ~7.5 minutes between
+the first "continuing to scan" line and "Timed out", which is one user's log and
+not a documented value.
+
+So the brief's gate — "more than ~60s and propose the rewrite instead" — is
+measuring against the wrong bar. **The budget is 15 minutes, not 60 seconds**,
+and a 30–90s estimate sits inside it with an order of magnitude to spare. Two
+things make it safer still: `CREATE INDEX IF NOT EXISTS` pays the build
+**exactly once**, on the first boot after the deploy, and is a catalog no-op on
+every boot after; and Render's zero-downtime deploy keeps the old instance
+serving throughout, so the failure mode of a slow build is a failed deploy, not
+an outage.
+
+**And the rewrite the brief names as the fallback is not available.** The
+two-stage order-then-fetch rewrite that worked in
+`docs/situations-latest-snapshot-read.md` (51 -> 18ms) addressed a *different*
+statement — the fat-row snapshot fetch. Applied here it targets the 1% term.
+Section 2d measured the rewrite for *this* statement: **15,279ms -> 15,849ms,
+worse.** No rewrite avoids reading 688,700 rows to learn their `kind`. If the
+index is refused, the statement stays at 15s; there is no third option, and that
+is the decision this report is asking for rather than assuming.
+
+### `preDeployCommand` cannot do it
+
+The obvious reading of the 15-minute/30-minute split is to move the build into
+Render's `preDeployCommand`, which exists precisely so long migrations do not
+delay port bind. **It does not work here.** Render's deploy docs state that the
+pre-deploy command runs on a separate instance from the service and **has no
+access to the service's attached persistent disk**, and that its filesystem
+changes do not carry over. `pipeline.db` lives on the `/var/data` disk
+(`render.yaml`), so a pre-deploy command cannot see the file it would be
+indexing. Ruled out on the documentation, not on a measurement.
 
 **Where the cost would land is the part that is knowable, and it is not where
 the brief assumes.** The pre-listen sequence (`server/index.ts`):
@@ -342,12 +426,16 @@ Three ways to place it, and what each costs:
    fresh databases get it and the live one sees a no-op `IF NOT EXISTS`. This is
    what was done for `idx_outcomes_signal_created` before #78 merged, and it is
    the only option that pays the cold build with nothing waiting on it.
-2. **In `initSchema`, pre-listen**, accepting an unknown-but-minutes-possible
-   delay to port bind. Render's zero-downtime deploy keeps the old instance
-   serving until the new one is healthy, so the failure mode is a failed deploy
-   rather than an outage — but I cannot tell you Render's port-bind timeout from
-   here and will not guess at it. Note also that `healthCheckPath` is
-   `/api/signals` (`render.yaml`), which runs
+2. **Pre-listen**, now that the budget is known: a one-time 30–90s delay to
+   port bind against a 15-minute start-command timeout, paid on the first boot
+   after the deploy and never again. This is viable where the earlier draft of
+   this report said it was not. The catch is placement, and it is not
+   `initSchema`: `situation_events` is created by `ensureSituationSchema`, so a
+   `CREATE INDEX` in `initSchema` (`store.ts`) would reference a table that may
+   not exist yet. Doing it properly means calling `ensureSituationSchema`
+   explicitly before `httpServer.listen` in `server/index.ts` — which is a
+   deliberate new pre-listen step, not a line added to an existing one. Note
+   also that `healthCheckPath` is `/api/signals` (`render.yaml`), which runs
    `SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100` — the health
    check is itself a cold fat-row read, so the budget after listen is not free
    either.
@@ -361,15 +449,35 @@ Three ways to place it, and what each costs:
    `SQLITE_BUSY`. That is the VACUUM finding again, at a fifteenth of the
    duration.
 
-**Recommendation: (1).** It is the only one whose worst case is "nothing
-happens", and the precedent exists.
+**Recommendation: (1), with (2) as the fallback if a hand-build is unwelcome.**
+
+(1) remains first because its worst case is "nothing happens" and the precedent
+exists — `idx_outcomes_signal_created` was hand-built on prod before #78. But
+the reason this report previously *rejected* (2) was an estimate of "minutes,
+not seconds" against an unknown timeout, and both halves of that turned out to
+be wrong: the build is 30–90s, and the timeout is 15 minutes. (2) is now a
+defensible option rather than a gamble, and unlike (1) it also fixes a fresh
+database and a disk restore without a human remembering to.
+
+(3) stays rejected, and for the reason given: the write lock, at 30–90s now
+rather than 15s, against a 5,000ms `busy_timeout` default that is also the
+health-check budget.
+
+**What is not on this list is shipping E as a bare line in
+`ensureSituationSchema` with no placement change.** With #82's warm-up gate, the
+first situations-store call of the process is the boot ingestion cycle's
+situations engine — main thread, ~45s after listen, inside the cycle that
+already blocked 16.8s on Oct 8. A 30–90s index build there is a health-check
+kill. That is the trap, it is the most natural way to write the change, and it
+is why this is still a report.
 
 ---
 
 ## 3. What I measured and what I did not
 
 **Measured:** every number in this document, on a locally built fixture at
-prod's row counts, warm. The term decomposition. Four candidate indexes, their
+prod's row counts, warm (and see 2g: with 1.3 GiB free against a 2.34 GiB file,
+"warm" overstates it). The term decomposition. Four candidate indexes, their
 build times and sizes. Two full plan-regression sweeps (nine statements on
 `situation_snapshots`, eight on `situation_events`). The no-index rewrite, and
 that it does not work. An interleaved re-measure of the one apparent regression,
@@ -382,7 +490,13 @@ which was cache churn.
   instead of 688,700 fat rows) should survive a cold disk better than the status
   quo does, because it is reading two orders of magnitude less — but "should" is
   not "did".
-- **`CREATE INDEX` on prod's actual file.** See 2g.
+- **Render's disk throughput.** 2g now decomposes the build into a 1.35 GiB
+  sequential scan at a measured 99 MiB/s on this machine, and names 0.5 CPU as
+  the dominant prod term — but what Render's network disk actually sustains is
+  unmeasured, and it is the whole width of the 30–90s range. It cannot be had
+  from this machine.
+- **`CREATE INDEX` on prod's actual file.** Still not run. 2g is an estimate
+  built from volume and throughput, not a measurement of prod.
 - **Whether prod's `situation_founding_audit` is populated.** I seeded 547 rows
   to keep the `NOT EXISTS` term honest; it is an 11ms term either way, so the
   result does not turn on it.
