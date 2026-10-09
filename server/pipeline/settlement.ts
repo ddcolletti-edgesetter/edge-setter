@@ -22,6 +22,7 @@ import {
   createOutcome,
   linkOutcomeToSignal,
   expireNullGameSignal,
+  takeCfbMatchStats,
   settlementWindowDays,
   archiveFinishedMarketSignals,
  getLatestSnapshotBefore,
@@ -308,9 +309,38 @@ export interface AutoSettleResult {
   signals_settled: number;
   signals_expired: number;
   market_signals_archived: number;
+  /** Final scores held back by the per-cycle cap; picked up next cycle. */
+  new_finals_deferred: number;
+  /** How the CFB score adapter resolved its games this cycle. */
+  cfb_game_resolution: { direct: number; alias: number; ambiguous: number; unmatched: number };
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/* ─── Per-cycle cap on newly finalised games ──────────────────────────
+ *
+ * Until the CFB alias lookup landed, 84% of CFB games never resolved to a
+ * games row, so they never went final and never settled. The first cycle after
+ * that change promotes the whole current ESPN week at once — up to ~130 games
+ * where a normal cycle sees a dozen — and every one of them puts its signals
+ * into getSettleable() in the same pass.
+ *
+ * forEachBounded already keeps any single span under LOOP_SPAN_BUDGET_MS, so
+ * this is not about the event loop; it is about the total wall clock of one
+ * `ingest:settlement` span staying well inside the 15-minute cycle, and about
+ * the accuracy recompute not being handed a season in one batch. Deferred
+ * games are not lost: ESPN keeps returning them and the next cycle takes the
+ * next slice, which is logged so the drain is visible.
+ */
+function envInt(name: string, fallback: number, min: number, max: number): number {
+  const raw = Number(process.env[name]);
+  if (!Number.isFinite(raw)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(raw)));
+}
+
+/** Games promoted from non-final to final per settlement cycle. */
+export const maxNewFinalsPerCycle = () =>
+  envInt("SETTLEMENT_MAX_NEW_FINALS_PER_CYCLE", 25, 1, 10_000);
 
 /* ─── Accuracy recompute debounce ─────────────────────────────
  * computeSourceAccuracy() + syncAccuracyToStorageDb() together scan every
@@ -346,17 +376,38 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
   // One getGame + conditional UPDATE per fetched score. Four leagues of final
   // scores is a few hundred row lookups in a single span; bounded so a cold disk
   // cannot turn that into a health-check failure.
-  const gamesUpdated = await trackJob("settlement:update-finals", async () => {
+  const cap = maxNewFinalsPerCycle();
+  const { gamesUpdated, newFinalsDeferred } = await trackJob("settlement:update-finals", async () => {
     let updated = 0;
+    let deferred = 0;
     await forEachBounded(allScores, ({ game_id, home_score, away_score }) => {
       const game = getGame(game_id);
       if (!game) return;
       if (game.status === "final" && game.home_score != null) return;
+      // Over the cap: leave the row non-final. ESPN returns the same completed
+      // game every cycle, so the next cycle promotes it.
+      if (updated >= cap) { deferred++; return; }
       updateGameFinal(game_id, home_score, away_score);
       updated++;
     });
-    return updated;
+    return { gamesUpdated: updated, newFinalsDeferred: deferred };
   });
+
+  // Sizes the alias win from prod logs: `alias` is games the ESPN score
+  // adapter could not resolve before this change at all.
+  const cfbResolution = takeCfbMatchStats();
+  if (cfbResolution.direct + cfbResolution.alias + cfbResolution.ambiguous + cfbResolution.unmatched > 0) {
+    console.log(
+      `[settlement] CFB game resolution: direct=${cfbResolution.direct} alias=${cfbResolution.alias} ` +
+      `ambiguous=${cfbResolution.ambiguous} unmatched=${cfbResolution.unmatched}`,
+    );
+  }
+  if (newFinalsDeferred > 0) {
+    console.log(
+      `[settlement] New finals capped at ${cap} this cycle; ${newFinalsDeferred} completed game(s) ` +
+      `still waiting (SETTLEMENT_MAX_NEW_FINALS_PER_CYCLE)`,
+    );
+  }
 
   let gamesSettled = 0, signalsSettled = 0;
 
@@ -487,6 +538,8 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
     signals_settled: signalsSettled,
     signals_expired: signalsExpired,
     market_signals_archived: marketSignalsArchived,
+    new_finals_deferred: newFinalsDeferred,
+    cfb_game_resolution: cfbResolution,
   };
 }
 

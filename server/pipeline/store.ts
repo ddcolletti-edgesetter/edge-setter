@@ -18,6 +18,7 @@ import { randomUUID } from "crypto";
 import type { Game, RawEvent, LiveSignal, Outcome } from "./types";
 import { recomputeUrgency, GAME_COMPLETED_GRACE_MIN } from "./urgency";
 import { yieldToLoop } from "../event-loop-monitor";
+import { cfbStoredTokenCandidates } from "./cfb-game-tokens";
 import {
   markBackfillPhase as _markBackfillPhase,
   getBackfillPhase as _getBackfillPhase,
@@ -1477,10 +1478,78 @@ export function expireNullGameSignal(signalId: string): void {
     .run(signalId);
 }
 
+/** Unchanged exact-token lookup. Every league still tries this first. */
+export const FIND_GAME_DIRECT_SQL = `
+    SELECT * FROM games
+    WHERE league = ?
+      AND home_team = ? AND away_team = ?
+      AND date(game_time) = date(?)
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `;
+
 /**
- * Look up a game by team abbreviations + date.
+ * Same shape as FIND_GAME_DIRECT_SQL with both teams widened to their
+ * candidate stored tokens. LIMIT 3 rather than 1: the point of the extra rows
+ * is to notice that the widened lookup was ambiguous and refuse it.
+ */
+function findGameAliasSql(homeCount: number, awayCount: number): string {
+  const marks = (n: number) => new Array(n).fill("?").join(", ");
+  return `
+    SELECT * FROM games
+    WHERE league = ?
+      AND home_team IN (${marks(homeCount)})
+      AND away_team IN (${marks(awayCount)})
+      AND date(game_time) = date(?)
+    ORDER BY updated_at DESC
+    LIMIT 3
+  `;
+}
+
+/* ─── CFB alias accounting ──────────────────────────────────────────
+ * Counted so a prod log line can size the win: how many CFB games the ESPN
+ * score adapter resolves on its own spelling vs only through the alias, and
+ * how many it had to refuse. Read-and-reset per settlement cycle. */
+export interface CfbMatchStats {
+  /** Resolved by the exact-token lookup, as before this change. */
+  direct: number;
+  /** Resolved only because the lookup was widened to the stored token. */
+  alias: number;
+  /** Widened lookup hit more than one games row; refused, not guessed. */
+  ambiguous: number;
+  /** No games row either way — usually a game the odds feed never priced. */
+  unmatched: number;
+}
+
+const cfbMatchStats: CfbMatchStats = { direct: 0, alias: 0, ambiguous: 0, unmatched: 0 };
+
+/** Current counters, then zeroed. Called once per settlement cycle. */
+export function takeCfbMatchStats(): CfbMatchStats {
+  const snapshot = { ...cfbMatchStats };
+  cfbMatchStats.direct = 0;
+  cfbMatchStats.alias = 0;
+  cfbMatchStats.ambiguous = 0;
+  cfbMatchStats.unmatched = 0;
+  return snapshot;
+}
+
+/**
+ * Look up a game by team tokens + date.
  * Used by ESPN adapters to resolve scores to our canonical game_id,
  * since ESPN and The Odds API use different internal IDs.
+ *
+ * For CFB only, an exact-token miss is retried against the tokens the odds
+ * adapter would actually have stored for those two schools — see
+ * cfb-game-tokens.ts for why the two vocabularies disagree and why the
+ * translation keys off the full team name. Every other league, and every CFB
+ * lookup that already matched, takes the identical path it took before.
+ *
+ * The widened lookup is refused, not resolved, when it lands on more than one
+ * games row: 16 stored tokens are shared by two or more schools, so a widened
+ * pair CAN describe two different matchups. Measured on the 2025 FBS schedule
+ * (902 games, 64 dates) no two real matchups on one date shared a token pair,
+ * but 256 of 256 ambiguous ordered pairs are reachable by more than one FBS
+ * matchup, so the date is not a proof — this guard is.
  */
 export function findGameByTeams(
   league: string,
@@ -1489,14 +1558,37 @@ export function findGameByTeams(
   gameDate: string, // YYYY-MM-DD
 ): Game | null {
   const db = getPipelineDb();
-  return (db.prepare(`
-    SELECT * FROM games
-    WHERE league = ?
-      AND home_team = ? AND away_team = ?
-      AND date(game_time) = date(?)
-    ORDER BY updated_at DESC
-    LIMIT 1
-  `).get(league, homeTeam, awayTeam, gameDate) as Game) ?? null;
+  const direct = (db.prepare(FIND_GAME_DIRECT_SQL)
+    .get(league, homeTeam, awayTeam, gameDate) as Game | undefined) ?? null;
+
+  if (league !== "CFB") return direct;
+  if (direct) { cfbMatchStats.direct++; return direct; }
+
+  const homes = cfbStoredTokenCandidates(homeTeam);
+  const aways = cfbStoredTokenCandidates(awayTeam);
+  // Nothing wider to try: ESPN's data names neither school, so the exact
+  // lookup above was already the only lookup available.
+  if (homes.length <= 1 && aways.length <= 1) { cfbMatchStats.unmatched++; return null; }
+
+  // At most 3 candidates a side, so at most 9 statement shapes; the fallback
+  // only runs on an exact-token miss, a few dozen times per settlement cycle.
+  const rows = db.prepare(findGameAliasSql(homes.length, aways.length))
+    .all(league, ...homes, ...aways, gameDate) as Game[];
+
+  const distinct = new Map(rows.map((row) => [row.id, row]));
+  if (distinct.size === 0) { cfbMatchStats.unmatched++; return null; }
+  if (distinct.size > 1) {
+    cfbMatchStats.ambiguous++;
+    console.warn(
+      `[store] CFB game lookup refused as ambiguous: ${awayTeam} @ ${homeTeam} on ${gameDate} ` +
+      `matched ${distinct.size} games (${[...distinct.keys()].join(", ")}) via tokens ` +
+      `home=[${homes.join("|")}] away=[${aways.join("|")}]`,
+    );
+    return null;
+  }
+
+  cfbMatchStats.alias++;
+  return [...distinct.values()][0];
 }
 
 /** Games past their game_time that are not yet marked final (candidates for score lookup). */

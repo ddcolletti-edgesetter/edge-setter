@@ -1,0 +1,52 @@
+name: cfb-game-alias-guard
+
+# Guards CFB game resolution.
+#
+# games rows for CFB are written by the odds adapter as shortCode(<odds team
+# name>) and read back by the ESPN score adapter in ESPN's own spelling. The two
+# vocabularies agree for 45 of 136 FBS teams, which is why 84% of CFB games
+# never went final and never settled. findGameByTeams canonicalises the two.
+#
+# What this job stops going quietly:
+#   - a new games-by-both-teams lookup that bypasses findGameByTeams
+#   - a CFB call site that stops passing the full team name (the abbreviation
+#     cannot forward-translate to the stored token)
+#   - an edit to NAME_TO_CODE without re-running the generator
+#   - a regenerate that changes which stored tokens are shared by two schools
+#
+# It does NOT run `generate:cfb-logos --check`: that fetches ESPN, so it would
+# make this check depend on an external service and go red on season rollover.
+# The "derives the stored token exactly as shortCode() would" test catches the
+# dangerous drift (NAME_TO_CODE edited without a regenerate) with no network.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: CFB game alias + call-site guard
+        run: npx vitest run server/pipeline/__tests__/cfb-game-alias.test.ts
+
+      - name: CFB settlement backlog, cap and span budget
+        run: npx vitest run server/pipeline/__tests__/cfb-settlement-backlog.test.ts
