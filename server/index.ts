@@ -18,6 +18,8 @@ import {
 } from "./sql-accounting";
 import { scheduleDbDiagnostics } from "./db-diagnostics";
 import { scheduleSituationsWarmup } from "./pipeline/situations-cache";
+import { getPipelineDb } from "./pipeline/store";
+import { ensureSituationSchema, ensureSituationFoundingIndex } from "./pipeline/situations-store";
 
 // Before any module opens a Database handle: the hook patches the shared
 // better-sqlite3 prototypes, so it must be in place before the first statement
@@ -110,6 +112,60 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // ─── Pre-listen schema migrations ────────────────────────────────────────
+  //
+  // THIS BLOCK RUNS BEFORE httpServer.listen, AND THAT IS THE ENTIRE POINT.
+  //
+  // ensureSituationSchema is otherwise lazy: it runs on the first
+  // situations-store call of the process, which — with #82's warm-up gate — is
+  // the boot ingestion cycle's situations engine, on the main thread, ~45s
+  // after listen. That is a fine place to create a table and a terrible place
+  // to build an index over 688,700 rows: Oct 8 showed that cycle already
+  // blocking 16.8s, and a 30-90s build on top of it is a health-check kill.
+  //
+  // Here, nothing is serving and no ingestion is running, so the build's only
+  // cost is a one-time delay to port bind. Render gives the start command 15
+  // minutes; the build is estimated at 30-90s on prod's 0.5 CPU and is a
+  // catalog no-op on every boot after the first (IF NOT EXISTS). Render's
+  // zero-downtime deploy keeps the old instance serving throughout, so the
+  // worst case is a failed deploy, not an outage.
+  //
+  // It is first in the IIFE on purpose: ahead of registerRoutes, of
+  // startIngestionScheduler, and of the settlement backlog migration, so no
+  // handler, timer or migration can touch the database before the schema it
+  // expects is in place.
+  {
+    const started = Date.now();
+    const db = getPipelineDb();
+    ensureSituationSchema(db);
+    const schemaMs = Date.now() - started;
+    const idxAt = Date.now();
+    // The index is an optimisation, not a correctness requirement: without it
+    // the founding-cohort read is slow, not wrong. So a failure here must not
+    // take the boot down — it is logged loudly and the process goes on to bind
+    // the port. ensureSituationSchema above is deliberately NOT wrapped: the
+    // situations tables are a hard requirement and a failure there should stop
+    // the boot rather than serve a broken endpoint.
+    let idxMs = -1;
+    try {
+      ensureSituationFoundingIndex(db);
+      idxMs = Date.now() - idxAt;
+    } catch (e: any) {
+      console.error(
+        `[startup] founding index build FAILED after ${Date.now() - idxAt}ms, ` +
+        `continuing without it (the founding-cohort read will be slow): ${e?.message ?? e}`,
+      );
+    }
+    // Logged unconditionally and separately: on the boot that actually builds
+    // it this is the line that explains a slow port bind, and on every later
+    // boot it is the line that proves the build is not being repeated.
+    console.log(
+      `[startup] Pre-listen schema ready in ${Date.now() - started}ms ` +
+      `(situations schema ${schemaMs}ms, founding index ` +
+      `${idxMs < 0 ? "FAILED" : `${idxMs}ms`})`,
+    );
+  }
+
   await registerRoutes(httpServer, app);
 
   // ─── Pipeline: register routes + start ingestion scheduler ───────────────
