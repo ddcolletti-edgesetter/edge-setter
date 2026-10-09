@@ -337,6 +337,84 @@ export const CFB_TEAM_NAMES: Readonly<Record<string, string>> = {
 };
 
 /**
+ * Tokens the odds adapter writes into games.home_team / games.away_team
+ * that are a mascot slice rather than an abbreviation, with the schools
+ * written as each. A logo must never be resolved from one of these: the
+ * slice names a mascot, so it can belong to several schools and can
+ * collide with a different school's real abbreviation.
+ *
+ * Slices that ARE the school's own ESPN abbreviation are excluded, because
+ * the token does identify the school: ILL
+ */
+export const CFB_MASCOT_SLICE_TOKENS: ReadonlyArray<{
+  readonly token: string;
+  readonly teams: readonly string[];
+}> = [
+  { token: "49E", teams: ["Charlotte 49ers"] },
+  { token: "AGG", teams: ["New Mexico State Aggies"] },
+  { token: "AZT", teams: ["San Diego State Aztecs"] },
+  { token: "BEA", teams: ["Cincinnati Bearcats","Missouri State Bears","Oregon State Beavers","Sam Houston Bearkats"] },
+  { token: "BLA", teams: ["UAB Blazers"] },
+  { token: "BOB", teams: ["Ohio Bobcats","Texas State Bobcats"] },
+  { token: "BOI", teams: ["Purdue Boilermakers"] },
+  { token: "BRO", teams: ["Western Michigan Broncos"] },
+  { token: "BUL", teams: ["Buffalo Bulls","Fresno State Bulldogs","Louisiana Tech Bulldogs","South Florida Bulls"] },
+  { token: "CAJ", teams: ["Louisiana Ragin' Cajuns"] },
+  { token: "CAR", teams: ["Ball State Cardinals"] },
+  { token: "CAV", teams: ["Virginia Cavaliers"] },
+  { token: "CHA", teams: ["Coastal Carolina Chanticleers"] },
+  { token: "CHI", teams: ["Central Michigan Chippewas"] },
+  { token: "COM", teams: ["Vanderbilt Commodores"] },
+  { token: "COR", teams: ["Nebraska Cornhuskers"] },
+  { token: "COU", teams: ["BYU Cougars","Houston Cougars","Washington State Cougars"] },
+  { token: "COW", teams: ["Wyoming Cowboys"] },
+  { token: "DEA", teams: ["Wake Forest Demon Deacons"] },
+  { token: "DUK", teams: ["James Madison Dukes"] },
+  { token: "EAG", teams: ["Boston College Eagles","Eastern Michigan Eagles","Georgia Southern Eagles","Southern Miss Golden Eagles"] },
+  { token: "FAL", teams: ["Bowling Green Falcons"] },
+  { token: "FLA", teams: ["Kent State Golden Flashes","Liberty Flames"] },
+  { token: "GAM", teams: ["Jacksonville State Gamecocks","South Carolina Gamecocks"] },
+  { token: "GAT", teams: ["Florida Gators"] },
+  { token: "GOP", teams: ["Minnesota Golden Gophers"] },
+  { token: "GRE", teams: ["North Texas Mean Green"] },
+  { token: "HEN", teams: ["Delaware Blue Hens"] },
+  { token: "HER", teams: ["Marshall Thundering Herd"] },
+  { token: "HIL", teams: ["Western Kentucky Hilltoppers"] },
+  { token: "HOO", teams: ["Indiana Hoosiers"] },
+  { token: "HUR", teams: ["Miami Hurricanes","Tulsa Golden Hurricane"] },
+  { token: "HUS", teams: ["Northern Illinois Huskies","UConn Huskies"] },
+  { token: "JAC", teams: ["Georgia Tech Yellow Jackets"] },
+  { token: "JAG", teams: ["South Alabama Jaguars"] },
+  { token: "JAY", teams: ["Kansas Jayhawks"] },
+  { token: "KNI", teams: ["Rutgers Scarlet Knights","UCF Knights"] },
+  { token: "LOB", teams: ["New Mexico Lobos"] },
+  { token: "MIN", teams: ["Massachusetts Minutemen","UTEP Miners"] },
+  { token: "MON", teams: ["Old Dominion Monarchs"] },
+  { token: "MOU", teams: ["App State Mountaineers"] },
+  { token: "MUS", teams: ["SMU Mustangs"] },
+  { token: "ORA", teams: ["Syracuse Orange"] },
+  { token: "OWL", teams: ["Florida Atlantic Owls","Kennesaw State Owls","Rice Owls","Temple Owls"] },
+  { token: "PAC", teams: ["Nevada Wolf Pack"] },
+  { token: "PAN", teams: ["Florida International Panthers","Georgia State Panthers"] },
+  { token: "PIR", teams: ["East Carolina Pirates"] },
+  { token: "RAI", teams: ["Middle Tennessee Blue Raiders","Texas Tech Red Raiders"] },
+  { token: "RAM", teams: ["Colorado State Rams"] },
+  { token: "REB", teams: ["UNLV Rebels"] },
+  { token: "RED", teams: ["Miami (OH) RedHawks"] },
+  { token: "ROA", teams: ["UTSA Roadrunners"] },
+  { token: "ROC", teams: ["Toledo Rockets"] },
+  { token: "SPA", teams: ["San José State Spartans"] },
+  { token: "TER", teams: ["Maryland Terrapins"] },
+  { token: "TIG", teams: ["Memphis Tigers"] },
+  { token: "TRO", teams: ["Troy Trojans"] },
+  { token: "WAR", teams: ["Hawai'i Rainbow Warriors","UL Monroe Warhawks"] },
+  { token: "WAV", teams: ["Tulane Green Wave"] },
+  { token: "WIL", teams: ["Kentucky Wildcats","Northwestern Wildcats"] },
+  { token: "WOL", teams: ["Arkansas State Red Wolves"] },
+  { token: "ZIP", teams: ["Akron Zips"] },
+];
+
+/**
  * Required keys ESPN's FBS data could not resolve. Listed, never guessed —
  * a team here renders the abbreviation badge, which is the honest outcome.
  */

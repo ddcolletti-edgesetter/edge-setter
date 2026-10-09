@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { CFB_LOGO_URLS } from "@/lib/cfbTeamLogos";
+import { CFB_LOGO_URLS, CFB_MASCOT_SLICE_TOKEN_SET } from "@/lib/cfbTeamLogos";
 import { deterministicTeamColors, teamColorsFor } from "@/lib/teamColors";
 
 /**
@@ -319,9 +319,27 @@ const LEAGUE_LOGO_URLS: Record<TeamLogoSport, Record<string, string>> = {
  * also built URLs from the code itself, which 404s for the Jazz (uta.png;
  * ESPN's file is utah.png).
  */
-export function getTeamLogoUrl(abbr: string, sport?: TeamLogoSport): string {
+export interface TeamLogoOptions {
+  /**
+   * The token came out of the `games` table. For CFB that table speaks the odds
+   * adapter's vocabulary, where a school NAME_TO_CODE does not cover is stored
+   * as the first three letters of its MASCOT — so the token names a mascot, not
+   * a school, and no logo may be resolved from it. Measured: 62 such tokens, of
+   * which `FLA` (Kent State Golden Flashes, Liberty Flames) is also ESPN's
+   * abbreviation for Florida and was rendering the Gators' logo on their games.
+   *
+   * Off by default, because the same string reaching a badge from the injury or
+   * transaction adapters IS a real abbreviation (CFB_DISPLAY_TO_ABBR, where
+   * `FLA` does mean Florida). Suppressing both would cost Florida its logo to
+   * fix Kent State's.
+   */
+  fromGamesTable?: boolean;
+}
+
+export function getTeamLogoUrl(abbr: string, sport?: TeamLogoSport, opts?: TeamLogoOptions): string {
   const upper = toTeamAbbr(abbr);
   if (isUnknownTeamAbbr(upper)) return "";
+  if (opts?.fromGamesTable && sport === "cfb" && CFB_MASCOT_SLICE_TOKEN_SET.has(upper)) return "";
   if (sport) return LEAGUE_LOGO_URLS[sport][upper] ?? "";
   return TEAM_LOGO_URLS[upper] ?? "";
 }
@@ -354,11 +372,11 @@ export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
   );
 }
 
-interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: TeamLogoSport; }
-export function TeamLogoImg({ abbr, size = 32, shape = "square", src, sport }: TeamLogoImgProps) {
+interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: TeamLogoSport; fromGamesTable?: boolean; }
+export function TeamLogoImg({ abbr, size = 32, shape = "square", src, sport, fromGamesTable }: TeamLogoImgProps) {
   const normalizedAbbr = toTeamAbbr(abbr);
   const unknownTeam = isUnknownTeamAbbr(normalizedAbbr);
-  const logoUrl = unknownTeam ? "" : src ?? getTeamLogoUrl(normalizedAbbr, sport);
+  const logoUrl = unknownTeam ? "" : src ?? getTeamLogoUrl(normalizedAbbr, sport, { fromGamesTable });
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const showFallback = !logoUrl || failedUrl === logoUrl;
   const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "0";

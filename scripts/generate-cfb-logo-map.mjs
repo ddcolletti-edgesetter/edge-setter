@@ -111,6 +111,18 @@ function readOddsCodes() {
 
 const normalize = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
 
+/**
+ * Byte-for-byte replica of the fallback branch of shortCode() in
+ * server/pipeline/adapters/the-odds-api.ts:
+ *   NAME_TO_CODE[name] ?? name.split(" ").pop()?.slice(0, 3).toUpperCase()
+ * For a school NAME_TO_CODE has no entry for, this is literally what the odds
+ * adapter writes into games.home_team / games.away_team. It reads the LAST word
+ * (the mascot), so it is not an abbreviation of anything and must never be used
+ * to pick a logo.
+ */
+const mascotSlice = (fullName) =>
+  fullName.split(" ").pop()?.slice(0, 3).toUpperCase() ?? fullName.slice(0, 3).toUpperCase();
+
 /** Strip a trailing mascot so "Texas Longhorns" can match ESPN's location "Texas". */
 function withoutMascot(fullName, mascots) {
   const words = fullName.split(/\s+/);
@@ -219,6 +231,41 @@ async function main() {
     throw new Error(`ambiguous FBS abbreviations, refusing to write: ${duplicateAbbrs.join("; ")}`);
   }
 
+  /* ─── Tokens a games row can hold that are NOT abbreviations ──────────
+   *
+   * games.home_team for CFB is shortCode(<The Odds API team name>): the
+   * NAME_TO_CODE value for the schools that map covers, and otherwise
+   * mascotSlice(name). A mascot slice names a mascot, not a school, so two
+   * schools can share one and a third school's real abbreviation can collide
+   * with it. Measured: "Kent State Golden Flashes" and "Liberty Flames" are
+   * both written "FLA", which is also ESPN's abbreviation for Florida — so a
+   * Kent State game resolved Florida's logo.
+   *
+   * A slice is EXCLUDED when every school written as it has that slice as its
+   * own ESPN abbreviation: "Illinois Fighting Illini" slices to ILL, which is
+   * ESPN's ILL, so the token does identify the school and its logo is right.
+   */
+  const oddsNameSet = new Set(oddsCodes.map((entry) => entry.name));
+  const sliceClaims = new Map();
+  for (const team of fbsTeams) {
+    if (oddsNameSet.has(team.displayName)) continue; // stored as a real code
+    const token = mascotSlice(team.displayName);
+    const bucket = sliceClaims.get(token);
+    if (bucket) bucket.push(team);
+    else sliceClaims.set(token, [team]);
+  }
+  const mascotSliceTokens = [...sliceClaims.entries()]
+    .filter(([token, claimants]) => !claimants.every((team) => team.abbreviation === token))
+    .map(([token, claimants]) => ({
+      token,
+      teams: claimants.map((team) => team.displayName).sort(),
+    }))
+    .sort((a, b) => a.token.localeCompare(b.token));
+  const sliceSelfNaming = [...sliceClaims.entries()]
+    .filter(([token, claimants]) => claimants.every((team) => team.abbreviation === token))
+    .map(([token]) => token)
+    .sort();
+
   const sortedKeys = Object.keys(ids).sort();
   const header = [
     "/**",
@@ -255,6 +302,23 @@ async function main() {
     "export const CFB_TEAM_NAMES: Readonly<Record<string, string>> = {",
     ...sortedKeys.map((k) => `  ${/^[A-Z][A-Z0-9]*$/.test(k) ? k : JSON.stringify(k)}: ${JSON.stringify(names[k])},`),
     "};",
+    "",
+    "/**",
+    " * Tokens the odds adapter writes into games.home_team / games.away_team",
+    " * that are a mascot slice rather than an abbreviation, with the schools",
+    " * written as each. A logo must never be resolved from one of these: the",
+    " * slice names a mascot, so it can belong to several schools and can",
+    " * collide with a different school's real abbreviation.",
+    " *",
+    " * Slices that ARE the school's own ESPN abbreviation are excluded, because",
+    " * the token does identify the school: " + (sliceSelfNaming.join(", ") || "none"),
+    " */",
+    "export const CFB_MASCOT_SLICE_TOKENS: ReadonlyArray<{",
+    "  readonly token: string;",
+    "  readonly teams: readonly string[];",
+    "}> = [",
+    ...mascotSliceTokens.map((entry) => `  { token: ${JSON.stringify(entry.token)}, teams: ${JSON.stringify(entry.teams)} },`),
+    "];",
     "",
     "/**",
     " * Required keys ESPN's FBS data could not resolve. Listed, never guessed —",
@@ -299,6 +363,10 @@ async function main() {
   console.log(`  via school name    ${byHow("name:")}`);
   console.log(`  via non-FBS abbr   ${byHow("non-fbs-unique-abbreviation")}`);
   console.log(`duplicate FBS abbrs  ${duplicateAbbrs.length ? duplicateAbbrs.join("; ") : "none"}`);
+  console.log(`mascot-slice tokens  ${mascotSliceTokens.length} (self-naming, excluded: ${sliceSelfNaming.join(", ") || "none"})`);
+  for (const entry of mascotSliceTokens.filter((e) => ids[e.token] !== undefined)) {
+    console.log(`  COLLIDES WITH A LOGO KEY  ${entry.token} -> ${names[entry.token]}, but stored for ${entry.teams.join(" / ")}`);
+  }
   console.log(`gaps                 ${gaps.length}`);
   for (const gap of gaps) console.log(`  ${gap.abbr} (${gap.name}) — ${gap.reason}`);
   console.log(`\nwrote ${OUT_PATH}`);

@@ -9,6 +9,7 @@
 
 import {
   CFB_LOGO_URL_PATTERN,
+  CFB_MASCOT_SLICE_TOKENS,
   CFB_TEAM_LOGO_IDS,
   CFB_TEAM_NAMES,
 } from "./cfbTeamLogos.generated";
@@ -50,6 +51,33 @@ export const CFB_TEAM_ABBRS: ReadonlySet<string> = new Set([
   ...Object.keys(CFB_TEAM_LOGO_IDS),
   ...Object.keys(CFB_ABBR_ALIASES),
 ]);
+
+/**
+ * Tokens a CFB `games` row can hold that are a mascot slice rather than an
+ * abbreviation, so no logo may be resolved from one.
+ *
+ * `games.home_team` for CFB is `shortCode(<The Odds API team name>)`, whose
+ * fallback branch takes the first three letters of the mascot word. That names
+ * a mascot, not a school: `BUL` is Buffalo, Fresno State, Louisiana Tech and
+ * South Florida, and `FLA` — Kent State's Golden Flashes and Liberty's Flames —
+ * is also ESPN's own abbreviation for Florida, so a Kent State game resolved
+ * the Florida Gators' logo.
+ *
+ * Only `games`-sourced tokens are affected. The same string reaching a badge
+ * from the injury and transaction adapters is a real abbreviation out of
+ * CFB_DISPLAY_TO_ABBR, where `FLA` does mean Florida (Kent State is `KENT`,
+ * Liberty is `LIB`) — which is why {@link CFB_LOGO_URLS} still carries the key
+ * and callers opt in instead, via `fromGamesTable`.
+ */
+export const CFB_MASCOT_SLICE_TOKEN_SET: ReadonlySet<string> = new Set(
+  CFB_MASCOT_SLICE_TOKENS.map((entry) => entry.token),
+);
+
+/** The schools a mascot-slice token could refer to, for tests and debugging. */
+export function cfbSchoolsForMascotSlice(token: string): readonly string[] {
+  const upper = token?.trim().toUpperCase() ?? "";
+  return CFB_MASCOT_SLICE_TOKENS.find((entry) => entry.token === upper)?.teams ?? [];
+}
 
 /** Resolve an abbreviation (or alias) to ESPN's school name, for debugging and tests. */
 export function cfbTeamName(abbr: string): string | null {

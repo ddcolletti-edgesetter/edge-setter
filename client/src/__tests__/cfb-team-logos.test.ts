@@ -15,9 +15,16 @@
 import { describe, expect, it } from "vitest";
 
 import { ALL_CFB_SOURCES } from "../../../server/pipeline/adapters/cfb-school-sources";
-import { CFB_ABBR_ALIASES, CFB_TEAM_ABBRS, cfbTeamName } from "../lib/cfbTeamLogos";
+import {
+  CFB_ABBR_ALIASES,
+  CFB_MASCOT_SLICE_TOKEN_SET,
+  CFB_TEAM_ABBRS,
+  cfbSchoolsForMascotSlice,
+  cfbTeamName,
+} from "../lib/cfbTeamLogos";
 import {
   CFB_LOGO_GAPS,
+  CFB_MASCOT_SLICE_TOKENS,
   CFB_TEAM_LOGO_IDS,
   CFB_TEAM_NAMES,
 } from "../lib/cfbTeamLogos.generated";
@@ -328,5 +335,91 @@ describe("isValidTeamToken — CFB short abbreviations", () => {
     expect(CFB_TEAM_ABBRS.has("ALA")).toBe(true);
     expect(CFB_TEAM_ABBRS.has("OHIO")).toBe(true);
     expect(CFB_TEAM_ABBRS.size).toBeGreaterThan(130);
+  });
+});
+
+/* ─── Mascot-slice tokens out of the games table ────────────────────────
+ *
+ * games.home_team for CFB is shortCode(<The Odds API team name>), which for a
+ * school NAME_TO_CODE does not cover is the first three letters of the MASCOT
+ * word. That token names a mascot, not a school, so a logo resolved from it can
+ * belong to the wrong school entirely.
+ */
+describe("mascot-slice tokens never pick a logo for a games-sourced badge", () => {
+  it("is the set the generator measured, not a hand-written list", () => {
+    expect(CFB_MASCOT_SLICE_TOKENS.length).toBe(62);
+    expect(CFB_MASCOT_SLICE_TOKEN_SET.size).toBe(62);
+    // Every entry names the schools behind it, so the diff shows the damage.
+    for (const entry of CFB_MASCOT_SLICE_TOKENS) {
+      expect(entry.teams.length).toBeGreaterThan(0);
+      expect(entry.token).toMatch(/^[A-Z0-9]{1,3}$/);
+    }
+  });
+
+  it("FLA is the one slice that collides with a real logo key", () => {
+    // Kent State's Golden Flashes and Liberty's Flames are both stored "FLA",
+    // which is ESPN's abbreviation for Florida — so before this guard a Kent
+    // State game rendered the Gators' logo.
+    const collide = CFB_MASCOT_SLICE_TOKENS
+      .filter((entry) => CFB_TEAM_LOGO_IDS[entry.token] !== undefined)
+      .map((entry) => `${entry.token} -> ${cfbTeamName(entry.token)}, stored for ${entry.teams.join(" / ")}`);
+
+    expect(collide).toEqual([
+      "FLA -> Florida Gators, stored for Kent State Golden Flashes / Liberty Flames",
+    ]);
+    expect(cfbSchoolsForMascotSlice("FLA")).toEqual([
+      "Kent State Golden Flashes",
+      "Liberty Flames",
+    ]);
+  });
+
+  it("a games-sourced slice gets the text badge, not a logo", () => {
+    expect(getTeamLogoUrl("FLA", "cfb", { fromGamesTable: true })).toBe("");
+    for (const entry of CFB_MASCOT_SLICE_TOKENS) {
+      expect(getTeamLogoUrl(entry.token, "cfb", { fromGamesTable: true }), entry.token).toBe("");
+    }
+  });
+
+  it("keeps Florida's logo on the injury path, where FLA really is Florida", () => {
+    // CFB_DISPLAY_TO_ABBR maps Florida to FLA, Kent State to KENT and Liberty
+    // to LIB, so a non-games FLA is unambiguous. Suppressing it everywhere
+    // would cost Florida its logo to fix Kent State's.
+    expect(getTeamLogoUrl("FLA", "cfb")).not.toBe("");
+    expect(cfbTeamName("FLA")).toBe("Florida Gators");
+  });
+
+  it("does not suppress a slice that is the school's own abbreviation", () => {
+    // "Illinois Fighting Illini" slices to ILL, which IS ESPN's ILL, so the
+    // token identifies the school and the logo is right either way.
+    expect(CFB_MASCOT_SLICE_TOKEN_SET.has("ILL")).toBe(false);
+    expect(getTeamLogoUrl("ILL", "cfb", { fromGamesTable: true })).not.toBe("");
+    expect(cfbTeamName("ILL")).toBe("Illinois Fighting Illini");
+  });
+
+  it("leaves every other league alone", () => {
+    // MIN is a slice (UMass Minutemen, UTEP Miners) and an NFL/MLB/NBA token.
+    // The guard is CFB-only and opt-in, so the pro maps are untouched.
+    expect(CFB_MASCOT_SLICE_TOKEN_SET.has("MIN")).toBe(true);
+    expect(getTeamLogoUrl("MIN", "nfl", { fromGamesTable: true })).not.toBe("");
+    expect(getTeamLogoUrl("MIN", "mlb", { fromGamesTable: true })).not.toBe("");
+  });
+
+  it("names the slices still reachable when the caller omits sport", () => {
+    // The guard needs sport === "cfb": `fromGamesTable` alone cannot justify
+    // suppressing MIN, because an NFL games row legitimately stores MIN. So
+    // with no sport these five slices still resolve a logo —
+    //   CAR -> NFL Panthers      (stored for Ball State Cardinals)
+    //   CHA -> NBA Hornets       (stored for Coastal Carolina Chanticleers)
+    //   CHI -> NFL Bears         (stored for Central Michigan Chippewas)
+    //   MIN -> NFL Vikings       (stored for UMass Minutemen, UTEP Miners)
+    //   FLA -> Florida Gators    (stored for Kent State, Liberty)
+    // TEAM_LOGO_URLS spreads CFB first, so the pro maps win every shared token.
+    // Not reachable from any current call site — all 13 pass `sport` — but it is
+    // one missing prop away, so the set is pinned rather than left implicit.
+    const sportless = [...CFB_MASCOT_SLICE_TOKEN_SET]
+      .filter((token) => getTeamLogoUrl(token, undefined, { fromGamesTable: true }) !== "")
+      .sort();
+
+    expect(sportless).toEqual(["CAR", "CHA", "CHI", "FLA", "MIN"]);
   });
 });
