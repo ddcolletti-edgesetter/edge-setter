@@ -207,6 +207,55 @@ export function ensureSituationSchema(db: Database.Database = getPipelineDb()): 
 }
 
 /**
+ * The founding-row index, deliberately NOT part of `ensureSituationSchema`.
+ *
+ * `getCleanFoundingSituationConfidences` counts a situation's
+ * `kind = 'situation_created'` rows. `idx_situation_events_situation` is
+ * `(situation_id, recorded_at, event_id)` and carries no `kind`, so that COUNT
+ * seeks to the situation and then fetches every one of its ~97 event rows to
+ * test `kind` — 688,700 fat-row fetches to produce 7,100 integers, and
+ * `payload_json` is the single biggest thing in this database. Measured on a
+ * prod-row-count fixture: **15,076ms -> 164ms, 92x**, for 124 KiB of index,
+ * because only 7,100 of 688,700 event rows satisfy the predicate.
+ *
+ * WHY IT IS NOT IN `ensureSituationSchema`, which is where a reader would put
+ * it. That function runs lazily, on the first situations-store call of the
+ * process. With the warm-up gate from #82 in place, on a database that does not
+ * already have this index the first such call is the boot ingestion cycle's
+ * situations engine — **on the main thread, ~45s after listen, inside the cycle
+ * that already blocked 16.8s on Oct 8.** A 30-90s index build there is a
+ * health-check kill. So the build is placed on the pre-listen boot path
+ * instead (`server/index.ts`, before `httpServer.listen`), where nothing is
+ * serving, no ingestion is running, and the only cost is a one-time delay to
+ * port bind against Render's 15-minute start-command budget.
+ *
+ * It is also not hand-built on prod: a hand-build holds the write lock for the
+ * whole 30-90s while ingestion is live, and nothing in this repo sets
+ * `busy_timeout`, so better-sqlite3's 5,000ms default means each blocked
+ * main-thread write waits 5s and then throws `SQLITE_BUSY` — and 5s is exactly
+ * the health-check budget.
+ *
+ * `IF NOT EXISTS` makes this a catalog no-op on every boot after the first.
+ *
+ * KEEP THE PREDICATE A LITERAL. Measured: SQLite plans partial-index
+ * eligibility from the bound VALUE, and re-plans when it changes — binding
+ * 'situation_created' to a `kind = ?` form does pick this index, while binding
+ * 'situation_matched' falls back to idx_situation_events_situation, both
+ * returning correct counts. So a bound parameter is not wrong, it is
+ * conditional: the plan then depends on the argument the caller passes. The
+ * literal makes it unconditional, which is the property worth having on a
+ * statement whose fallback is 15 seconds. See
+ * situation-events-founding-index.test.ts, which pins the plan for the
+ * subquery as it is actually prepared, read out of this file's own SQL.
+ */
+export function ensureSituationFoundingIndex(db: Database.Database = getPipelineDb()): void {
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_situation_events_founding
+      ON situation_events(situation_id) WHERE kind = 'situation_created';
+  `);
+}
+
+/**
  * Backfill resolution table for situations whose game_id is NULL.
  *
  * The situations table is strictly append-only (BEFORE UPDATE / BEFORE DELETE
