@@ -1,3 +1,4 @@
+import { CFB_TEAM_ABBRS } from "./cfbTeamLogos";
 import type { LiveSignal } from "./signalsApi";
 
 export type DisplayConfidenceState = "Developing" | "Escalating" | "Verified";
@@ -52,8 +53,17 @@ const INVALID_TEAM_TOKENS = new Set(["", "-", "—", "unk", "unknown", "tbd", "n
 
 // Known ≤2-char team abbreviations by sport.
 // Any 1–2 uppercase token not in the relevant sport's set is a pipeline artifact, not a real team identifier.
+//
+// CFB is derived from the generated logo map (the school manifest plus the odds
+// adapter's CFB codes) rather than listed by hand. Hard-coding ["ND", "TX"]
+// meant nine real two-letter programmes — BC, GT, KU, MD, NW, OU, SC, UK, VT —
+// were rejected as artifacts, which suppressed them from public surfaces.
+const CFB_SHORT_TEAM_ABBRS: ReadonlySet<string> = new Set(
+  [...CFB_TEAM_ABBRS].filter((abbr) => abbr.length <= 2),
+);
+
 const SHORT_TEAM_ABBRS: Record<string, ReadonlySet<string>> = {
-  cfb: new Set(["ND", "TX"]),
+  cfb: CFB_SHORT_TEAM_ABBRS,
   nfl: new Set(["GB", "KC", "LV", "NE", "NO", "SF", "TB"]),
   mlb: new Set(["SD", "SF", "TB"]),
   nba: new Set([]), // all NBA abbreviations are 3+ chars
