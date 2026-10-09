@@ -47,7 +47,10 @@ interface ESPNInjuryResponse {
 interface ESPNCompetitor {
   homeAway: "home" | "away";
   score?: string;
-  team: { abbreviation: string };
+  // displayName is what the game lookup wants: the token the odds adapter
+  // stored is derived from the full team name, never from the abbreviation.
+  // Both are present on every competitor the scoreboard returns.
+  team: { abbreviation: string; displayName?: string };
 }
 
 interface ESPNEvent {
@@ -336,7 +339,17 @@ export async function fetchCFBFinalScores(): Promise<Array<{
       if (isNaN(homeScore) || isNaN(awayScore)) continue;
 
       const gameDate = event.date.slice(0, 10);
-      const game = findGameByTeams("CFB", home.team.abbreviation, away.team.abbreviation, gameDate);
+      // Full team name first. games.home_team for CFB holds
+      // shortCode(<odds-feed team name>), whose fallback branch reads the LAST
+      // WORD of the name — so a name translates forward to exactly one stored
+      // token, while "MEM" carries nothing that could produce "TIG". The
+      // abbreviation is only the fallback for a competitor with no displayName.
+      const game = findGameByTeams(
+        "CFB",
+        home.team.displayName ?? home.team.abbreviation,
+        away.team.displayName ?? away.team.abbreviation,
+        gameDate,
+      );
       if (!game) continue;
 
       results.push({ game_id: game.id, home_score: homeScore, away_score: awayScore });

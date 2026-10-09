@@ -1,7 +1,16 @@
 /**
- * Edge Setter — CFB team logo map generator
+ * Edge Setter — CFB team map generator
  *
- * Writes client/src/lib/cfbTeamLogos.generated.ts from ESPN's own team data.
+ * Writes two files from one ESPN run, so they can never drift apart:
+ *   client/src/lib/cfbTeamLogos.generated.ts   — abbreviation -> logo id (client)
+ *   server/pipeline/cfb-espn-teams.generated.ts — team identity + the token the
+ *     odds adapter stores in games.home_team/away_team (server, settlement)
+ *
+ * The server file exists because games rows for CFB are written by the odds
+ * adapter as shortCode(<The Odds API team name>), while the ESPN score adapter
+ * looks them up by ESPN's own spelling. Those two vocabularies disagree for 92
+ * of 136 FBS teams, so findGameByTeams never resolves the game and the game
+ * never goes final. See docs/cfb-game-alias.md.
  * No ESPN numeric id is ever typed by hand: every id in the generated file came
  * out of the two endpoints below on the run recorded in that file's header.
  *
@@ -60,6 +69,7 @@ const SEASON = process.env.SEASON ?? "2025";
 const CHECK_ONLY = process.argv.includes("--check");
 
 const OUT_PATH = resolve(ROOT, "client/src/lib/cfbTeamLogos.generated.ts");
+const OUT_SERVER_PATH = resolve(ROOT, "server/pipeline/cfb-espn-teams.generated.ts");
 const MANIFEST_PATH = resolve(ROOT, "server/pipeline/adapters/cfb-school-sources.ts");
 const ODDS_PATH = resolve(ROOT, "server/pipeline/adapters/the-odds-api.ts");
 
@@ -117,8 +127,9 @@ const normalize = (value) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
  *   NAME_TO_CODE[name] ?? name.split(" ").pop()?.slice(0, 3).toUpperCase()
  * For a school NAME_TO_CODE has no entry for, this is literally what the odds
  * adapter writes into games.home_team / games.away_team. It reads the LAST word
- * (the mascot), so it is not an abbreviation of anything and must never be used
- * to pick a logo.
+ * (the mascot), which is why the forward translation keys off the full display
+ * name and never off an abbreviation, and why the token must never be used to
+ * pick a logo. Asserted against all 48 NAME_TO_CODE names below.
  */
 const mascotSlice = (fullName) =>
   fullName.split(" ").pop()?.slice(0, 3).toUpperCase() ?? fullName.slice(0, 3).toUpperCase();
@@ -265,6 +276,112 @@ async function main() {
     .filter(([token, claimants]) => claimants.every((team) => team.abbreviation === token))
     .map(([token]) => token)
     .sort();
+  /* ─── The stored-token side (server map) ──────────────────────────────
+   *
+   * games.home_team for CFB is shortCode(<The Odds API name>). Two branches:
+   *   1. the name is a NAME_TO_CODE key  -> the mapped code (48 teams)
+   *   2. otherwise                       -> mascotSlice(name) (88 teams)
+   * Branch 1 we know exactly: the odds name IS the map key. Branch 2 we derive
+   * from ESPN's displayName, which is sound only if the two feeds agree on the
+   * mascot word; that is asserted below against all 48 names we can check.
+   */
+  const storedByEspnId = new Map();
+  const mascotDisagreements = [];
+  for (const { name, abbr } of oddsCodes) {
+    const team = matchName(name);
+    if (!team) {
+      throw new Error(`odds CFB name "${name}" matched no FBS team — refusing to write a partial map`);
+    }
+    storedByEspnId.set(String(team.id), abbr);
+    if (mascotSlice(name) !== mascotSlice(team.displayName)) {
+      mascotDisagreements.push(`${name} -> ${mascotSlice(name)} vs ESPN ${team.displayName} -> ${mascotSlice(team.displayName)}`);
+    }
+  }
+  if (mascotDisagreements.length) {
+    throw new Error(
+      "the odds feed and ESPN disagree on the mascot word, so mascotSlice(displayName) is not a safe " +
+      `stand-in for the unmapped teams: ${mascotDisagreements.join("; ")}`,
+    );
+  }
+
+  // Every team the emitted key set can reach, by ESPN id.
+  const teamById = new Map();
+  for (const abbr of Object.keys(ids)) {
+    const id = String(ids[abbr]);
+    if (!teamById.has(id)) {
+      const team = everyTeam.find((t) => String(t.id) === id);
+      if (team) teamById.set(id, team);
+    }
+  }
+  for (const team of fbsTeams) if (!teamById.has(String(team.id))) teamById.set(String(team.id), team);
+
+  const storedTokenOf = (team) => storedByEspnId.get(String(team.id)) ?? mascotSlice(team.displayName);
+
+  // A stored token two schools share cannot identify one of them on its own.
+  const idsPerStoredToken = new Map();
+  for (const [id, team] of teamById) {
+    const token = storedTokenOf(team);
+    const bucket = idsPerStoredToken.get(token);
+    if (bucket) bucket.add(id);
+    else idsPerStoredToken.set(token, new Set([id]));
+  }
+  const ambiguousStored = [...idsPerStoredToken.entries()]
+    .filter(([, set]) => set.size > 1)
+    .map(([token, set]) => ({
+      token,
+      teams: [...set].map((id) => teamById.get(id).displayName).sort(),
+    }))
+    .sort((a, b) => a.token.localeCompare(b.token));
+
+  /* Key set for the server resolver, in two precedence tiers.
+   *
+   * Tier 1 is identity: every abbreviation spelling the maps carry (ESPN's,
+   * the school manifest's, the odds adapter's) and each team's display name,
+   * location, short name, slug and mascot, normalized.
+   *
+   * Tier 2 is the derived stored token, and it only gets a key tier 1 left
+   * alone. That ordering is load-bearing: ESPN's abbreviation for Florida is
+   * "FLA", which is also the mascot token Kent State's Golden Flashes and
+   * Liberty's Flames both derive to. Letting tier 2 compete would drop "FLA"
+   * as contested and leave Florida unresolvable from ESPN's own spelling.
+   *
+   * Within a tier, a key two schools both claim is dropped rather than
+   * pointed at one of them.
+   */
+  const claimsIn = (entries) => {
+    const map = new Map();
+    for (const [key, id] of entries) {
+      if (!key) continue;
+      const bucket = map.get(key);
+      if (bucket) bucket.add(String(id));
+      else map.set(key, new Set([String(id)]));
+    }
+    return map;
+  };
+
+  const tier1Entries = [];
+  for (const abbr of Object.keys(ids)) tier1Entries.push([abbr.toUpperCase(), ids[abbr]]);
+  for (const [id, team] of teamById) {
+    for (const form of [team.displayName, team.location, team.shortDisplayName, team.slug, team.name]) {
+      if (form) tier1Entries.push([normalize(form), id]);
+    }
+  }
+  const tier1 = claimsIn(tier1Entries);
+  const tier2 = claimsIn([...teamById].map(([id, team]) => [storedTokenOf(team).toUpperCase(), id]));
+
+  const serverKeys = {};
+  const droppedKeys = [];
+  const describe = (claimants) => [...claimants].map((id) => teamById.get(id)?.displayName ?? id).sort();
+  for (const [key, claimants] of [...tier1.entries()].sort()) {
+    if (claimants.size === 1) serverKeys[key] = Number([...claimants][0]);
+    else droppedKeys.push({ key, tier: 1, teams: describe(claimants) });
+  }
+  for (const [key, claimants] of [...tier2.entries()].sort()) {
+    if (tier1.has(key)) continue;
+    if (claimants.size === 1) serverKeys[key] = Number([...claimants][0]);
+    else droppedKeys.push({ key, tier: 2, teams: describe(claimants) });
+  }
+  droppedKeys.sort((a, b) => a.key.localeCompare(b.key));
 
   const sortedKeys = Object.keys(ids).sort();
   const header = [
@@ -338,21 +455,110 @@ async function main() {
     "",
   ].join("\n");
 
+  const tsKey = (k) => (/^[A-Z][A-Z0-9]*$/.test(k) ? k : JSON.stringify(k));
+  const serverSorted = Object.keys(serverKeys).sort();
+  const teamIdsSorted = [...teamById.keys()].sort((a, b) => Number(a) - Number(b));
+
+  const serverOutput = [
+    "/**",
+    " * GENERATED FILE — do not edit by hand.",
+    " *   npm run generate:cfb-logos",
+    " *",
+    " * The CFB half of game resolution, from ESPN's own team data.",
+    ` *   season        ${SEASON}`,
+    ` *   generated     ${new Date().toISOString().slice(0, 10)}`,
+    ` *   teams         ${teamIdsSorted.length}`,
+    ` *   lookup keys   ${serverSorted.length}`,
+    ` *   ambiguous stored tokens ${ambiguousStored.length}`,
+    " *",
+    " * `stored` is the token the odds adapter writes into games.home_team and",
+    " * games.away_team for that school: shortCode(<The Odds API team name>).",
+    " * For the schools NAME_TO_CODE covers it is the mapped code; for the rest",
+    " * it is the first three letters of the mascot word, which is what",
+    " * shortCode falls back to. The generator refuses to write this file unless",
+    " * the odds feed and ESPN agree on the mascot word for every NAME_TO_CODE",
+    " * name it can check, because that agreement is the only evidence the",
+    " * derivation is right for the schools no odds name is on record for.",
+    " *",
+    " * Nothing here is keyed off an abbreviation alone: identity is ESPN's",
+    " * numeric team id, and a key two schools would both claim is dropped",
+    " * rather than pointed at one of them.",
+    " */",
+    "",
+    "export interface CfbEspnTeam {",
+    "  /** ESPN displayName, verbatim. */",
+    "  readonly name: string;",
+    "  /** ESPN's own abbreviation for this team. */",
+    "  readonly abbr: string;",
+    "  /** The token the odds adapter stores in games.home_team / games.away_team. */",
+    "  readonly stored: string;",
+    "  /** In ESPN's FBS group 80 for the generated season. */",
+    "  readonly fbs: boolean;",
+    "}",
+    "",
+    "/** ESPN numeric team id -> that team's identity and stored token. */",
+    "export const CFB_ESPN_TEAM_BY_ID: Readonly<Record<string, CfbEspnTeam>> = {",
+    ...teamIdsSorted.map((id) => {
+      const team = teamById.get(id);
+      return `  "${id}": { name: ${JSON.stringify(team.displayName)}, abbr: ${JSON.stringify(team.abbreviation ?? "")}, stored: ${JSON.stringify(storedTokenOf(team))}, fbs: ${fbsIds.has(id)} },`;
+    }),
+    "};",
+    "",
+    "/**",
+    " * Lookup key -> ESPN numeric team id. Uppercase keys are abbreviation",
+    " * spellings (ESPN's, the school manifest's, the odds adapter's, and each",
+    " * team's stored token where it is unique); lowercase keys are display",
+    " * names, locations, short names and slugs with every non-alphanumeric",
+    " * character stripped.",
+    " */",
+    "export const CFB_TEAM_KEY_TO_ESPN_ID: Readonly<Record<string, string>> = {",
+    ...serverSorted.map((k) => `  ${tsKey(k)}: "${serverKeys[k]}",`),
+    "};",
+    "",
+    "/**",
+    " * Stored tokens more than one school would be written as, with the schools",
+    " * behind each. These are still used to widen a lookup — dropping them would",
+    " * cost real matches — but a widened lookup that resolves to more than one",
+    " * games row is refused rather than guessed.",
+    " */",
+    "export const CFB_AMBIGUOUS_STORED_TOKENS: ReadonlyArray<{",
+    "  readonly token: string;",
+    "  readonly teams: readonly string[];",
+    "}> = [",
+    ...ambiguousStored.map((a) => `  { token: ${JSON.stringify(a.token)}, teams: ${JSON.stringify(a.teams)} },`),
+    "];",
+    "",
+    "/** Lookup keys two schools both claimed, so neither got them. */",
+    "export const CFB_DROPPED_KEYS: ReadonlyArray<{",
+    "  readonly key: string;",
+    "  readonly tier: number;",
+    "  readonly teams: readonly string[];",
+    "}> = [",
+    ...droppedKeys.map((d) => `  { key: ${JSON.stringify(d.key)}, tier: ${d.tier}, teams: ${JSON.stringify(d.teams)} },`),
+    "];",
+    "",
+  ].join("\n");
+
   const output = `${header}\n${body}`;
 
+  const outputs = [
+    { path: OUT_PATH, label: "cfbTeamLogos.generated.ts", text: output },
+    { path: OUT_SERVER_PATH, label: "cfb-espn-teams.generated.ts", text: serverOutput },
+  ];
+
   if (CHECK_ONLY) {
-    const current = readFileSync(OUT_PATH, "utf8");
     // The generated date line changes on every run; compare everything else.
-    const strip = (s) => s.replace(/^ \*\s+generated\s+.*$/m, "");
-    if (strip(current) !== strip(output)) {
-      console.error("cfbTeamLogos.generated.ts is stale — run npm run generate:cfb-logos");
+    const strip = (text) => text.replace(/^ \*\s+generated\s+.*$/m, "");
+    const stale = outputs.filter(({ path, text }) => strip(readFileSync(path, "utf8")) !== strip(text));
+    if (stale.length) {
+      console.error(`stale — run npm run generate:cfb-logos: ${stale.map((o) => o.label).join(", ")}`);
       process.exit(1);
     }
-    console.log("cfbTeamLogos.generated.ts is up to date.");
+    console.log(`up to date: ${outputs.map((o) => o.label).join(", ")}`);
     return;
   }
 
-  writeFileSync(OUT_PATH, output);
+  for (const { path, text } of outputs) writeFileSync(path, text);
 
   const byHow = (prefix) => sortedKeys.filter((k) => via[k].startsWith(prefix)).length;
   console.log(`FBS teams            ${fbsTeams.length} (season ${SEASON})`);
@@ -369,7 +575,16 @@ async function main() {
   }
   console.log(`gaps                 ${gaps.length}`);
   for (const gap of gaps) console.log(`  ${gap.abbr} (${gap.name}) — ${gap.reason}`);
+  console.log(`\nserver map`);
+  console.log(`  teams                ${teamIdsSorted.length}`);
+  console.log(`  lookup keys          ${serverSorted.length}`);
+  console.log(`  via NAME_TO_CODE     ${storedByEspnId.size}`);
+  console.log(`  via mascot fallback  ${teamIdsSorted.length - storedByEspnId.size}`);
+  console.log(`  ambiguous stored     ${ambiguousStored.length}`);
+  for (const a of ambiguousStored) console.log(`    ${a.token}: ${a.teams.join(" / ")}`);
+  console.log(`  dropped keys         ${droppedKeys.length}`);
   console.log(`\nwrote ${OUT_PATH}`);
+  console.log(`wrote ${OUT_SERVER_PATH}`);
 }
 
 main().catch((err) => {
