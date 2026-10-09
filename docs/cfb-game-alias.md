@@ -188,15 +188,26 @@ A full Saturday: 65 completed FBS games, 2 betting-relevant signals each,
 
 Spans, sampler running, best of five:
 
-| | worst attributed step | global worst span |
-|---|---|---|
-| capped at 25 | **81–152ms** (`settlement:settle-linked`) | ~235ms |
-| uncapped, 65 games | **201–219ms** (`settlement:settle-linked`) | ~250ms |
+**These are strongly machine-dependent, so both machines are reported:**
 
-The uncapped number sits exactly on `LOOP_SPAN_BUDGET_MS` (200ms), which is
-`forEachBounded` doing its job: the batch is not a loop hazard, it just pins
-every span to the budget rather than staying inside it. What grows is the
-cycle's total wall clock.
+| | `settlement:settle-linked` wall | worst attributed block |
+|---|---|---|
+| GitHub runner, capped at 25 | **19ms** | 0–17ms |
+| GitHub runner, uncapped (65 games) | **44ms** | 0ms |
+| dev laptop, capped at 25 | **~64ms** | 57–153ms |
+| dev laptop, uncapped (65 games) | **~249ms** | 200–309ms |
+
+On the runner the whole uncapped cycle finishes inside the sampler's 10ms
+attribution threshold, so nothing is charged as a block at all. On the laptop
+the uncapped run pins every span to `LOOP_SPAN_BUDGET_MS` (200ms), which is
+`forEachBounded` doing its job rather than failing.
+
+**So the uncapped batch is not a demonstrated loop hazard.** The honest reading
+is that this work costs tens of milliseconds on a fast core and a couple of
+hundred on a slow or loaded one. Render's starter is 0.5 CPU — slower than
+either machine measured here, and **not measured**. The cap is justified by
+total cycle wall clock and by not handing the accuracy recompute a season in one
+batch, not by a loop block anyone has observed.
 
 ### The cap
 
@@ -204,12 +215,13 @@ cycle's total wall clock.
 promoted from non-final to final per settlement cycle.
 
 Why 25 and not 65: the cap is not protecting the event loop — `forEachBounded`
-already does that — it keeps one `ingest:settlement` span well inside the
-15-minute cycle on a 0.5-CPU Render starter, and it stops the hourly accuracy
-recompute being handed a season in one batch. 25 is where the worst attributed
-span drops to roughly half the budget (152ms vs 219ms) while still draining a
-130-game ESPN week in 6 cycles, about 90 minutes. It is one env var away from
-any other number.
+already does that, and on a GitHub runner the uncapped cycle never blocks at
+all. It keeps one `ingest:settlement` span well inside the 15-minute cycle on a
+0.5-CPU Render starter, and stops the hourly accuracy recompute being handed a
+season in one batch. 25 is where `settle-linked` drops to roughly 40% of its
+uncapped wall clock on both machines measured, while still draining a 130-game
+ESPN week in 6 cycles, about 90 minutes. It is one env var away from any other
+number, and if prod logs show the span is comfortable it should be raised.
 
 Nothing is dropped: ESPN returns the same completed game every cycle, so the
 next cycle takes the next slice, and the remainder is logged:
@@ -287,6 +299,10 @@ Every number below is currently empty or a prior, and starts becoming real.
 - **Prod `games` row counts for CFB**, and which CFB games the odds feed
   actually priced. Nothing was run against prod. The 15.6% → 99.0% figures are
   ESPN's schedule, not our table.
+- **The span cost on Render's 0.5-CPU starter.** Measured on a GitHub runner and
+  a dev laptop, which differ from each other by ~5x on this work; prod is slower
+  than both. The per-step 300ms budget is an upper bound the tests assert, not a
+  prediction of what prod will show.
 - **Cold-disk cost.** The fixture runs warm. This repo runs `ANALYZE` nowhere,
   so the plans transfer, but the disk cost does not. Both the direct and the
   widened lookup scan the league slice of `games` under
