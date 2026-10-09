@@ -76,6 +76,49 @@ const coldWaitMs = () => envInt("SITUATIONS_COLD_WAIT_MS", 9_000, 0, 60_000);
 /** A build over this is abandoned and the worker recycled. */
 const buildTimeoutMs = () => envInt("SITUATIONS_BUILD_TIMEOUT_MS", 30_000, 1_000, 600_000);
 /**
+ * The same, for a boot warm-up build. Four times the request budget, because a
+ * warm-up build is not answering anyone.
+ *
+ * PROD, 2026-10-08 05:20 UTC: two warm-up builds were terminated at
+ * SITUATIONS_BUILD_TIMEOUT_MS with over 25s and over 29s in flight on
+ * getCleanFoundingSituationConfidences, and the third build of the same run
+ * finished in 3.9s. Nothing was wrong with the worker. The first two attempts
+ * were simply reading a cold 5GB file, and they were killed just short of
+ * finishing — after which the work they had already done survived only as
+ * warmed OS page cache for the attempt that did complete. Paying for a cold read
+ * three times and keeping the result once is the worst available outcome.
+ *
+ * WHY THE REQUEST BUDGET CANNOT JUST BE RAISED INSTEAD: 30s is already far past
+ * what a request can use. A cold request waits SITUATIONS_COLD_WAIT_MS (9s),
+ * then answers from the stale copy or `timeout` and leaves the build running. So
+ * the request budget's job is to recycle a wedged worker before it blocks later
+ * builds, and 30s is a reasonable answer to that. The warm-up's job is the
+ * opposite: finish the cold build, however long the disk takes, while nothing is
+ * waiting on it.
+ *
+ * WHY 120s IS SAFE HERE, specifically:
+ *   - it runs in the worker, so the main thread's event loop is untouched
+ *     whatever it costs (that is #81's offload);
+ *   - it runs after the boot ingestion cycle has settled plus a floor after
+ *     listen (#82's gate), so the instance is already serving health checks;
+ *   - no request can be made to wait on it. A request for a shape being warmed
+ *     joins the in-flight build, but `getSituationsPayload` races every build
+ *     against the 9s cold wait and answers empty when the race is lost — it
+ *     never awaits a build to completion;
+ *   - a timeout still recycles the worker, so a genuinely wedged thread is still
+ *     killed; it just gets four times as long to prove it is wedged.
+ *
+ * It is only the budget that changes. An earlier draft of this also stopped a
+ * warm-up timeout counting towards MAX_WORKER_FAILURES, on the theory that three
+ * cold warm-up builds could make the service give up on the worker and move
+ * every later build onto the main thread. That theory is wrong: see the note in
+ * buildInWorker — a successful respawn resets the counter, so no number of build
+ * timeouts reaches the guard. The accounting needed no change, so it did not get
+ * one.
+ */
+const warmupBuildTimeoutMs = () =>
+  envInt("SITUATIONS_WARMUP_BUILD_TIMEOUT_MS", 120_000, 1_000, 900_000);
+/**
  * Distinct query shapes kept. league x sport x type x state x limit x order is
  * unbounded in the free-text fields, so without a cap a caller varying `?league=`
  * is a memory leak that ends in the OOM-kill this endpoint already caused once
@@ -324,7 +367,7 @@ async function ensureWorker(): Promise<Worker | null> {
   return workerBoot;
 }
 
-function buildInWorker(w: Worker, query: CanonicalSituationApiQuery) {
+function buildInWorker(w: Worker, query: CanonicalSituationApiQuery, budgetMs: number) {
   return new Promise<{ payload: SituationsPayload; usage: SqlUsage; buildMs: number }>((resolve, reject) => {
     const id = nextRequestId++;
     const timer = setTimeout(() => {
@@ -332,12 +375,24 @@ function buildInWorker(w: Worker, query: CanonicalSituationApiQuery) {
       // A synchronous better-sqlite3 call cannot be interrupted; terminating the
       // thread is the only way to stop it, and leaving it running would block
       // every later build behind it.
+      //
+      // NOTE ON workerFailures, because it is easy to misread: incrementing it
+      // here cannot lead to MAX_WORKER_FAILURES on its own. dropWorker kills the
+      // thread, the next build spawns a replacement, and the "ready" handler
+      // below resets this counter to 0. So the give-up path — which falls back
+      // to building on the MAIN THREAD — is reachable from repeated spawn/boot
+      // failures, not from repeated build timeouts, however many of those there
+      // are. That is the right behaviour for this file (a timeout loop that
+      // kept the loop free beats one that moved the work onto it), and it is
+      // asserted both ways in situations-warmup-timeout.test.ts so a future
+      // change to the reset does not quietly turn a slow disk into in-thread
+      // builds.
       workerFailures++;
-      dropWorker(`build exceeded ${buildTimeoutMs()}ms`);
-      const error = new Error(`situations build exceeded ${buildTimeoutMs()}ms`);
+      dropWorker(`build exceeded ${budgetMs}ms`);
+      const error = new Error(`situations build exceeded ${budgetMs}ms`);
       error.name = BUILD_TIMEOUT; // never retried in-thread — see startBuild
       reject(error);
-    }, buildTimeoutMs());
+    }, budgetMs);
     timer.unref();
     pending.set(id, { resolve, reject, timer });
     try {
@@ -393,6 +448,7 @@ async function startBuild(
   key: string,
   query: CanonicalSituationApiQuery,
   blocking: boolean,
+  opts: { readonly warmup?: boolean } = {},
 ): Promise<CacheEntry | null> {
   const existing = inFlight.get(key);
   if (existing) return existing;
@@ -407,7 +463,11 @@ async function startBuild(
         let source: CacheEntry["source"] = "worker";
         if (w) {
           try {
-            built = await buildInWorker(w, query);
+            built = await buildInWorker(
+              w,
+              query,
+              opts.warmup ? warmupBuildTimeoutMs() : buildTimeoutMs(),
+            );
           } catch (e: any) {
             const timedOut = e?.name === BUILD_TIMEOUT;
             if (timedOut || !blocking) {
@@ -537,7 +597,7 @@ export async function warmSituationsCache(
   for (const shape of shapes) {
     const key = situationsCacheKey(shape);
     if (cache.has(key)) { warmed++; continue; }
-    const entry = await startBuild(key, shape, false).catch(() => null);
+    const entry = await startBuild(key, shape, false, { warmup: true }).catch(() => null);
     if (entry) warmed++;
   }
   return warmed;
@@ -635,7 +695,8 @@ export function scheduleSituationsWarmup(
     const window = await awaitWarmupWindow(after, listenedAt);
     console.log(
       `[situations-cache] warm-up starting ${window.waitedMs}ms after listen ` +
-      `(ingestion-initial: ${window.gate}, floor ${warmupFloorMs()}ms, cap ${warmupMaxWaitMs()}ms)`,
+      `(ingestion-initial: ${window.gate}, floor ${warmupFloorMs()}ms, cap ${warmupMaxWaitMs()}ms, ` +
+      `build budget ${warmupBuildTimeoutMs()}ms)`,
     );
     const started = Date.now();
     try {
