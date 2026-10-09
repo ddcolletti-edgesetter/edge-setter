@@ -20,11 +20,18 @@ name: cfb-game-alias-guard
 # dangerous drift (NAME_TO_CODE edited without a regenerate) with no network.
 
 on:
+  # No `branches:` filter on pull_request. That filter matches the BASE branch,
+  # and this PR is stacked on fix/cfb-team-logo-map rather than main — with
+  # `branches: [main]` the guard reported no checks at all on the very PR it was
+  # written for. A guard that a stacked PR can skip is not a guard.
   pull_request:
-    branches: [main]
   push:
     branches: [main]
 
+# Read-only. No secrets are referenced, and the job writes nothing outside the
+# runner: checkout, npm ci, two vitest runs. The tests reach no network — the
+# ESPN-derived maps are committed, the alias suite reads local files, and the
+# backlog suite stubs global fetch.
 permissions:
   contents: read
 
