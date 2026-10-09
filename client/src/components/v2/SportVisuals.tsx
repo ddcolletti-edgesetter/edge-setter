@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
+import { CFB_LOGO_URLS, CFB_MASCOT_SLICE_TOKEN_SET } from "@/lib/cfbTeamLogos";
 import { deterministicTeamColors, teamColorsFor } from "@/lib/teamColors";
-import { resolveTeamLogoSrc } from "@/lib/teamLogoResolver";
 
 /**
  * Edge Setter v2 — Sport Visual Component System
@@ -282,38 +282,65 @@ const NFL_LOGO_URLS: Record<string, string> = {
   WSH: "https://a.espncdn.com/i/teamlogos/nfl/500/wsh.png",
 };
 
-const CFB_LOGO_URLS: Record<string, string> = {
-  BAMA: "https://a.espncdn.com/i/teamlogos/ncaa/500/333.png",
-  UGA: "https://a.espncdn.com/i/teamlogos/ncaa/500/61.png",
-  OHIO: "https://a.espncdn.com/i/teamlogos/ncaa/500/194.png",
-  MICH: "https://a.espncdn.com/i/teamlogos/ncaa/500/130.png",
-  TX: "https://a.espncdn.com/i/teamlogos/ncaa/500/251.png",
-  LSU: "https://a.espncdn.com/i/teamlogos/ncaa/500/99.png",
-  USC: "https://a.espncdn.com/i/teamlogos/ncaa/500/30.png",
-  ND: "https://a.espncdn.com/i/teamlogos/ncaa/500/87.png",
-  FSU: "https://a.espncdn.com/i/teamlogos/ncaa/500/52.png",
-  CLEM: "https://a.espncdn.com/i/teamlogos/ncaa/500/228.png",
-};
-
 export type TeamLogoSport = "nba" | "mlb" | "nfl" | "cfb";
 
-export const TEAM_LOGO_URLS: Record<string, string> = { ...NBA_LOGO_URLS, ...MLB_LOGO_URLS, ...NFL_LOGO_URLS, ...CFB_LOGO_URLS };
+/**
+ * Flat fallback for callers that do not know the sport. Spread order decides who
+ * wins a shared token, and CFB goes FIRST so it loses every tie: BUF, CIN, COL,
+ * HOU, IND, MEM, MIA and TEX all name both a college and a pro team, and a
+ * caller with no sport is far more likely to mean the pro one. The pro order
+ * (NBA, MLB, NFL) is unchanged, so only CFB's ability to shadow is removed.
+ *
+ * Prefer passing `sport` — then {@link getTeamLogoUrl} uses that league's own
+ * map and the ambiguity never arises.
+ */
+export const TEAM_LOGO_URLS: Record<string, string> = { ...CFB_LOGO_URLS, ...NBA_LOGO_URLS, ...MLB_LOGO_URLS, ...NFL_LOGO_URLS };
 
-const LOCAL_LOGO_FALLBACK = "/assets/logos/fallback-transparent.svg";
+const LEAGUE_LOGO_URLS: Record<TeamLogoSport, Record<string, string>> = {
+  mlb: MLB_LOGO_URLS,
+  nba: NBA_LOGO_URLS,
+  nfl: NFL_LOGO_URLS,
+  cfb: CFB_LOGO_URLS,
+};
 
-export function getTeamLogoUrl(abbr: string, sport?: TeamLogoSport): string {
+/**
+ * Resolve a team's logo URL, or "" when we do not have one — "" is what makes
+ * {@link TeamLogoImg} draw the abbreviation badge instead.
+ *
+ * Branching on `sport` is what keeps colliding tokens apart (SF Giants vs SF
+ * 49ers, MIA Hurricanes vs MIA Dolphins): each league map holds that league's
+ * own ESPN filename, so the same token resolves per sport. This used to be
+ * delegated to a separate token->slug resolver whose "no match" sentinel was
+ * compared against the wrong constant, so the sentinel — a transparent 1px SVG
+ * data URI — was returned as if it were a real logo. That rendered an invisible
+ * <img> that never fires onError, so ten teams (MLB ATH/LAD, NBA
+ * NYK/GSW/LAL/NOP/SAS/WAS, NFL LAR/JAX) showed blank instead of a badge, and
+ * the per-league maps below were unreachable for mlb/nba/nfl. That resolver
+ * also built URLs from the code itself, which 404s for the Jazz (uta.png;
+ * ESPN's file is utah.png).
+ */
+export interface TeamLogoOptions {
+  /**
+   * The token came out of the `games` table. For CFB that table speaks the odds
+   * adapter's vocabulary, where a school NAME_TO_CODE does not cover is stored
+   * as the first three letters of its MASCOT — so the token names a mascot, not
+   * a school, and no logo may be resolved from it. Measured: 62 such tokens, of
+   * which `FLA` (Kent State Golden Flashes, Liberty Flames) is also ESPN's
+   * abbreviation for Florida and was rendering the Gators' logo on their games.
+   *
+   * Off by default, because the same string reaching a badge from the injury or
+   * transaction adapters IS a real abbreviation (CFB_DISPLAY_TO_ABBR, where
+   * `FLA` does mean Florida). Suppressing both would cost Florida its logo to
+   * fix Kent State's.
+   */
+  fromGamesTable?: boolean;
+}
+
+export function getTeamLogoUrl(abbr: string, sport?: TeamLogoSport, opts?: TeamLogoOptions): string {
   const upper = toTeamAbbr(abbr);
   if (isUnknownTeamAbbr(upper)) return "";
-  // Use sport-aware resolver to prevent token collisions (e.g. SF Giants vs SF 49ers).
-  // Falls back to ESPN CDN when no local asset is mapped.
-  if (sport === "mlb" || sport === "nba" || sport === "nfl") {
-    const localSrc = resolveTeamLogoSrc(upper, sport);
-    if (localSrc !== LOCAL_LOGO_FALLBACK) return localSrc;
-  }
-  if (sport === "mlb") return MLB_LOGO_URLS[upper] ?? "";
-  if (sport === "nba") return NBA_LOGO_URLS[upper] ?? "";
-  if (sport === "nfl") return NFL_LOGO_URLS[upper] ?? "";
-  if (sport === "cfb") return CFB_LOGO_URLS[upper] ?? "";
+  if (opts?.fromGamesTable && sport === "cfb" && CFB_MASCOT_SLICE_TOKEN_SET.has(upper)) return "";
+  if (sport) return LEAGUE_LOGO_URLS[sport][upper] ?? "";
   return TEAM_LOGO_URLS[upper] ?? "";
 }
 
@@ -345,11 +372,11 @@ export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
   );
 }
 
-interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: TeamLogoSport; }
-export function TeamLogoImg({ abbr, size = 32, shape = "square", src, sport }: TeamLogoImgProps) {
+interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: TeamLogoSport; fromGamesTable?: boolean; }
+export function TeamLogoImg({ abbr, size = 32, shape = "square", src, sport, fromGamesTable }: TeamLogoImgProps) {
   const normalizedAbbr = toTeamAbbr(abbr);
   const unknownTeam = isUnknownTeamAbbr(normalizedAbbr);
-  const logoUrl = unknownTeam ? "" : src ?? getTeamLogoUrl(normalizedAbbr, sport);
+  const logoUrl = unknownTeam ? "" : src ?? getTeamLogoUrl(normalizedAbbr, sport, { fromGamesTable });
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const showFallback = !logoUrl || failedUrl === logoUrl;
   const borderRadius = shape === "circle" ? "50%" : shape === "shield" ? "4px 4px 8px 8px" : "0";

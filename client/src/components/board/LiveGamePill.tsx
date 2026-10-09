@@ -89,7 +89,7 @@ export function LiveGamePill({ game, selected, compact, copyVariant = "legacy", 
 
         <span className={cn("grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 font-bold text-foreground", compact ? "text-[0.82rem]" : "text-sm")}>
           <span className="flex min-w-0 items-center gap-1.5 truncate">
-            {!compact && <TeamLogoImg abbr={game.away.abbreviation} size={22} sport={game.sport} />}
+            {!compact && <TeamLogoImg abbr={game.away.abbreviation} size={22} sport={game.sport} fromGamesTable />}
             <span className="truncate">{game.away.abbreviation}</span>
           </span>
           <span className="font-mono text-[0.78rem] tabular-nums text-muted-foreground">
@@ -97,7 +97,7 @@ export function LiveGamePill({ game, selected, compact, copyVariant = "legacy", 
           </span>
           <span className="flex min-w-0 items-center justify-end gap-1.5 truncate text-right">
             <span className="truncate">{game.home.abbreviation}</span>
-            {!compact && <TeamLogoImg abbr={game.home.abbreviation} size={22} sport={game.sport} />}
+            {!compact && <TeamLogoImg abbr={game.home.abbreviation} size={22} sport={game.sport} fromGamesTable />}
           </span>
         </span>
 
