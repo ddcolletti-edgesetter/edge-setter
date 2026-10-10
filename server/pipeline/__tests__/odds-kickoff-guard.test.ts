@@ -20,8 +20,11 @@ import path from "path";
  *   1. Before kickoff nothing changes — the guard is inert.
  *   2. After kickoff: no snapshot, no market-column overwrite, no line_move,
  *      no odds_open; status and source_game_id still track.
- *   3. MLB is NOT guarded, deliberately (doubleheader id collision, plus a
- *      second writer in ingestMLBSchedule).
+ *   3. MLB scope is env-driven: unguarded by DEFAULT (the shared-row
+ *      doubleheader id collision in canonicalGameId), but guarded when
+ *      ODDS_KICKOFF_GUARD_LEAGUES names it, which is the postseason switch.
+ *      (ingestMLBSchedule is NOT a competing writer — it writes
+ *      `existing?.<col> ?? null`, an idempotent read-then-write-back.)
  *   4. A game first seen after kickoff gets NULL market columns and never
  *      backfills them, across repeated cycles.
  *   5. The env kill switch restores d48eef6 behaviour exactly — that is the
@@ -227,9 +230,17 @@ describe("after kickoff the market side is frozen", () => {
 
 /* ─── 3. MLB is deliberately not guarded ────────────────────────────── */
 
-describe("MLB is out of scope", () => {
-  it("still snapshots and overwrites after kickoff", async () => {
-    const id = gameIdFor("MLB", "2026-10-08");
+/**
+ * MLB is excluded by DEFAULT, not by construction. Both halves matter:
+ * the default must leave it unguarded (so this deploy cannot change MLB
+ * behaviour), and naming it in ODDS_KICKOFF_GUARD_LEAGUES must actually guard
+ * it (so the postseason can be switched on by env alone, with no code change —
+ * the MLB postseason schedules no doubleheaders, so the shared-row id
+ * collision that keeps MLB out of the default is dormant in that window).
+ */
+describe("MLB scope is env-driven, not hardcoded", () => {
+  /** Seeds a pre-game MLB row so an overwrite is detectable either way. */
+  function seedPregameMLB(id: string) {
     store.upsertGame({
       id, league: "MLB", home_team: HOME_CODE, away_team: AWAY_CODE,
       game_time: PAST, status: "scheduled",
@@ -238,10 +249,44 @@ describe("MLB is out of scope", () => {
       open_spread: -1.5, open_total: 8.5,
       home_score: null, away_score: null, source_game_id: "src-1",
     } as any);
+  }
+
+  it("by default is NOT guarded — in-play numbers still land", async () => {
+    const id = gameIdFor("MLB", "2026-10-08");
+    seedPregameMLB(id);
 
     await runCycle("MLB", oddsPayload({ commenceTime: PAST, spread: -4.5, total: 12.5 }));
 
     // Unguarded: the in-play numbers land, exactly as before this change.
+    expect(snapshotCount(id)).toBe(1);
+    expect(store.getGame(id)!.spread_line).toBe(-4.5);
+  });
+
+  it("IS guarded when ODDS_KICKOFF_GUARD_LEAGUES names it (postseason switch)", async () => {
+    process.env.ODDS_KICKOFF_GUARD_LEAGUES = "CFB,NFL,NBA,MLB";
+    const id = gameIdFor("MLB", "2026-10-08");
+    seedPregameMLB(id);
+
+    await runCycle("MLB", oddsPayload({ commenceTime: PAST, spread: -4.5, total: 12.5 }));
+
+    // No in-play snapshot, and the pre-game market columns survive untouched.
+    expect(snapshotCount(id)).toBe(0);
+    const g = store.getGame(id)!;
+    expect(g.spread_line).toBe(-1.5);
+    expect(g.total_line).toBe(8.5);
+    expect(g.open_spread).toBe(-1.5);
+    expect(rawEventCount(id, "line_move")).toBe(0);
+    // Schedule side still tracks.
+    expect(g.source_game_id).toBe("src-1");
+  });
+
+  it("leaves MLB unguarded when the override omits it", async () => {
+    process.env.ODDS_KICKOFF_GUARD_LEAGUES = "CFB,NFL,NBA";
+    const id = gameIdFor("MLB", "2026-10-08");
+    seedPregameMLB(id);
+
+    await runCycle("MLB", oddsPayload({ commenceTime: PAST, spread: -4.5, total: 12.5 }));
+
     expect(snapshotCount(id)).toBe(1);
     expect(store.getGame(id)!.spread_line).toBe(-4.5);
   });
@@ -406,5 +451,81 @@ describe("observability", () => {
     await runCycle("CFB", oddsPayload({ commenceTime: FUTURE }));
 
     expect(log.mock.calls.map((c) => String(c[0])).some((l) => l.includes("past kickoff"))).toBe(false);
+  });
+
+  /**
+   * Books commonly pull every market once a game goes in-play, so a
+   * post-kickoff game often arrives with an empty `bookmakers` array. That is
+   * the population the counter most needs to show; counting after the
+   * bookmaker `continue` hid it entirely.
+   */
+  it("counts a post-kickoff game whose books pulled all markets", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await runCycle("CFB", [{
+      id: "src-nobooks",
+      sport_key: "americanfootball_ncaaf",
+      sport_title: "NCAAF",
+      commence_time: PAST,
+      home_team: HOME,
+      away_team: AWAY,
+      bookmakers: [],
+    }]);
+
+    const lines = log.mock.calls.map((c) => String(c[0]));
+    expect(lines.some((l) => l.includes("1 of 1 game(s) past kickoff"))).toBe(true);
+    // Nothing was written either way — there were no prices to write.
+    expect(snapshotCount(gameIdFor("CFB", "2026-10-08"))).toBe(0);
+  });
+
+  it("does not count a bookmaker-less game that has NOT started", async () => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    await runCycle("CFB", [{
+      id: "src-nobooks-future",
+      sport_key: "americanfootball_ncaaf",
+      sport_title: "NCAAF",
+      commence_time: FUTURE,
+      home_team: HOME,
+      away_team: AWAY,
+      bookmakers: [],
+    }]);
+
+    expect(log.mock.calls.map((c) => String(c[0])).some((l) => l.includes("past kickoff"))).toBe(false);
+  });
+});
+
+/* ─── 12. The cycle clock is read after the fetch ───────────────────── */
+
+describe("cycle clock", () => {
+  /**
+   * cycleNowMs is read AFTER fetchOdds resolves. On a pre-fetch clock, a game
+   * kicking off during the HTTP round trip reads as not-started and gets one
+   * in-play snapshot written. Here the fetch itself consumes the time between
+   * "not yet started" and "started", which is exactly the leak window.
+   */
+  it("judges kickoff against a clock no earlier than the prices in hand", async () => {
+    // Kickoff 50ms from now; the stubbed fetch takes 200ms to resolve, so the
+    // game has started by the time the prices arrive.
+    const kickoff = new Date(Date.now() + 50).toISOString();
+    // The id is derived from the kickoff DATE, so it must be built from the
+    // same timestamp — a hardcoded date here makes every assertion vacuous.
+    const id = gameIdFor("CFB", kickoff.slice(0, 10));
+
+    store.getPipelineDb().prepare("DELETE FROM odds_fetch_state").run();
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      await new Promise((r) => setTimeout(r, 200));
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: (h: string) => (h === "x-requests-remaining" ? "500" : null) },
+        json: async () => oddsPayload({ commenceTime: kickoff }),
+      } as any;
+    }));
+
+    await odds.ingestOdds("CFB" as any);
+
+    expect(snapshotCount(id)).toBe(0);
+    expect(store.getGame(id)?.spread_line ?? null).toBeNull();
   });
 });

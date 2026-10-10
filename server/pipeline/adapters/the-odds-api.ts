@@ -5,12 +5,23 @@
  * Free tier: 500 requests/month.
  * Env: THE_ODDS_API_KEY
  *
- * Fetches spreads + totals for NBA and MLB games.
- * Normalizes each game into:
+ * Fetches spreads + totals + h2h for all four leagues (NBA, MLB, NFL, CFB —
+ * see SPORT_KEYS). Normalizes each game into:
  *   1. A Game record (upserted to games table)
  *   2. A RawEvent of type "line_move" (if line changed) or "odds_open" (new game)
  *
- * Called by the ingestion scheduler every 15 minutes during active hours.
+ * CADENCE — two separate limits, and the second is the binding one:
+ *   - the standard ingestion cycle ATTEMPTS this every 15 minutes, during
+ *     active hours only (ingestion.ts: STANDARD_INTERVAL_MS, isActiveHours);
+ *   - shouldSkipOddsFetch then throttles to at most one SUCCESSFUL fetch per
+ *     ODDS_MIN_INTERVAL_MIN, default **60** minutes, per league.
+ *
+ * So the real cadence is hourly per league, not 15-minutely, and one fetch
+ * covers that league's whole slate. That is why the last pre-kickoff snapshot
+ * can be up to ~60 minutes old, and why the staleness is CORRELATED across
+ * every game kicking off at the same time rather than averaging out. Anything
+ * that calls the newest pre-kickoff snapshot a "closing line" is overstating
+ * it by up to an hour.
  */
 
 import { upsertGame, touchGameSchedule, getGame, insertRawEvent, insertOddsSnapshot, getOddsFetchState, recordOddsFetchState, type OddsFetchState } from "../store";
@@ -155,6 +166,17 @@ const kickoffGuardLeagues = (): ReadonlySet<string> => new Set(
 );
 
 /**
+ * Is the guard active for this league at all? Resolved ONCE per cycle and
+ * passed down, rather than re-read per game: the league set was being rebuilt
+ * (env split + new Set) for every game in the slate, ~130 times a cycle on
+ * CFB. Still read per CYCLE, not per process, so an env change takes effect on
+ * the next fetch.
+ */
+function kickoffGuardActiveFor(league: League): boolean {
+  return kickoffGuardEnabled() && kickoffGuardLeagues().has(league);
+}
+
+/**
  * Has this game already started, as of one timestamp for the whole cycle?
  *
  * An unparseable commence_time fails OPEN — it ingests exactly as before and
@@ -162,9 +184,13 @@ const kickoffGuardLeagues = (): ReadonlySet<string> => new Set(
  * silently stop all odds ingestion if the feed's date format ever changed,
  * which is the worse failure of the two.
  */
-function kickoffPassed(league: League, commenceTime: string, cycleNowMs: number): boolean {
-  if (!kickoffGuardEnabled()) return false;
-  if (!kickoffGuardLeagues().has(league)) return false;
+function kickoffPassed(
+  league: League,
+  commenceTime: string,
+  cycleNowMs: number,
+  guardActive: boolean,
+): boolean {
+  if (!guardActive) return false;
 
   const kickoffMs = Date.parse(commenceTime);
   if (!Number.isFinite(kickoffMs)) {
@@ -273,20 +299,36 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
   let eventsCreated = 0;
   let gamesFrozen = 0;
 
-  // ONE clock for the whole cycle, reusing the timestamp the throttle already
-  // captured. Not Date.now() per game: a single value means no game can flip
-  // across the kickoff boundary midway through this loop, and tests have one
+  // ONE clock for the whole cycle, read AFTER the fetch resolved rather than
+  // from the pre-fetch `now` the throttle used. The HTTP round trip sits
+  // between the two, and a game that kicks off during it would be judged
+  // not-started on a pre-fetch clock and get one in-play snapshot written.
+  // Reading it here closes that leak: the clock is never earlier than the
+  // moment the prices in hand were received.
+  //
+  // Still ONE value for the whole loop, not Date.now() per game, so no game
+  // can flip across the kickoff boundary midway through and tests have one
   // place to control time from.
-  const cycleNowMs = now.getTime();
+  const cycleNowMs = Date.now();
+
+  // Resolved once per cycle — see kickoffGuardActiveFor.
+  const guardActive = kickoffGuardActiveFor(league);
 
   for (const ag of apiGames) {
+    // Recomputed every cycle, never persisted — see the kickoff guard notes.
+    //
+    // Computed BEFORE the bookmaker check on purpose. Books commonly pull
+    // every market once a game goes in-play, so a post-kickoff game often
+    // arrives with an empty `bookmakers` array — exactly the population this
+    // counter exists to show. Counting after the `continue` hid it, and made
+    // the log read as "the guard did nothing" on precisely the games that had
+    // most certainly started.
+    const started = kickoffPassed(league, ag.commence_time, cycleNowMs, guardActive);
+    if (started) gamesFrozen++;
+
     // Pick a consensus bookmaker (prefer pinnacle, then first available)
     const bm = ag.bookmakers.find(b => b.key === "pinnacle") ?? ag.bookmakers[0];
     if (!bm) continue;
-
-    // Recomputed every cycle, never persisted — see the kickoff guard notes.
-    const started = kickoffPassed(league, ag.commence_time, cycleNowMs);
-    if (started) gamesFrozen++;
 
     const spreadsMarket = bm.markets.find(m => m.key === "spreads");
     const totalsMarket  = bm.markets.find(m => m.key === "totals");
@@ -472,10 +514,15 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
     }
   }
 
+  // "past kickoff", not "writes suppressed": this counts every game the feed
+  // returned whose commence_time has passed, including those that arrived with
+  // no bookmakers at all (which the loop would have skipped regardless). The
+  // two populations differ, and the count deliberately covers the wider one so
+  // that an in-progress slate is visible here rather than silently absent.
   if (gamesFrozen > 0) {
     console.log(
       `[odds-api] ${league}: ${gamesFrozen} of ${apiGames.length} game(s) past kickoff — ` +
-      `snapshots, market columns and line_move frozen (ODDS_KICKOFF_GUARD)`,
+      `no snapshot, no market-column overwrite, no line_move (ODDS_KICKOFF_GUARD)`,
     );
   }
 
