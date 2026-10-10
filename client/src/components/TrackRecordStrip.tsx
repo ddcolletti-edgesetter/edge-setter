@@ -10,6 +10,10 @@
  * - Hides entirely on fetch error
  * - Shows disclaimer when total_signals < MIN_SAMPLE
  * - Numbers get slightly stronger color emphasis; labels stay faint
+ *
+ * WORDING: `avg_clv_points` is an average over LAST PREGAME lines (up to ~60
+ * minutes stale — see OutcomePanel.tsx), not closing lines, so the label reads
+ * "avg line value". The API field name is unchanged.
  */
 import React from "react";
 import { useTrackRecord, type TrackRecordSlice } from "../hooks/useTrackRecord";
@@ -104,7 +108,7 @@ export default function TrackRecordStrip({ league, darkMode }: Props) {
               <>
                 <span style={{ color: textFaint }}>/</span>
                 <span style={{ color: numEmphasis }}>{fmt_clv(overall.avg_clv_points)}</span>
-                <span style={{ color: textFaint }}>avg CLV</span>
+                <span style={{ color: textFaint }}>avg line value</span>
               </>
             )}
             <span style={{ color: textFaint }}>(sample size small — warming up)</span>
@@ -119,7 +123,7 @@ export default function TrackRecordStrip({ league, darkMode }: Props) {
               <>
                 <span style={{ color: textFaint }}>/</span>
                 <span style={{ color: numEmphasis }}>{fmt_clv(overall.avg_clv_points)}</span>
-                <span style={{ color: textFaint }}>avg CLV</span>
+                <span style={{ color: textFaint }}>avg line value</span>
               </>
             )}
             <span style={{ color: textFaint }}>·</span>
