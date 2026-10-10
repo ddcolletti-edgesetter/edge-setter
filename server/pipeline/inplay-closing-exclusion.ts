@@ -70,6 +70,7 @@ import {
   countStaleSettledOutcomes,
   getSettledOutcomeSignalIdsByReason,
   countSettledOutcomesPendingExclusion,
+  setStorageBusyTimeoutMs,
 } from "../storage";
 
 /** The one value this sweep writes to outcomes.excluded_reason. */
@@ -80,8 +81,65 @@ export type SweepLeague = (typeof SWEEP_LEAGUES)[number];
 
 export type SweepDirection = "forward" | "reverse";
 
-/** Rows per transaction; the loop yields between chunks. */
-const SWEEP_CHUNK = 500;
+/**
+ * Rows per transaction. 500 is BOTH the default and the hard maximum.
+ *
+ * It is a maximum because --chunk scales the write-lock hold on both databases
+ * linearly, and holding that lock is the one way this job can hurt the live
+ * service: the app sets no busy_timeout of its own, so a blocked main-thread
+ * write waits out better-sqlite3's 5,000ms default and then throws SQLITE_BUSY
+ * — and 5s is also Render's health-check budget. There is no operator reason to
+ * want a bigger batch (the job is minutes either way, by design), and a
+ * mistyped --chunk 50000 would put 50,000 UPDATEs inside one transaction on
+ * pipeline.db and the whole id list inside one on storage.db.
+ */
+export const SWEEP_CHUNK_MAX = 500;
+const SWEEP_CHUNK_DEFAULT = 500;
+
+/**
+ * Milliseconds of real sleep between chunks, default.
+ *
+ * yieldToLoop() alone is NOT pacing. It is a setImmediate, so it yields this
+ * process's event loop — and this process is not the app's. What the app needs
+ * is wall-clock time during which the write lock is free, because SQLite's busy
+ * handler is a retry loop, not a fair queue: committing and immediately
+ * reacquiring means the app has to win a race on each retry. 250ms between
+ * chunks is a window it cannot lose.
+ */
+export const SWEEP_PAUSE_MS_DEFAULT = 250;
+export const SWEEP_PAUSE_MS_MAX = 60_000;
+
+/**
+ * Busy timeout this job sets on BOTH handles, explicitly.
+ *
+ * 5,000ms is deliberately the same number better-sqlite3 uses when the option
+ * is omitted (lib/database.js: `'timeout' in options ? options.timeout : 5000`).
+ * Setting it explicitly changes no behaviour today — the point is that the
+ * value is now stated and pinned here rather than inherited from a dependency
+ * default that could change under us, and that `PRAGMA busy_timeout` is visible
+ * in the DB session an operator can inspect. Nothing else in this repo sets it;
+ * see the note in situations-store.ts.
+ *
+ * This is OUR patience when the app holds the lock. It is not a safety limit on
+ * how long we hold it — that is SWEEP_CHUNK_MAX and SWEEP_PAUSE_MS_DEFAULT.
+ */
+export const SWEEP_BUSY_TIMEOUT_MS = 5_000;
+
+/**
+ * Apply the busy timeout to both handles. Called by the entry-point script, not
+ * by runSweep, and the distinction is deliberate: these handles are
+ * process-wide singletons, so this mutates the session for everything else in
+ * the process. In the operator script that is the whole process and exactly
+ * what we want. If runSweep did it and were ever called in-process by the app,
+ * it would silently retune the app's own writes.
+ */
+export function applySweepBusyTimeout(ms: number = SWEEP_BUSY_TIMEOUT_MS): void {
+  getPipelineDb().pragma(`busy_timeout = ${Math.round(ms)}`);
+  setStorageBusyTimeoutMs(Math.round(ms));
+}
+
+const sleep = (ms: number) =>
+  ms <= 0 ? yieldToLoop() : new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export interface CandidateRow {
   id: string;
@@ -115,7 +173,18 @@ export interface SweepCounts {
 export interface SweepPlan {
   direction: SweepDirection;
   league: SweepLeague | null;
+  /** The rows this run will act on — already truncated to max_rows. */
   candidates: CandidateRow[];
+  /**
+   * How many rows matched before max_rows truncated the list. Equal to
+   * candidates.length when no cap applied. The operator needs both numbers:
+   * one is this run's work, the other is how much is left.
+   */
+  candidates_in_scope: number;
+  /** The --max-rows cap in force, or null for uncapped. */
+  max_rows: number | null;
+  /** True when the cap actually bit, i.e. candidates_in_scope > max_rows. */
+  capped: boolean;
   /** Candidates with a graded hit — the subset that changes accuracy. */
   graded_candidates: number;
   /**
@@ -129,6 +198,25 @@ export interface SweepPlan {
   counts_projected: SweepCounts;
 }
 
+/**
+ * How long a write transaction actually held its database's write lock.
+ *
+ * Measured around the transaction call itself, so it includes any time spent
+ * waiting on busy_timeout for the lock in the first place. That is the honest
+ * boundary for "how long could the app have been blocked by, or behind, us":
+ * a chunk that waited 3s to start and ran for 20ms is a 3s event for whoever
+ * was queued behind it, not a 20ms one.
+ */
+export interface LockHoldStats {
+  chunks: number;
+  pipeline_ms_max: number;
+  pipeline_ms_total: number;
+  storage_ms_max: number;
+  storage_ms_total: number;
+  /** Worst single chunk, pipeline + storage — the number to compare to 5,000. */
+  worst_chunk_ms: number;
+}
+
 export interface SweepResult extends SweepPlan {
   wrote: boolean;
   pipeline_changed: number;
@@ -138,6 +226,11 @@ export interface SweepResult extends SweepPlan {
   accuracy_refreshed: boolean;
   /** Re-read after the writes. Equals counts_before on a dry run. */
   counts_after: SweepCounts;
+  /** All zeroes on a dry run, which holds no write lock at all. */
+  lock_hold: LockHoldStats;
+  /** Chunk size and pause actually used, after clamping. */
+  chunk_size: number;
+  pause_ms: number;
 }
 
 /* ─── Counting ──────────────────────────────────────────────────────────── */
@@ -286,16 +379,25 @@ export function planSweep(
   direction: SweepDirection,
   league: SweepLeague | null,
   db: Database.Database = getPipelineDb(),
+  maxRows: number | null = null,
 ): SweepPlan {
   const counts_before = countExclusions(db);
-  const candidates = selectCandidates(direction, league, db);
+  const inScope = selectCandidates(direction, league, db);
+  // The cap truncates the ORDERED list (created_at ASC), so repeated capped
+  // runs walk the backlog oldest-first and never re-offer a row they already
+  // flagged — the candidate predicate excludes it on the next pass.
+  const candidates = maxRows != null ? inScope.slice(0, maxRows) : inScope;
   return {
     direction,
     league,
     candidates,
+    candidates_in_scope: inScope.length,
+    max_rows: maxRows,
+    capped: maxRows != null && inScope.length > maxRows,
     graded_candidates: candidates.filter((c) => c.hit !== null).length,
     mirror_drift: countMirrorDrift(db),
     counts_before,
+    // Projected from the CAPPED list, because that is the work this run does.
     counts_projected: project(counts_before, direction, candidates),
   };
 }
@@ -307,14 +409,25 @@ export interface RunSweepOptions {
   league?: SweepLeague | null;
   /** Nothing is written unless this is true. Default false. */
   write?: boolean;
-  /** Rows per transaction. Default SWEEP_CHUNK. */
+  /** Rows per transaction. Default 500, CLAMPED to [1, SWEEP_CHUNK_MAX]. */
   chunkSize?: number;
+  /** Real sleep between chunks. Default 250ms, clamped to [0, 60000]. */
+  pauseMs?: number;
+  /** Stop after this many rows. Default null = uncapped. */
+  maxRows?: number | null;
   /**
    * Run forceAccuracyRecompute + resetLeaderboardCache after a successful
    * write. Default true. Tests turn it off to keep the fixture pure SQL.
    */
   refreshAccuracy?: boolean;
-  onChunk?: (done: number, total: number) => void;
+  onChunk?: (progress: {
+    done: number;
+    total: number;
+    /** Lock-hold for this chunk's pipeline.db transaction, ms. */
+    pipelineMs: number;
+    /** Lock-hold for this chunk's storage.db transaction, ms. */
+    storageMs: number;
+  }) => void;
   db?: Database.Database;
 }
 
@@ -323,9 +436,21 @@ export async function runSweep(opts: RunSweepOptions): Promise<SweepResult> {
   const direction = opts.direction;
   const league = opts.league ?? null;
   const write = opts.write === true;
-  const chunkSize = Math.max(1, opts.chunkSize ?? SWEEP_CHUNK);
+  // Clamped, not rejected: the caller that passes 50000 is a typo, and the
+  // right response to a typo on a job like this is to do the safe thing and say
+  // so. The script prints the clamp when it bites.
+  const chunkSize = Math.min(SWEEP_CHUNK_MAX, Math.max(1, opts.chunkSize ?? SWEEP_CHUNK_DEFAULT));
+  const pauseMs = Math.min(SWEEP_PAUSE_MS_MAX, Math.max(0, opts.pauseMs ?? SWEEP_PAUSE_MS_DEFAULT));
+  const maxRows = opts.maxRows != null ? Math.max(0, Math.round(opts.maxRows)) : null;
 
-  const plan = planSweep(direction, league, db);
+  const plan = planSweep(direction, league, db, maxRows);
+
+  const noLock: LockHoldStats = {
+    chunks: 0,
+    pipeline_ms_max: 0, pipeline_ms_total: 0,
+    storage_ms_max: 0, storage_ms_total: 0,
+    worst_chunk_ms: 0,
+  };
 
   if (!write) {
     return {
@@ -336,6 +461,9 @@ export async function runSweep(opts: RunSweepOptions): Promise<SweepResult> {
       mirror_repaired: 0,
       accuracy_refreshed: false,
       counts_after: plan.counts_before,
+      lock_hold: noLock,
+      chunk_size: chunkSize,
+      pause_ms: pauseMs,
     };
   }
 
@@ -372,10 +500,21 @@ export async function runSweep(opts: RunSweepOptions): Promise<SweepResult> {
   let pipeline_changed = 0;
   let storage_changed = 0;
   let mirror_repaired = 0;
+  const lock_hold: LockHoldStats = {
+    chunks: 0,
+    pipeline_ms_max: 0, pipeline_ms_total: 0,
+    storage_ms_max: 0, storage_ms_total: 0,
+    worst_chunk_ms: 0,
+  };
 
   for (let i = 0; i < plan.candidates.length; i += chunkSize) {
     const slice = plan.candidates.slice(i, i + chunkSize);
+
+    // Timed around the transaction call, so the figure includes any wait for
+    // the lock itself, not just the work once held. See LockHoldStats.
+    const tPipeline = Date.now();
     pipeline_changed += applyChunk(slice);
+    const pipelineMs = Date.now() - tPipeline;
 
     // Mirror into storage.db. Separate DB handle, so this is its own
     // transaction and cannot be rolled back with the pipeline chunk above: a
@@ -385,12 +524,33 @@ export async function runSweep(opts: RunSweepOptions): Promise<SweepResult> {
     // revisit the row. The reconcile pass after this loop is what closes that
     // gap, and it is the reason a re-run can be described as safe.
     const signalIds = slice.map((r) => r.signal_id);
+    const tStorage = Date.now();
     storage_changed += direction === "forward"
       ? markSettledOutcomesExcluded(signalIds, INPLAY_CLOSING_REASON)
       : clearSettledOutcomesExcluded(signalIds, INPLAY_CLOSING_REASON);
+    const storageMs = Date.now() - tStorage;
 
-    opts.onChunk?.(Math.min(i + chunkSize, plan.candidates.length), plan.candidates.length);
-    await yieldToLoop();
+    lock_hold.chunks++;
+    lock_hold.pipeline_ms_total += pipelineMs;
+    lock_hold.storage_ms_total += storageMs;
+    if (pipelineMs > lock_hold.pipeline_ms_max) lock_hold.pipeline_ms_max = pipelineMs;
+    if (storageMs > lock_hold.storage_ms_max) lock_hold.storage_ms_max = storageMs;
+    if (pipelineMs + storageMs > lock_hold.worst_chunk_ms) {
+      lock_hold.worst_chunk_ms = pipelineMs + storageMs;
+    }
+
+    opts.onChunk?.({
+      done: Math.min(i + chunkSize, plan.candidates.length),
+      total: plan.candidates.length,
+      pipelineMs,
+      storageMs,
+    });
+
+    // Real sleep, not setImmediate: the point is wall-clock time with the write
+    // lock free, so the app can win it. Skipped after the final chunk — there
+    // is nothing left to pace against.
+    const isLastChunk = i + chunkSize >= plan.candidates.length;
+    if (!isLastChunk) await sleep(pauseMs);
   }
 
   // ── Reconcile storage.db against pipeline.db for this reason ────────────
@@ -445,5 +605,8 @@ export async function runSweep(opts: RunSweepOptions): Promise<SweepResult> {
     mirror_repaired,
     accuracy_refreshed,
     counts_after: countExclusions(db),
+    lock_hold,
+    chunk_size: chunkSize,
+    pause_ms: pauseMs,
   };
 }

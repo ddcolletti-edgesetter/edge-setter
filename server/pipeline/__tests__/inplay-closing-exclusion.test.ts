@@ -59,6 +59,7 @@ const getSettledOutcomeSignalIdsByReasonMock = vi.fn((reason: string) =>
   [...storageRows.entries()].filter(([, r]) => r.reason === reason).map(([id]) => id));
 const countSettledOutcomesPendingExclusionMock = vi.fn((ids: string[]) =>
   ids.filter((id) => storageRows.get(id)?.excluded === false).length);
+const setStorageBusyTimeoutMsMock = vi.fn();
 
 vi.mock("../../storage", () => ({
   markBackfillPhase: vi.fn(),
@@ -75,6 +76,7 @@ vi.mock("../../storage", () => ({
   countStaleSettledOutcomes: countStaleSettledOutcomesMock,
   getSettledOutcomeSignalIdsByReason: getSettledOutcomeSignalIdsByReasonMock,
   countSettledOutcomesPendingExclusion: countSettledOutcomesPendingExclusionMock,
+  setStorageBusyTimeoutMs: setStorageBusyTimeoutMsMock,
 }));
 
 type StoreMod = typeof import("../store");
@@ -463,20 +465,145 @@ describe("storage.db mirror", () => {
 /* ─── Chunking ──────────────────────────────────────────────────────────── */
 
 describe("chunking", () => {
-  it("writes every row across several chunks and yields between them", async () => {
+  it("writes every row across several chunks and reports progress", async () => {
     const ids: string[] = [];
     for (let i = 0; i < 7; i++) ids.push(seedContaminated(`ch${i}`).outcomeId);
 
     const seen: Array<[number, number]> = [];
     const res = await sweep.runSweep({
       direction: "forward", write: true, refreshAccuracy: false,
-      chunkSize: 2,
-      onChunk: (done, total) => seen.push([done, total]),
+      chunkSize: 2, pauseMs: 0,
+      onChunk: ({ done, total }) => seen.push([done, total]),
     });
 
     expect(res.pipeline_changed).toBe(7);
     expect(seen).toEqual([[2, 7], [4, 7], [6, 7], [7, 7]]);
     for (const id of ids) expect(exclusionOf(id).excluded_stale).toBe(1);
+  });
+
+  it("clamps --chunk to the documented maximum", async () => {
+    seedContaminated("clamp1");
+    const res = await sweep.runSweep({
+      direction: "forward", write: true, refreshAccuracy: false,
+      chunkSize: 50_000, pauseMs: 0,
+    });
+    // A mistyped --chunk must not become a 50,000-row transaction.
+    expect(sweep.SWEEP_CHUNK_MAX).toBe(500);
+    expect(res.chunk_size).toBe(sweep.SWEEP_CHUNK_MAX);
+  });
+
+  it("clamps a chunk of 0 or less up to 1 rather than looping forever", async () => {
+    seedContaminated("clamp2");
+    const res = await sweep.runSweep({
+      direction: "forward", write: true, refreshAccuracy: false,
+      chunkSize: 0, pauseMs: 0,
+    });
+    expect(res.chunk_size).toBe(1);
+    expect(res.pipeline_changed).toBe(1);
+  });
+
+  it("actually sleeps between chunks, and not after the last one", async () => {
+    for (let i = 0; i < 4; i++) seedContaminated(`pause${i}`);
+    const PAUSE = 120;
+    const started = Date.now();
+    const res = await sweep.runSweep({
+      direction: "forward", write: true, refreshAccuracy: false,
+      chunkSize: 1, pauseMs: PAUSE,
+    });
+    const elapsed = Date.now() - started;
+
+    expect(res.pause_ms).toBe(PAUSE);
+    expect(res.lock_hold.chunks).toBe(4);
+    // 4 chunks → 3 gaps. A 4th pause would mean the loop sleeps after finishing,
+    // which is pure added wall-clock for no lock-contention benefit.
+    expect(elapsed).toBeGreaterThanOrEqual(3 * PAUSE);
+    expect(elapsed).toBeLessThan(4 * PAUSE + 1_000);
+  });
+
+  it("records lock-hold per chunk, and zero for a dry run", async () => {
+    for (let i = 0; i < 3; i++) seedContaminated(`lh${i}`);
+
+    const dry = await sweep.runSweep({ direction: "forward", refreshAccuracy: false });
+    // A dry run opens no write transaction, so claiming any hold would be a lie.
+    expect(dry.lock_hold).toEqual({
+      chunks: 0,
+      pipeline_ms_max: 0, pipeline_ms_total: 0,
+      storage_ms_max: 0, storage_ms_total: 0,
+      worst_chunk_ms: 0,
+    });
+
+    const wet = await sweep.runSweep({
+      direction: "forward", write: true, refreshAccuracy: false,
+      chunkSize: 1, pauseMs: 0,
+    });
+    expect(wet.lock_hold.chunks).toBe(3);
+    expect(wet.lock_hold.pipeline_ms_max).toBeGreaterThanOrEqual(0);
+    expect(wet.lock_hold.pipeline_ms_total)
+      .toBeGreaterThanOrEqual(wet.lock_hold.pipeline_ms_max);
+    expect(wet.lock_hold.worst_chunk_ms)
+      .toBeGreaterThanOrEqual(wet.lock_hold.pipeline_ms_max);
+    // The whole point of the figure: it has to be comparable to busy_timeout.
+    expect(wet.lock_hold.worst_chunk_ms).toBeLessThan(sweep.SWEEP_BUSY_TIMEOUT_MS);
+  });
+});
+
+describe("--max-rows caps the work", () => {
+  it("takes only N rows and reports how many are left", async () => {
+    for (let i = 0; i < 5; i++) seedContaminated(`cap${i}`);
+
+    const res = await sweep.runSweep({
+      direction: "forward", write: true, refreshAccuracy: false,
+      maxRows: 2, pauseMs: 0,
+    });
+
+    expect(res.candidates_in_scope).toBe(5);
+    expect(res.candidates).toHaveLength(2);
+    expect(res.max_rows).toBe(2);
+    expect(res.capped).toBe(true);
+    expect(res.pipeline_changed).toBe(2);
+    expect(sweep.countExclusions().pipeline_inplay_closing).toBe(2);
+  });
+
+  it("projects from the capped list, not from everything in scope", async () => {
+    for (let i = 0; i < 5; i++) seedContaminated(`capproj${i}`);
+    const before = sweep.countExclusions().accuracy_eligible;
+
+    const dry = await sweep.runSweep({ direction: "forward", refreshAccuracy: false, maxRows: 2 });
+    // If the projection used candidates_in_scope the operator would be shown a
+    // 5-row drop for a 2-row run and would mis-read the impact.
+    expect(dry.counts_projected.accuracy_eligible).toBe(before - 2);
+    expect(dry.counts_projected.pipeline_inplay_closing).toBe(2);
+  });
+
+  it("walks the backlog across repeated capped runs without repeating a row", async () => {
+    for (let i = 0; i < 5; i++) seedContaminated(`walk${i}`);
+
+    const seen = new Set<string>();
+    for (let pass = 0; pass < 3; pass++) {
+      const res = await sweep.runSweep({
+        direction: "forward", write: true, refreshAccuracy: false,
+        maxRows: 2, pauseMs: 0,
+      });
+      for (const c of res.candidates) {
+        expect(seen.has(c.id), `row ${c.id} offered twice`).toBe(false);
+        seen.add(c.id);
+      }
+    }
+    // 2 + 2 + 1 — the last pass finds only the remainder.
+    expect(seen.size).toBe(5);
+    expect(sweep.countExclusions().pipeline_inplay_closing).toBe(5);
+
+    const after = await sweep.runSweep({ direction: "forward", refreshAccuracy: false, maxRows: 2 });
+    expect(after.candidates_in_scope).toBe(0);
+    expect(after.capped).toBe(false);
+  });
+
+  it("reports capped=false when the cap is set but does not bite", async () => {
+    seedContaminated("nobite");
+    const res = await sweep.runSweep({ direction: "forward", refreshAccuracy: false, maxRows: 10 });
+    expect(res.candidates_in_scope).toBe(1);
+    expect(res.max_rows).toBe(10);
+    expect(res.capped).toBe(false);
   });
 });
 

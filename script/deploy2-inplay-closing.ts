@@ -86,12 +86,58 @@
  * ────────────────────────────────────────────────────────────────────────────
  *
  *   npx tsx script/deploy2-inplay-closing.ts [--league CFB|NFL|NBA|MLB]
- *                                            [--reverse] [--write]
- *                                            [--chunk N] [--samples N]
+ *                                            [--reverse] [--write] [--force]
+ *                                            [--chunk N] [--pause-ms N]
+ *                                            [--max-rows N] [--samples N]
+ *
+ * ────────────────────────────────────────────────────────────────────────────
+ * PACING, AND WHY THE DEFAULTS ARE WHAT THEY ARE
+ *
+ * The one way this job can hurt the live service is by holding a database
+ * write lock while the app wants it. Nothing in this repo sets busy_timeout, so
+ * a blocked main-thread write waits out better-sqlite3's 5,000ms default and
+ * then throws SQLITE_BUSY — and 5s is also Render's health-check budget. Three
+ * defaults bound that, and each is tunable DOWNWARD only where it matters:
+ *
+ *   --chunk      500 rows, and 500 is also the MAXIMUM. A bigger batch holds
+ *                the lock proportionally longer and buys nothing: the job is
+ *                minutes either way. A larger value is clamped, with a notice.
+ *   --pause-ms   250ms of real sleep between chunks. Not a setImmediate — the
+ *                app is a different process, so what it needs is wall-clock
+ *                time during which the lock is actually free. SQLite's busy
+ *                handler is a retry loop, not a fair queue, so without a pause
+ *                the app has to win a race on every retry.
+ *   --max-rows   no cap by default. Set it for the first real run so the first
+ *                write is small and bounded; the dry run prints the cap and how
+ *                many rows are left over.
+ *
+ * This script sets busy_timeout = 5000 EXPLICITLY on both handles at startup
+ * (applySweepBusyTimeout). That is the same number better-sqlite3 would have
+ * used anyway, so it changes no behaviour — the point is that the value is
+ * stated and pinned in our code instead of inherited from a dependency default,
+ * and that PRAGMA busy_timeout is visible to anyone inspecting the session.
+ *
+ * Every run prints its measured lock-hold per chunk and the worst chunk at the
+ * end. If the worst chunk ever approaches 5,000ms, the app was at risk — lower
+ * --chunk, raise --pause-ms, and say so.
+ *
+ * QUIET HOURS. The ingestion scheduler's active window is 12:00-06:59 UTC, so
+ * the standard cycle (which owns odds and settlement) and the fast cycle both
+ * skip between 07:00 and 11:59 UTC. That is when to run this. Outside that
+ * window the script warns, and a --write run refuses unless you add --force.
+ * Note the window is not write-free even so: site-watch writes storage.db every
+ * 5 minutes, distribution-draft every 30, and a deploy restarts the full boot
+ * cycle regardless of the hour.
+ * ────────────────────────────────────────────────────────────────────────────
  */
 import {
   runSweep,
+  applySweepBusyTimeout,
   SWEEP_LEAGUES,
+  SWEEP_CHUNK_MAX,
+  SWEEP_PAUSE_MS_DEFAULT,
+  SWEEP_PAUSE_MS_MAX,
+  SWEEP_BUSY_TIMEOUT_MS,
   INPLAY_CLOSING_REASON,
   type SweepCounts,
   type SweepDirection,
@@ -104,7 +150,22 @@ interface Args {
   direction: SweepDirection;
   write: boolean;
   chunk: number;
+  /** What was typed, before clamping — so main() can report the clamp. */
+  chunkRequested: number;
+  pauseMs: number;
+  maxRows: number | null;
   samples: number;
+  /** Run outside the quiet window anyway. */
+  force: boolean;
+}
+
+/** Hours (UTC, inclusive) in which the ingestion scheduler runs nothing. */
+const QUIET_START_UTC = 7;
+const QUIET_END_UTC = 11;
+
+function inQuietWindow(now: Date = new Date()): boolean {
+  const h = now.getUTCHours();
+  return h >= QUIET_START_UTC && h <= QUIET_END_UTC;
 }
 
 function usage(message?: string): never {
@@ -114,11 +175,14 @@ function usage(message?: string): never {
     npx tsx script/deploy2-inplay-closing.ts [options]
 
   Options:
-    --league <L>   One of ${SWEEP_LEAGUES.join(", ")}. Omit for all leagues.
-    --reverse      Release rows this sweep flagged, instead of flagging rows.
-    --write        Actually write. WITHOUT THIS NOTHING IS CHANGED.
-    --chunk <N>    Rows per transaction (default 500).
-    --samples <N>  Example rows to print (default 10).
+    --league <L>    One of ${SWEEP_LEAGUES.join(", ")}. Omit for all leagues.
+    --reverse       Release rows this sweep flagged, instead of flagging rows.
+    --write         Actually write. WITHOUT THIS NOTHING IS CHANGED.
+    --chunk <N>     Rows per transaction (default ${SWEEP_CHUNK_MAX}, max ${SWEEP_CHUNK_MAX}).
+    --pause-ms <N>  Sleep between chunks (default ${SWEEP_PAUSE_MS_DEFAULT}, max ${SWEEP_PAUSE_MS_MAX}).
+    --max-rows <N>  Stop after N rows. Use this for the first real run.
+    --samples <N>   Example rows to print (default 10).
+    --force         Run outside the ${QUIET_START_UTC}:00-${QUIET_END_UTC}:59 UTC quiet window anyway.
     --help
 
   Run it with no options first: that is the dry run.
@@ -127,7 +191,12 @@ function usage(message?: string): never {
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { league: null, direction: "forward", write: false, chunk: 500, samples: 10 };
+  const args: Args = {
+    league: null, direction: "forward", write: false,
+    chunk: SWEEP_CHUNK_MAX, chunkRequested: SWEEP_CHUNK_MAX,
+    pauseMs: SWEEP_PAUSE_MS_DEFAULT, maxRows: null,
+    samples: 10, force: false,
+  };
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -150,9 +219,27 @@ function parseArgs(argv: string[]): Args {
       case "--chunk": {
         const n = Number(next());
         if (!Number.isFinite(n) || n < 1) usage("--chunk must be a positive number");
-        args.chunk = Math.round(n);
+        args.chunkRequested = Math.round(n);
+        // Clamped rather than refused: a value above the max is a typo, and the
+        // safe response to a typo on a job that writes to prod is to do the
+        // small thing and say so. main() prints the clamp when it bites.
+        args.chunk = Math.min(SWEEP_CHUNK_MAX, Math.round(n));
         break;
       }
+      case "--pause-ms": {
+        const n = Number(next());
+        if (!Number.isFinite(n) || n < 0) usage("--pause-ms must be 0 or more");
+        if (n > SWEEP_PAUSE_MS_MAX) usage(`--pause-ms must be at most ${SWEEP_PAUSE_MS_MAX}`);
+        args.pauseMs = Math.round(n);
+        break;
+      }
+      case "--max-rows": {
+        const n = Number(next());
+        if (!Number.isFinite(n) || n < 1) usage("--max-rows must be a positive number");
+        args.maxRows = Math.round(n);
+        break;
+      }
+      case "--force": args.force = true; break;
       case "--samples": {
         const n = Number(next());
         if (!Number.isFinite(n) || n < 0) usage("--samples must be 0 or more");
@@ -210,10 +297,62 @@ function printSamples(rows: CandidateRow[], limit: number): void {
   }
 }
 
+/**
+ * The measured cost of this run to anyone else wanting the write lock.
+ *
+ * 5,000ms is where a blocked app write gives up with SQLITE_BUSY, and it is
+ * also Render's health-check budget, so it is the number every figure here is
+ * compared against. Half of it is where the margin stops being comfortable.
+ */
+function printLockHold(result: Awaited<ReturnType<typeof runSweep>>): void {
+  const lh = result.lock_hold;
+  if (lh.chunks === 0) return;
+
+  console.log([
+    "",
+    `  LOCK HOLD over ${lh.chunks} chunk(s) of ${result.chunk_size} row(s), ${result.pause_ms}ms apart`,
+    `    pipeline.db   max ${lh.pipeline_ms_max}ms   total ${lh.pipeline_ms_total}ms`,
+    `    storage.db    max ${lh.storage_ms_max}ms   total ${lh.storage_ms_total}ms`,
+    `    worst single chunk (both DBs): ${lh.worst_chunk_ms}ms`,
+  ].join("\n"));
+
+  if (lh.worst_chunk_ms >= SWEEP_BUSY_TIMEOUT_MS) {
+    console.log([
+      "",
+      `    *** The worst chunk met or exceeded busy_timeout (${SWEEP_BUSY_TIMEOUT_MS}ms). An app`,
+      "    write blocked behind it would have thrown SQLITE_BUSY. Lower --chunk,",
+      "    raise --pause-ms, and report this before continuing. ***",
+    ].join("\n"));
+  } else if (lh.worst_chunk_ms > SWEEP_BUSY_TIMEOUT_MS / 2) {
+    console.log([
+      "",
+      `    Warning: only ${SWEEP_BUSY_TIMEOUT_MS - lh.worst_chunk_ms}ms of headroom under the`,
+      `    ${SWEEP_BUSY_TIMEOUT_MS}ms busy_timeout. Consider a smaller --chunk or a longer`,
+      "    --pause-ms for the next pass.",
+    ].join("\n"));
+  }
+}
+
+/** Echo back exactly the flags the operator typed, so the suggested --write
+ *  command is the same run they just previewed and not a different one. */
+function suggestedFlags(args: Args): string {
+  const parts: string[] = [];
+  if (args.league) parts.push(`--league ${args.league}`);
+  if (args.direction === "reverse") parts.push("--reverse");
+  if (args.maxRows != null) parts.push(`--max-rows ${args.maxRows}`);
+  if (args.chunk !== SWEEP_CHUNK_MAX) parts.push(`--chunk ${args.chunk}`);
+  if (args.pauseMs !== SWEEP_PAUSE_MS_DEFAULT) parts.push(`--pause-ms ${args.pauseMs}`);
+  if (args.force) parts.push("--force");
+  return parts.length > 0 ? ` ${parts.join(" ")}` : "";
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const scope = args.league ?? "ALL LEAGUES";
   const verb = args.direction === "forward" ? "EXCLUDE" : "PUT BACK";
+
+  const nowUtcHour = new Date().getUTCHours();
+  const quiet = inQuietWindow();
 
   console.log(`
   ──────────────────────────────────────────────────────────────────────
@@ -221,7 +360,50 @@ async function main(): Promise<void> {
    Scope:  ${scope}
    Action: ${verb} rows tagged "${INPLAY_CLOSING_REASON}"
    Mode:   ${args.write ? "** WRITING — this changes the database **" : "DRY RUN — nothing will be changed"}
+   Pacing: chunk ${args.chunk} rows, pause ${args.pauseMs}ms, busy_timeout ${SWEEP_BUSY_TIMEOUT_MS}ms${args.maxRows != null ? `, max ${args.maxRows} rows` : ""}
+   Clock:  ${String(nowUtcHour).padStart(2, "0")}:xx UTC — ${quiet ? "inside" : "OUTSIDE"} the ${QUIET_START_UTC}:00-${QUIET_END_UTC}:59 quiet window
   ──────────────────────────────────────────────────────────────────────`);
+
+  if (args.chunkRequested > args.chunk) {
+    console.log([
+      "",
+      `  NOTE: --chunk ${args.chunkRequested} was clamped to ${SWEEP_CHUNK_MAX}.`,
+      "  A bigger batch only holds the write lock longer; it does not finish sooner.",
+    ].join("\n"));
+  }
+
+  if (!quiet) {
+    // The ingestion scheduler runs the standard cycle (odds + settlement) and
+    // the fast cycle outside 07:00-11:59 UTC. Writing here means competing with
+    // them for the same lock, which is the one risk this job has.
+    const window = `${QUIET_START_UTC}:00-${QUIET_END_UTC}:59 UTC`;
+    console.log([
+      "",
+      `  WARNING: it is ${String(nowUtcHour).padStart(2, "0")}:xx UTC, outside the ${window} quiet window.`,
+      "  The ingestion cycle is active now, so this run competes with it for the",
+      "  write lock. Prefer waiting for the quiet window.",
+    ].join("\n"));
+
+    if (args.write && !args.force) {
+      // A warning printed before a non-interactive write is theatre — the write
+      // happens anyway. So outside the window a write needs an explicit --force.
+      console.error([
+        "",
+        "  REFUSING to --write outside the quiet window.",
+        `  Either wait for ${window}, or add --force if you have a reason to go`,
+        "  now. Nothing was changed.",
+        "",
+      ].join("\n"));
+      process.exit(2);
+    }
+    if (args.write && args.force) {
+      console.log("  --force given: proceeding outside the quiet window.");
+    }
+  }
+
+  // Explicit, pinned, and visible in the session — see the header note. Must
+  // happen before any sweep statement runs.
+  applySweepBusyTimeout(SWEEP_BUSY_TIMEOUT_MS);
 
   const started = Date.now();
   const result = await runSweep({
@@ -229,8 +411,13 @@ async function main(): Promise<void> {
     league: args.league,
     write: args.write,
     chunkSize: args.chunk,
-    onChunk: (done, total) => {
-      if (total > args.chunk) console.log(`    …${done} of ${total} rows`);
+    pauseMs: args.pauseMs,
+    maxRows: args.maxRows,
+    onChunk: ({ done, total, pipelineMs, storageMs }) => {
+      console.log(
+        `    …${done} of ${total} rows` +
+        `   lock-hold pipeline ${pipelineMs}ms storage ${storageMs}ms`,
+      );
     },
   });
 
@@ -241,6 +428,27 @@ async function main(): Promise<void> {
     `${result.candidates.length} outcome row(s), of which ` +
     `${result.graded_candidates} carry a graded win/loss and so move the public numbers.`,
   );
+
+  if (result.max_rows != null) {
+    const left = result.candidates_in_scope - result.candidates.length;
+    console.log([
+      "",
+      `  CAP: --max-rows ${result.max_rows} is in force.`,
+      `  ${result.candidates_in_scope} row(s) match in this scope; this run takes ${result.candidates.length}` +
+        (left > 0 ? `, leaving ${left}.` : " — the cap did not bite, this is all of them."),
+      ...(left > 0
+        ? [`  Re-run the same command to take the next ${Math.min(result.max_rows, left)}.`]
+        : []),
+    ].join("\n"));
+  } else if (result.candidates_in_scope !== result.candidates.length) {
+    // Defensive: these can only diverge via max_rows. If they ever differ with
+    // no cap set, the plan is lying and the operator should not act on it.
+    console.log([
+      "",
+      `  WARNING: ${result.candidates_in_scope} rows in scope but ${result.candidates.length}`,
+      "  selected with no cap set. Do not --write; report this.",
+    ].join("\n"));
+  }
 
   if (result.mirror_drift > 0) {
     const fix = result.wrote
@@ -271,6 +479,8 @@ async function main(): Promise<void> {
           `    running server is cached for up to 60s — wait a minute, then reload.`
         : `    nothing matched, so no accuracy recompute was needed.`,
     );
+
+    printLockHold(result);
   } else {
     printCounts("AFTER (predicted)", result.counts_projected, result.counts_before);
   }
@@ -281,7 +491,7 @@ async function main(): Promise<void> {
     console.log(`
   Nothing was changed. To do it for real, add --write to the same command:
 
-      npx tsx script/deploy2-inplay-closing.ts${args.league ? ` --league ${args.league}` : ""}${args.direction === "reverse" ? " --reverse" : ""} --write
+      npx tsx script/deploy2-inplay-closing.ts${suggestedFlags(args)} --write
 `);
   }
   console.log(`  done in ${((Date.now() - started) / 1000).toFixed(1)}s\n`);

@@ -1553,6 +1553,19 @@ export function clearSettledOutcomesExcluded(signalIds: string[], reason: string
   );
 }
 
+/**
+ * Set busy_timeout on this module's storage.db handle.
+ *
+ * Nothing in this repo sets busy_timeout, so every connection inherits
+ * better-sqlite3's 5,000ms default. The Deploy 2 sweep states the value
+ * explicitly instead of inheriting it, and it needs a way in here because this
+ * handle is module-private. Exported for that one caller; the app never calls
+ * it, so the app's behaviour is unchanged.
+ */
+export function setStorageBusyTimeoutMs(ms: number): void {
+  sqlite.pragma(`busy_timeout = ${Math.round(ms)}`);
+}
+
 /** How many settled_outcomes rows carry this exclusion reason. */
 export function countSettledOutcomesByReason(reason: string): number {
   return (sqlite.prepare(
