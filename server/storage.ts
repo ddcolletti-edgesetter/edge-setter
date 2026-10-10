@@ -431,6 +431,13 @@ sqlite.exec(`
       sqlite.exec("ALTER TABLE settled_outcomes ADD COLUMN excluded_stale INTEGER NOT NULL DEFAULT 0;");
       console.log("[db] migrated: settled_outcomes.excluded_stale added");
     }
+    // Mirrors outcomes.excluded_reason in pipeline.db — see the comment on that
+    // column. Needed here too because the reverse pass of a sweep has to find its
+    // own settled_outcomes rows, and excluded_stale alone cannot identify them.
+    if (!cols.includes("excluded_reason")) {
+      sqlite.exec("ALTER TABLE settled_outcomes ADD COLUMN excluded_reason TEXT;");
+      console.log("[db] migrated: settled_outcomes.excluded_reason added");
+    }
   } catch (e: any) {
     console.warn("[db] settled_outcomes excluded_stale migration skipped:", e.message);
   }
@@ -1480,6 +1487,75 @@ export function countStaleSettledOutcomes(): number {
   return (sqlite.prepare(
     "SELECT COUNT(*) AS n FROM settled_outcomes WHERE excluded_stale = 1",
   ).get() as { n: number }).n;
+}
+
+/* ─── Reason-tagged exclusion mirror ──────────────────────────────────────────
+ * markSettledOutcomesStale above flips excluded_stale and records nothing about
+ * WHY, which is fine for a one-time migration and useless for a sweep that has
+ * to be reversible. These two mirror a reason-tagged sweep in pipeline.db:
+ * `mark` claims only rows nobody has excluded yet, `clear` releases only rows
+ * carrying this sweep's own reason. A row excluded by anything else — the
+ * null-game stale sweep, a future sweep — is invisible to both.
+ * Chunked like markSettledOutcomesStale to keep the IN(...) list bounded. */
+
+const EXCLUSION_MIRROR_CHUNK = 500;
+
+// `reason` is bound, never interpolated — it reaches here from an operator's
+// --reason-shaped input in the worst case, and these statements are cached by
+// slice length, so a literal would also defeat the cache.
+function runChunkedBySignalId(
+  sql: (placeholders: string) => string,
+  reason: string,
+  signalIds: string[],
+): number {
+  if (signalIds.length === 0) return 0;
+  const stmtCache = new Map<number, ReturnType<typeof sqlite.prepare>>();
+  let changed = 0;
+  const tx = sqlite.transaction((ids: string[]) => {
+    for (let i = 0; i < ids.length; i += EXCLUSION_MIRROR_CHUNK) {
+      const slice = ids.slice(i, i + EXCLUSION_MIRROR_CHUNK);
+      let stmt = stmtCache.get(slice.length);
+      if (!stmt) {
+        stmt = sqlite.prepare(sql(slice.map(() => "?").join(",")));
+        stmtCache.set(slice.length, stmt);
+      }
+      const run = stmt.run as (...args: unknown[]) => { changes: number };
+      changed += run(reason, ...slice).changes;
+    }
+  });
+  tx(signalIds);
+  return changed;
+}
+
+/** Flag these signals' settled_outcomes rows, stamping `reason`. Only touches
+ *  rows not already excluded, so an existing exclusion keeps its own reason. */
+export function markSettledOutcomesExcluded(signalIds: string[], reason: string): number {
+  return runChunkedBySignalId(
+    (ph) => `UPDATE settled_outcomes
+             SET excluded_stale = 1, excluded_reason = ?
+             WHERE excluded_stale = 0 AND signal_id IN (${ph})`,
+    reason,
+    signalIds,
+  );
+}
+
+/** Un-flag only the rows this sweep itself flagged. A row excluded for any other
+ *  reason (including the pre-column NULL legacy ones) is left flagged. */
+export function clearSettledOutcomesExcluded(signalIds: string[], reason: string): number {
+  return runChunkedBySignalId(
+    (ph) => `UPDATE settled_outcomes
+             SET excluded_stale = 0, excluded_reason = NULL
+             WHERE excluded_reason = ? AND signal_id IN (${ph})`,
+    reason,
+    signalIds,
+  );
+}
+
+/** How many settled_outcomes rows carry this exclusion reason. */
+export function countSettledOutcomesByReason(reason: string): number {
+  return (sqlite.prepare(
+    "SELECT COUNT(*) AS n FROM settled_outcomes WHERE excluded_reason = ?",
+  ).get(reason) as { n: number }).n;
 }
 
 /* ─── Backfill Progress (persistent — survives restarts) ──────────────────── */
