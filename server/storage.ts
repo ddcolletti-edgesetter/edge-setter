@@ -1519,8 +1519,10 @@ function runChunkedBySignalId(
         stmt = sqlite.prepare(sql(slice.map(() => "?").join(",")));
         stmtCache.set(slice.length, stmt);
       }
-      const run = stmt.run as (...args: unknown[]) => { changes: number };
-      changed += run(reason, ...slice).changes;
+      // Called as a member expression on purpose. Assigning stmt.run to a
+      // variable first detaches better-sqlite3's receiver and it throws
+      // "TypeError: Illegal invocation" — which a smoke test found the hard way.
+      changed += (stmt.run as (...args: unknown[]) => { changes: number })(reason, ...slice).changes;
     }
   });
   tx(signalIds);
@@ -1556,6 +1558,41 @@ export function countSettledOutcomesByReason(reason: string): number {
   return (sqlite.prepare(
     "SELECT COUNT(*) AS n FROM settled_outcomes WHERE excluded_reason = ?",
   ).get(reason) as { n: number }).n;
+}
+
+/** Which signals' settled_outcomes rows carry this exclusion reason. Lets a
+ *  sweep reconcile storage.db against pipeline.db, which is the source of
+ *  truth, and so repair a mirror a crashed earlier run left half-written. */
+export function getSettledOutcomeSignalIdsByReason(reason: string): string[] {
+  return (sqlite.prepare(
+    "SELECT signal_id FROM settled_outcomes WHERE excluded_reason = ?",
+  ).all(reason) as Array<{ signal_id: string }>).map((r) => r.signal_id);
+}
+
+/**
+ * Of these signals, how many have a settled_outcomes row that markSettledOutcomes-
+ * Excluded would actually flip (i.e. a row exists and is not already excluded).
+ *
+ * This exists so a dry run can report REPAIRABLE drift rather than apparent
+ * drift. A pipeline outcome whose signal has no settled_outcomes row at all is
+ * not a half-written mirror — it is a signal that never settled here, or a row
+ * lost when this DB was reseeded — and counting those would put a permanent,
+ * alarming "an earlier run was interrupted" notice in front of the operator on
+ * every single run.
+ */
+export function countSettledOutcomesPendingExclusion(signalIds: string[]): number {
+  if (signalIds.length === 0) return 0;
+  const CHUNK = 500;
+  let n = 0;
+  for (let i = 0; i < signalIds.length; i += CHUNK) {
+    const slice = signalIds.slice(i, i + CHUNK);
+    const placeholders = slice.map(() => "?").join(",");
+    n += (sqlite.prepare(
+      `SELECT COUNT(*) AS n FROM settled_outcomes
+       WHERE excluded_stale = 0 AND signal_id IN (${placeholders})`,
+    ).get(...slice) as { n: number }).n;
+  }
+  return n;
 }
 
 /* ─── Backfill Progress (persistent — survives restarts) ──────────────────── */

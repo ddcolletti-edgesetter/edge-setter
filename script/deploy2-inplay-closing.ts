@@ -74,6 +74,11 @@
  * re-running continues from where it stopped, and re-running after a COMPLETED
  * run does nothing at all.
  *
+ *     If a run was interrupted, the NEXT run prints a line beginning "NOTE: N
+ *     row(s) are out of step between the two databases". That is expected after
+ *     a Ctrl+C, and running the same command again with --write fixes it — even
+ *     when it reports 0 rows to change.
+ *
  * ONE THING TO KNOW. This runs against the live databases while the site is
  * serving traffic. That is safe here — SQLite is in WAL mode, the writes are
  * short 500-row batches, and the loop is given a turn between every batch — but
@@ -237,10 +242,24 @@ async function main(): Promise<void> {
     `${result.graded_candidates} carry a graded win/loss and so move the public numbers.`,
   );
 
+  if (result.mirror_drift > 0) {
+    const fix = result.wrote
+      ? "This run repaired them."
+      : "A --write run repairs them, even if it reports 0 rows to change.";
+    console.log(
+      `\n  NOTE: ${result.mirror_drift} row(s) are out of step between the two ` +
+      `databases\n  for this tag — the fingerprint of an earlier run that was ` +
+      `interrupted.\n  ${fix}`,
+    );
+  }
+
   if (result.wrote) {
     printCounts("AFTER (measured)", result.counts_after, result.counts_before);
     console.log(`\n    rows actually written: pipeline.db=${result.pipeline_changed} storage.db=${result.storage_changed}`);
-    if (result.storage_changed < result.pipeline_changed) {
+    if (result.mirror_repaired > 0) {
+      console.log(`    of which ${result.mirror_repaired} storage.db row(s) were repairs, not new work.`);
+    }
+    if (result.storage_changed < result.pipeline_changed && result.mirror_repaired === 0) {
       console.log(
         `    (storage.db is lower because it only holds rows for signals that\n` +
         `     actually settled — that difference is expected, not an error.)`,

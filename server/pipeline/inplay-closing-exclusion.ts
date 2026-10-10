@@ -68,6 +68,8 @@ import {
   clearSettledOutcomesExcluded,
   countSettledOutcomesByReason,
   countStaleSettledOutcomes,
+  getSettledOutcomeSignalIdsByReason,
+  countSettledOutcomesPendingExclusion,
 } from "../storage";
 
 /** The one value this sweep writes to outcomes.excluded_reason. */
@@ -116,6 +118,12 @@ export interface SweepPlan {
   candidates: CandidateRow[];
   /** Candidates with a graded hit — the subset that changes accuracy. */
   graded_candidates: number;
+  /**
+   * settled_outcomes rows out of step with outcomes for this reason, BEFORE
+   * this run — the fingerprint of an earlier interrupted run. A write pass
+   * repairs these whether or not it has candidates of its own.
+   */
+  mirror_drift: number;
   counts_before: SweepCounts;
   /** counts_before with this plan applied. In a dry run this is a projection. */
   counts_projected: SweepCounts;
@@ -125,6 +133,8 @@ export interface SweepResult extends SweepPlan {
   wrote: boolean;
   pipeline_changed: number;
   storage_changed: number;
+  /** Of storage_changed, how many were repairs of an earlier interrupted run. */
+  mirror_repaired: number;
   accuracy_refreshed: boolean;
   /** Re-read after the writes. Equals counts_before on a dry run. */
   counts_after: SweepCounts;
@@ -242,6 +252,36 @@ function project(
   };
 }
 
+/** Signal ids carrying this reason in each DB, for the reconcile/drift check. */
+function mirrorSides(db: Database.Database): { pipeline: Set<string>; storage: Set<string> } {
+  const pipeline = new Set(
+    (db.prepare("SELECT signal_id FROM outcomes WHERE excluded_reason = ?")
+      .all(INPLAY_CLOSING_REASON) as Array<{ signal_id: string }>).map((r) => r.signal_id),
+  );
+  const storage = new Set(getSettledOutcomeSignalIdsByReason(INPLAY_CLOSING_REASON));
+  return { pipeline, storage };
+}
+
+/**
+ * REPAIRABLE drift only, and the distinction matters.
+ *
+ * A pipeline outcome whose signal has no settled_outcomes row at all is not a
+ * half-written mirror — the signal never settled into storage.db, or the row
+ * predates a reseed of that file. Counting those would print a permanent
+ * "an earlier run was interrupted" notice on every run, which trains the
+ * operator to ignore the one notice that is supposed to mean something. So the
+ * mark side is narrowed to rows storage.db actually holds and could still flip,
+ * which is exactly what the repair pass will change.
+ */
+function countMirrorDrift(db: Database.Database): number {
+  const { pipeline, storage } = mirrorSides(db);
+  const pendingMark = [...pipeline].filter((id) => !storage.has(id));
+  // The clear side needs no such narrowing: these rows are in storage.db by
+  // definition, carrying our reason, with no pipeline row still claiming them.
+  const pendingClear = [...storage].filter((id) => !pipeline.has(id));
+  return countSettledOutcomesPendingExclusion(pendingMark) + pendingClear.length;
+}
+
 export function planSweep(
   direction: SweepDirection,
   league: SweepLeague | null,
@@ -254,6 +294,7 @@ export function planSweep(
     league,
     candidates,
     graded_candidates: candidates.filter((c) => c.hit !== null).length,
+    mirror_drift: countMirrorDrift(db),
     counts_before,
     counts_projected: project(counts_before, direction, candidates),
   };
@@ -292,6 +333,7 @@ export async function runSweep(opts: RunSweepOptions): Promise<SweepResult> {
       wrote: false,
       pipeline_changed: 0,
       storage_changed: 0,
+      mirror_repaired: 0,
       accuracy_refreshed: false,
       counts_after: plan.counts_before,
     };
@@ -329,16 +371,19 @@ export async function runSweep(opts: RunSweepOptions): Promise<SweepResult> {
 
   let pipeline_changed = 0;
   let storage_changed = 0;
+  let mirror_repaired = 0;
 
   for (let i = 0; i < plan.candidates.length; i += chunkSize) {
     const slice = plan.candidates.slice(i, i + chunkSize);
     pipeline_changed += applyChunk(slice);
 
     // Mirror into storage.db. Separate DB handle, so this is its own
-    // transaction and cannot be rolled back with the pipeline chunk above. The
-    // pipeline flag is the source of truth and both statements are idempotent,
-    // so a crash between them leaves storage.db behind, not wrong, and a re-run
-    // finishes the job.
+    // transaction and cannot be rolled back with the pipeline chunk above: a
+    // crash in between leaves pipeline.db flagged and storage.db not. That is
+    // NOT self-healing on its own — the forward candidate query requires
+    // excluded_stale = 0, so a re-run would find nothing left to do and never
+    // revisit the row. The reconcile pass after this loop is what closes that
+    // gap, and it is the reason a re-run can be described as safe.
     const signalIds = slice.map((r) => r.signal_id);
     storage_changed += direction === "forward"
       ? markSettledOutcomesExcluded(signalIds, INPLAY_CLOSING_REASON)
@@ -348,8 +393,35 @@ export async function runSweep(opts: RunSweepOptions): Promise<SweepResult> {
     await yieldToLoop();
   }
 
+  // ── Reconcile storage.db against pipeline.db for this reason ────────────
+  // pipeline.db is the source of truth. Anything carrying the reason there must
+  // be excluded in storage.db, and anything carrying it ONLY in storage.db is a
+  // leftover from an interrupted run and must be released. Both statements are
+  // idempotent and scoped to this reason, so this is a no-op on a clean run and
+  // a repair on a dirty one — including a run whose candidate list came back
+  // empty precisely because an earlier attempt had already flagged the rows.
+  {
+    const { pipeline: pipelineIds, storage: storageIds } = mirrorSides(db);
+    const toMark = [...pipelineIds].filter((id) => !storageIds.has(id));
+    const toClear = [...storageIds].filter((id) => !pipelineIds.has(id));
+
+    if (toMark.length > 0) {
+      const repaired = markSettledOutcomesExcluded(toMark, INPLAY_CLOSING_REASON);
+      storage_changed += repaired;
+      mirror_repaired += repaired;
+    }
+    if (toClear.length > 0) {
+      const repaired = clearSettledOutcomesExcluded(toClear, INPLAY_CLOSING_REASON);
+      storage_changed += repaired;
+      mirror_repaired += repaired;
+    }
+    await yieldToLoop();
+  }
+
   let accuracy_refreshed = false;
-  if (opts.refreshAccuracy !== false && plan.candidates.length > 0) {
+  // Gated on work actually done, not on the candidate count: a run whose only
+  // effect was repairing the mirror still changed what the leaderboard reads.
+  if (opts.refreshAccuracy !== false && (pipeline_changed > 0 || storage_changed > 0)) {
     // Imported here, not at module load: settlement.ts pulls in every score
     // adapter, and this module is also imported by a test that has no business
     // loading them.
@@ -370,6 +442,7 @@ export async function runSweep(opts: RunSweepOptions): Promise<SweepResult> {
     wrote: true,
     pipeline_changed,
     storage_changed,
+    mirror_repaired,
     accuracy_refreshed,
     counts_after: countExclusions(db),
   };

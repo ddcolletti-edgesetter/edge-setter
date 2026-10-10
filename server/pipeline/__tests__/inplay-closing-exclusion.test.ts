@@ -55,6 +55,10 @@ const countSettledOutcomesByReasonMock = vi.fn((reason: string) =>
   [...storageRows.values()].filter((r) => r.reason === reason).length);
 const countStaleSettledOutcomesMock = vi.fn(() =>
   [...storageRows.values()].filter((r) => r.excluded).length);
+const getSettledOutcomeSignalIdsByReasonMock = vi.fn((reason: string) =>
+  [...storageRows.entries()].filter(([, r]) => r.reason === reason).map(([id]) => id));
+const countSettledOutcomesPendingExclusionMock = vi.fn((ids: string[]) =>
+  ids.filter((id) => storageRows.get(id)?.excluded === false).length);
 
 vi.mock("../../storage", () => ({
   markBackfillPhase: vi.fn(),
@@ -69,6 +73,8 @@ vi.mock("../../storage", () => ({
   clearSettledOutcomesExcluded: clearSettledOutcomesExcludedMock,
   countSettledOutcomesByReason: countSettledOutcomesByReasonMock,
   countStaleSettledOutcomes: countStaleSettledOutcomesMock,
+  getSettledOutcomeSignalIdsByReason: getSettledOutcomeSignalIdsByReasonMock,
+  countSettledOutcomesPendingExclusion: countSettledOutcomesPendingExclusionMock,
 }));
 
 type StoreMod = typeof import("../store");
@@ -489,5 +495,93 @@ describe("query plan", () => {
 
     expect(detail).toContain("idx_odds_snapshots_game_time");
     expect(detail).not.toMatch(/SCAN odds_snapshots/);
+  });
+});
+
+/* ─── Mirror reconciliation ─────────────────────────────────────────────────
+ * The pipeline write and the storage mirror are separate transactions on
+ * separate handles, so an interrupted run can leave pipeline.db flagged and
+ * storage.db not. That is NOT self-healing on its own: the forward candidate
+ * query requires excluded_stale = 0, so a re-run finds nothing and would never
+ * revisit the row. A smoke test hit exactly this — the mirror threw, the
+ * pipeline rows stayed flagged, and the next run reported "0 rows to change"
+ * over a permanently half-written state. These lock the repair. */
+
+describe("mirror reconciliation repairs an interrupted run", () => {
+  /** Flag in pipeline.db only, exactly as a crashed mirror would leave it. */
+  async function leaveHalfWritten(tag: string) {
+    const row = seedContaminated(tag);
+    await sweep.runSweep({ direction: "forward", write: true, refreshAccuracy: false });
+    expect(exclusionOf(row.outcomeId).excluded_reason).toBe(sweep.INPLAY_CLOSING_REASON);
+    // Undo only the storage side.
+    seedStorageRow(row.signalId, false, null);
+    return row;
+  }
+
+  it("reports the drift in a dry run that has no candidates of its own", async () => {
+    const { signalId } = await leaveHalfWritten("rec1");
+
+    const dry = await sweep.runSweep({ direction: "forward", refreshAccuracy: false });
+    expect(dry.candidates).toHaveLength(0);
+    expect(dry.mirror_drift).toBe(1);
+    // Still a dry run: it reported the drift and repaired nothing.
+    expect(storageRows.get(signalId)).toEqual({ excluded: false, reason: null });
+  });
+
+  it("repairs the mirror on a write pass with zero candidates", async () => {
+    const { signalId } = await leaveHalfWritten("rec2");
+
+    const res = await sweep.runSweep({ direction: "forward", write: true, refreshAccuracy: false });
+    expect(res.candidates).toHaveLength(0);
+    expect(res.pipeline_changed).toBe(0);
+    expect(res.mirror_repaired).toBe(1);
+    expect(res.storage_changed).toBe(1);
+    expect(storageRows.get(signalId)).toEqual({
+      excluded: true, reason: sweep.INPLAY_CLOSING_REASON,
+    });
+
+    // And once repaired, the next run sees nothing to do.
+    const after = await sweep.runSweep({ direction: "forward", write: true, refreshAccuracy: false });
+    expect(after.mirror_drift).toBe(0);
+    expect(after.mirror_repaired).toBe(0);
+  });
+
+  it("releases a storage row left flagged after the pipeline row was reversed", async () => {
+    const { signalId } = seedContaminated("rec3");
+    await sweep.runSweep({ direction: "forward", write: true, refreshAccuracy: false });
+    // Reverse the pipeline side only — the mirror's half of a crashed reverse.
+    store.getPipelineDb()
+      .prepare("UPDATE outcomes SET excluded_stale = 0, excluded_reason = NULL WHERE signal_id = ?")
+      .run(signalId);
+
+    const res = await sweep.runSweep({ direction: "reverse", write: true, refreshAccuracy: false });
+    expect(res.mirror_drift).toBe(1);
+    expect(res.mirror_repaired).toBe(1);
+    expect(storageRows.get(signalId)).toEqual({ excluded: false, reason: null });
+  });
+
+  it("does not call a signal that never settled here 'drift'", async () => {
+    // Flagged in pipeline.db, with NO settled_outcomes row at all — a signal
+    // that never settled into storage.db, or one lost to a reseed. There is
+    // nothing to repair, so the operator must not be told a run was interrupted.
+    const row = seedContaminated("phantom");
+    storageRows.delete(row.signalId);
+    await sweep.runSweep({ direction: "forward", write: true, refreshAccuracy: false });
+
+    const next = await sweep.runSweep({ direction: "forward", refreshAccuracy: false });
+    expect(next.candidates).toHaveLength(0);
+    expect(next.mirror_drift).toBe(0);
+  });
+
+  it("never touches a storage row excluded for another reason while reconciling", async () => {
+    await leaveHalfWritten("rec4");
+    // A bystander: excluded in storage.db under a different reason, with no
+    // pipeline counterpart carrying ours. Reconciliation must ignore it.
+    seedStorageRow("sig_bystander", true, "some_future_sweep");
+
+    await sweep.runSweep({ direction: "forward", write: true, refreshAccuracy: false });
+    expect(storageRows.get("sig_bystander")).toEqual({
+      excluded: true, reason: "some_future_sweep",
+    });
   });
 });
