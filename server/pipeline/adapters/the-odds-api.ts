@@ -5,15 +5,26 @@
  * Free tier: 500 requests/month.
  * Env: THE_ODDS_API_KEY
  *
- * Fetches spreads + totals for NBA and MLB games.
- * Normalizes each game into:
+ * Fetches spreads + totals + h2h for all four leagues (NBA, MLB, NFL, CFB —
+ * see SPORT_KEYS). Normalizes each game into:
  *   1. A Game record (upserted to games table)
  *   2. A RawEvent of type "line_move" (if line changed) or "odds_open" (new game)
  *
- * Called by the ingestion scheduler every 15 minutes during active hours.
+ * CADENCE — two separate limits, and the second is the binding one:
+ *   - the standard ingestion cycle ATTEMPTS this every 15 minutes, during
+ *     active hours only (ingestion.ts: STANDARD_INTERVAL_MS, isActiveHours);
+ *   - shouldSkipOddsFetch then throttles to at most one SUCCESSFUL fetch per
+ *     ODDS_MIN_INTERVAL_MIN, default **60** minutes, per league.
+ *
+ * So the real cadence is hourly per league, not 15-minutely, and one fetch
+ * covers that league's whole slate. That is why the last pre-kickoff snapshot
+ * can be up to ~60 minutes old, and why the staleness is CORRELATED across
+ * every game kicking off at the same time rather than averaging out. Anything
+ * that calls the newest pre-kickoff snapshot a "closing line" is overstating
+ * it by up to an hour.
  */
 
-import { upsertGame, getGame, insertRawEvent, insertOddsSnapshot, getOddsFetchState, recordOddsFetchState, type OddsFetchState } from "../store";
+import { upsertGame, touchGameSchedule, getGame, insertRawEvent, insertOddsSnapshot, getOddsFetchState, recordOddsFetchState, type OddsFetchState } from "../store";
 import type { League } from "../types";
 import { canonicalGameId } from "../canonical-game-id";
 
@@ -104,6 +115,91 @@ const SPORT_KEYS: Record<League, string> = {
   NFL: "americanfootball_nfl",
   CFB: "americanfootball_ncaaf",
 };
+
+/* ─── Kickoff guard ──────────────────────────────────────────────────
+ *
+ * Once a game has started, the books are pricing the game IN PLAY. This
+ * adapter used to keep ingesting that: a snapshot every cycle, the five market
+ * columns on the games row overwritten, and a line_move event per move. All
+ * three are read back later as if they were pre-game market information.
+ *
+ * The damage is in settlement. getClosingSnapshot() is "newest snapshot for
+ * this game", with no game_time bound, so a line_move signal's closing line
+ * was whatever the book had mid-game — and `hit = clv > 0` then graded every
+ * signal on the game against that one number, so they all lost together.
+ * Measured on prod: of 258 CFB outcomes in the published record, 172 had a
+ * closing snapshot after kickoff and 154 of those carried a non-null clv.
+ * games.spread_line / total_line feed favoriteCovers() and the weather branch,
+ * so injury, lineup and weather grading were reading in-play numbers too.
+ *
+ * So: after commence_time we write nothing that grading reads. The game row
+ * still tracks status and source_game_id, because those are schedule facts
+ * rather than market facts.
+ *
+ * NOT MLB. Two reasons, either sufficient. canonicalGameId is
+ * LEAGUE_DATE_AWAY_HOME with no game number, so a doubleheader collapses both
+ * games onto one row; and MLB's market columns have a SECOND writer in
+ * ingestMLBSchedule (mlb-statsapi.ts), which reads the row and writes the same
+ * values straight back — guarding this adapter alone would freeze one side
+ * while the other kept rewriting it. A postseason-only carve-out does not
+ * rescue it: OddsAPIGame carries no season-phase field, so this adapter cannot
+ * tell a postseason game from a regular-season one.
+ *
+ * The time source is the FEED's commence_time, not games.game_time: the stored
+ * column is not updated on conflict (see upsertGame) so it can be stale, and
+ * the feed is authoritative for reschedules. That makes the predicate
+ * deliberately NON-MONOTONIC — a postponed game whose commence_time moves
+ * later starts writing again, which is what we want — so `started` is
+ * recomputed every cycle and never persisted.
+ *
+ * A delayed start (weather) is frozen at the SCHEDULED time: the feed leaves
+ * commence_time alone through a delay, and a bettor at signal time could not
+ * have known about the delay either.
+ */
+const kickoffGuardEnabled = () => process.env.ODDS_KICKOFF_GUARD !== "0";
+
+const kickoffGuardLeagues = (): ReadonlySet<string> => new Set(
+  (process.env.ODDS_KICKOFF_GUARD_LEAGUES ?? "CFB,NFL,NBA")
+    .split(",")
+    .map((part) => part.trim().toUpperCase())
+    .filter(Boolean),
+);
+
+/**
+ * Is the guard active for this league at all? Resolved ONCE per cycle and
+ * passed down, rather than re-read per game: the league set was being rebuilt
+ * (env split + new Set) for every game in the slate, ~130 times a cycle on
+ * CFB. Still read per CYCLE, not per process, so an env change takes effect on
+ * the next fetch.
+ */
+function kickoffGuardActiveFor(league: League): boolean {
+  return kickoffGuardEnabled() && kickoffGuardLeagues().has(league);
+}
+
+/**
+ * Has this game already started, as of one timestamp for the whole cycle?
+ *
+ * An unparseable commence_time fails OPEN — it ingests exactly as before and
+ * warns. Failing closed would be better for grading integrity but would
+ * silently stop all odds ingestion if the feed's date format ever changed,
+ * which is the worse failure of the two.
+ */
+function kickoffPassed(
+  league: League,
+  commenceTime: string,
+  cycleNowMs: number,
+  guardActive: boolean,
+): boolean {
+  if (!guardActive) return false;
+
+  const kickoffMs = Date.parse(commenceTime);
+  if (!Number.isFinite(kickoffMs)) {
+    console.warn(`[odds-api] ${league} unparseable commence_time "${commenceTime}" — kickoff guard inactive for this game`);
+    return false;
+  }
+
+  return cycleNowMs >= kickoffMs;
+}
 
 export interface OddsAPIGame {
   id: string;
@@ -201,8 +297,35 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
   const apiGames = result.games;
   let gamesUpserted = 0;
   let eventsCreated = 0;
+  let gamesFrozen = 0;
+
+  // ONE clock for the whole cycle, read AFTER the fetch resolved rather than
+  // from the pre-fetch `now` the throttle used. The HTTP round trip sits
+  // between the two, and a game that kicks off during it would be judged
+  // not-started on a pre-fetch clock and get one in-play snapshot written.
+  // Reading it here closes that leak: the clock is never earlier than the
+  // moment the prices in hand were received.
+  //
+  // Still ONE value for the whole loop, not Date.now() per game, so no game
+  // can flip across the kickoff boundary midway through and tests have one
+  // place to control time from.
+  const cycleNowMs = Date.now();
+
+  // Resolved once per cycle — see kickoffGuardActiveFor.
+  const guardActive = kickoffGuardActiveFor(league);
 
   for (const ag of apiGames) {
+    // Recomputed every cycle, never persisted — see the kickoff guard notes.
+    //
+    // Computed BEFORE the bookmaker check on purpose. Books commonly pull
+    // every market once a game goes in-play, so a post-kickoff game often
+    // arrives with an empty `bookmakers` array — exactly the population this
+    // counter exists to show. Counting after the `continue` hid it, and made
+    // the log read as "the guard did nothing" on precisely the games that had
+    // most certainly started.
+    const started = kickoffPassed(league, ag.commence_time, cycleNowMs, guardActive);
+    if (started) gamesFrozen++;
+
     // Pick a consensus bookmaker (prefer pinnacle, then first available)
     const bm = ag.bookmakers.find(b => b.key === "pinnacle") ?? ag.bookmakers[0];
     if (!bm) continue;
@@ -236,47 +359,69 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
       shortCode(ag.away_team),
       shortCode(ag.home_team),
     );
-insertOddsSnapshot({
-  game_id: gameId,
-  league,
-  sportsbook: bm.key,
-  spread_line: spreadLine,
-  spread_team: spreadTeam ? shortCode(spreadTeam) : null,
-  total_line: totalLine,
-  moneyline_home: mlHome,
-  moneyline_away: mlAway,
-  source_game_id: ag.id,
-  snapshot_at: new Date().toISOString(),
-});
+    // GATE 1 — no in-play snapshot. getClosingSnapshot() is "newest row for
+    // this game" with no game_time bound, so one of these becomes the closing
+    // line for every signal on the game.
+    if (!started) {
+      insertOddsSnapshot({
+        game_id: gameId,
+        league,
+        sportsbook: bm.key,
+        spread_line: spreadLine,
+        spread_team: spreadTeam ? shortCode(spreadTeam) : null,
+        total_line: totalLine,
+        moneyline_home: mlHome,
+        moneyline_away: mlAway,
+        source_game_id: ag.id,
+        snapshot_at: new Date().toISOString(),
+      });
+    }
+
     // Check if game already exists for open_line tracking
     const existing = getGame(gameId);
 
-    const game = upsertGame({
-      id: gameId,
-      league,
-      home_team: shortCode(ag.home_team),
-      away_team: shortCode(ag.away_team),
-      game_time: ag.commence_time,
-      status: "scheduled",
-      spread_line: spreadLine,
-      spread_team: spreadTeam ? shortCode(spreadTeam) : null,
-      total_line: totalLine,
-      moneyline_home: mlHome,
-      moneyline_away: mlAway,
-      // Preserve open lines from first ingest
-      open_spread: existing?.open_spread ?? spreadLine,
-      open_total:  existing?.open_total  ?? totalLine,
-      home_score: null,
-away_score: null,
-      source_game_id: ag.id,
-    });
+    // GATE 2 — the games row. Before kickoff, unchanged. After kickoff, only
+    // the schedule columns; the five market columns keep their pre-game values
+    // (or stay NULL, if this game was first seen after it started).
+    if (started) {
+      touchGameSchedule({
+        id: gameId,
+        league,
+        home_team: shortCode(ag.home_team),
+        away_team: shortCode(ag.away_team),
+        game_time: ag.commence_time,
+        status: "scheduled",
+        source_game_id: ag.id,
+      });
+    } else {
+      upsertGame({
+        id: gameId,
+        league,
+        home_team: shortCode(ag.home_team),
+        away_team: shortCode(ag.away_team),
+        game_time: ag.commence_time,
+        status: "scheduled",
+        spread_line: spreadLine,
+        spread_team: spreadTeam ? shortCode(spreadTeam) : null,
+        total_line: totalLine,
+        moneyline_home: mlHome,
+        moneyline_away: mlAway,
+        // Preserve open lines from first ingest
+        open_spread: existing?.open_spread ?? spreadLine,
+        open_total:  existing?.open_total  ?? totalLine,
+        home_score: null,
+        away_score: null,
+        source_game_id: ag.id,
+      });
+    }
     gamesUpserted++;
 
     // Detect line move — spread
     // Trigger: line changed this cycle AND cumulative move from open >= 0.5.
     // Comparing to spread_line (previous cycle) misses gradual moves that never
     // jump 0.5 in a single 15-min window but accumulate to a meaningful shift.
-    if (existing && spreadLine !== null && existing.spread_line !== null && spreadLine !== existing.spread_line) {
+    // GATE 3a — an in-play spread move is not a market signal about the game.
+    if (!started && existing && spreadLine !== null && existing.spread_line !== null && spreadLine !== existing.spread_line) {
       const openSpread = existing.open_spread ?? existing.spread_line;
       const deltaFromOpen = Math.abs(spreadLine - openSpread);
       if (deltaFromOpen >= 0.5) {
@@ -310,7 +455,8 @@ away_score: null,
     }
 
     // Detect line move — total
-    if (existing && totalLine !== null && existing.total_line !== null && totalLine !== existing.total_line) {
+    // GATE 3b — same for totals. An in-play total is not a pre-game move.
+    if (!started && existing && totalLine !== null && existing.total_line !== null && totalLine !== existing.total_line) {
       const openTotal = existing.open_total ?? existing.total_line;
       const totalDeltaFromOpen = Math.abs(totalLine - openTotal);
       if (totalDeltaFromOpen >= 0.5) {
@@ -343,7 +489,10 @@ away_score: null,
       }
     }
 
-    if (!existing && spreadLine !== null) {
+    // GATE 4 — the easy one to miss. Without `!started`, a game first seen
+    // after kickoff emits an odds_open event whose open_spread/open_total are
+    // in-play prices, and the engine founds on it as if it were the open.
+    if (!started && !existing && spreadLine !== null) {
       // First time seeing this game — create odds_open event
       insertRawEvent({
         source_id: "the_odds_api",
@@ -365,6 +514,21 @@ away_score: null,
     }
   }
 
+  // "past kickoff", not "writes suppressed": this counts every game the feed
+  // returned whose commence_time has passed, including those that arrived with
+  // no bookmakers at all (which the loop would have skipped regardless). The
+  // two populations differ, and the count deliberately covers the wider one so
+  // that an in-progress slate is visible here rather than silently absent.
+  if (gamesFrozen > 0) {
+    console.log(
+      `[odds-api] ${league}: ${gamesFrozen} of ${apiGames.length} game(s) past kickoff — ` +
+      `no snapshot, no market-column overwrite, no line_move (ODDS_KICKOFF_GUARD)`,
+    );
+  }
+
+  // Return shape deliberately unchanged: all seven call sites in ingestion.ts
+  // and routes.ts carry a `.catch(() => ({ games: 0, events: 0 }))`, and
+  // widening this would force an edit to each for a number only the log needs.
   return { games: gamesUpserted, events: eventsCreated };
 }
 
