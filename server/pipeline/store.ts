@@ -604,6 +604,20 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   addColumnIfMissing(db, "live_signals", "settlement_expired", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(db, "outcomes", "excluded_stale", "INTEGER NOT NULL DEFAULT 0");
 
+  // outcomes.excluded_reason — WHICH sweep set excluded_stale, so a sweep can be
+  // reversed without un-excluding rows some other sweep owns. excluded_stale is a
+  // single boolean shared by every exclusion reason, so without this column a
+  // reverse pass has no way to tell its own rows apart from anyone else's.
+  //
+  // Values: 'inplay_closing' (fix/inplay-closing-exclusion: the outcome's
+  // closing_line came from an odds snapshot taken after kickoff) and NULL. NULL
+  // means "flagged before this column existed", which on prod is exactly the
+  // null-game→far-future stale matches that runSettlementBacklogMigration set.
+  // It is deliberately NOT backfilled to a 'stale_match' literal: no reverse pass
+  // keys on NULL, so renaming the legacy value buys nothing and costs a full
+  // rewrite of every already-excluded row on prod.
+  addColumnIfMissing(db, "outcomes", "excluded_reason", "TEXT");
+
   // alerted_at was created lazily by alerts.ts on every dispatch (PRAGMA +
   // conditional ALTER). It belongs here so the partial index below can be
   // declared in the same place as the column it depends on.

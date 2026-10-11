@@ -431,6 +431,13 @@ sqlite.exec(`
       sqlite.exec("ALTER TABLE settled_outcomes ADD COLUMN excluded_stale INTEGER NOT NULL DEFAULT 0;");
       console.log("[db] migrated: settled_outcomes.excluded_stale added");
     }
+    // Mirrors outcomes.excluded_reason in pipeline.db — see the comment on that
+    // column. Needed here too because the reverse pass of a sweep has to find its
+    // own settled_outcomes rows, and excluded_stale alone cannot identify them.
+    if (!cols.includes("excluded_reason")) {
+      sqlite.exec("ALTER TABLE settled_outcomes ADD COLUMN excluded_reason TEXT;");
+      console.log("[db] migrated: settled_outcomes.excluded_reason added");
+    }
   } catch (e: any) {
     console.warn("[db] settled_outcomes excluded_stale migration skipped:", e.message);
   }
@@ -1480,6 +1487,125 @@ export function countStaleSettledOutcomes(): number {
   return (sqlite.prepare(
     "SELECT COUNT(*) AS n FROM settled_outcomes WHERE excluded_stale = 1",
   ).get() as { n: number }).n;
+}
+
+/* ─── Reason-tagged exclusion mirror ──────────────────────────────────────────
+ * markSettledOutcomesStale above flips excluded_stale and records nothing about
+ * WHY, which is fine for a one-time migration and useless for a sweep that has
+ * to be reversible. These two mirror a reason-tagged sweep in pipeline.db:
+ * `mark` claims only rows nobody has excluded yet, `clear` releases only rows
+ * carrying this sweep's own reason. A row excluded by anything else — the
+ * null-game stale sweep, a future sweep — is invisible to both.
+ * Chunked like markSettledOutcomesStale to keep the IN(...) list bounded. */
+
+const EXCLUSION_MIRROR_CHUNK = 500;
+
+// `reason` is bound, never interpolated — it reaches here from an operator's
+// --reason-shaped input in the worst case, and these statements are cached by
+// slice length, so a literal would also defeat the cache.
+function runChunkedBySignalId(
+  sql: (placeholders: string) => string,
+  reason: string,
+  signalIds: string[],
+): number {
+  if (signalIds.length === 0) return 0;
+  const stmtCache = new Map<number, ReturnType<typeof sqlite.prepare>>();
+  let changed = 0;
+  const tx = sqlite.transaction((ids: string[]) => {
+    for (let i = 0; i < ids.length; i += EXCLUSION_MIRROR_CHUNK) {
+      const slice = ids.slice(i, i + EXCLUSION_MIRROR_CHUNK);
+      let stmt = stmtCache.get(slice.length);
+      if (!stmt) {
+        stmt = sqlite.prepare(sql(slice.map(() => "?").join(",")));
+        stmtCache.set(slice.length, stmt);
+      }
+      // Called as a member expression on purpose. Assigning stmt.run to a
+      // variable first detaches better-sqlite3's receiver and it throws
+      // "TypeError: Illegal invocation" — which a smoke test found the hard way.
+      changed += (stmt.run as (...args: unknown[]) => { changes: number })(reason, ...slice).changes;
+    }
+  });
+  tx(signalIds);
+  return changed;
+}
+
+/** Flag these signals' settled_outcomes rows, stamping `reason`. Only touches
+ *  rows not already excluded, so an existing exclusion keeps its own reason. */
+export function markSettledOutcomesExcluded(signalIds: string[], reason: string): number {
+  return runChunkedBySignalId(
+    (ph) => `UPDATE settled_outcomes
+             SET excluded_stale = 1, excluded_reason = ?
+             WHERE excluded_stale = 0 AND signal_id IN (${ph})`,
+    reason,
+    signalIds,
+  );
+}
+
+/** Un-flag only the rows this sweep itself flagged. A row excluded for any other
+ *  reason (including the pre-column NULL legacy ones) is left flagged. */
+export function clearSettledOutcomesExcluded(signalIds: string[], reason: string): number {
+  return runChunkedBySignalId(
+    (ph) => `UPDATE settled_outcomes
+             SET excluded_stale = 0, excluded_reason = NULL
+             WHERE excluded_reason = ? AND signal_id IN (${ph})`,
+    reason,
+    signalIds,
+  );
+}
+
+/**
+ * Set busy_timeout on this module's storage.db handle.
+ *
+ * Nothing in this repo sets busy_timeout, so every connection inherits
+ * better-sqlite3's 5,000ms default. The Deploy 2 sweep states the value
+ * explicitly instead of inheriting it, and it needs a way in here because this
+ * handle is module-private. Exported for that one caller; the app never calls
+ * it, so the app's behaviour is unchanged.
+ */
+export function setStorageBusyTimeoutMs(ms: number): void {
+  sqlite.pragma(`busy_timeout = ${Math.round(ms)}`);
+}
+
+/** How many settled_outcomes rows carry this exclusion reason. */
+export function countSettledOutcomesByReason(reason: string): number {
+  return (sqlite.prepare(
+    "SELECT COUNT(*) AS n FROM settled_outcomes WHERE excluded_reason = ?",
+  ).get(reason) as { n: number }).n;
+}
+
+/** Which signals' settled_outcomes rows carry this exclusion reason. Lets a
+ *  sweep reconcile storage.db against pipeline.db, which is the source of
+ *  truth, and so repair a mirror a crashed earlier run left half-written. */
+export function getSettledOutcomeSignalIdsByReason(reason: string): string[] {
+  return (sqlite.prepare(
+    "SELECT signal_id FROM settled_outcomes WHERE excluded_reason = ?",
+  ).all(reason) as Array<{ signal_id: string }>).map((r) => r.signal_id);
+}
+
+/**
+ * Of these signals, how many have a settled_outcomes row that markSettledOutcomes-
+ * Excluded would actually flip (i.e. a row exists and is not already excluded).
+ *
+ * This exists so a dry run can report REPAIRABLE drift rather than apparent
+ * drift. A pipeline outcome whose signal has no settled_outcomes row at all is
+ * not a half-written mirror — it is a signal that never settled here, or a row
+ * lost when this DB was reseeded — and counting those would put a permanent,
+ * alarming "an earlier run was interrupted" notice in front of the operator on
+ * every single run.
+ */
+export function countSettledOutcomesPendingExclusion(signalIds: string[]): number {
+  if (signalIds.length === 0) return 0;
+  const CHUNK = 500;
+  let n = 0;
+  for (let i = 0; i < signalIds.length; i += CHUNK) {
+    const slice = signalIds.slice(i, i + CHUNK);
+    const placeholders = slice.map(() => "?").join(",");
+    n += (sqlite.prepare(
+      `SELECT COUNT(*) AS n FROM settled_outcomes
+       WHERE excluded_stale = 0 AND signal_id IN (${placeholders})`,
+    ).get(...slice) as { n: number }).n;
+  }
+  return n;
 }
 
 /* ─── Backfill Progress (persistent — survives restarts) ──────────────────── */
