@@ -33,6 +33,13 @@
  *     AFTER values tell you exactly how much the published numbers will move.
  *     If that drop looks wrong to you, stop here and nothing has happened.
  *
+ *     NOTE: a game POSTPONED to later the same day is over-excluded here —
+ *     games.game_time keeps the original kickoff (no writer updates it on
+ *     conflict) while the id is date-derived, so genuinely pre-game snapshots
+ *     taken after the original time read as post-kickoff. Those rows are real
+ *     exclusions by the predicate and wrong on the facts; --reverse releases
+ *     them.
+ *
  *  6. Do one league first, so the first real write is small. Type:
  *
  *         npx tsx script/deploy2-inplay-closing.ts --league CFB
