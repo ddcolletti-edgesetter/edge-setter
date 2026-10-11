@@ -133,17 +133,39 @@ const SPORT_KEYS: Record<League, string> = {
  * so injury, lineup and weather grading were reading in-play numbers too.
  *
  * So: after commence_time we write nothing that grading reads. The game row
- * still tracks status and source_game_id, because those are schedule facts
- * rather than market facts.
+ * still tracks status, because that is a schedule fact rather than a market
+ * one. It does NOT re-point source_game_id: upsertGame treats that column as
+ * insert-only, and the post-kickoff path must never write more than the
+ * pre-kickoff path does (see touchGameSchedule).
  *
- * NOT MLB. Two reasons, either sufficient. canonicalGameId is
- * LEAGUE_DATE_AWAY_HOME with no game number, so a doubleheader collapses both
- * games onto one row; and MLB's market columns have a SECOND writer in
- * ingestMLBSchedule (mlb-statsapi.ts), which reads the row and writes the same
- * values straight back — guarding this adapter alone would freeze one side
- * while the other kept rewriting it. A postseason-only carve-out does not
- * rescue it: OddsAPIGame carries no season-phase field, so this adapter cannot
- * tell a postseason game from a regular-season one.
+ * NOT MLB BY DEFAULT — and the reason is thinner than it first looks.
+ *
+ * canonicalGameId is LEAGUE_DATE_AWAY_HOME with no game number, so a
+ * doubleheader really does collapse both games onto one row. But `started` is
+ * computed per FEED ENTRY, not per row: once game 1 starts, its entry freezes
+ * while game 2's entry — still pre-kickoff — keeps writing, so game 2 does not
+ * lose its pre-game market data. The id collapse is a PRE-EXISTING defect that
+ * the guard neither creates nor worsens; if anything it stops game 1's in-play
+ * prices from landing on the shared row while game 2 is still pre-game.
+ *
+ * What ingestMLBSchedule (mlb-statsapi.ts) does is NOT a competing write. It
+ * names all five market columns plus open_spread/open_total in its upsertGame
+ * call, but every value is `existing?.<col> ?? null` — a read-then-write-back
+ * of what is already stored. It is idempotent with respect to those columns
+ * and never introduces a price of its own, so it would echo frozen pre-game
+ * values rather than undo a guard.
+ *
+ * The actual reason MLB is out of the default is that it is UNTESTED here:
+ * nothing exercises the guard against a live MLB slate, and the shared-row
+ * collapse makes MLB market data ambiguous for independent reasons, so the
+ * benefit cannot be verified from this branch. Unguarded is the conservative
+ * default, not a claim that guarding it would break.
+ *
+ * Turning it on needs NO code change: ODDS_KICKOFF_GUARD_LEAGUES already takes
+ * MLB, and the MLB postseason schedules no doubleheaders, so the id collapse is
+ * dormant in exactly that window. The liability is that OddsAPIGame carries no
+ * season-phase field, so this is a dated MANUAL setting — left set into spring
+ * 2027 it applies during regular-season doubleheaders again.
  *
  * The time source is the FEED's commence_time, not games.game_time: the stored
  * column is not updated on conflict (see upsertGame) so it can be stale, and
@@ -158,12 +180,55 @@ const SPORT_KEYS: Record<League, string> = {
  */
 const kickoffGuardEnabled = () => process.env.ODDS_KICKOFF_GUARD !== "0";
 
-const kickoffGuardLeagues = (): ReadonlySet<string> => new Set(
-  (process.env.ODDS_KICKOFF_GUARD_LEAGUES ?? "CFB,NFL,NBA")
+/** Every league this adapter has a sport key for — the only valid env tokens. */
+const KICKOFF_GUARD_KNOWN_LEAGUES: ReadonlySet<string> = new Set(Object.keys(SPORT_KEYS));
+
+/**
+ * The guarded leagues, parsed from ODDS_KICKOFF_GUARD_LEAGUES.
+ *
+ * Both failure modes below leave the guard NARROWER than whoever set the
+ * variable meant, and neither is visible from the dashboard, so both are
+ * logged. Not reached at all when ODDS_KICKOFF_GUARD=0 (see
+ * kickoffGuardActiveFor): with the whole guard off the scope is moot and the
+ * warning would be noise.
+ */
+const kickoffGuardLeagues = (): ReadonlySet<string> => {
+  const raw = process.env.ODDS_KICKOFF_GUARD_LEAGUES;
+
+  // `??` does not catch "". Clearing the VALUE in Render's env editor rather
+  // than deleting the row leaves an empty string, which splits to [""],
+  // filters to nothing, and switches the guard off for every league while the
+  // variable still reads as set in the dashboard. That is the one
+  // misconfiguration that looks like the default and behaves like
+  // ODDS_KICKOFF_GUARD=0, so it does not get to be silent.
+  if (raw !== undefined && raw.trim() === "") {
+    console.warn(
+      `[odds-api] ODDS_KICKOFF_GUARD_LEAGUES is set but empty — kickoff guard OFF for every league. ` +
+      `Delete the variable to restore the default (CFB,NFL,NBA), or set ODDS_KICKOFF_GUARD=0 if that was the intent.`,
+    );
+  }
+
+  const tokens = (raw ?? "CFB,NFL,NBA")
     .split(",")
     .map((part) => part.trim().toUpperCase())
-    .filter(Boolean),
-);
+    .filter(Boolean);
+
+  // A token that is not a league name can never match one, so it is inert
+  // rather than wrong: "CFB,NHL" guards CFB, and a transposed "CBF" guards
+  // NOTHING while still looking like a deliberate narrowing. Name what was
+  // dropped, and what survived.
+  const unknown = tokens.filter((token) => !KICKOFF_GUARD_KNOWN_LEAGUES.has(token));
+  if (unknown.length > 0) {
+    const kept = tokens.filter((token) => KICKOFF_GUARD_KNOWN_LEAGUES.has(token));
+    console.warn(
+      `[odds-api] ODDS_KICKOFF_GUARD_LEAGUES has unrecognised league(s) ${unknown.join(",")} — ignored. ` +
+      `Valid values: ${[...KICKOFF_GUARD_KNOWN_LEAGUES].join(", ")}. ` +
+      `Guarding: ${kept.join(",") || "(nothing)"}.`,
+    );
+  }
+
+  return new Set(tokens);
+};
 
 /**
  * Is the guard active for this league at all? Resolved ONCE per cycle and
@@ -177,12 +242,25 @@ function kickoffGuardActiveFor(league: League): boolean {
 }
 
 /**
+ * A trailing UTC designator (`Z`) or a numeric offset (`+hh:mm` / `-hh:mm`).
+ *
+ * The colon is REQUIRED, matching the ES spec's simplified ISO format rather
+ * than the wider ISO 8601 basic form. A `+0000` this feed has never sent takes
+ * the warn-and-ingest path below, which IS the pre-guard behaviour, so the
+ * strictness costs a log line and nothing else. A bare `YYYY-MM-DD` also fails
+ * it: that form is parsed as UTC, but a commence_time carrying no clock is not
+ * a kickoff worth comparing a cycle clock against.
+ */
+const HAS_TZ_DESIGNATOR = /(?:Z|[+-]\d{2}:\d{2})$/i;
+
+/**
  * Has this game already started, as of one timestamp for the whole cycle?
  *
- * An unparseable commence_time fails OPEN — it ingests exactly as before and
- * warns. Failing closed would be better for grading integrity but would
- * silently stop all odds ingestion if the feed's date format ever changed,
- * which is the worse failure of the two.
+ * A commence_time that is unparseable, or that parses but carries no timezone
+ * designator, fails OPEN — it ingests exactly as before and warns, with a
+ * different message for each. Failing closed would be better for grading
+ * integrity but would silently stop all odds ingestion if the feed's date
+ * format ever changed, which is the worse failure of the two.
  */
 function kickoffPassed(
   league: League,
@@ -195,6 +273,22 @@ function kickoffPassed(
   const kickoffMs = Date.parse(commenceTime);
   if (!Number.isFinite(kickoffMs)) {
     console.warn(`[odds-api] ${league} unparseable commence_time "${commenceTime}" — kickoff guard inactive for this game`);
+    return false;
+  }
+
+  // Checked AFTER the parse, so each warning stays specific: junk reports as
+  // unparseable, and this one fires only for a value that DOES parse but whose
+  // instant we would be guessing.
+  //
+  // Date.parse of a date-TIME with no offset is LOCAL time per the ES spec
+  // (only date-ONLY forms default to UTC). So "2026-10-08T19:00:00" is read in
+  // the host's zone: right by accident on a UTC Render box, and wrong by the
+  // host offset anywhere else — west of UTC in the direction that makes a
+  // started game look unstarted. The request asks for dateFormat=iso and the
+  // feed sends a trailing Z, so a value with no designator means the feed
+  // changed shape, and guessing a zone for it would be inventing the answer.
+  if (!HAS_TZ_DESIGNATOR.test(commenceTime.trim())) {
+    console.warn(`[odds-api] ${league} commence_time "${commenceTime}" has no timezone designator (expected a trailing Z or ±hh:mm) — kickoff guard inactive for this game`);
     return false;
   }
 
@@ -373,16 +467,24 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
         moneyline_home: mlHome,
         moneyline_away: mlAway,
         source_game_id: ag.id,
-        snapshot_at: new Date().toISOString(),
+        // The CYCLE clock, not the write clock. Every snapshot from one fetch
+        // is the same observation of the same slate, so they share one
+        // snapshot_at instead of fanning out across however long the loop took
+        // to reach each game. It is also the exact value kickoffPassed() just
+        // judged this game against, so a snapshot can never carry a
+        // snapshot_at past a kickoff the guard called pre-game — which is what
+        // every `snapshot_at` vs `game_time` comparison downstream assumes.
+        snapshot_at: new Date(cycleNowMs).toISOString(),
       });
     }
 
     // Check if game already exists for open_line tracking
     const existing = getGame(gameId);
 
-    // GATE 2 — the games row. Before kickoff, unchanged. After kickoff, only
-    // the schedule columns; the five market columns keep their pre-game values
-    // (or stay NULL, if this game was first seen after it started).
+    // GATE 2 — the games row. Before kickoff, unchanged. After kickoff, the
+    // conflict updates status and nothing else; the five market columns keep
+    // their pre-game values (or stay NULL, if this game was first seen after
+    // it started), and source_game_id keeps whatever the insert put there.
     if (started) {
       touchGameSchedule({
         id: gameId,

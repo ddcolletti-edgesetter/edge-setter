@@ -1246,10 +1246,24 @@ export function upsertGame(g: Omit<Game, "created_at" | "updated_at"> & Partial<
  *                is the "first ingested after kickoff" case: we never saw a
  *                pre-game line for this game, and recording an in-play one as
  *                if it were the open would be a fabrication.
- *   on CONFLICT — status and source_game_id only. game_time is deliberately
- *                NOT updated: settlementWindowDays, findNextFinalGameForTeam
- *                and the situations filter (g.game_time > now) all read it, so
- *                moving it is a separate decision from freezing market writes.
+ *   on CONFLICT — status only. Two columns are deliberately left alone:
+ *
+ *                game_time, because settlementWindowDays,
+ *                findNextFinalGameForTeam and the situations filter
+ *                (g.game_time > now) all read it, so moving it is a separate
+ *                decision from freezing market writes.
+ *
+ *                source_game_id, because upsertGame does not update it on
+ *                conflict either — it is in that statement's INSERT column
+ *                list and absent from its ON CONFLICT clause, i.e. first
+ *                writer wins. This function is the post-kickoff half of
+ *                upsertGame and must never write MORE than upsertGame would:
+ *                a guard that rewrote a column the unguarded path treats as
+ *                insert-only would make crossing kickoff the one event that
+ *                re-points a game at a different feed id. Reschedules change
+ *                the id (it is date-derived), so the row that would be
+ *                re-pointed is a row for a game that no longer exists at that
+ *                time.
  *
  * "Never backfill" needs no extra logic: once the row exists and the game has
  * started, every later cycle takes this same branch, and no clause here names
@@ -1277,7 +1291,6 @@ export function touchGameSchedule(g: {
     VALUES (?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       status=CASE WHEN status='final' THEN 'final' ELSE excluded.status END,
-      source_game_id=excluded.source_game_id,
       updated_at=excluded.updated_at
   `).run(
     g.id, g.league, g.home_team, g.away_team, g.game_time, g.status,

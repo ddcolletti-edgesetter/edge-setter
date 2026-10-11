@@ -19,16 +19,19 @@ import path from "path";
  * What this suite holds down:
  *   1. Before kickoff nothing changes — the guard is inert.
  *   2. After kickoff: no snapshot, no market-column overwrite, no line_move,
- *      no odds_open; status and source_game_id still track.
- *   3. MLB scope is env-driven: unguarded by DEFAULT (the shared-row
- *      doubleheader id collision in canonicalGameId), but guarded when
+ *      no odds_open; status still tracks, and source_game_id does NOT — it is
+ *      insert-only here because it is insert-only in upsertGame.
+ *   3. MLB scope is env-driven: unguarded by DEFAULT (it is untested against a
+ *      live MLB slate, and the shared-row doubleheader id collapse in
+ *      canonicalGameId makes MLB market data ambiguous for reasons the guard
+ *      neither creates nor fixes), but guarded when
  *      ODDS_KICKOFF_GUARD_LEAGUES names it, which is the postseason switch.
- *      (ingestMLBSchedule is NOT a competing writer — it writes
- *      `existing?.<col> ?? null`, an idempotent read-then-write-back.)
  *   4. A game first seen after kickoff gets NULL market columns and never
  *      backfills them, across repeated cycles.
  *   5. The env kill switch restores d48eef6 behaviour exactly — that is the
  *      rollback path, so it is tested.
+ *   6. snapshot_at is the cycle clock, a commence_time with no timezone
+ *      designator fails open, and a mis-set scope variable says so.
  */
 
 const TMP_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "es-kickoff-guard-"));
@@ -202,8 +205,9 @@ describe("after kickoff the market side is frozen", () => {
       expect(g.moneyline_away).toBe(140);
       expect(rawEventCount(id, "line_move")).toBe(0);
       expect(rawEventCount(id, "odds_open")).toBe(0);
-      // Schedule columns still track.
-      expect(g.source_game_id).toBe("src-2");
+      // status still tracks; source_game_id does not — the feed sent "src-2"
+      // and the stored value stays at what the pre-game insert put there.
+      expect(g.source_game_id).toBe("src-1");
       expect(g.status).toBe("scheduled");
     });
   }
@@ -235,8 +239,13 @@ describe("after kickoff the market side is frozen", () => {
  * the default must leave it unguarded (so this deploy cannot change MLB
  * behaviour), and naming it in ODDS_KICKOFF_GUARD_LEAGUES must actually guard
  * it (so the postseason can be switched on by env alone, with no code change —
- * the MLB postseason schedules no doubleheaders, so the shared-row id
- * collision that keeps MLB out of the default is dormant in that window).
+ * the MLB postseason schedules no doubleheaders, so the shared-row id collapse
+ * is dormant in that window).
+ *
+ * The reason for the default is that the guard is UNTESTED against a live MLB
+ * slate; the doubleheader id collapse is a pre-existing defect that the guard
+ * neither creates nor worsens, and ingestMLBSchedule is not a competing writer
+ * (it writes `existing?.<col> ?? null`, an idempotent read-then-write-back).
  */
 describe("MLB scope is env-driven, not hardcoded", () => {
   /** Seeds a pre-game MLB row so an overwrite is detectable either way. */
@@ -276,7 +285,9 @@ describe("MLB scope is env-driven, not hardcoded", () => {
     expect(g.total_line).toBe(8.5);
     expect(g.open_spread).toBe(-1.5);
     expect(rawEventCount(id, "line_move")).toBe(0);
-    // Schedule side still tracks.
+    // Unchanged — the row was updated in place, not replaced. (The feed entry
+    // also carries "src-1" here, so this does not discriminate the ON CONFLICT
+    // clause; the dedicated test below does.)
     expect(g.source_game_id).toBe("src-1");
   });
 
@@ -325,7 +336,9 @@ describe("a game first seen after kickoff", () => {
     expect(g.open_spread).toBeNull();
     expect(g.open_total).toBeNull();
     expect(snapshotCount(id)).toBe(0);
-    expect(g.source_game_id).toBe("src-9"); // schedule side still tracks
+    // Set by the first cycle's INSERT and left alone by the second cycle's
+    // conflict, even though that cycle's feed entry carried "src-9".
+    expect(g.source_game_id).toBe("src-1");
   });
 });
 
@@ -527,5 +540,190 @@ describe("cycle clock", () => {
 
     expect(snapshotCount(id)).toBe(0);
     expect(store.getGame(id)?.spread_line ?? null).toBeNull();
+  });
+});
+
+/* ─── 13. source_game_id is insert-only ────────────────────────────── */
+
+describe("source_game_id", () => {
+  /**
+   * touchGameSchedule is the post-kickoff half of upsertGame, and upsertGame
+   * names source_game_id in its INSERT list but NOT in its ON CONFLICT clause
+   * — first writer wins. So the guarded path must not update it either. If it
+   * did, crossing kickoff would be the one event that re-points a game at a
+   * different feed id, and it would do so on a row whose id is date-derived:
+   * a reschedule mints a NEW row, so the row being re-pointed is a row for a
+   * game that no longer happens at that time.
+   */
+  it("is not re-pointed by a post-kickoff conflict", async () => {
+    const id = gameIdFor("CFB", "2026-10-08");
+    store.upsertGame({
+      id, league: "CFB", home_team: HOME_CODE, away_team: AWAY_CODE,
+      game_time: PAST, status: "scheduled",
+      spread_line: -3.5, spread_team: HOME_CODE, total_line: 57.5,
+      moneyline_home: -160, moneyline_away: 140,
+      open_spread: -3.5, open_total: 57.5,
+      home_score: null, away_score: null, source_game_id: "src-original",
+    } as any);
+
+    await runCycle("CFB", oddsPayload({ commenceTime: PAST, sourceId: "src-different" }));
+
+    expect(store.getGame(id)!.source_game_id).toBe("src-original");
+    // The row was updated, not skipped: status is still written through.
+    expect(store.getGame(id)!.status).toBe("scheduled");
+  });
+
+  it("is still recorded when the post-kickoff cycle INSERTs the row", async () => {
+    const id = gameIdFor("CFB", "2026-10-08");
+
+    await runCycle("CFB", oddsPayload({ commenceTime: PAST, sourceId: "src-first-sighting" }));
+
+    // Insert-only means set on insert — a game first seen after kickoff still
+    // gets its feed id, which is how the ESPN score adapter finds it later.
+    expect(store.getGame(id)!.source_game_id).toBe("src-first-sighting");
+  });
+});
+
+/* ─── 14. snapshot_at is the cycle clock ───────────────────────────── */
+
+describe("snapshot_at", () => {
+  /**
+   * Pinning Date.now() and leaving `new Date()` alone is what separates the
+   * two clocks: V8 reads the system clock for `new Date()` directly and does
+   * not consult the JS-visible Date.now, so a stamp taken from cycleNowMs
+   * lands on the pinned value while a stamp taken at write time does not.
+   */
+  const PINNED_ISO = "2026-10-09T12:34:56.000Z";
+
+  it("is the cycle clock, shared by every game in the slate", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(Date.parse(PINNED_ISO));
+
+    // Two games in one fetch. Under the old write-time stamp these could only
+    // agree by landing in the same millisecond.
+    await runCycle("CFB", [
+      ...oddsPayload({ commenceTime: FUTURE }),
+      ...oddsPayload({ commenceTime: FUTURE, home: "Tulane Green Wave", away: "Rice Owls", sourceId: "src-2" }),
+    ]);
+
+    const stamps = (store.getPipelineDb()
+      .prepare("SELECT snapshot_at FROM odds_snapshots ORDER BY game_id")
+      .all() as Array<{ snapshot_at: string }>).map((r) => r.snapshot_at);
+
+    expect(stamps).toHaveLength(2);
+    expect(stamps).toEqual([PINNED_ISO, PINNED_ISO]);
+  });
+
+  it("is never later than a kickoff the guard called pre-game", async () => {
+    // Kickoff one second after the pinned cycle clock: the guard says
+    // pre-game, so the snapshot must carry a stamp that agrees with it.
+    const pinned = Date.parse(PINNED_ISO);
+    vi.spyOn(Date, "now").mockReturnValue(pinned);
+    const kickoff = new Date(pinned + 1000).toISOString();
+
+    await runCycle("CFB", oddsPayload({ commenceTime: kickoff }));
+
+    const row = store.getPipelineDb()
+      .prepare("SELECT snapshot_at FROM odds_snapshots LIMIT 1").get() as { snapshot_at: string };
+    expect(Date.parse(row.snapshot_at)).toBeLessThan(Date.parse(kickoff));
+  });
+});
+
+/* ─── 15. commence_time must carry a timezone designator ───────────── */
+
+describe("commence_time with no timezone designator", () => {
+  /**
+   * Date.parse of a date-TIME with no offset is LOCAL time per the ES spec, so
+   * "2026-10-08T19:00:00" is read in the host's zone — right by accident on a
+   * UTC Render box and wrong by the host offset anywhere else. Without the
+   * designator check this string parses fine and the guard acts on a kickoff
+   * instant it effectively guessed.
+   */
+  it("warns and ingests rather than guessing a zone", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const id = gameIdFor("CFB", "2026-10-08");
+
+    await runCycle("CFB", oddsPayload({ commenceTime: "2026-10-08T19:00:00.000" }));
+
+    // Fails OPEN: same path as an unparseable value, so pre-guard behaviour.
+    expect(snapshotCount(id)).toBe(1);
+    expect(store.getGame(id)!.spread_line).toBe(-3.5);
+    expect(warn.mock.calls.some((c) => String(c[0]).includes("no timezone designator"))).toBe(true);
+  });
+
+  /**
+   * Negative control rather than a load-bearing test: it passes with and
+   * without the designator check. It pins that the new strictness does not
+   * reject the legal non-Z form, which is the way this check could go wrong.
+   */
+  it("still guards a kickoff expressed as a numeric offset", async () => {
+    // 2026-10-08T15:00:00-04:00 is the same instant as PAST.
+    await runCycle("CFB", oddsPayload({ commenceTime: "2026-10-08T15:00:00-04:00" }));
+
+    expect(snapshotCount(gameIdFor("CFB", "2026-10-08"))).toBe(0);
+  });
+});
+
+/* ─── 16. A mis-set scope variable says so ─────────────────────────── */
+
+describe("ODDS_KICKOFF_GUARD_LEAGUES misconfiguration", () => {
+  const warnLines = (warn: ReturnType<typeof vi.spyOn>) =>
+    (warn.mock.calls as unknown[][]).map((c) => String(c[0]));
+
+  /**
+   * `??` does not catch "". Clearing the VALUE in Render's env editor instead
+   * of deleting the row switches the guard off for every league while the
+   * variable still reads as set in the dashboard — the one misconfiguration
+   * that looks like the default and behaves like ODDS_KICKOFF_GUARD=0.
+   */
+  it("warns when the value is set but empty, and the guard really is off", async () => {
+    process.env.ODDS_KICKOFF_GUARD_LEAGUES = "";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const id = gameIdFor("CFB", "2026-10-08");
+
+    await runCycle("CFB", oddsPayload({ commenceTime: PAST }));
+
+    expect(snapshotCount(id)).toBe(1); // nothing is in the set
+    expect(warnLines(warn).some((l) => l.includes("set but empty"))).toBe(true);
+  });
+
+  it("names unrecognised tokens and keeps guarding the valid ones", async () => {
+    process.env.ODDS_KICKOFF_GUARD_LEAGUES = "CFB, NHL ,CBF";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await runCycle("CFB", oddsPayload({ commenceTime: PAST }));
+
+    expect(snapshotCount(gameIdFor("CFB", "2026-10-08"))).toBe(0); // CFB survived
+    const line = warnLines(warn).find((l) => l.includes("unrecognised league"));
+    expect(line).toBeTruthy();
+    expect(line).toContain("NHL");
+    expect(line).toContain("CBF");       // a transposition guards nothing silently
+    expect(line).toContain("Guarding: CFB");
+  });
+
+  /** Negative control: a warning that fires on the happy path is noise. */
+  it("says nothing on the default or on a wholly valid override", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await runCycle("CFB", oddsPayload({ commenceTime: PAST }));
+    process.env.ODDS_KICKOFF_GUARD_LEAGUES = "cfb, NFL";
+    await runCycle("CFB", oddsPayload({ commenceTime: PAST }));
+
+    expect(warnLines(warn).some((l) => l.includes("ODDS_KICKOFF_GUARD_LEAGUES"))).toBe(false);
+  });
+
+  /**
+   * With the whole guard off the scope is moot, so the empty-value warning
+   * must not fire — kickoffGuardActiveFor short-circuits before reading it.
+   * This pins that ordering, which is the difference between one warning and
+   * four per cycle for an operator who rolled the guard back.
+   */
+  it("stays quiet about an empty value when the guard is switched off entirely", async () => {
+    process.env.ODDS_KICKOFF_GUARD = "0";
+    process.env.ODDS_KICKOFF_GUARD_LEAGUES = "";
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await runCycle("CFB", oddsPayload({ commenceTime: PAST }));
+
+    expect(warnLines(warn).some((l) => l.includes("ODDS_KICKOFF_GUARD_LEAGUES"))).toBe(false);
   });
 });
