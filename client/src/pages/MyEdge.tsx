@@ -133,23 +133,6 @@ const PREVIEW_STORIES: StoryCardData[] = [
   },
 ];
 
-/* ── Personal intelligence stat card ── */
-function PersonalStat({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
-  return (
-    <div style={{
-      flex: 1, minWidth: 100,
-      padding: "14px 16px",
-      background: T.surface2,
-      border: `1px solid rgba(255,255,255,0.06)`,
-      borderRadius: 4, textAlign: "center",
-    }}>
-      <div style={{ fontSize: 22, fontWeight: 800, color, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, color: T.textFaint, letterSpacing: "0.1em", marginTop: 2 }}>{sub}</div>}
-      <div style={{ fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: T.textFaint, marginTop: 4 }}>{label}</div>
-    </div>
-  );
-}
-
 function SetupPill({ icon, label }: { icon: React.ReactNode; label: string }) {
   return (
     <span style={{
@@ -348,14 +331,6 @@ export default function MyEdge() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* ── Personal feed stat row ── */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 140px), 1fr))", gap: 8, marginBottom: 24 }}>
-          <PersonalStat label="Feed Layers" value="7" color={T.gold} />
-          <PersonalStat label={isPro ? "Pro Access" : "Setup"} value={isPro ? "Active" : "On"} color={T.green} />
-          <PersonalStat label="Saved Sports" value="NBA / MLB" color="#00B7FF" />
-          <PersonalStat label="Alert Profile" value="Saved" color={T.gold} />
         </div>
 
         {isPro && (

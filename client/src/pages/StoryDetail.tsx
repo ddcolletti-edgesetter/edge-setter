@@ -61,7 +61,7 @@ function StoryDetailInner({ id }: { id: string }) {
         <BackButton />
         <h1 className="text-2xl font-bold text-foreground">Story not found</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This story is not available. On the live server this is expected after a dyno restart — the pipeline database is ephemeral on Render.
+          This story isn't available right now. Go back to the board and try again.
         </p>
       </main>
     );

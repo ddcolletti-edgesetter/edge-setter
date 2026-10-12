@@ -887,8 +887,8 @@ export function SignalDetailDrawer({ open, signal, sport, onClose }: SignalDetai
           <Section title="Follow-up watch" icon={<Bell size={14} />}>
             <div className="signal-alert-preview">
               <div>
-                <strong>{following ? "Following updates on this story" : "Follow this story for update tracking"}</strong>
-                <span>{following ? "This story is marked for your next coverage review." : "Keep this story in your local follow-up queue."}</span>
+                <strong>{following ? "Followed in this browser" : "Follow this story"}</strong>
+                <span>Follow and Save are bookmarks kept in this browser. They do not send alerts and do not sync to your account.</span>
               </div>
               <div className="signal-alert-options" role="group" aria-label="Alert preference preview">
                 <button type="button" className={alertLevel === "major" ? "is-active" : ""} onClick={() => setAlertLevel("major")}>Major changes</button>
