@@ -285,6 +285,13 @@ const CFB_ALIASES: Record<string, string> = {
   "M-OH": "MIOH",  // Miami (OH)
   APST: "APP",     // Appalachian State
   GST: "GAST",     // Georgia State
+  // The spellings cfbTeamLogos.generated.ts uses (ESPN's own abbreviations),
+  // for the schools this manifest keys differently. Without these, a crest
+  // drawn from the logo-side token had no colors at all.
+  BGSU: "BGS",     // Bowling Green
+  CLT: "CHAR",     // Charlotte
+  TEM: "TEMP",     // Temple
+  TLSA: "TULSA",   // Tulsa
 };
 for (const [alias, key] of Object.entries(CFB_ALIASES)) {
   if (CFB_TEAM_COLORS[key]) CFB_TEAM_COLORS[alias] = CFB_TEAM_COLORS[key];
@@ -295,6 +302,42 @@ for (const [alias, key] of Object.entries(NFL_ALIASES)) {
   if (NFL_TEAM_COLORS[key]) NFL_TEAM_COLORS[alias] = NFL_TEAM_COLORS[key];
 }
 
+/**
+ * Short forms carried by our own logo maps that the color manifests did not
+ * have. Every one of these was resolving through the cross-league fallback
+ * below and painting a crest in another sport's colors:
+ *
+ *   NBA  GS  -> Georgia Southern navy   (CFB_ALIASES maps GS to GASO)
+ *   NBA  NO  -> New Orleans Saints black
+ *   NBA  WSH -> Washington Nationals red
+ *   MLB  SF  -> San Francisco 49ers red
+ *   MLB  WAS -> Washington Wizards navy
+ *
+ * and BRK / NY / PHO / SA / ATH resolved to nothing at all, so they fell to the
+ * deterministic palette instead of the team's real brand colors.
+ */
+const NBA_ALIASES: Record<string, string> = {
+  BRK: "BKN",   // Brooklyn Nets
+  GS:  "GSW",   // Golden State Warriors
+  NO:  "NOP",   // New Orleans Pelicans
+  NY:  "NYK",   // New York Knicks
+  PHO: "PHX",   // Phoenix Suns
+  SA:  "SAS",   // San Antonio Spurs
+  WSH: "WAS",   // Washington Wizards
+};
+for (const [alias, key] of Object.entries(NBA_ALIASES)) {
+  if (NBA_TEAM_COLORS[key]) NBA_TEAM_COLORS[alias] = NBA_TEAM_COLORS[key];
+}
+
+const MLB_ALIASES: Record<string, string> = {
+  ATH: "OAK",   // Athletics
+  SF:  "SFG",   // San Francisco Giants
+  WAS: "WSH",   // Washington Nationals
+};
+for (const [alias, key] of Object.entries(MLB_ALIASES)) {
+  if (MLB_TEAM_COLORS[key]) MLB_TEAM_COLORS[alias] = MLB_TEAM_COLORS[key];
+}
+
 const SPORT_MAPS: Record<TeamColorSport, Record<string, TeamColorEntry>> = {
   nba: NBA_TEAM_COLORS,
   mlb: MLB_TEAM_COLORS,
@@ -303,17 +346,27 @@ const SPORT_MAPS: Record<TeamColorSport, Record<string, TeamColorEntry>> = {
 };
 
 /**
- * Sport-aware color lookup. With a sport, only that league's map is consulted
- * (then the others as a fallback for cross-league abbreviations). Without a
- * sport, the merged lookup preserves the legacy NBA→MLB→NFL→CFB priority.
+ * Sport-aware color lookup.
+ *
+ * With a sport, that league's map is the ONLY answer. It used to fall through
+ * to the other leagues on a miss, which is how NBA "GS" was painted Georgia
+ * Southern navy and MLB "SF" came out 49ers red — abbreviations collide across
+ * leagues (MIA, CIN, HOU, ATL, KC, SF, NO, WAS...), so a cross-league hit is
+ * not a lucky recovery, it is the wrong team's brand. Returning null instead
+ * sends the caller to the deterministic palette, which is anonymous but never
+ * attributes one club's colors to another.
+ *
+ * The alias tables above are what make this safe: the tokens that relied on the
+ * fallback now resolve inside their own league.
+ *
+ * Without a sport, the merged lookup preserves the legacy NBA→MLB→NFL→CFB
+ * priority — callers that cannot name a league (toTeamAbbr's long-abbreviation
+ * probe among them) still need a best-effort answer.
  */
 export function teamColorsFor(abbr?: string | null, sport?: TeamColorSport): TeamColorEntry | null {
   const key = String(abbr ?? "").trim().toUpperCase();
   if (!key) return null;
-  if (sport) {
-    const exact = SPORT_MAPS[sport][key];
-    if (exact) return exact;
-  }
+  if (sport) return SPORT_MAPS[sport][key] ?? null;
   return NBA_TEAM_COLORS[key] ?? MLB_TEAM_COLORS[key] ?? NFL_TEAM_COLORS[key] ?? CFB_TEAM_COLORS[key] ?? null;
 }
 

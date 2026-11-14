@@ -26,6 +26,18 @@ import {
 export const CFB_ABBR_ALIASES: Readonly<Record<string, string>> = {
   BAMA: "ALA",
   TX: "TEX",
+  // The seven schools the color manifest (client/src/lib/teamColors.ts) keys
+  // under a different token than ESPN does. Both spellings reach a crest, so
+  // without these the manifest's spelling resolved no logo at all and the
+  // school rendered a lettered crest while its ESPN twin rendered the mark.
+  // Measured by differencing CFB_TEAM_COLORS against CFB_TEAM_LOGO_IDS.
+  ARKST: "ARST",   // Arkansas State
+  BGS: "BGSU",     // Bowling Green
+  CHAR: "CLT",     // Charlotte
+  MARS: "MRSH",    // Marshall
+  TEMP: "TEM",     // Temple
+  TULSA: "TLSA",   // Tulsa
+  UCONN: "CONN",   // UConn
 };
 
 const logoUrlForId = (id: number) => CFB_LOGO_URL_PATTERN.replace("{id}", String(id));
