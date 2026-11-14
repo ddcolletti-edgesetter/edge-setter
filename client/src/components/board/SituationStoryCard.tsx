@@ -55,6 +55,7 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
         <h3 className={cn("mt-2 max-w-3xl break-words font-sans font-bold leading-tight text-foreground", featured ? "text-xl sm:text-2xl" : "text-base sm:text-lg")}>
           {story.headline}
         </h3>
+        <StoryIdentityLine story={story} />
         {story.row.detectionLeadTime && (
           <div className="mt-1.5 inline-flex max-w-full flex-wrap items-center gap-1 rounded border border-[rgba(45,212,191,0.35)] bg-[rgba(45,212,191,0.08)] px-2 py-0.5 text-[0.68rem] font-extrabold leading-snug text-[#2DD4BF]">
             {story.row.detectionLeadKind === "pickup"
@@ -138,6 +139,43 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
         />
       </div>
     </article>
+  );
+}
+
+/**
+ * Availability, player, and the game the story belongs to — the three facts a
+ * reader checks first, in that order.
+ *
+ * Every part is independently optional and the whole line disappears when all
+ * three are absent. No placeholder, no em dash standing in for a missing
+ * kickoff: a story with no matched game simply shows the opponent, and one with
+ * no resolved player shows neither name nor an empty slot.
+ */
+function StoryIdentityLine({ story }: { story: SituationStoryCardData }) {
+  const whereAndWhen = [story.opponentLabel, story.kickoff].filter(Boolean).join(", ");
+  if (!story.injuryDesignation && !story.player && !whereAndWhen) return null;
+
+  return (
+    <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+      {story.injuryDesignation && (
+        <span
+          data-testid="story-injury-designation"
+          className="inline-flex shrink-0 items-center rounded border border-[rgba(255,82,82,0.4)] bg-[rgba(255,82,82,0.12)] px-1.5 py-0.5 text-[0.62rem] font-extrabold uppercase tracking-widest text-[#FF5252]"
+        >
+          {story.injuryDesignation}
+        </span>
+      )}
+      {story.player && (
+        <span data-testid="story-player" className="min-w-0 truncate text-[0.82rem] font-bold text-foreground">
+          {story.player}
+        </span>
+      )}
+      {whereAndWhen && (
+        <span data-testid="story-where-when" className="min-w-0 truncate text-[0.74rem] font-semibold text-muted-foreground tabular-nums">
+          {whereAndWhen}
+        </span>
+      )}
+    </div>
   );
 }
 

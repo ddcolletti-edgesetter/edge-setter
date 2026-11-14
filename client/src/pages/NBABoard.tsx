@@ -180,7 +180,7 @@ export default function NBABoard() {
     return {
       situation,
       row,
-      story: toSituationStoryCardData(row),
+      story: toSituationStoryCardData(row, liveGames),
     };
   }), [situations]);
   const livePills = useMemo(() => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, allSignals), "nba")), [allSignals, liveGames]);

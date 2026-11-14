@@ -26,6 +26,24 @@ export type SituationStoryCardData = {
   primaryTeam?: string;
   secondaryTeam?: string;
   player?: string;
+  /**
+   * Short availability tag — "OUT" / "DOUBTFUL" / "QUESTIONABLE" and the
+   * practice-report codes, normalized by {@link normalizeInjuryDesignation}.
+   * Undefined when the signal carries no designation; never a placeholder.
+   */
+  injuryDesignation?: string;
+  /**
+   * "vs HOU" / "at HOU" — the opponent with the side we can prove. Undefined
+   * when home/away cannot be established, because guessing the preposition
+   * would state a home-field fact we do not have.
+   */
+  opponentLabel?: string;
+  /**
+   * Kickoff as "Sat 3:30 PM", from the game this story joined to. Undefined
+   * when no game matched, when the match was ambiguous, or when the stored
+   * game_time does not parse — an absent field, never an invented time.
+   */
+  kickoff?: string;
   storyType?: string;
   timestamp?: string;
   confidence?: string;
@@ -163,6 +181,9 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
       { label: "Confidence", value: publicConfidenceLabel(situation.confidence, strengthContext), tone: situation.confidence >= 80 ? "positive" : situation.confidence >= 60 ? "warning" : "default" },
     ].filter(Boolean) as SituationMetric[],
     tags: [situation.trustLabel, canonical?.confidenceLabel, signal?.injuryDesignation, signal?.conference].filter(Boolean) as string[],
+    // Also carried as a first-class field: `tags` is sliced to two entries by
+    // SituationRow, which drops the designation in practice.
+    injuryDesignation: signal?.injuryDesignation ?? undefined,
     actionLabel: situation.kind === "signal" ? "Open story" : undefined,
     lifecycleLabel: situation.lifecycleStage,
     lifecycleState: lifecycleStateForLabel(situation.lifecycleStage),
@@ -189,9 +210,155 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
   };
 }
 
-export function toSituationStoryCardData(row: SituationRowData): SituationStoryCardData {
+/* ── Availability, opponent and kickoff ──────────────────────────────────────
+ *
+ * Three facts the pipeline already carries that the story card never showed.
+ * All three are omitted rather than guessed, because each one is the kind of
+ * claim a reader would act on: a designation we invented, a home/away side we
+ * assumed, or a kickoff we rounded would all be worse than a blank line.
+ */
+
+/**
+ * Fold a raw designation into the short tag the card shows.
+ *
+ * Only the four words with a single unambiguous reading are expanded. Anything
+ * else — the practice-participation codes DNP/LP/FP, "IL-60", a value this feed
+ * has not sent before — passes through uppercased, because inventing a longer
+ * label for a code we have not verified is how "LP" becomes a claim about a
+ * player's availability that no source made. `D` and `Q` are read as Doubtful
+ * and Questionable to match signalScorer, which already scores them that way.
+ */
+const INJURY_DESIGNATION_LABELS: Readonly<Record<string, string>> = {
+  O: "OUT",
+  OUT: "OUT",
+  D: "DOUBTFUL",
+  DOUBTFUL: "DOUBTFUL",
+  Q: "QUESTIONABLE",
+  QUESTIONABLE: "QUESTIONABLE",
+  P: "PROBABLE",
+  PROBABLE: "PROBABLE",
+};
+
+export function normalizeInjuryDesignation(raw?: string | null): string | undefined {
+  const key = String(raw ?? "").trim().toUpperCase();
+  if (!key) return undefined;
+  return INJURY_DESIGNATION_LABELS[key] ?? key;
+}
+
+const normalizeTeamToken = (value?: string | null): string => {
+  const raw = String(value ?? "").trim();
+  return raw ? abbreviateTeam(raw).toUpperCase() : "";
+};
+
+function gameTokens(game: AnyBoardGame): { away: string; home: string } {
+  return {
+    away: normalizeTeamToken(game.awayTeam ?? game.away_team ?? game.away ?? game.awayFull),
+    home: normalizeTeamToken(game.homeTeam ?? game.home_team ?? game.home ?? game.homeFull),
+  };
+}
+
+export type StoryGameMatch = {
+  game: AnyBoardGame;
+  /** True when the story's team is the home side, false when away, undefined when unresolved. */
+  storyIsHome?: boolean;
+};
+
+function sideForTeam(team: string, tokens: { away: string; home: string }): boolean | undefined {
+  if (!team) return undefined;
+  if (team === tokens.home) return true;
+  if (team === tokens.away) return false;
+  return undefined;
+}
+
+/**
+ * Join a story to its game, client-side, off the slate each board already
+ * fetched for the live strip. No new request and no new server field.
+ *
+ * A both-sides hit wins over a one-side hit, and **any ambiguity returns
+ * undefined**: two games matching both sides is an MLB doubleheader, and two
+ * games sharing one token is a team playing twice in the window. Picking the
+ * first would attach a kickoff from the wrong game, which is the one outcome
+ * worse than showing no kickoff at all.
+ */
+export function findGameForStory(
+  identity: SituationRowData["sportsIdentity"],
+  games?: readonly AnyBoardGame[],
+): StoryGameMatch | undefined {
+  if (!games?.length) return undefined;
+  const team = normalizeTeamToken(identity?.team);
+  const storyTokens = new Set(
+    [identity?.awayTeam, identity?.homeTeam, identity?.team, identity?.opponent]
+      .map(normalizeTeamToken)
+      .filter(Boolean),
+  );
+  if (storyTokens.size === 0) return undefined;
+
+  const bothSides: StoryGameMatch[] = [];
+  const oneSide: StoryGameMatch[] = [];
+  for (const game of games) {
+    const tokens = gameTokens(game);
+    if (!tokens.away && !tokens.home) continue;
+    const hits = [tokens.away, tokens.home].filter((token) => token && storyTokens.has(token));
+    const match: StoryGameMatch = { game, storyIsHome: sideForTeam(team, tokens) };
+    if (hits.length === 2) bothSides.push(match);
+    else if (hits.length === 1) oneSide.push(match);
+  }
+
+  if (bothSides.length === 1) return bothSides[0];
+  if (bothSides.length > 1) return undefined;
+  if (oneSide.length === 1) return oneSide[0];
+  return undefined;
+}
+
+/**
+ * "Sat 3:30 PM" in the reader's own locale and zone. Undefined for an absent
+ * or unparseable value — unlike {@link formatGameTime}, which echoes the raw
+ * string back so the live pill always renders something.
+ */
+export function formatKickoff(value?: Date | string | null): string | undefined {
+  if (value === null || value === undefined || value === "") return undefined;
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return undefined;
+  const day = new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(date);
+  const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+  return `${day} ${time}`;
+}
+
+/**
+ * "vs HOU" or "at HOU". The preposition is a factual claim about home field,
+ * so it is only made from a source that knows: the joined game first, then the
+ * identity but ONLY when `sideKnown` says the pipeline supplied a real
+ * away/home pair rather than the `?? situation.team` fallback. Otherwise
+ * undefined — the card still shows the neutral `matchup` string.
+ */
+export function opponentLabelFor(
+  identity: SituationRowData["sportsIdentity"],
+  match?: StoryGameMatch,
+): string | undefined {
+  const team = normalizeTeamToken(identity?.team);
+
+  if (match) {
+    const tokens = gameTokens(match.game);
+    if (match.storyIsHome === true && tokens.away) return `vs ${tokens.away}`;
+    if (match.storyIsHome === false && tokens.home) return `at ${tokens.home}`;
+  }
+
+  if (!identity?.sideKnown || !team) return undefined;
+  const away = normalizeTeamToken(identity.awayTeam);
+  const home = normalizeTeamToken(identity.homeTeam);
+  if (!away || !home || away === home) return undefined;
+  if (team === home) return `vs ${away}`;
+  if (team === away) return `at ${home}`;
+  return undefined;
+}
+
+export function toSituationStoryCardData(
+  row: SituationRowData,
+  games?: readonly AnyBoardGame[],
+): SituationStoryCardData {
   const identity = row.sportsIdentity;
   const matchup = row.matchup ?? matchupFromIdentity(identity);
+  const gameMatch = findGameForStory(identity, games);
   const storyType = storyTypeFromRow(row);
   const confidence = confidenceFromRow(row);
   const strengthContext = {
@@ -229,6 +396,9 @@ const verification = publicStoryText(mappedVerification, row.league);
     primaryTeam: identity?.awayTeam ?? identity?.team,
     secondaryTeam: identity?.homeTeam ?? identity?.opponent,
     player: identity?.player,
+    injuryDesignation: normalizeInjuryDesignation(row.injuryDesignation),
+    opponentLabel: opponentLabelFor(identity, gameMatch),
+    kickoff: gameMatch ? formatKickoff(gameMatch.game.gameDate ?? gameMatch.game.game_time) : undefined,
     storyType,
     timestamp: row.timestamp,
     confidence: confidence ? publicConfidenceLabel(confidence, strengthContext) : undefined,
@@ -242,8 +412,8 @@ const verification = publicStoryText(mappedVerification, row.league);
   };
 }
 
-export function toSituationStoryCards(rows: SituationRowData[]) {
-  return rows.map(toSituationStoryCardData);
+export function toSituationStoryCards(rows: SituationRowData[], games?: readonly AnyBoardGame[]) {
+  return rows.map((row) => toSituationStoryCardData(row, games));
 }
 
 export function toQuietLeagueLeadStory(league: "MLB" | "NBA"): SituationStoryCardData {
@@ -610,6 +780,9 @@ function sportsIdentityForSituation(situation: BoardSituation, canonical?: Canon
     // Jersey number passenger, parallel to playerEspnId — drives the
     // jersey-number story-card treatment when present.
     playerJersey: canonical?.playerJersey,
+    // Recorded BEFORE the `?? situation.team` fallbacks above collapse the
+    // distinction — see SituationSportsIdentity.sideKnown.
+    sideKnown: Boolean(guard(situation.awayTeam) && guard(situation.homeTeam)),
     sport,
   };
 }

@@ -45,6 +45,14 @@ export interface SituationSportsIdentity {
   /** Jersey number for {@link player}, parallel to {@link playerEspnId}. Drives the
    *  jersey-number story-card treatment; absent otherwise. */
   playerJersey?: string;
+  /**
+   * True only when the pipeline supplied BOTH `awayTeam` and `homeTeam`, so
+   * which side is at home is a fact rather than an artefact of the
+   * `?? situation.team` fallbacks above. Guards the "vs"/"at" preposition on
+   * the story card; without it a team-only situation reads as the away side
+   * every time.
+   */
+  sideKnown?: boolean;
   sport?: "nba" | "mlb" | "nfl" | "cfb";
 }
 
@@ -73,6 +81,17 @@ export interface SituationRowData {
   verificationBasis?: string;
   metrics?: SituationMetric[];
   tags?: string[];
+  /**
+   * Official availability status for {@link sportsIdentity}'s player, straight
+   * from `live_signals.injury_designation` ("OUT" / "Doubtful" / "Questionable"
+   * / "IL-60" / the practice-report codes DNP, LP, FP).
+   *
+   * It already travelled this far as `tags[2]`, where `tags.slice(0, 2)` below
+   * dropped it whenever a trust or confidence label was present — which is
+   * nearly always. A real field means the story card can render it without
+   * depending on the tag array's length or order.
+   */
+  injuryDesignation?: string;
   actionLabel?: string;
   lifecycleLabel?: string;
   lifecycleState?: SituationLifecycleState;
