@@ -1234,6 +1234,71 @@ export function upsertGame(g: Omit<Game, "created_at" | "updated_at"> & Partial<
 }
 
 /**
+ * The schedule-only half of upsertGame, for a game that has already started.
+ *
+ * The odds adapter calls this instead of upsertGame once the kickoff guard
+ * fires, so an in-play price never reaches a column that grading reads. What
+ * it writes is deliberately narrow:
+ *
+ *   on INSERT  — no market column is in the column list at all, so
+ *                spread_line, spread_team, total_line, moneyline_home,
+ *                moneyline_away, open_spread and open_total are all NULL. That
+ *                is the "first ingested after kickoff" case: we never saw a
+ *                pre-game line for this game, and recording an in-play one as
+ *                if it were the open would be a fabrication.
+ *   on CONFLICT — status only. Two columns are deliberately left alone:
+ *
+ *                game_time, because settlementWindowDays,
+ *                findNextFinalGameForTeam and the situations filter
+ *                (g.game_time > now) all read it, so moving it is a separate
+ *                decision from freezing market writes.
+ *
+ *                source_game_id, because upsertGame does not update it on
+ *                conflict either — it is in that statement's INSERT column
+ *                list and absent from its ON CONFLICT clause, i.e. first
+ *                writer wins. This function is the post-kickoff half of
+ *                upsertGame and must never write MORE than upsertGame would:
+ *                a guard that rewrote a column the unguarded path treats as
+ *                insert-only would make crossing kickoff the one event that
+ *                re-points a game at a different feed id. Reschedules change
+ *                the id (it is date-derived), so the row that would be
+ *                re-pointed is a row for a game that no longer exists at that
+ *                time.
+ *
+ * "Never backfill" needs no extra logic: once the row exists and the game has
+ * started, every later cycle takes this same branch, and no clause here names
+ * a market column. open_spread/open_total are absent from upsertGame's
+ * ON CONFLICT clause too, so they stay NULL permanently even if the guard is
+ * later switched off.
+ *
+ * status is final-sticky, matching upsertGame — a score already written must
+ * not be dragged back to 'scheduled' by a late schedule poll.
+ */
+export function touchGameSchedule(g: {
+  id: string;
+  league: string;
+  home_team: string;
+  away_team: string;
+  game_time: string;
+  status: string;
+  source_game_id: string | null;
+}): void {
+  const db = getPipelineDb();
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO games (id,league,home_team,away_team,game_time,status,
+      source_game_id,created_at,updated_at)
+    VALUES (?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id) DO UPDATE SET
+      status=CASE WHEN status='final' THEN 'final' ELSE excluded.status END,
+      updated_at=excluded.updated_at
+  `).run(
+    g.id, g.league, g.home_team, g.away_team, g.game_time, g.status,
+    g.source_game_id, now, now,
+  );
+}
+
+/**
  * Insert or update a historical game that already has a final score.
  * Unlike upsertGame, this also persists home_score/away_score and status on conflict.
  */

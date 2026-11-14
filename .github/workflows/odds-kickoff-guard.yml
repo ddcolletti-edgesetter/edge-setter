@@ -1,0 +1,64 @@
+name: odds-kickoff-guard
+
+# Guards the kickoff boundary in the odds adapter.
+#
+# Once a game is in play the books are pricing the game, not the matchup. The
+# adapter used to ingest that anyway, and getClosingSnapshot() is "newest
+# odds_snapshots row for this game" with no game_time bound — so one in-play
+# snapshot became the closing line for every signal on the game, and
+# `hit = clv > 0` then graded them all against it. Measured on prod: of 258 CFB
+# outcomes in the published record, 172 had a closing snapshot after kickoff.
+#
+# What this job stops going quietly:
+#   - a market write that escapes the `!started` gate (snapshot, the five
+#     games market columns, either line_move detector, odds_open)
+#   - the cycle clock being read before the fetch instead of after, which lets
+#     a game that kicks off during the HTTP round trip write one in-play row
+#   - snapshot_at drifting back to the write clock, which can stamp a snapshot
+#     past a kickoff the guard itself called pre-game
+#   - source_game_id becoming writable on conflict, which would make crossing
+#     kickoff the one event that re-points a game at a different feed id
+#   - the kickoff predicate trusting a commence_time with no timezone
+#     designator, which Date.parse reads in the HOST's zone
+#   - MLB silently entering or leaving the default scope
+#   - the ODDS_KICKOFF_GUARD / ODDS_KICKOFF_GUARD_LEAGUES rollback path
+#     breaking, which is the only way out of a bad deploy without a code change
+#
+# It is NOT a plan-pin or settlement job: nothing here asserts a query plan,
+# and the contaminated rows already in the record are a separate change.
+
+on:
+  # No `branches:` filter on pull_request. That filter matches the BASE branch,
+  # and this work ships as a stack (#87 → #88 → #89), so a filter of
+  # `branches: [main]` reports no checks at all on any PR based on another
+  # branch in the stack. A guard a stacked PR can skip is not a guard.
+  pull_request:
+  push:
+    branches: [main]
+
+# Read-only. No secrets are referenced, and the job writes nothing outside the
+# runner: checkout, npm ci, one vitest run. The test reaches no network — it
+# stubs global fetch and writes to a mkdtemp SQLite file via
+# PIPELINE_DATA_DIR.
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    name: guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Odds kickoff guard
+        run: npx vitest run server/pipeline/__tests__/odds-kickoff-guard.test.ts
