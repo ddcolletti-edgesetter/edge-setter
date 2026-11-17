@@ -453,7 +453,7 @@ function AlertsProGate() {
           Alerts are a Pro feature
         </h1>
         <p style={{ margin: "10px 0 24px", fontSize: 14, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.04em" }}>
-          Alert preferences live behind Pro. Sign in with a Pro account to open this page.
+          Alert preferences are saved with Pro. Email and push delivery are currently paused.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
           <Link href="/pro" style={{
