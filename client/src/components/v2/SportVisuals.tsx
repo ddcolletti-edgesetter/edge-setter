@@ -372,6 +372,60 @@ export function TeamLogo({ abbr, size = 32, shape = "circle" }: TeamLogoProps) {
   );
 }
 
+/**
+ * Smallest decoded edge we accept as a real logo. ESPN's endpoint serves 500px
+ * marks; a 1px sentinel or an empty body decodes far below this.
+ */
+const MIN_DECODED_LOGO_PX = 16;
+
+/**
+ * The crest a team falls back to: shield outline, team primary as the fill,
+ * team secondary as the border, abbreviation in condensed bold.
+ *
+ * Drawn as SVG rather than a clipped div because a CSS `clip-path` cuts the
+ * border off with the corners, and the secondary color IS the border here.
+ * The viewBox is fixed at 100 units so the shape and the type scale together
+ * at any `size`.
+ */
+function TeamCrest({ abbr, size, primary, secondary }: { abbr: string; size: number; primary: string; secondary: string }) {
+  const label = abbr?.slice(0, 4).toUpperCase() ?? "";
+  const fontSize = label.length >= 4 ? 25 : label.length === 3 ? 30 : 36;
+  return (
+    <svg
+      data-testid="team-crest"
+      role="img"
+      aria-label={label ? `${label} crest` : "Team crest"}
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      style={{ display: "block", flexShrink: 0, overflow: "visible" }}
+    >
+      {/* Shield: flat shoulders, straight flanks, rounded point. */}
+      <path
+        d="M50 5 L91 17 V51 C91 73 73 89 50 95 C27 89 9 73 9 51 V17 Z"
+        fill={primary}
+        stroke={secondary}
+        strokeWidth={6}
+        strokeLinejoin="round"
+      />
+      <text
+        x="50"
+        y="54"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        fontFamily="'Barlow Condensed', 'Arial Narrow', Arial, sans-serif"
+        fontWeight={800}
+        fontSize={fontSize}
+        letterSpacing="1"
+        fill="#FFFFFF"
+        style={{ paintOrder: "stroke" }}
+      >
+        {label}
+      </text>
+    </svg>
+  );
+}
+
 interface TeamLogoImgProps { abbr: string; size?: number; shape?: "circle"|"shield"|"square"; src?: string; sport?: TeamLogoSport; fromGamesTable?: boolean; }
 export function TeamLogoImg({ abbr, size = 32, shape = "square", src, sport, fromGamesTable }: TeamLogoImgProps) {
   const normalizedAbbr = toTeamAbbr(abbr);
@@ -387,23 +441,28 @@ export function TeamLogoImg({ abbr, size = 32, shape = "square", src, sport, fro
     setFailedUrl(null);
   }, [logoUrl]);
 
+  // ESPN sometimes answers 200 with a blank or 1px body rather than 404ing, and
+  // a transparent sentinel was once returned as if it were a real logo (see
+  // getTeamLogoUrl's note). Both "load successfully", so onError never fires and
+  // the old code rendered an invisible <img> with no fallback at all. A decoded
+  // size this small is never one of ESPN's 500px marks, so treat it as a miss.
+  //
+  // jsdom reports naturalWidth 0 for every image, so under test any load event
+  // takes this path — which is what makes the blank-image case assertable.
+  const handleLoad = (event: { currentTarget: HTMLImageElement }) => {
+    const { naturalWidth, naturalHeight } = event.currentTarget;
+    if (naturalWidth < MIN_DECODED_LOGO_PX || naturalHeight < MIN_DECODED_LOGO_PX) setFailedUrl(logoUrl);
+  };
+
   if (showFallback) {
     if (unknownTeam) return <NeutralTeamPlaceholder size={size} shape={shape} />;
-    // Team-color fallback: solid primary circle, abbreviation in white, centered.
-    const label = normalizedAbbr?.slice(0, 4).toUpperCase() ?? "";
-    const fontSize = size * (label.length >= 4 ? 0.26 : 0.34);
-    return (
-      <div style={{ width: size, height: size, borderRadius: 0, overflow: "hidden", flexShrink: 0, background: fallback.bg, border: `1px solid ${fallback.border}`, boxShadow: fallback.shadow, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <span style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize, fontWeight: 800, color: "#FFFFFF", letterSpacing: "0.02em", lineHeight: 1, textShadow: "0 1px 3px rgba(0,0,0,0.45)" }}>
-          {label}
-        </span>
-      </div>
-    );
+    return <TeamCrest abbr={normalizedAbbr} size={size} primary={fallback.crestFill} secondary={fallback.crestEdge} />;
   }
   return (
   <div style={{ width: size, height: size, borderRadius: 0, overflow: "visible", flexShrink: 0, position: "relative", background: "transparent", border: "none", boxShadow: "none" }}>
     <img src={logoUrl} alt={normalizedAbbr || abbr} width={size} height={size} style={{ position: "relative", zIndex: 1, width: "100%", height: "100%", objectFit: "contain", display: "block", padding: 0, boxSizing: "border-box", filter: "drop-shadow(0 0 12px rgba(255,255,255,0.15)) drop-shadow(0 2px 8px rgba(0,0,0,0.6))" }}
       onError={() => setFailedUrl(logoUrl)}
+      onLoad={handleLoad}
     />
   </div>
 );
@@ -439,9 +498,16 @@ function teamFallbackVisual(abbr: string, sport?: TeamLogoSport) {
   // Known team → brand colors. Unknown team → deterministic dark palette
   // keyed by abbreviation. Either way the circle is colored, never gray.
   const colors = teamColorsFor(abbr, sport)
-    ?? TEAM_COLORS[abbr?.toUpperCase()]
+    // The legacy merged map below is league-mixed (MIA = Heat, CIN = Bengals,
+    // SF = 49ers), so consulting it with a league in hand would hand the crest
+    // another sport's colors and undo the fix in teamColorsFor. Only callers
+    // that cannot name a league still get it.
+    ?? (sport ? null : TEAM_COLORS[abbr?.toUpperCase()])
     ?? deterministicTeamColors(abbr);
   return {
+    // Crest fill and border — the team's own primary and secondary.
+    crestFill: colors.primary,
+    crestEdge: colors.secondary,
     // Fallback circle: solid team primary — never a gray circle.
     bg: colors.primary,
     // Backdrop behind a successfully loaded logo image: keep the original
