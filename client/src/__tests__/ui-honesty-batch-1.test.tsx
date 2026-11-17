@@ -213,6 +213,11 @@ describe("AlertSettingsPage non-Pro visitors", () => {
     expect(screen.getByRole("heading", { name: "Alerts are a Pro feature" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Get Pro" })).toHaveAttribute("href", "/pro");
     expect(screen.getByRole("link", { name: "Back to the board" })).toHaveAttribute("href", "/");
+    expect(
+      screen.getByText(
+        "Alert preferences are saved with Pro. Email and push delivery are currently paused."
+      )
+    ).toBeInTheDocument();
 
     // The old behaviour was a setLocation("/") redirect from an effect.
     expect(window.location.pathname).toBe("/");
