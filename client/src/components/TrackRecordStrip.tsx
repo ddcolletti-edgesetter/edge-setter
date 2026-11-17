@@ -38,6 +38,31 @@
 import React from "react";
 import { useTrackRecord, type TrackRecordSlice } from "../hooks/useTrackRecord";
 
+/**
+ * SHOW_TRACK_RECORD_STRIP — off since 2026-11-17
+ *
+ * The strip is withheld from the NFL and CFB boards, the only two that render
+ * it. The hit rate it prints is counted over settled outcomes of every signal
+ * type, and `line_move` is a large share of that sample on exactly these two
+ * boards: 987 of NFL's 5,295 settled signals and 2,403 of CFB's 2,613.
+ *
+ * `line_move` is the population that may have been graded against an in-play
+ * closing line. PR #87 stopped new in-play odds being ingested as pre-game
+ * market data, but the outcomes already graded against one are still in the
+ * table — excluding them is #88, which is open and whose candidate predicate
+ * is not yet right. So the 47-49% figures the strip shows are not backed, and
+ * this follows #93 in withholding a board number we cannot stand behind.
+ *
+ * The component is not the problem and is left intact, with its tests: this
+ * gates the two call sites only.
+ *
+ * Set back to `true` when BOTH hold:
+ *   1. #88's sweep predicate is fixed AND the sweep has run, so outcomes graded
+ *      against an in-play line are excluded from the track-record counts; and
+ *   2. the hit rates have been re-measured against the swept data.
+ */
+export const SHOW_TRACK_RECORD_STRIP = false;
+
 const MIN_SAMPLE = 20; // threshold below which we show the warming-up disclaimer
 
 interface Props {

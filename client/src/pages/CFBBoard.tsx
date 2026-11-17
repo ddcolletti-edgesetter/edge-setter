@@ -7,7 +7,7 @@ import { LiveTicker, buildBoardTickerItems } from "../components/LiveTicker";
 import { BoardSignalRail } from "../components/BoardSignalRail";
 import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalDetailDrawer";
 import { ProBoardBanner } from "../components/ProGate";
-import TrackRecordStrip from "../components/TrackRecordStrip";
+import TrackRecordStrip, { SHOW_TRACK_RECORD_STRIP } from "../components/TrackRecordStrip";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { type CFBSignal, type CFBSignalType } from "../data/cfbMockData";
 import { useCFBSignals } from "../hooks/useSignals";
@@ -249,7 +249,7 @@ function CFBBoardInner() {
           <BoardSignalRail situations={situations} />
         </div>
 
-        <TrackRecordStrip league="CFB" darkMode={darkMode} />
+        {SHOW_TRACK_RECORD_STRIP && <TrackRecordStrip league="CFB" darkMode={darkMode} />}
 
         <LiveGameStrip
           title={profile.liveStripLabel}
