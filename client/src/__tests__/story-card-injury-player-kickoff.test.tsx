@@ -15,11 +15,13 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import {
+  badgeableInjuryDesignation,
   findGameForStory,
   formatKickoff,
   kickoffIsTrustedForLeague,
   normalizeInjuryDesignation,
   opponentLabelFor,
+  toSituationRowData,
   toSituationStoryCardData,
   type AnyBoardGame,
 } from "@/components/board/boardAdapters";
@@ -62,7 +64,11 @@ function buildRow(overrides: Partial<SituationRowData> = {}): SituationRowData {
       sideKnown: true,
       sport: "nfl",
     },
-    injuryDesignation: "Questionable",
+    // "OUT" rather than "Questionable": the processor fabricates Questionable
+    // for every text-classified source, so the card now withholds it and these
+    // cases would be testing the suppression instead of what they were written
+    // for. See the "withholds a designation it cannot stand behind" block.
+    injuryDesignation: "OUT",
     ...overrides,
   };
 }
@@ -195,7 +201,7 @@ describe("SituationStoryCard identity line", () => {
     const story = toSituationStoryCardData(buildRow(), [game()]);
     render(<SituationStoryCard story={story} />);
 
-    expect(screen.getByTestId("story-injury-designation")).toHaveTextContent("QUESTIONABLE");
+    expect(screen.getByTestId("story-injury-designation")).toHaveTextContent("OUT");
     expect(screen.getByTestId("story-player")).toHaveTextContent("Travis Kelce");
     expect(screen.getByTestId("story-where-when")).toHaveTextContent(`at BUF, ${expectedKickoff(KICKOFF_ISO)}`);
   });
@@ -208,7 +214,9 @@ describe("SituationStoryCard identity line", () => {
       [game()],
     );
     render(<SituationStoryCard story={story} />);
-    expect(screen.getByTestId("story-injury-designation")).toHaveTextContent("QUESTIONABLE");
+    // The tag array says Questionable and the field says OUT, so this also
+    // pins which of the two the card reads.
+    expect(screen.getByTestId("story-injury-designation")).toHaveTextContent("OUT");
   });
 
   it("omits the kickoff when no game matches, keeping the opponent", () => {
@@ -315,5 +323,126 @@ describe("kickoff is gated by league", () => {
     it.each(["CFB", "NBA", "MLB", "", undefined])("does not trust %s", (league) => {
       expect(kickoffIsTrustedForLeague(league as string | undefined)).toBe(false);
     });
+  });
+});
+
+/**
+ * The badge withholds any designation it cannot stand behind.
+ *
+ * `processor.ts:64` defaults a missing designation to "Questionable", and the
+ * five text-classified adapters send no designation at all, so a stored
+ * "Questionable" carries no information about whether a source said it. These
+ * cases pin the suppression and, just as importantly, pin that the
+ * designations we CAN stand behind still render.
+ */
+describe("badgeableInjuryDesignation", () => {
+  it("withholds QUESTIONABLE however it was spelled, because it may be fabricated", () => {
+    expect(badgeableInjuryDesignation("Questionable")).toBeUndefined();
+    expect(badgeableInjuryDesignation("questionable")).toBeUndefined();
+    expect(badgeableInjuryDesignation("QUESTIONABLE")).toBeUndefined();
+    // "Q" normalizes to QUESTIONABLE, so it has to be withheld by the same rule
+    // rather than slipping through in its short form.
+    expect(badgeableInjuryDesignation("Q")).toBeUndefined();
+  });
+
+  it("keeps the designations a source actually had to supply", () => {
+    expect(badgeableInjuryDesignation("OUT")).toBe("OUT");
+    expect(badgeableInjuryDesignation("Doubtful")).toBe("DOUBTFUL");
+    expect(badgeableInjuryDesignation("D")).toBe("DOUBTFUL");
+    expect(badgeableInjuryDesignation("IL-60")).toBe("IL-60");
+    expect(badgeableInjuryDesignation("DNP")).toBe("DNP");
+    expect(badgeableInjuryDesignation("LP")).toBe("LP");
+    expect(badgeableInjuryDesignation("Probable")).toBe("PROBABLE");
+  });
+
+  it("still returns undefined for an absent designation", () => {
+    expect(badgeableInjuryDesignation(undefined)).toBeUndefined();
+    expect(badgeableInjuryDesignation(null)).toBeUndefined();
+    expect(badgeableInjuryDesignation("  ")).toBeUndefined();
+  });
+
+  it.each([
+    ["off the injury report", "Kelce is off the injury report ahead of Sunday."],
+    ["removed from the injury report", "Removed from the injury report Friday."],
+    ["full participant", "Kelce was a full participant in Thursday's session."],
+    ["cleared", "Kelce has been cleared to play."],
+    ["activated", "The team activated Kelce from injured reserve."],
+    ["no longer listed", "Kelce is no longer listed on the report."],
+  ])("drops even OUT when the prose says %s", (_label, prose) => {
+    expect(badgeableInjuryDesignation("OUT", prose)).toBeUndefined();
+  });
+
+  it("keeps OUT when the prose does not contradict it", () => {
+    expect(badgeableInjuryDesignation("OUT", "Kelce did not practice and is expected to miss Sunday."))
+      .toBe("OUT");
+  });
+
+  it("does not read a contradiction out of ordinary injury-report prose", () => {
+    // The word "report" alone is not the phrase, or every signal would lose its
+    // badge — the fixture's own subtitle says "team report".
+    expect(badgeableInjuryDesignation("OUT", "Beat reporter and team report agree on a limited session."))
+      .toBe("OUT");
+    expect(badgeableInjuryDesignation("OUT", "Listed on the injury report with a knee issue."))
+      .toBe("OUT");
+  });
+});
+
+describe("the story card's injury badge", () => {
+  it("renders no badge at all for a fabricated Questionable", () => {
+    const story = toSituationStoryCardData(buildRow({ injuryDesignation: "Questionable" }), [game()]);
+    expect(story.injuryDesignation).toBeUndefined();
+    render(<SituationStoryCard story={story} />);
+    expect(screen.queryByTestId("story-injury-designation")).not.toBeInTheDocument();
+    // The rest of the identity line survives: this hides one claim, not the row.
+    expect(screen.getByTestId("story-player")).toHaveTextContent("Travis Kelce");
+    expect(screen.getByTestId("story-where-when")).toBeInTheDocument();
+  });
+
+  it("renders no badge when the story's own prose contradicts it", () => {
+    const story = toSituationStoryCardData(
+      buildRow({ subtitle: "Travis Kelce is off the injury report and will play." }),
+      [game()],
+    );
+    expect(story.injuryDesignation).toBeUndefined();
+    render(<SituationStoryCard story={story} />);
+    expect(screen.queryByTestId("story-injury-designation")).not.toBeInTheDocument();
+  });
+
+  it("keeps the badge for OUT and DOUBTFUL", () => {
+    for (const [stored, shown] of [["OUT", "OUT"], ["Doubtful", "DOUBTFUL"]] as const) {
+      const { unmount } = render(
+        <SituationStoryCard story={toSituationStoryCardData(buildRow({ injuryDesignation: stored }), [game()])} />,
+      );
+      expect(screen.getByTestId("story-injury-designation")).toHaveTextContent(shown);
+      unmount();
+    }
+  });
+
+  it("drops the designation from the row's tag array too, so the two surfaces agree", () => {
+    const withFabricated = toSituationRowData({
+      id: "sit-tags",
+      kind: "signal",
+      league: "NFL",
+      title: "Travis Kelce limited in Friday practice",
+      detail: "Beat reporter and team report agree on a limited session.",
+      signal: { injuryDesignation: "Questionable" },
+      confidence: 70,
+      score: 70,
+      sourceCount: 2,
+    } as unknown as Parameters<typeof toSituationRowData>[0]);
+    expect(withFabricated.tags).not.toContain("Questionable");
+
+    const withReal = toSituationRowData({
+      id: "sit-tags-2",
+      kind: "signal",
+      league: "NFL",
+      title: "Travis Kelce ruled out",
+      detail: "Did not practice all week.",
+      signal: { injuryDesignation: "OUT" },
+      confidence: 70,
+      score: 70,
+      sourceCount: 2,
+    } as unknown as Parameters<typeof toSituationRowData>[0]);
+    expect(withReal.tags).toContain("OUT");
   });
 });
