@@ -7,6 +7,7 @@ import { hasCleanPublicTeamIdentity, hasCleanPublicText, hasMalformedPublicMatch
 import { deriveSignalVerificationState } from "@/lib/signalVerification";
 import { evidenceCountText, humanizeSignalType, marketFocusHeadline, publicConfidenceLabel, publicLifecycleLabel, publicStoryText, publicTimingLabel, publicUrgencyLabel, sourceCountText } from "@/lib/storyLanguage";
 import { toTeamAbbr } from "@/components/v2/SportVisuals";
+import { cfbSchoolForGamesToken } from "@/lib/cfbTeamLogos";
 import type { LiveGamePillData, LiveGameStatus, BoardUrgency } from "./LiveGamePill";
 import type { SituationEscalationState, SituationEvidenceStep, SituationLifecycleVisualState, SituationMetric, SituationRowData } from "./SituationRow";
 
@@ -114,6 +115,43 @@ export type AnyBoardGame = {
   conference?: string | null;
 };
 
+/**
+ * CFB `games`-table token -> school name, for display only.
+ *
+ * Returns undefined for every other league and for any token two schools share,
+ * and the caller then prints the token exactly as it does today. Gated on
+ * league because the resolver is only correct for games-sourced tokens — see
+ * cfbSchoolForGamesToken for the FLA trap.
+ */
+function cfbGamesSchool(token: string | undefined | null, league?: string): string | undefined {
+  if (String(league ?? "").toUpperCase() !== "CFB") return undefined;
+  return cfbSchoolForGamesToken(token) ?? undefined;
+}
+
+/**
+ * "Western Michigan Broncos @ Rice Owls" from an away/home token pair.
+ *
+ * Per side: each half resolves on its own and falls back to its own token, so
+ * a matchup with one ambiguous side still names the school we do know rather
+ * than throwing both away.
+ */
+function cfbMatchupLabel(away?: string | null, home?: string | null, league?: string): string | undefined {
+  if (String(league ?? "").toUpperCase() !== "CFB") return undefined;
+  const side = (token?: string | null) => (token ? cfbGamesSchool(token, league) ?? token : undefined);
+  return [side(away), side(home)].filter(Boolean).join(" @ ") || undefined;
+}
+
+/**
+ * The same label from a story's identity, but ONLY when `sideKnown` says the
+ * away/home pair came from a real games row. Without that guard this would
+ * resolve canonical `teams[0]`/`teams[1]`, which are injury-adapter
+ * abbreviations where FLA genuinely is Florida.
+ */
+function cfbMatchupLabelFromIdentity(identity?: SituationRowData["sportsIdentity"]): string | undefined {
+  if (!identity?.sideKnown) return undefined;
+  return cfbMatchupLabel(identity.awayTeam, identity.homeTeam, identity.sport);
+}
+
 export function toLiveGamePillData(
   game: AnyBoardGame,
   relatedCount = 0,
@@ -130,10 +168,15 @@ export function toLiveGamePillData(
     sport,
     away: {
       abbreviation: abbreviateTeam(awayName),
+      // CFB only, and only when one school owns the token. The pill itself is
+      // too narrow for a school name and keeps the abbreviation; the strip's
+      // featured line and the pill's tooltip use this.
+      name: cfbGamesSchool(abbreviateTeam(awayName), sport),
       score: game.awayScore ?? game.away_score ?? undefined,
     },
     home: {
       abbreviation: abbreviateTeam(homeName),
+      name: cfbGamesSchool(abbreviateTeam(homeName), sport),
       score: game.homeScore ?? game.home_score ?? undefined,
     },
     status: normalizeGameStatus(status),
@@ -153,6 +196,13 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
   const confidenceDelta = canonical?.confidenceHistoryPreview?.[0]?.delta ?? null;
   const matchup = [situation.awayTeam, situation.homeTeam].filter(Boolean).join(" @ ")
     || [situation.team, situation.opponent].filter(Boolean).join(" vs ");
+  // School names for display, tokens kept in `matchup` for everything that
+  // parses it (editorialHeadline -> cleanPublicMatchupLabel builds an
+  // uppercase hyphenated pair, which full names would turn into
+  // "RICE OWLS-TEMPLE OWLS"). Only the awayTeam/homeTeam branch is resolved:
+  // it is the one fed by /api/v2/games. The `team vs opponent` branch is
+  // signal-sourced and must not go through the mascot-slice table.
+  const matchupLabel = cfbMatchupLabel(situation.awayTeam, situation.homeTeam, situation.league);
   // Derive the canonical verification word from the same signal the detail
   // drawer opens on, so the story card and the drawer never disagree. Only the
   // signal lineage feeds a drawer (canonical situations open the /story page),
@@ -172,6 +222,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     subtitle: situation.detail,
     league: situation.league,
     matchup: matchup || undefined,
+    matchupLabel,
     market: situation.movementLabel ? "Market reaction detected" : formatSignalType(situation.signalType),
     timestamp: situation.timeLabel ?? signal?.timestamp ?? undefined,
     sourceCount: situation.sourceCount,
@@ -475,19 +526,23 @@ export function opponentLabelFor(
   match?: StoryGameMatch,
 ): string | undefined {
   const team = normalizeTeamToken(identity?.team);
+  // Both branches below read a games-sourced pair — `match.game` is a row from
+  // /api/v2/games, and the identity branch is gated on `sideKnown` — so both
+  // may be resolved to school names.
+  const school = (token: string) => cfbGamesSchool(token, identity?.sport) ?? token;
 
   if (match) {
     const tokens = gameTokens(match.game);
-    if (match.storyIsHome === true && tokens.away) return `vs ${tokens.away}`;
-    if (match.storyIsHome === false && tokens.home) return `at ${tokens.home}`;
+    if (match.storyIsHome === true && tokens.away) return `vs ${school(tokens.away)}`;
+    if (match.storyIsHome === false && tokens.home) return `at ${school(tokens.home)}`;
   }
 
   if (!identity?.sideKnown || !team) return undefined;
   const away = normalizeTeamToken(identity.awayTeam);
   const home = normalizeTeamToken(identity.homeTeam);
   if (!away || !home || away === home) return undefined;
-  if (team === home) return `vs ${away}`;
-  if (team === away) return `at ${home}`;
+  if (team === home) return `vs ${school(away)}`;
+  if (team === away) return `at ${school(home)}`;
   return undefined;
 }
 
@@ -497,6 +552,9 @@ export function toSituationStoryCardData(
 ): SituationStoryCardData {
   const identity = row.sportsIdentity;
   const matchup = row.matchup ?? matchupFromIdentity(identity);
+  // What the card prints. `matchup` stays in tokens and keeps feeding
+  // editorialHeadline below, which parses it.
+  const matchupDisplay = row.matchupLabel ?? cfbMatchupLabelFromIdentity(identity) ?? matchup;
   const gameMatch = findGameForStory(identity, games);
   const storyType = storyTypeFromRow(row);
   const confidence = confidenceFromRow(row);
@@ -542,7 +600,7 @@ const verification = publicStoryText(mappedVerification, row.league);
     watchNext,
     relatedItems: relatedWatchItems(row, { headline, whatHappened, whyItMatters: whyItMatters ?? "", watchNext: watchNext ?? "" }),
     ctaLabel: "Open Story",
-    matchup,
+    matchup: matchupDisplay,
     primaryTeam: identity?.awayTeam ?? identity?.team,
     secondaryTeam: identity?.homeTeam ?? identity?.opponent,
     player: identity?.player,
