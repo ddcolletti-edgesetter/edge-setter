@@ -10,6 +10,30 @@
  * - Hides entirely on fetch error
  * - Shows disclaimer when total_signals < MIN_SAMPLE
  * - Numbers get slightly stronger color emphasis; labels stay faint
+ *
+ * WHY THERE IS NO CLV FIGURE HERE
+ * ───────────────────────────────
+ * This strip used to print "avg CLV" beside the hit rate. Both reasons it came
+ * out are about the number, not the layout:
+ *
+ *  1. Wrong denominator, and the client cannot fix it. The API's `avg_clv_points`
+ *     is an AVG over rows where `outcomes.clv IS NOT NULL`, and clv is only ever
+ *     populated for `line_move` outcomes. On prod that is 987 of NFL's 5,295
+ *     settled signals and 2,403 of CFB's 2,613. It was rendered inline next to
+ *     "N settled signals", so it read as the CLV of all N. GET
+ *     /api/stats/track-record returns no count of the non-null clv rows, so the
+ *     strip has no honest denominator available to label it with.
+ *
+ *  2. `line_move` is exactly the population graded against a possibly in-play
+ *     closing line. PR #87 stopped new in-play odds being ingested as pre-game
+ *     market data; the existing outcomes graded against one are still in the
+ *     table until the #88 sweep excludes them.
+ *
+ * The hit rate stays: it is a real count over settled outcomes with
+ * `excluded_stale = 0`, and its denominator is the number printed beside it.
+ *
+ * A CLV figure can come back once #88 has excluded the in-play-graded outcomes
+ * AND the endpoint also returns the number of rows the average covers.
  */
 import React from "react";
 import { useTrackRecord, type TrackRecordSlice } from "../hooks/useTrackRecord";
@@ -26,12 +50,6 @@ function fmt_pct(rate: number | null): string {
   return `${Math.round(rate * 100)}%`;
 }
 
-function fmt_clv(clv: number | null): string {
-  if (clv === null) return "—";
-  const sign = clv >= 0 ? "+" : "";
-  return `${sign}${clv.toFixed(1)} pts`;
-}
-
 function SliceLabel({ slice, textColor, numColor }: {
   slice: TrackRecordSlice;
   textColor: string;
@@ -42,9 +60,6 @@ function SliceLabel({ slice, textColor, numColor }: {
     <span style={{ color: textColor }}>
       {label}:{" "}
       <span style={{ color: numColor }}>{fmt_pct(slice.hit_rate)}</span>
-      {slice.avg_clv_points !== null && (
-        <> / <span style={{ color: numColor }}>{fmt_clv(slice.avg_clv_points)}</span></>
-      )}
     </span>
   );
 }
@@ -100,13 +115,6 @@ export default function TrackRecordStrip({ league, darkMode }: Props) {
           <>
             <span style={{ color: numEmphasis }}>{fmt_pct(overall.hit_rate)}</span>
             <span style={{ color: textFaint }}>hit rate</span>
-            {overall.avg_clv_points !== null && (
-              <>
-                <span style={{ color: textFaint }}>/</span>
-                <span style={{ color: numEmphasis }}>{fmt_clv(overall.avg_clv_points)}</span>
-                <span style={{ color: textFaint }}>avg CLV</span>
-              </>
-            )}
             <span style={{ color: textFaint }}>(sample size small — warming up)</span>
           </>
         )}
@@ -115,13 +123,6 @@ export default function TrackRecordStrip({ league, darkMode }: Props) {
           <>
             <span style={{ color: numEmphasis }}>{fmt_pct(overall.hit_rate)}</span>
             <span style={{ color: textFaint }}>hit rate</span>
-            {overall.avg_clv_points !== null && (
-              <>
-                <span style={{ color: textFaint }}>/</span>
-                <span style={{ color: numEmphasis }}>{fmt_clv(overall.avg_clv_points)}</span>
-                <span style={{ color: textFaint }}>avg CLV</span>
-              </>
-            )}
             <span style={{ color: textFaint }}>·</span>
             <span style={{ color: textFaint }}>{overall.total_signals} settled signals</span>
           </>
