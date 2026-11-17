@@ -27,9 +27,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import NFLBoard from "@/pages/NFLBoard";
 import CFBBoard from "@/pages/CFBBoard";
+import NBABoard from "@/pages/NBABoard";
 import { SignalGateProvider } from "@/context/SignalGate";
 import { useAuth } from "@/context/AuthContext";
-import { useNFLSignals, useCFBSignals } from "@/hooks/useSignals";
+import { useNFLSignals, useCFBSignals, useNBASignals } from "@/hooks/useSignals";
 import { useCanonicalSituations } from "@/lib/situationsApi";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
@@ -38,6 +39,7 @@ vi.mock("@/context/AuthContext", () => ({ useAuth: vi.fn() }));
 vi.mock("@/hooks/useSignals", () => ({
   useNFLSignals: vi.fn(),
   useCFBSignals: vi.fn(),
+  useNBASignals: vi.fn(),
 }));
 
 vi.mock("@/lib/situationsApi", async (importOriginal) => {
@@ -50,6 +52,7 @@ vi.mock("@/lib/fetchWithTimeout", () => ({ fetchWithTimeout: vi.fn() }));
 const mockUseAuth = vi.mocked(useAuth);
 const mockUseNFLSignals = vi.mocked(useNFLSignals);
 const mockUseCFBSignals = vi.mocked(useCFBSignals);
+const mockUseNBASignals = vi.mocked(useNBASignals);
 const mockUseCanonicalSituations = vi.mocked(useCanonicalSituations);
 const mockFetchWithTimeout = vi.mocked(fetchWithTimeout);
 
@@ -177,5 +180,37 @@ describe("CFB board filters", () => {
   it("drops the Conference heading along with its tabs", async () => {
     await renderCFB();
     expect(screen.queryByText("Conference")).not.toBeInTheDocument();
+  });
+});
+
+describe("NBA board feed tabs", () => {
+  async function renderNBA() {
+    primeCommon();
+    mockUseNBASignals.mockReturnValue({
+      signals: [signal("nba-1"), signal("nba-2")],
+      loading: false,
+      isLive: false,
+      error: null,
+      refresh: vi.fn(),
+    } as any);
+
+    render(
+      <SignalGateProvider>
+        <NBABoard />
+      </SignalGateProvider>,
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: "Today" })).toBeInTheDocument());
+  }
+
+  it("keeps the tabs that can match a producible signal type", async () => {
+    await renderNBA();
+    for (const label of ["Today", "Injuries", "Lineup", "Movement"]) {
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    }
+  });
+
+  it.each(["Props", "Trends"])("no longer offers the dead %s tab", async (label) => {
+    await renderNBA();
+    expect(screen.queryByRole("button", { name: label })).not.toBeInTheDocument();
   });
 });
