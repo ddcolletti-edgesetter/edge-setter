@@ -41,7 +41,7 @@ const PRO_FEATURES = [
   {
     icon: Filter,
     label: "League boards without the noise",
-    detail: "NBA and MLB lead the live desk, while NFL and CFB are clearly labeled when coverage is limited or offseason-only.",
+    detail: "Every league board states its own coverage level, so a thin board reads as thin instead of looking like a quiet market.",
   },
   {
     icon: BookOpen,
@@ -51,7 +51,7 @@ const PRO_FEATURES = [
   {
     icon: CheckCircle2,
     label: "Saved preferences",
-    detail: "Configure sports, story types, signal-strength thresholds, and delivery channels without fake launch promises.",
+    detail: "Set the sports, story types, and signal-strength thresholds you care about, and your account keeps them on file.",
   },
 ];
 

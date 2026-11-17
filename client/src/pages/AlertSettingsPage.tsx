@@ -6,7 +6,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
-import { useLocation } from "wouter";
+import { Link } from "wouter";
 import V2Shell from "../components/V2Shell";
 import { T } from "../components/v2/SportVisuals";
 
@@ -47,7 +47,6 @@ const ALERT_DELIVERY_PAUSED = true;
 
 export default function AlertSettingsPage() {
   const { email, isPro, authLoading } = useAuth();
-  const [, setLocation] = useLocation();
 
   const [prefs,       setPrefs]       = useState<Prefs>(DEFAULT_PREFS);
   const [loading,     setLoading]     = useState(true);
@@ -55,11 +54,6 @@ export default function AlertSettingsPage() {
   const [saved,       setSaved]       = useState(false);
   const [error,       setError]       = useState<string | null>(null);
   const [pushStatus,  setPushStatus]  = useState<"idle" | "requesting" | "subscribed" | "denied">("idle");
-
-  // Redirect non-Pro users
-  useEffect(() => {
-    if (!authLoading && !isPro) setLocation("/");
-  }, [authLoading, isPro, setLocation]);
 
   // Load existing preferences
   useEffect(() => {
@@ -204,7 +198,7 @@ export default function AlertSettingsPage() {
     );
   }
 
-  if (!isPro) return null;
+  if (!isPro) return <AlertsProGate />;
 
   return (
     <V2Shell brandContext="ALERT DESK">
@@ -443,4 +437,42 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const base64  = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   const raw     = atob(base64);
   return new Uint8Array(Array.from(raw).map(c => c.charCodeAt(0)));
+}
+
+/* ── Non-Pro gate ──
+ * Visitors without Pro used to be bounced silently to the homepage, which
+ * read as a broken link. Say what the page is and where to go instead. */
+function AlertsProGate() {
+  return (
+    <V2Shell brandContext="ALERT DESK">
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 28px 72px", fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif" }}>
+        <p style={{ margin: "0 0 6px", fontSize: 12, fontWeight: 800, letterSpacing: "0.22em", textTransform: "uppercase", color: T.gold }}>
+          Pro feature
+        </p>
+        <h1 style={{ margin: 0, fontFamily: "'Playfair Display', Georgia, serif", fontSize: 24, fontWeight: 800, color: T.text, lineHeight: 1.15 }}>
+          Alerts are a Pro feature
+        </h1>
+        <p style={{ margin: "10px 0 24px", fontSize: 14, color: T.textMuted, lineHeight: 1.55, letterSpacing: "0.04em" }}>
+          Alert preferences live behind Pro. Sign in with a Pro account to open this page.
+        </p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+          <Link href="/pro" style={{
+            display: "inline-block", padding: "11px 20px", borderRadius: 3,
+            background: T.gold, color: T.bg, textDecoration: "none",
+            fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase",
+          }}>
+            Get Pro
+          </Link>
+          <Link href="/" style={{
+            display: "inline-block", padding: "11px 20px", borderRadius: 3,
+            background: "transparent", color: T.textMuted, textDecoration: "none",
+            border: "1px solid rgba(248,250,252,0.18)",
+            fontSize: 12, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase",
+          }}>
+            Back to the board
+          </Link>
+        </div>
+      </div>
+    </V2Shell>
+  );
 }
