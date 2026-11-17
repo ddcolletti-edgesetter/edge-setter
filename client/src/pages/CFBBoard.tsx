@@ -186,7 +186,7 @@ function CFBBoardInner() {
     })
     .map((situation) => {
       const row = toSituationRowData(situation);
-      return { situation, row, story: toSituationStoryCardData(row) };
+      return { situation, row, story: toSituationStoryCardData(row, liveGames) };
     });
 
   const featured = selectFeaturedSituation(situations);

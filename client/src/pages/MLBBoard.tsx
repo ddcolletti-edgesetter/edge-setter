@@ -178,7 +178,7 @@ export default function MLBBoard() {
     return {
       situation,
       row,
-      story: toSituationStoryCardData(row),
+      story: toSituationStoryCardData(row, liveGames),
     };
   }).filter(isRenderableMlbStoryItem), [cleanSituations]);
   const livePills = useMemo(() => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, allSignals), "mlb")), [allSignals, liveGames]);

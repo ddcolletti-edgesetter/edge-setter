@@ -179,7 +179,7 @@ function NFLBoardInner() {
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const storyItems = situations.map((situation) => {
     const row = toSituationRowData(situation);
-    return { situation, row, story: toSituationStoryCardData(row) };
+    return { situation, row, story: toSituationStoryCardData(row, liveGames) };
   });
 
   const openSituation = (situation: BoardSituation) => {
