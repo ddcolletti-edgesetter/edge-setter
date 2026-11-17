@@ -52,37 +52,46 @@ type CFBLiveGame = {
   signals?: number;
 };
 
+// Only filters that can actually select something.
+//
+// Every signal's `type` comes from `toCFBType`, whose whole range is
+// injury | depth | line_move | weather | scheme | transaction | trend. Each
+// removed filter asked for a type outside it AND a canonical situation type
+// prod has no rows of:
+//
+//   Matchup Edges   -> signal "matchup", situation "scheme" (zero rows in prod)
+//   Coaching Intel  -> signal "coaching", situation "scheme" (same)
+//   Source Pressure -> signal "sharp"; its situation type was "market", the
+//                      very same rows Movement already shows, so it was a
+//                      second name for one filter rather than a filter
+//
+// Transfer Portal is kept but renamed. Its signal types ("transfer", "portal")
+// are equally unreachable, but its situation type "roster" is real, so the
+// control does filter — to roster situations, which is not the same promise as
+// portal moves. The label now says what it selects.
 const CFB_FILTERS = [
   { key: "SIGNAL STREAM", label: "Signal Stream" },
-  { key: "TRANSFER PORTAL", label: "Transfer Portal" },
   { key: "INJURY WATCH", label: "Injury Watch" },
   { key: "LINE MOVEMENT", label: "Movement" },
-  { key: "MATCHUP EDGES", label: "Matchup Edges" },
-  { key: "SHARP MONEY", label: "Source Pressure" },
-  { key: "COACHING", label: "Coaching Intel" },
+  { key: "ROSTER MOVES", label: "Roster Moves" },
 ] as const;
 
 type CFBFilterKey = typeof CFB_FILTERS[number]["key"];
 
 const FILTER_TYPES: Record<CFBFilterKey, CFBSignalType[]> = {
   "SIGNAL STREAM": [],
-  "TRANSFER PORTAL": ["transfer", "portal"],
   "INJURY WATCH": ["injury"],
   "LINE MOVEMENT": ["line_move"],
-  "MATCHUP EDGES": ["matchup"],
-  "SHARP MONEY": ["sharp"],
-  COACHING: ["coaching"],
+  // No producible signal type maps to a roster move, so this filter does its
+  // work on the canonical situation side (see canonicalTypeForFilter).
+  "ROSTER MOVES": [],
 };
-
-const TAB_FILTERS = ["Today", "SEC", "Big Ten", "ACC", "Big 12", "Ind."] as const;
-type TabFilter = typeof TAB_FILTERS[number];
 
 function CFBBoardInner() {
   const darkMode = useShellTheme();
   const { rowIsFree, openModal } = useSignalGate();
   const [, navigate] = useLocation();
   const [sidebarFilter, setSidebarFilter] = useState<CFBFilterKey>("SIGNAL STREAM");
-  const [tabFilter, setTabFilter] = useState<TabFilter>("Today");
   const [sortMode, setSortMode] = useState<BoardSortMode>("priority");
   const [activeLane, setActiveLane] = useState<SituationLaneType | "all">("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
@@ -147,11 +156,10 @@ function CFBBoardInner() {
     const types = FILTER_TYPES[sidebarFilter];
     return rankedCFB
       .filter((signal) => types.length === 0 || types.includes(signal.type as CFBSignalType))
-      .filter((signal) => tabFilter === "Today" || !signal.conference || signal.conference.includes(tabFilter))
       .filter((signal) => !liveOnly || signalLifecycle(signal) === "Early" || signalLifecycle(signal) === "Developing")
       .filter((signal) => !actionableOnly || signalIsActionable(signal))
       .sort((a, b) => compareSignals(a, b, sortMode));
-  }, [actionableOnly, liveOnly, rankedCFB, sidebarFilter, sortMode, tabFilter]);
+  }, [actionableOnly, liveOnly, rankedCFB, sidebarFilter, sortMode]);
 
   const situations = useMemo(() => {
     const fallback = buildBoardSituations({
@@ -210,24 +218,6 @@ function CFBBoardInner() {
   return (
     <div className="league-board-shell es-league-cfb">
       <LiveTicker items={buildBoardTickerItems(canonicalSituations)} />
-      <div className="board-header-row">
-        <span className="shrink-0 text-[0.6rem] font-bold uppercase tracking-widest text-muted-foreground/70">Conference</span>
-        <div className="w-px self-stretch bg-border/60" />
-        <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {TAB_FILTERS.map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setTabFilter(tab)}
-              className={`ux-tab-interactive h-6 shrink-0 rounded border px-2 text-[0.62rem] font-bold uppercase tracking-widest sm:h-7 sm:px-2.5 sm:text-[0.66rem] ${
-                tabFilter === tab ? "border-primary bg-primary text-primary-foreground" : "border-border bg-muted/20 text-muted-foreground"
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-      </div>
       <main className="board-main-col mx-auto flex w-[calc(100vw-24px)] max-w-[calc(100vw-24px)] flex-col gap-3 overflow-x-hidden py-3 sm:w-full sm:max-w-7xl sm:gap-4 sm:px-6 sm:py-5">
         <BoardCommandBar
           kicker="CFB Story Board"
@@ -303,7 +293,7 @@ function CFBBoardInner() {
         )}
 
         <div className="board-control-feedback rounded border border-border bg-muted/10">
-          {boardSortFeedback(sortMode)} {boardFilterFeedback({ filter: tabFilter === "Today" ? sidebarFilter : `${sidebarFilter} / ${tabFilter}`, liveOnly, actionableOnly })}
+          {boardSortFeedback(sortMode)} {boardFilterFeedback({ filter: sidebarFilter, liveOnly, actionableOnly })}
           {error ? ` ${error}` : ""}
           {canonicalError ? ` ${canonicalError}` : ""}
         </div>
@@ -412,12 +402,9 @@ function sortIdForMode(mode: BoardSortMode) {
 function canonicalTypeForFilter(filter: CFBFilterKey) {
   const map: Record<CFBFilterKey, string | null> = {
     "SIGNAL STREAM": null,
-    "TRANSFER PORTAL": "roster",
     "INJURY WATCH": "injury",
     "LINE MOVEMENT": "market",
-    "MATCHUP EDGES": "scheme",
-    "SHARP MONEY": "market",
-    COACHING: "scheme",
+    "ROSTER MOVES": "roster",
   };
   return map[filter] ?? null;
 }
