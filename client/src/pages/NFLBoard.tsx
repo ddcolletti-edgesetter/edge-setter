@@ -7,7 +7,7 @@ import { LiveTicker, buildBoardTickerItems } from "../components/LiveTicker";
 import { BoardSignalRail } from "../components/BoardSignalRail";
 import { SignalDetailDrawer, type SignalDetailLike } from "../components/SignalDetailDrawer";
 import { ProBoardBanner } from "../components/ProGate";
-import TrackRecordStrip from "../components/TrackRecordStrip";
+import TrackRecordStrip, { SHOW_TRACK_RECORD_STRIP } from "../components/TrackRecordStrip";
 import { useSignalGate, FREE_LIMIT } from "../context/SignalGate";
 import { type NFLSignal, type NFLSignalType } from "../data/nflMockData";
 import { useNFLSignals } from "../hooks/useSignals";
@@ -231,7 +231,7 @@ function NFLBoardInner() {
           <BoardSignalRail situations={situations} />
         </div>
 
-        <TrackRecordStrip league="NFL" darkMode={darkMode} />
+        {SHOW_TRACK_RECORD_STRIP && <TrackRecordStrip league="NFL" darkMode={darkMode} />}
 
         <LiveGameStrip
           title={profile.liveStripLabel}
