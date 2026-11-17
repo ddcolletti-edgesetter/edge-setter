@@ -60,12 +60,15 @@ type LiveGame = {
   cachedAt: Date;
 };
 
+// Props and Trends are gone: `toV2Type` can only ever yield injury, lineup,
+// line_move, weather, matchup_edge, transaction or news, so neither "prop" nor
+// "trend" could match a signal. Both also mapped to a null canonical situation
+// type, and filterCanonicalSituations treats null as "no filter" — so each tab
+// showed zero signals above the FULL unfiltered situation list.
 const FEED_TABS = [
   { key: "today", label: "Today" },
   { key: "injuries", label: "Injuries" },
   { key: "lineup", label: "Lineup" },
-  { key: "props", label: "Props" },
-  { key: "trends", label: "Trends" },
   { key: "line_moves", label: "Movement" },
 ];
 
@@ -73,8 +76,6 @@ const TAB_SIGNAL_TYPE: Record<string, string | null> = {
   today: null,
   injuries: "injury",
   lineup: "lineup",
-  props: "prop",
-  trends: "trend",
   line_moves: "line_move",
 };
 
@@ -382,8 +383,6 @@ function canonicalTypeForTab(tab: string) {
     today: null,
     injuries: "injury",
     lineup: "lineup",
-    props: null,
-    trends: null,
     line_moves: "market",
   };
   return map[tab] ?? null;

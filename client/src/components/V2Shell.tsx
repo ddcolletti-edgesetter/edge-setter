@@ -153,7 +153,6 @@ const MLB_SUB: NavItem[] = [
   { label: "Games Today",     scrollId: "games-section",   icon: <LayoutGrid size={12} /> },
   { label: "Pitcher News",    path: "/mlb?tab=pitchers",   icon: <Zap size={12} /> },
   { label: "Lineup Movement", path: "/mlb?tab=lineup",     icon: <List size={12} /> },
-  { label: "Team Trends",     path: "/mlb?tab=trends",     icon: <TrendingUp size={12} /> },
   { label: "Movement",        path: "/mlb?tab=line_moves", icon: <BarChart2 size={12} /> },
 ];
 
@@ -162,7 +161,6 @@ const NBA_SUB: NavItem[] = [
   { label: "Games Tonight",   scrollId: "games-section",  icon: <LayoutGrid size={12} /> },
   { label: "Injury Report",   path: "/nba?tab=injuries",  icon: <Zap size={12} /> },
   { label: "Lineup Movement", path: "/nba?tab=lineup",    icon: <List size={12} /> },
-  { label: "Team Trends",     path: "/nba?tab=trends",    icon: <TrendingUp size={12} /> },
   { label: "Movement",        path: "/nba?tab=line_moves",icon: <BarChart2 size={12} /> },
 ];
 
@@ -714,7 +712,6 @@ function Sidebar({
           { label: "Sources", path: "/sources", icon: <Database size={15} /> },
           { label: "Source Accuracy", path: "/accuracy", icon: <TrendingUp size={15} /> },
           { label: "Context Movement", path: "/tools/market-movement", icon: <BarChart2 size={15} /> },
-          { label: "Team Trends",     path: "/nba?tab=trends", icon: <Activity size={15} /> },
           { label: "Tool Desk",       path: "/tools", icon: <Wrench size={15} /> },
         ].map((item) => (
           <Link key={item.path} href={item.path}>

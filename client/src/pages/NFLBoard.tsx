@@ -50,13 +50,25 @@ type NFLLiveGame = {
   signals?: number;
 };
 
+// Only chips that can actually select something.
+//
+// `adaptToNFLSignal` builds every signal's `type` through `toNFLType`, whose
+// whole range is injury | depth | line_move | weather | scheme | transaction |
+// camp. The removed chips asked for types outside it, so they could never
+// match a signal:
+//
+//   Matchups  -> "matchup", and situation type "scheme", which prod has none of
+//   Props     -> "prop" / "sharp"
+//   Trends    -> "trend"  (toCFBType has it, toNFLType does not)
+//
+// Worse than empty: Props and Trends mapped to a null canonical situation type,
+// and `filterCanonicalSituations` treats null as "no filter" — so they showed
+// zero signals above the FULL unfiltered situation list, under a label that
+// claimed otherwise.
 const NFL_FILTERS = [
   { id: "today", label: "Today" },
   { id: "injuries", label: "Injuries" },
   { id: "line_moves", label: "Movement" },
-  { id: "matchups", label: "Matchups" },
-  { id: "props", label: "Props" },
-  { id: "trends", label: "Trends" },
   { id: "depth", label: "Camp/Depth" },
 ];
 
@@ -64,9 +76,6 @@ function matchNFLFilter(signal: NFLSignal, filter: string): boolean {
   if (filter === "today") return true;
   if (filter === "injuries") return signal.type === "injury";
   if (filter === "line_moves") return signal.type === "line_move" || signal.tags.includes("sharp");
-  if (filter === "matchups") return signal.type === "matchup";
-  if (filter === "props") return signal.type === "prop" || signal.type === "sharp";
-  if (filter === "trends") return signal.type === "trend";
   if (filter === "depth") return ["camp", "depth", "rookie", "role_change"].includes(signal.type);
   return true;
 }
@@ -323,9 +332,6 @@ function canonicalTypeForFilter(filter: string) {
     today: null,
     injuries: "injury",
     line_moves: "market",
-    matchups: "scheme",
-    props: null,
-    trends: null,
     depth: "roster",
   };
   return map[filter] ?? null;
