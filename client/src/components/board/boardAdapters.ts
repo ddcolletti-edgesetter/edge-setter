@@ -180,7 +180,19 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     metrics: [
       { label: "Confidence", value: publicConfidenceLabel(situation.confidence, strengthContext), tone: situation.confidence >= 80 ? "positive" : situation.confidence >= 60 ? "warning" : "default" },
     ].filter(Boolean) as SituationMetric[],
-    tags: [situation.trustLabel, canonical?.confidenceLabel, signal?.injuryDesignation, signal?.conference].filter(Boolean) as string[],
+    tags: [
+      situation.trustLabel,
+      canonical?.confidenceLabel,
+      // Same honesty gate as the story-card badge, so the two surfaces cannot
+      // disagree about whether a designation is showable. See
+      // badgeableInjuryDesignation. The raw value is kept rather than the
+      // normalized one: this is a plain tag, not the badge, and its casing is
+      // not ours to change.
+      badgeableInjuryDesignation(signal?.injuryDesignation, `${situation.title} ${situation.detail ?? ""}`)
+        ? signal?.injuryDesignation
+        : undefined,
+      signal?.conference,
+    ].filter(Boolean) as string[],
     // Also carried as a first-class field: `tags` is sliced to two entries by
     // SituationRow, which drops the designation in practice.
     injuryDesignation: signal?.injuryDesignation ?? undefined,
@@ -243,6 +255,81 @@ export function normalizeInjuryDesignation(raw?: string | null): string | undefi
   const key = String(raw ?? "").trim().toUpperCase();
   if (!key) return undefined;
   return INJURY_DESIGNATION_LABELS[key] ?? key;
+}
+
+/* ── Which designations we are willing to put on screen ──────────────────────
+ *
+ * `server/pipeline/processor.ts:64` builds every injury signal with
+ *
+ *     const designation: string = p.designation ?? p.status ?? "Questionable";
+ *
+ * and five of the ten injury producers — sports-rss, x-twitter, 247sports, on3
+ * and cfb-school-sid — send a payload carrying neither key (see
+ * `sports-rss.ts:395`, whose payload is headline/notes/source_url/...). So
+ * every injury signal from a text-classified source is stored as
+ * "Questionable" whether or not any source said anything about availability.
+ *
+ * ESPN NFL, CFB and NBA do report a real "Questionable", and the stored string
+ * is byte-identical in both cases. Nothing on the client can tell a reported
+ * designation from an invented one, so there is no test we could write here
+ * that keeps the true badges and drops the false ones. A badge is a claim about
+ * whether a player will play; we withhold the whole class rather than show a
+ * coin flip as a fact.
+ *
+ * THE REAL FIX IS SERVER-SIDE. Remove the default at processor.ts:64 so the
+ * column is NULL when no source supplied a status — and null-guard the three
+ * prose templates just below it (headline :70, body :72, action_note :75) that
+ * interpolate `designation`, or they will print the word "null". Once that
+ * ships, ESPN's genuine QUESTIONABLE becomes distinguishable from silence and
+ * this suppression should be deleted, not kept.
+ */
+const UNPROVABLE_DESIGNATIONS: ReadonlySet<string> = new Set(["QUESTIONABLE"]);
+
+/**
+ * Phrases that contradict any availability badge at all.
+ *
+ * The processor overwrites `headline` but not `body`, so a text-sourced
+ * signal's own prose survives into `row.subtitle` — which means a story whose
+ * reporting says the player came OFF the injury report can still carry a stored
+ * designation saying he is on it. When the prose and the badge disagree we
+ * trust the prose and drop the badge, for every designation including OUT.
+ *
+ * Deliberately blunt: /\bcleared\b/ also fires on "has not been cleared", which
+ * suppresses a badge that was arguably right. That is the safe direction of
+ * error — the cost is a missing tag, not a false claim — so it is left alone
+ * rather than papered over with negation-matching we cannot test against real
+ * copy.
+ */
+const DESIGNATION_CONTRADICTIONS: readonly RegExp[] = [
+  /\b(?:off|removed from|not on)\s+the\s+injury\s+report\b/i,
+  /\bfull\s+partic/i,
+  /\bclear(?:ed|ance)\b/i,
+  /\bactivated\b/i,
+  /\bno\s+longer\s+listed\b/i,
+];
+
+/**
+ * The designation a surface may render, or undefined.
+ *
+ * Kept separate from {@link normalizeInjuryDesignation} on purpose: that
+ * function's job is to fold a raw code into a label and it still has to do that
+ * faithfully for QUESTIONABLE, because the drawer, the scorer and the tests all
+ * depend on the mapping. This is the display gate layered on top.
+ *
+ * @param raw      the stored `live_signals.injury_designation`
+ * @param bodyText the signal's own prose — pass title + subtitle together
+ */
+export function badgeableInjuryDesignation(
+  raw?: string | null,
+  bodyText?: string,
+): string | undefined {
+  const designation = normalizeInjuryDesignation(raw);
+  if (!designation) return undefined;
+  if (UNPROVABLE_DESIGNATIONS.has(designation)) return undefined;
+  if (bodyText && DESIGNATION_CONTRADICTIONS.some((pattern) => pattern.test(bodyText))) {
+    return undefined;
+  }
+  return designation;
 }
 
 const normalizeTeamToken = (value?: string | null): string => {
@@ -443,7 +530,13 @@ const verification = publicStoryText(mappedVerification, row.league);
     primaryTeam: identity?.awayTeam ?? identity?.team,
     secondaryTeam: identity?.homeTeam ?? identity?.opponent,
     player: identity?.player,
-    injuryDesignation: normalizeInjuryDesignation(row.injuryDesignation),
+    // Gated, not just normalized: a fabricated "Questionable" and a contradicted
+    // badge are both withheld here. See badgeableInjuryDesignation for the
+    // server-side cause and the fix that lets this come back.
+    injuryDesignation: badgeableInjuryDesignation(
+      row.injuryDesignation,
+      `${row.title} ${row.subtitle ?? ""}`,
+    ),
     opponentLabel: opponentLabelFor(identity, gameMatch),
     // Gated by league: see KICKOFF_TRUSTED_LEAGUES. An untrusted league takes
     // the same blank as a missing time rather than printing one we cannot stand
