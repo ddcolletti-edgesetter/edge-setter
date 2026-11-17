@@ -18,7 +18,12 @@ export type SituationStoryCardData = {
   sectionTitle?: string;
   whatHappened: string;
   whyItMatters?: string;
-  edgeSetterKnows: string;
+  /**
+   * Source trail / confidence / timing, joined. Undefined when none of the
+   * three resolved — the tile is dropped rather than filled with a sentence
+   * that was identical on every card.
+   */
+  edgeSetterKnows?: string;
   watchNext?: string;
   relatedItems?: string[];
   ctaLabel?: string;
@@ -504,21 +509,32 @@ const mappedVerification = rawVerification === "monitoring" ? "Developing" : raw
 const verification = publicStoryText(mappedVerification, row.league);
   const headline = editorialHeadline(row, matchup);
   const whatHappened = storyWhatHappened(row);
+  // Both are built from row.subtitle, so on most cards the deck printed the
+  // exact sentence the "What happened" tile printed a few pixels below it.
+  const dek = dedupeAgainst(editorialDeck(row, headline), whatHappened);
   const whyItMatters = storyWhyItMatters(row);
-  const edgeSetterKnows = cleanStoryLine(
-    [
-      row.sourceProgressLabel ?? sourceCountLabel(row.sourceCount),
-      confidence ? publicConfidenceLabel(confidence, strengthContext) : undefined,
-      row.timingStageLabel ?? row.timingAdvantage,
-    ].filter(Boolean).join(" / ") || "EdgeSetter is monitoring source support, timing, confidence, and downstream sports impact.",
-  );
+  // No placeholder: when none of the three parts resolved there is nothing we
+  // know about this story that we did not know about every other one, and a
+  // tile reading "EdgeSetter is monitoring source support, timing, confidence,
+  // and downstream sports impact." said exactly that on every card. The tile is
+  // omitted instead.
+  const knownParts = [
+    // sourceCountLabel answers "Source check pending" for a row with no count,
+    // which is the placeholder, not a thing we know. Contribute nothing
+    // instead, so a row with no source trail, no confidence and no timing drops
+    // the tile rather than printing three stubs.
+    row.sourceProgressLabel ?? (row.sourceCount ? sourceCountLabel(row.sourceCount) : undefined),
+    confidence ? publicConfidenceLabel(confidence, strengthContext) : undefined,
+    row.timingStageLabel ?? row.timingAdvantage,
+  ].filter(Boolean);
+  const edgeSetterKnows = knownParts.length ? cleanStoryLine(knownParts.join(" / ")) : undefined;
   const watchNext = storyWatchNext(row);
 
   return {
     id: row.id,
     league: row.league,
     headline,
-    dek: editorialDeck(row, headline),
+    dek,
     sectionTitle: "Top Developing Story",
     whatHappened,
     whyItMatters,
@@ -1006,7 +1022,31 @@ function editorialHeadline(row: SituationRowData, matchup?: string) {
   return conciseHeadline(raw, row.league);
 }
 
-function editorialDeck(row: SituationRowData, headline: string) {
+/**
+ * Two pieces of card copy are the same claim when they reduce to the same
+ * words, or when one wholly contains the other — `storyWhatHappened` can wrap
+ * the subtitle in a lead-in, which still leaves the reader reading it twice.
+ *
+ * Containment only counts past 20 characters: a short fragment inside a longer
+ * sentence is a coincidence, not a duplicate.
+ */
+function isSameClaim(left?: string, right?: string): boolean {
+  const norm = (v?: string) => String(v ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const a = norm(left);
+  const b = norm(right);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length <= b.length ? b : a;
+  return shorter.length >= 20 && longer.includes(shorter);
+}
+
+/** The value, unless it is already being said by `against`. */
+function dedupeAgainst(value: string | undefined, against: string | undefined): string | undefined {
+  return value && isSameClaim(value, against) ? undefined : value;
+}
+
+function editorialDeck(row: SituationRowData, headline: string): string | undefined {
   const candidates = [
     row.subtitle,
     row.marketReaction,
@@ -1016,11 +1056,11 @@ function editorialDeck(row: SituationRowData, headline: string) {
   if (summary) return summary;
   const specific = situationDek(row);
   if (specific) return specific;
-  if (row.league === "MLB") return "EdgeSetter is tracking lineup, pitching, bullpen, weather, roster, and market context as the slate develops.";
-  if (row.league === "NBA") return "EdgeSetter is tracking starter confirmations, injury context, rotation changes, late scratches, and pre-tip movement.";
-  if (row.league === "NFL") return "EdgeSetter is tracking depth chart, injury designations, snap share, target distribution, and game-week context.";
-  if (row.league === "CFB") return "EdgeSetter is tracking roster depth, QB room status, transfer impact, and scheme context.";
-  return "EdgeSetter is tracking source support, timing, and sports context as this situation develops.";
+  // No per-league fallback. A deck is the story's own second sentence; when the
+  // story has not given us one, "EdgeSetter is tracking depth chart, injury
+  // designations, snap share..." is the same sentence under every NFL headline
+  // on the page. The deck is dropped instead.
+  return undefined;
 }
 
 function situationDek(row: SituationRowData): string | undefined {
@@ -1108,10 +1148,10 @@ function storyWatchNext(row: SituationRowData): string | undefined {
   const timingRaw = row.uncertaintyLabel ?? row.timingStageLabel;
   const timing = timingRaw ? cleanStoryLine(timingRaw) : undefined;
   if (timing && !SUPPRESSED_TIMING_VALUES.some((v) => timing.toLowerCase().includes(v))) return timing;
-  if (row.league === "NFL") return "Watch for practice participation, official designation, and depth chart movement.";
-  if (row.league === "CFB") return "Watch for local source updates, depth chart movement, and official program confirmation.";
-  if (row.league === "NBA") return "Watch for the next official status update, warmup confirmation, and role impact.";
-  if (row.league === "MLB") return "Watch for lineup confirmation, pitching updates, weather, and market response.";
+  // Previously fell through to one sentence per league. Those were printed
+  // under a "Watch next" label on every story in that league regardless of
+  // what the story was, which makes them decoration, not a read. When this
+  // situation carries no timing or uncertainty of its own, the tile is omitted.
   return undefined;
 }
 

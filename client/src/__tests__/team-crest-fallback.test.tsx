@@ -157,3 +157,44 @@ describe("TeamLogoImg crest fallback", () => {
     expect(screen.getByLabelText("Team pending")).toBeInTheDocument();
   });
 });
+
+/**
+ * The lettering cannot outgrow the shield when the condensed face is missing.
+ *
+ * fontSize is picked from the label's length assuming a CONDENSED face. Barlow
+ * Condensed is a network font, so before it arrives — or on a device with
+ * neither it nor 'Arial Narrow' — the stack lands on Arial, which is far wider,
+ * and the svg sets overflow:visible so a four-letter abbreviation spills past
+ * the shield rather than clipping.
+ */
+describe("crest lettering is width-pinned", () => {
+  const textFor = (abbr: string) => {
+    render(<TeamLogoImg abbr={abbr} sport="cfb" size={40} />);
+    fireEvent.error(screen.getAllByRole("img")[0] as HTMLImageElement);
+    return crest()?.querySelector("text");
+  };
+
+  it("pins a four-letter abbreviation inside the shield's inner span", () => {
+    const text = textFor("GASO");
+    expect(text).toHaveTextContent("GASO");
+    expect(Number(text?.getAttribute("textLength"))).toBe(66);
+    expect(text?.getAttribute("lengthAdjust")).toBe("spacingAndGlyphs");
+  });
+
+  it.each([
+    ["A", 24],
+    ["KC", 46],
+    ["WSH", 58],
+    ["GASO", 66],
+  ])("scales the pinned width with the label, so %s is not stretched", (abbr, span) => {
+    expect(Number(textFor(abbr)?.getAttribute("textLength"))).toBe(span);
+  });
+
+  it("never pins wider than the shield's inner flanks", () => {
+    // Shield spans x=9..91 with a 6-unit stroke; anything past this overflows.
+    const INNER_SPAN = 91 - 9 - 6;
+    for (const abbr of ["A", "KC", "WSH", "GASO"]) {
+      expect(Number(textFor(abbr)?.getAttribute("textLength"))).toBeLessThanOrEqual(INNER_SPAN);
+    }
+  });
+});

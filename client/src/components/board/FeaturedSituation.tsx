@@ -411,7 +411,8 @@ function quietStoryCardData({
     dek,
     whatHappened: primaryRead ?? relatedItems[0],
     whyItMatters: secondaryRead ?? "EdgeSetter keeps the slate organized around the next lineup, availability, weather, and movement checkpoints.",
-    edgeSetterKnows: confidence ? `${confidence} confidence support remains on watch.` : "EdgeSetter is monitoring source support, timing, confidence, and downstream sports context.",
+    // Omitted rather than filled when there is no confidence to report.
+    edgeSetterKnows: confidence ? `${confidence} confidence support remains on watch.` : undefined,
     watchNext: leagueLabel === "MLB"
       ? "Confirmed lineup cards, pitcher changes, late scratches, weather cells, bullpen load, and live inning states."
       : leagueLabel === "NBA"

@@ -282,7 +282,10 @@ function sanitizeEditorialStory(story: SituationStoryCardData): SituationStoryCa
   return {
     ...story,
     headline: hasCleanPublicText(story.headline) ? story.headline : headlineFallback,
-    dek: hasCleanPublicText(story.dek) ? story.dek : "EdgeSetter is monitoring source support, timing, and sports context before elevating this item.",
+    // No substitute deck. The adapter drops the deck when the story has not
+    // supplied one; refilling it here would put the same sentence under every
+    // headline on the page, which is what the adapter just stopped doing.
+    dek: hasCleanPublicText(story.dek) ? story.dek : undefined,
     matchup: hasCleanPublicText(story.matchup) ? story.matchup : undefined,
     primaryTeam: hasCleanPublicTeamIdentity(story.primaryTeam) ? story.primaryTeam : undefined,
     secondaryTeam: hasCleanPublicTeamIdentity(story.secondaryTeam) ? story.secondaryTeam : undefined,
@@ -290,7 +293,8 @@ function sanitizeEditorialStory(story: SituationStoryCardData): SituationStoryCa
     storyType: hasCleanPublicText(story.storyType) ? story.storyType : headlineFallback,
     whatHappened: hasCleanPublicText(story.whatHappened) ? story.whatHappened : "A watch item changed enough to stay on the board.",
     whyItMatters: hasCleanPublicText(story.whyItMatters) ? story.whyItMatters : "The sports impact is still developing.",
-    edgeSetterKnows: hasCleanPublicText(story.edgeSetterKnows) ? story.edgeSetterKnows : "Source support and timing remain under watch.",
+    // Same reasoning: the tile is omitted rather than filled.
+    edgeSetterKnows: hasCleanPublicText(story.edgeSetterKnows) ? story.edgeSetterKnows : undefined,
     watchNext: hasCleanPublicText(story.watchNext) ? story.watchNext : "Watch for source support, official confirmation, and context movement.",
     relatedItems: story.relatedItems?.filter((item) => hasCleanPublicText(item)),
   };

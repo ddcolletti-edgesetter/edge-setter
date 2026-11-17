@@ -19,6 +19,13 @@ interface SituationStoryCardProps {
 
 export function SituationStoryCard({ story, compact, featured, className, onOpen }: SituationStoryCardProps) {
   const identity = story.row.sportsIdentity;
+  // "KC @ BUF" up here and "at BUF" on the identity line below name the same
+  // opponent twice. The identity line wins: it carries the home/away side from
+  // a source that knows it, plus the kickoff, so it is strictly the more
+  // informative of the two. The header matchup is kept whenever there is no
+  // identity line to carry it, which is every card without a resolved game.
+  const showMatchup =
+    Boolean(story.matchup) && !matchupNamesOpponent(story.matchup, story.opponentLabel);
   const imageAsset = resolveSportsImageAsset({
     league: story.league,
     sport: identity?.sport,
@@ -43,7 +50,7 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
       <div className={cn("min-w-0 max-w-[calc(100vw-48px)] overflow-hidden sm:max-w-full", compact ? "p-3" : "p-4")}>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
           <span className="data-label text-primary">{story.league ?? "SPORT"}</span>
-          {story.matchup && <span className="truncate text-[0.74rem] font-bold text-muted-foreground">{story.matchup}</span>}
+            {showMatchup && <span className="truncate text-[0.74rem] font-bold text-muted-foreground">{story.matchup}</span>}
           {story.timestamp && (
             <span className="ml-auto inline-flex min-w-0 items-center gap-1 truncate text-[0.72rem] font-semibold text-muted-foreground tabular-nums">
               <Clock3 className="h-3.5 w-3.5" />
@@ -74,7 +81,9 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           <StoryRead label="What happened" value={story.whatHappened} />
           {story.whyItMatters && <StoryRead label="Why it matters" value={story.whyItMatters} />}
           {story.watchNext && <StoryRead label="Watch next" value={story.watchNext} />}
-          {featured && <StoryRead label="What EdgeSetter knows" value={story.edgeSetterKnows} />}
+          {featured && story.edgeSetterKnows && (
+            <StoryRead label="What EdgeSetter knows" value={story.edgeSetterKnows} />
+          )}
         </div>
 
         <div className="mt-3 flex min-w-0 flex-wrap items-center gap-1.5 border-t border-border/65 pt-2">
@@ -152,8 +161,14 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
  * no resolved player shows neither name nor an empty slot.
  */
 function StoryIdentityLine({ story }: { story: SituationStoryCardData }) {
+  // The player chip is dropped when the headline already names him. It is
+  // suppressed here and not in the adapter on purpose: `story.player` also
+  // selects the artwork treatment in SportsStoryVisual (jersey vs watermark vs
+  // matchup split), so clearing the field would silently change the picture.
+  const showPlayer = Boolean(story.player) && !textNames(story.headline, story.player);
+
   const whereAndWhen = [story.opponentLabel, story.kickoff].filter(Boolean).join(", ");
-  if (!story.injuryDesignation && !story.player && !whereAndWhen) return null;
+  if (!story.injuryDesignation && !showPlayer && !whereAndWhen) return null;
 
   return (
     <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
@@ -165,7 +180,7 @@ function StoryIdentityLine({ story }: { story: SituationStoryCardData }) {
           {story.injuryDesignation}
         </span>
       )}
-      {story.player && (
+      {showPlayer && (
         <span data-testid="story-player" className="min-w-0 truncate text-[0.82rem] font-bold text-foreground">
           {story.player}
         </span>
@@ -177,6 +192,27 @@ function StoryIdentityLine({ story }: { story: SituationStoryCardData }) {
       )}
     </div>
   );
+}
+
+/** Does `text` already contain `name`, ignoring case and punctuation? */
+function textNames(text?: string, name?: string): boolean {
+  const norm = (v?: string) => String(v ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const haystack = norm(text);
+  const needle = norm(name);
+  // Full name only. A headline carrying just the surname is not saying the same
+  // thing as a chip carrying both names, so that chip still earns its place.
+  return Boolean(needle) && haystack.includes(needle);
+}
+
+/**
+ * Is the opponent in `label` ("at BUF" / "vs BUF") already named by the
+ * header's matchup ("KC @ BUF")? Compared as a whole token so "SF" cannot match
+ * inside "SFO".
+ */
+function matchupNamesOpponent(matchup?: string, label?: string): boolean {
+  const token = String(label ?? "").replace(/^\s*(?:at|vs\.?)\s+/i, "").trim().toUpperCase();
+  if (!token || !matchup) return false;
+  return matchup.toUpperCase().split(/[^A-Z0-9]+/).includes(token);
 }
 
 function fantasyDetail(story: SituationStoryCardData) {
