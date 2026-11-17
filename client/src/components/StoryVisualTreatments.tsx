@@ -131,7 +131,13 @@ export function JerseyNumberVisual({ teamAbbr, headshotUrl, onHeadshotError, jer
 }
 
 /** Diagonal two-team split field, each half in its own team's colors, with both
- *  abbreviation badges and a "VS" divider. No photo dependency. */
+ *  abbreviation badges. No photo dependency.
+ *
+ *  No "VS" divider: this is the BACKDROP layer, and SportsMedia draws its own
+ *  "VS" between the two stage logos directly on top of it (SportsMedia.tsx).
+ *  Two of them stacked at different sizes read as a rendering fault. The stage
+ *  one is kept because it sits between the logos it relates; this one sat
+ *  behind them. */
 export function MatchupSplitVisual({ teamAbbr, opponentAbbr, sport }: StoryVisualTreatmentProps) {
   const home = getTeamColors(teamAbbr, sport);
   const away = getTeamColors(opponentAbbr ?? teamAbbr, sport);
@@ -161,19 +167,6 @@ export function MatchupSplitVisual({ teamAbbr, opponentAbbr, sport }: StoryVisua
         <div style={{ opacity: 0.9 }}>
           <TeamLogoImg abbr={teamAbbr} sport={sport} size={72} />
         </div>
-        <span
-          aria-hidden="true"
-          style={{
-            fontFamily: "'Barlow Condensed', var(--font-cond, sans-serif)",
-            fontSize: "1.5rem",
-            fontWeight: 850,
-            letterSpacing: "0.04em",
-            color: "#FFFFFF",
-            textShadow: "0 1px 4px rgba(0,0,0,0.6)",
-          }}
-        >
-          VS
-        </span>
         {opponentAbbr ? (
           <div style={{ opacity: 0.9 }}>
             <TeamLogoImg abbr={opponentAbbr} sport={sport} size={72} />

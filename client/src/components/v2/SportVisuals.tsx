@@ -387,6 +387,17 @@ const MIN_DECODED_LOGO_PX = 16;
  * The viewBox is fixed at 100 units so the shape and the type scale together
  * at any `size`.
  */
+/**
+ * How wide the crest's lettering is drawn, per label length, in the 100-unit
+ * viewBox. These track what the condensed face produces at the matching
+ * fontSize, so with Barlow Condensed present the shapes are unchanged; a wider
+ * fallback is squeezed into the same box instead of running past the shield.
+ *
+ * Per length rather than one number, because textLength is an exact width, not
+ * a maximum: a single number would stretch "A" across the whole shield.
+ */
+const CREST_TEXT_SPAN: Readonly<Record<number, number>> = { 1: 24, 2: 46, 3: 58, 4: 66 };
+
 function TeamCrest({ abbr, size, primary, secondary }: { abbr: string; size: number; primary: string; secondary: string }) {
   const label = abbr?.slice(0, 4).toUpperCase() ?? "";
   const fontSize = label.length >= 4 ? 25 : label.length === 3 ? 30 : 36;
@@ -418,7 +429,22 @@ function TeamCrest({ abbr, size, primary, secondary }: { abbr: string; size: num
         fontSize={fontSize}
         letterSpacing="1"
         fill="#FFFFFF"
-        style={{ paintOrder: "stroke" }}
+        /*
+         * fontSize is chosen from the label's length on the assumption that a
+         * CONDENSED face resolves. Barlow Condensed is loaded in index.html,
+         * but it is a network font: before it arrives, if it fails, or on a
+         * device without 'Arial Narrow', the stack lands on Arial — which is
+         * far wider — and a four-letter abbreviation runs past the shield.
+         * The svg sets overflow:visible, so it spills rather than clips.
+         *
+         * textLength pins the drawn width to the shield's inner span whatever
+         * font resolves; lengthAdjust spacingAndGlyphs squeezes the glyphs
+         * rather than only the gaps, so a wide fallback compresses instead of
+         * overflowing. It is an upper bound in practice, since the condensed
+         * face already fits inside it.
+         */
+        textLength={CREST_TEXT_SPAN[label.length] ?? 66}
+        lengthAdjust="spacingAndGlyphs"
       >
         {label}
       </text>

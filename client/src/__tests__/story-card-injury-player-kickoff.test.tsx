@@ -67,6 +67,16 @@ function buildRow(overrides: Partial<SituationRowData> = {}): SituationRowData {
   };
 }
 
+/**
+ * A title that does NOT contain the player's name.
+ *
+ * The card drops the player chip when the headline already names him (see
+ * story-card-polish.test.tsx, item 1), and this fixture's default title does.
+ * The two cases below that are about the chip itself therefore need a
+ * headline that leaves the chip something to say.
+ */
+const TITLE_WITHOUT_PLAYER = "KC availability picture tightens before Sunday";
+
 const game = (over: Partial<AnyBoardGame> = {}): AnyBoardGame => ({
   id: "game-1",
   awayTeam: "KC",
@@ -192,7 +202,7 @@ describe("SituationStoryCard identity line", () => {
   });
 
   it("shows designation, player, then opponent and kickoff", () => {
-    const story = toSituationStoryCardData(buildRow(), [game()]);
+    const story = toSituationStoryCardData(buildRow({ title: TITLE_WITHOUT_PLAYER }), [game()]);
     render(<SituationStoryCard story={story} />);
 
     expect(screen.getByTestId("story-injury-designation")).toHaveTextContent("QUESTIONABLE");
@@ -227,7 +237,10 @@ describe("SituationStoryCard identity line", () => {
   });
 
   it("omits the designation tag when the signal carries none", () => {
-    const story = toSituationStoryCardData(buildRow({ injuryDesignation: undefined }), [game()]);
+    const story = toSituationStoryCardData(
+      buildRow({ injuryDesignation: undefined, title: TITLE_WITHOUT_PLAYER }),
+      [game()],
+    );
     render(<SituationStoryCard story={story} />);
     expect(screen.queryByTestId("story-injury-designation")).not.toBeInTheDocument();
     expect(screen.getByTestId("story-player")).toBeInTheDocument();

@@ -411,7 +411,8 @@ function sanitizePublicStory(story: StoryCardData): StoryCardData {
   return {
     ...story,
     headline: hasCleanPublicText(story.headline) ? story.headline : headlineFallback,
-    dek: hasCleanPublicText(story.dek) ? story.dek : "EdgeSetter is monitoring source support, timing, and sports context before elevating this item.",
+    // Omitted rather than filled — both render sites below already guard on it.
+    dek: hasCleanPublicText(story.dek) ? story.dek : undefined,
     label: hasCleanPublicText(story.label) ? story.label : headlineFallback,
     primaryTeam: hasCleanPublicTeamIdentity(story.primaryTeam) ? story.primaryTeam : undefined,
     secondaryTeam: hasCleanPublicTeamIdentity(story.secondaryTeam) ? story.secondaryTeam : undefined,
