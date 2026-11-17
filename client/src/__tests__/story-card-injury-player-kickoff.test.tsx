@@ -17,6 +17,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   findGameForStory,
   formatKickoff,
+  kickoffIsTrustedForLeague,
   normalizeInjuryDesignation,
   opponentLabelFor,
   toSituationStoryCardData,
@@ -29,9 +30,19 @@ import type { SituationRowData } from "@/components/board/SituationRow";
 const expectedKickoff = (iso: string) => {
   const date = new Date(iso);
   const day = new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(date);
-  const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+  const time = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
   return `${day} ${time}`;
 };
+
+/** The zone abbreviation the runtime would print for this instant, e.g. "PST". */
+const expectedZone = (iso: string) =>
+  new Intl.DateTimeFormat(undefined, { timeZoneName: "short" })
+    .formatToParts(new Date(iso))
+    .find((part) => part.type === "timeZoneName")?.value;
 
 const KICKOFF_ISO = "2026-11-15T20:30:00Z";
 
@@ -93,6 +104,19 @@ describe("formatKickoff", () => {
   it("formats a parseable instant as day + time", () => {
     expect(formatKickoff(KICKOFF_ISO)).toBe(expectedKickoff(KICKOFF_ISO));
     expect(formatKickoff(KICKOFF_ISO)).toMatch(/^[^\s]+ \d{1,2}:\d{2}/);
+  });
+
+  it("names the zone, so the hour is not ambiguous between readers", () => {
+    const zone = expectedZone(KICKOFF_ISO);
+    // Every ICU build resolves a zone name for a valid instant; if this is
+    // undefined the assertion below would be vacuous.
+    expect(zone).toBeTruthy();
+    // The zone is appended after the clock time, not substituted for it: the
+    // string still starts "Sat 3:30" and ends with the zone.
+    const formatted = formatKickoff(KICKOFF_ISO) as string;
+    expect(formatted).toMatch(/^[^\s]+ \d{1,2}:\d{2}/);
+    expect(formatted.endsWith(zone as string)).toBe(true);
+    expect(formatted.indexOf(zone as string)).toBeGreaterThan("Sat 3:30".length - 1);
   });
 
   it("returns undefined rather than echoing an unparseable value", () => {
@@ -236,5 +260,60 @@ describe("SituationStoryCard identity line", () => {
     expect(story.kickoff).toBeUndefined();
     render(<SituationStoryCard story={story} />);
     expect(screen.getByTestId("story-where-when").textContent).not.toMatch(/\d{1,2}:\d{2}/);
+  });
+});
+
+/**
+ * Kickoff is printed for NFL only.
+ *
+ * `games.game_time` is first-writer-wins: all three upserts in
+ * server/pipeline/store.ts list it in the INSERT column list and in none of
+ * their ON CONFLICT DO UPDATE SET clauses, so whichever adapter creates the
+ * row fixes the kickoff permanently and a later feed cannot correct it. A
+ * wrong-but-parseable time renders with full confidence, so every league
+ * except NFL takes the same blank as a missing time.
+ *
+ * These are the cases to extend when a league is switched on.
+ */
+describe("kickoff is gated by league", () => {
+  it("prints the kickoff for NFL, the one league whose first writer is authoritative", () => {
+    const story = toSituationStoryCardData(buildRow({ league: "NFL" }), [game()]);
+    expect(story.kickoff).toBe(expectedKickoff(KICKOFF_ISO));
+  });
+
+  it.each(["CFB", "NBA", "MLB"])(
+    "omits the kickoff for %s, whose stored game_time can be wrong",
+    (league) => {
+      const story = toSituationStoryCardData(buildRow({ league }), [game()]);
+      expect(story.kickoff).toBeUndefined();
+    },
+  );
+
+  it("still shows the opponent for an untrusted league — only the time is withheld", () => {
+    const story = toSituationStoryCardData(buildRow({ league: "CFB" }), [game()]);
+    expect(story.kickoff).toBeUndefined();
+    expect(story.opponentLabel).toBe("at BUF");
+  });
+
+  it("renders the untrusted league's card with no trailing comma or empty slot", () => {
+    render(
+      <SituationStoryCard
+        story={toSituationStoryCardData(buildRow({ league: "CFB" }), [game()])}
+        onOpen={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("story-where-when")).toHaveTextContent("at BUF");
+    expect(screen.getByTestId("story-where-when").textContent?.trim()).not.toMatch(/,$/);
+  });
+
+  describe("kickoffIsTrustedForLeague", () => {
+    it("trusts NFL in any casing", () => {
+      expect(kickoffIsTrustedForLeague("NFL")).toBe(true);
+      expect(kickoffIsTrustedForLeague("nfl")).toBe(true);
+    });
+
+    it.each(["CFB", "NBA", "MLB", "", undefined])("does not trust %s", (league) => {
+      expect(kickoffIsTrustedForLeague(league as string | undefined)).toBe(false);
+    });
   });
 });

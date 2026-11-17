@@ -311,17 +311,64 @@ export function findGameForStory(
 }
 
 /**
- * "Sat 3:30 PM" in the reader's own locale and zone. Undefined for an absent
- * or unparseable value — unlike {@link formatGameTime}, which echoes the raw
- * string back so the live pill always renders something.
+ * "Sat 3:30 PM PST" in the reader's own locale and zone. Undefined for an
+ * absent or unparseable value — unlike {@link formatGameTime}, which echoes
+ * the raw string back so the live pill always renders something.
+ *
+ * The zone is named, not implied. Without it the same kickoff reads as a
+ * different hour to an Eastern and a Pacific reader with nothing on the card
+ * to tell them apart, and a bettor acting on the wrong hour is the failure
+ * this label exists to prevent. `timeZoneName: "short"` resolves against the
+ * reader's own zone, so it describes the time actually shown rather than
+ * asserting a league-wide one.
  */
 export function formatKickoff(value?: Date | string | null): string | undefined {
   if (value === null || value === undefined || value === "") return undefined;
   const date = value instanceof Date ? value : new Date(value);
   if (!Number.isFinite(date.getTime())) return undefined;
   const day = new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(date);
-  const time = new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(date);
+  const time = new Intl.DateTimeFormat(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
   return `${day} ${time}`;
+}
+
+/**
+ * Leagues whose stored kickoff we trust enough to print on a story card.
+ *
+ * WHY THIS IS NOT EVERY LEAGUE
+ * ────────────────────────────
+ * `games.game_time` is first-writer-wins. All three upserts in
+ * server/pipeline/store.ts — `upsertGame`, `touchGameSchedule` and
+ * `upsertHistoricalGame` — list `game_time` in the INSERT column list but in
+ * none of their `ON CONFLICT(id) DO UPDATE SET` clauses. So whichever adapter
+ * creates the row fixes the kickoff permanently, and a later, better-informed
+ * feed cannot correct it. A time that was provisional when it was first
+ * written stays on the row forever.
+ *
+ * A wrong-but-parseable time is the dangerous case: it renders with full
+ * confidence and nothing on the card marks it as suspect. Omitting it reads
+ * as "we don't have the time", which is true, and is the same blank the card
+ * already shows for a missing or unparseable value — so no new code path.
+ *
+ * NFL is enabled because its schedule is written by the ESPN schedule
+ * ingester before any odds adapter sees the game, so the first writer is also
+ * the authoritative one.
+ *
+ * TURNING ON A LEAGUE LATER
+ * ─────────────────────────
+ * This is a per-league switch on purpose. Once `game_time` is last-writer-wins
+ * for a trusted source — the planned fix is to add
+ * `game_time=excluded.game_time` to the `ON CONFLICT` clauses of the schedule
+ * upserts (NOT the odds path, which must never move a kickoff) — add that
+ * league here and extend the test table. Nothing else needs to change.
+ */
+const KICKOFF_TRUSTED_LEAGUES = new Set(["NFL"]);
+
+export function kickoffIsTrustedForLeague(league?: string): boolean {
+  return league !== undefined && KICKOFF_TRUSTED_LEAGUES.has(league.toUpperCase());
 }
 
 /**
@@ -398,7 +445,12 @@ const verification = publicStoryText(mappedVerification, row.league);
     player: identity?.player,
     injuryDesignation: normalizeInjuryDesignation(row.injuryDesignation),
     opponentLabel: opponentLabelFor(identity, gameMatch),
-    kickoff: gameMatch ? formatKickoff(gameMatch.game.gameDate ?? gameMatch.game.game_time) : undefined,
+    // Gated by league: see KICKOFF_TRUSTED_LEAGUES. An untrusted league takes
+    // the same blank as a missing time rather than printing one we cannot stand
+    // behind.
+    kickoff: gameMatch && kickoffIsTrustedForLeague(row.league)
+      ? formatKickoff(gameMatch.game.gameDate ?? gameMatch.game.game_time)
+      : undefined,
     storyType,
     timestamp: row.timestamp,
     confidence: confidence ? publicConfidenceLabel(confidence, strengthContext) : undefined,
