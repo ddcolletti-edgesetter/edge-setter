@@ -5,7 +5,7 @@ import type { Sport } from "@/lib/leagueModifiers";
 import type { CanonicalSituation } from "@/lib/situationsApi";
 import { hasCleanPublicTeamIdentity, hasCleanPublicText, hasMalformedPublicMatchup, isValidTeamToken, publicFallbackLabel, storyTitleHasValidPlayerName } from "@/lib/publicDisplayHygiene";
 import { deriveSignalVerificationState } from "@/lib/signalVerification";
-import { evidenceCountText, humanizeSignalType, marketFocusHeadline, publicConfidenceLabel, publicLifecycleLabel, publicStoryText, publicTimingLabel, publicUrgencyLabel, sourceCountText } from "@/lib/storyLanguage";
+import { evidenceCountText, humanizeSignalType, marketFocusHeadline, publicConfidenceLabel, publicLifecycleLabel, publicStoryText, publicTimingLabel, publicUrgencyLabel, sourceCountText, isGenericUncertaintyLine, verifiedClaimIsBacked } from "@/lib/storyLanguage";
 import { toTeamAbbr } from "@/components/v2/SportVisuals";
 import { cfbGamesSchool, storedGameNames, teamDisplayLabel, teamDisplayName } from "@/lib/teamDisplayNames";
 import type { MarketMove } from "@/lib/marketMove";
@@ -357,6 +357,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     detectionLeadKind: situation.detectionLeadKind,
     marketReaction: situation.marketReaction,
     marketMove: situation.marketMove,
+    officialSource: hasOfficialSource(signal),
     replayChain: situation.replayChain,
   };
 }
@@ -768,7 +769,12 @@ const verification = publicStoryText(mappedVerification, row.league);
     timestamp: row.timestamp,
     confidence: confidence ? publicConfidenceLabel(confidence, strengthContext) : undefined,
     sourceCount: row.sourceCount,
-    lifecycle: publicLifecycleLabel(row.lifecycleLabel),
+    // "Confirmed" next to "1 report" is the same unbacked claim the timing
+    // stage was making. See verifiedClaimIsBacked.
+    lifecycle: publicLifecycleLabel(row.lifecycleLabel, {
+      sourceCount: row.sourceCount,
+      officialSource: row.officialSource,
+    }),
     verification,
     evidence: evidenceLabel(row),
     timing: publicTimingLabel(row.timingStageLabel ?? row.timingAdvantage, row.league),
@@ -907,7 +913,9 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
       { label: "Confidence", value: publicConfidenceLabel(situation.confidence, strengthContext), tone: situation.confidence >= 80 ? "positive" : "default" },
       confidenceDeltaMetric,
       canonical ? { label: "Evidence", value: editorialCopy ? evidenceCountText(canonical.evidenceCount) : canonical.evidenceCount, tone: canonical.evidenceCount >= 3 ? "positive" : "default" } : null,
-      { label: "Verification", value: editorialCopy ? publicLifecycleLabel(situation.lifecycleStage) : lifecycleDisplayLabel(situation.lifecycleStage), tone: situation.lifecycleStage === "Context Moving" ? "warning" : situation.lifecycleStage === "Resolved / Stale" ? "default" : "positive" },
+      // A metric LABELLED "Verification" is the last place an unbacked
+      // "Confirmed" belongs. See verifiedClaimIsBacked.
+      { label: "Verification", value: editorialCopy ? publicLifecycleLabel(situation.lifecycleStage, verifiedClaimContextFor(situation)) : lifecycleDisplayLabel(situation.lifecycleStage), tone: situation.lifecycleStage === "Context Moving" ? "warning" : situation.lifecycleStage === "Resolved / Stale" ? "default" : "positive" },
       { label: "Timing", value: editorialCopy ? publicTimingLabel(situation.timingAdvantage, situation.league) : timingMetricLabel(situation.timingAdvantage), tone: situation.isActionable ? "positive" : "warning" },
     ].filter(Boolean) as SituationMetric[],
   };
@@ -1107,11 +1115,61 @@ function fallbackConfidenceStage(situation: BoardSituation) {
 function fallbackTimingStage(situation: BoardSituation) {
   if (situation.lifecycleStage === "Context Moving" || situation.movementLabel) return "Early market reaction";
   if (situation.lifecycleStage === "Consensus Forming") return "consensus forming";
-  if (situation.lifecycleStage === "Verified") return "ES Agents verified";
+  // This one line was the origin of all five surfaces that printed
+  // "ES Agents verified": the watch-next tile, the Edge-Setter-knows line, the
+  // timing chip, the row's timing stage and the related-items list. 36 of the
+  // 37 rows making the claim on prod carry a single source, and nothing backs
+  // it but a designation string from that one wire.
+  //
+  // The lifecycle stage itself is left alone — it feeds lane assignment and
+  // ranking, and this is a copy fix, not a re-ranking. Only the printed words
+  // change. See verifiedClaimIsBacked.
+  if (situation.lifecycleStage === "Verified") return verifiedTimingStage(situation);
   if (situation.lifecycleStage === "Resolved / Stale") return "cooling story";
   if (situation.isActionable && situation.escalation === "Watch") return "developing window";
   if (situation.isActionable) return "early development";
   return "quiet board";
+}
+
+/**
+ * What to print for a situation the pipeline marked Verified.
+ *
+ * Backed by two or more sources, or by an official source: the claim stands.
+ * Backed by one wire and a designation: say what the wire said. "Reported out"
+ * for an OUT designation we are willing to show at all — the designation goes
+ * through badgeableInjuryDesignation first, because a fabricated
+ * "Questionable" is exactly the kind of string that must not be promoted into
+ * a sentence (see #96/#97) — and otherwise the neutral "single report", which
+ * claims nothing.
+ */
+function verifiedTimingStage(situation: BoardSituation) {
+  const signal = situation.signal as AnyBoardSignal | undefined;
+  if (verifiedClaimIsBacked({ sourceCount: situation.sourceCount, officialSource: hasOfficialSource(signal) })) {
+    return "ES Agents verified";
+  }
+  const designation = normalizeInjuryDesignation(
+    badgeableInjuryDesignation(signal?.injuryDesignation, `${situation.title} ${situation.detail ?? ""}`),
+  );
+  if (designation === "OUT") return "Reported out";
+  return "single report";
+}
+
+/** The source context that decides whether a situation's "Verified" is earned. */
+function verifiedClaimContextFor(situation: BoardSituation) {
+  return {
+    sourceCount: situation.sourceCount,
+    officialSource: hasOfficialSource(situation.signal as AnyBoardSignal | undefined),
+  };
+}
+
+/**
+ * Whether an official source is attached — an injury report, a depth chart or a
+ * transaction wire. Same test signalBoardUx uses for the same question; it is
+ * repeated rather than imported because that module is upstream of this one.
+ */
+function hasOfficialSource(signal?: AnyBoardSignal) {
+  const text = [...(signal?.sourceLabels ?? []), ...(signal?.sourceTypes ?? [])].join(" ").toLowerCase();
+  return text.includes("official") || text.includes("injury report") || text.includes("depth chart") || text.includes("transaction wire");
 }
 
 function urgencyLabel(score: number) {
@@ -1221,10 +1279,16 @@ function editorialHeadline(row: SituationRowData, matchup?: string) {
 
   if (isMarketDominantTitle(row.title) || context.includes("market")) {
     const label = cleanPublicMatchupLabel(matchup, team, opponent);
+    // What the move actually was, when we resolved one. The old headline here
+    // read "<matchup> line movement follows late availability context" (or
+    // "late roster context" in MLB) on EVERY market row in the league — it
+    // asserted a cause, the same cause every time, that no field on the row
+    // supports. A line move is a line move; a roster or availability story
+    // behind it is a separate claim with separate evidence.
+    const moved = marketMoveHeadline(row, label || team);
+    if (moved) return moved;
     if (!label) return publicFallbackLabel(context, row.league);
-    return row.league === "MLB"
-      ? `${label} line movement follows late roster context`
-      : `${label} line movement follows late availability context`;
+    return `${label} market moves`;
   }
 
   if (context.includes("lineup") || context.includes("scratch") || context.includes("starter")) {
@@ -1250,6 +1314,28 @@ function editorialHeadline(row: SituationRowData, matchup?: string) {
  * Containment only counts past 20 characters: a short fragment inside a longer
  * sentence is a coincidence, not a duplicate.
  */
+/**
+ * "DAL total moves 48.5 → 54.5" / "DAL spread moves −3.5 → −4.5", or the
+ * no-opener form "DAL total now 54.5".
+ *
+ * Undefined when the row carries no resolved move, or when there is nothing to
+ * call the game by — a headline is the one line that has to stand alone, and
+ * "total moves 48.5 → 54.5" with no subject does not.
+ */
+function marketMoveHeadline(row: SituationRowData, subject?: string): string | undefined {
+  const move = row.marketMove;
+  if (!move || move.kind === "unknown") return undefined;
+  const who = subject?.trim();
+  if (!who) return undefined;
+  // move.text already carries the market word and the numbers in the form the
+  // card uses; the headline needs the same facts read as a sentence, so it is
+  // rebuilt rather than embedded.
+  const numbers = move.text.replace(/^(Total|Spread|[A-Z]{2,5})\s*/, "");
+  return move.fromOpener
+    ? `${who} ${move.kind} moves ${numbers}`
+    : `${who} ${move.kind} ${numbers}`;
+}
+
 function isSameClaim(left?: string, right?: string): boolean {
   const norm = (v?: string) => String(v ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
   const a = norm(left);
@@ -1365,26 +1451,27 @@ function marketContextSentence(league?: string) {
 }
 
 function storyWhyItMatters(row: SituationRowData): string | undefined {
-  const text = `${row.title} ${row.subtitle ?? ""} ${row.market ?? ""}`.toLowerCase();
-  if (text.includes("market") || text.includes("line move")) {
-    return row.league === "NBA"
-      ? "A pre-tip move can point to starter, rotation, late-scratch, injury, or availability context that has not fully surfaced."
-      : "A move can point to lineup, pitcher, injury, weather, bullpen, or availability context that has not fully surfaced.";
-  }
-  if (text.includes("injury") || text.includes("out") || text.includes("questionable")) {
-    if (row.league === "NBA") return "Availability changes can shift starters, rotations, usage, and pre-tip pricing.";
-    if (row.league === "MLB") return "Availability changes can shift lineups, bullpen planning, pitcher usage, and pricing.";
-    if (row.league === "NFL") return "Availability changes can shift depth charts, snap share, target distribution, and game-week pricing.";
-    if (row.league === "CFB") return "Availability changes can shift depth charts, scheme reads, and how the program enters the week.";
-    return "Availability changes can shift lineups, defensive alignment, and pricing.";
-  }
+  // No keyword templates. The two branches that used to live here were chosen
+  // by searching the row's own text for "market" or "injury" and then printing
+  // one sentence per league — so every market story in CFB said the same thing
+  // about depth charts and scheme reads, and every NBA move said the same
+  // thing about rotations, whoever the story was about. A sentence that is
+  // identical on every card in a league is not a reason the story matters; it
+  // is a label for the league.
+  //
+  // What is left is the row's OWN evidence growth, which is derived from this
+  // situation's evidence and differs between situations. When the row has none,
+  // the tile is omitted — the same choice storyWatchNext made.
   if (row.evidenceGrowthLabel) return cleanStoryLine(row.evidenceGrowthLabel);
   return undefined;
 }
 
 function storyWatchNext(row: SituationRowData): string | undefined {
   const SUPPRESSED_TIMING_VALUES = ["public confirmation", "cooling story", "quiet board", "fully priced"];
-  const timingRaw = row.uncertaintyLabel ?? row.timingStageLabel;
+  // The three engine-state sentences are not a next step. See
+  // isGenericUncertaintyLine for what they are and how many rows they cover.
+  const uncertainty = isGenericUncertaintyLine(row.uncertaintyLabel) ? undefined : row.uncertaintyLabel;
+  const timingRaw = uncertainty ?? row.timingStageLabel;
   const timing = timingRaw ? cleanStoryLine(timingRaw) : undefined;
   if (timing && !SUPPRESSED_TIMING_VALUES.some((v) => timing.toLowerCase().includes(v))) return timing;
   // Previously fell through to one sentence per league. Those were printed
