@@ -242,7 +242,66 @@ export function dedupePublicGames<T extends PublicGameLike>(games: T[]): T[] {
       byKey.set(key, game);
     }
   }
-  return Array.from(byKey.values()).sort((a, b) => (gameTimeMs(a) ?? 0) - (gameTimeMs(b) ?? 0));
+  return collapseRescheduledGames(Array.from(byKey.values()))
+    .sort((a, b) => (gameTimeMs(a) ?? 0) - (gameTimeMs(b) ?? 0));
+}
+
+/**
+ * Second pass: collapse the two rows a RESCHEDULE leaves behind.
+ *
+ * `gameDedupeKey` includes the UTC day, which is correct for the duplicate it
+ * was built for — two feeds describing the same game on the same day. It
+ * cannot see this one. The canonical game id is LEAGUE_DATE_AWAY_HOME, so when
+ * a start time moves across a UTC midnight the adapter mints a NEW row; the old
+ * one is orphaned, keeps its original time, and is never updated again. Both
+ * rows are in the window, both are the same two teams, and the day differs — so
+ * the first pass keeps both and the board lists the game twice.
+ *
+ * Measured against prod on 2026-11-19: 73 CFB games in the public window, six
+ * of them double-listed, every pair sharing one `source_game_id` with start
+ * times 3.5 to 12 hours apart (e.g. WAR @ PAC at 2026-11-21T15:30Z and
+ * 2026-11-22T03:30Z). Both rows scored 5 on completeness, so the first pass
+ * could not have separated them even with the day removed from its key.
+ *
+ * KEYED ON source_game_id, which is the upstream feed's own event id and the
+ * only field that survives the id change. League is in the key because that id
+ * comes from a different feed per league and nothing guarantees it is unique
+ * across them. A row with NO source id is kept as-is rather than collapsed with
+ * other unidentified rows.
+ *
+ * NEWEST WINS, not most complete: the surviving row is the one the feed is
+ * still updating, and it carries the corrected start time. Freshness is
+ * updated_at, then created_at; a row with neither loses to one that has either,
+ * and two rows with neither keep their existing order.
+ */
+function collapseRescheduledGames<T extends PublicGameLike>(games: T[]): T[] {
+  const bySource = new Map<string, T>();
+  const unidentified: T[] = [];
+
+  for (const game of games) {
+    const source = String(game.source_game_id ?? "").trim();
+    if (!source) {
+      unidentified.push(game);
+      continue;
+    }
+    const key = `${String(game.league ?? game.sport ?? "").toUpperCase()}:${source}`;
+    const current = bySource.get(key);
+    if (!current || gameFreshnessMs(game) > gameFreshnessMs(current)) {
+      bySource.set(key, game);
+    }
+  }
+
+  return [...unidentified, ...bySource.values()];
+}
+
+/** When this row was last written, for "newest wins". */
+function gameFreshnessMs(game: PublicGameLike) {
+  for (const raw of [game.updated_at, game.created_at]) {
+    if (!raw) continue;
+    const time = new Date(raw).getTime();
+    if (!Number.isNaN(time)) return time;
+  }
+  return Number.NEGATIVE_INFINITY;
 }
 
 export function publicStatusLabel(value?: string | null) {
