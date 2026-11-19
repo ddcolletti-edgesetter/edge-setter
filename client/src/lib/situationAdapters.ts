@@ -14,6 +14,7 @@ import {
   rankCanonicalSituations,
   type CanonicalSituation,
 } from "./situationsApi";
+import { parsePipelineMoveSummary, resolveMarketMove, type MarketMove } from "./marketMove";
 import { publicConfidenceLabel } from "./storyLanguage";
 
 export function canonicalSituationsToBoardSituations(
@@ -32,6 +33,7 @@ export function canonicalSituationToBoardSituation(situation: CanonicalSituation
   const cooling = isCoolingCanonicalSituation(situation);
   const confidenceMovement = confidenceMovementLabel(situation);
   const convergence = sourceConvergenceLabel(situation);
+  const marketMove = canonicalMarketMove(situation);
 
   return {
     id: `canonical-${situation.id}`,
@@ -62,7 +64,14 @@ export function canonicalSituationToBoardSituation(situation: CanonicalSituation
     timingAdvantage: cooling ? quietTimingCopy(situation.lifecycleState) : timingPressureCopy(situation.timingPressure),
     detectionLeadTime: computeDetectionLeadDisplay(situation)?.lead,
     detectionLeadKind: computeDetectionLeadDisplay(situation)?.kind,
-    marketReaction: situation.latestEvidence.find((event) => event.marketImpact)?.marketImpact ?? canonicalUncertaintySummary(situation) ?? latestEvidence,
+    // The resolved move when we have one: it names the market AND both numbers,
+    // where `marketImpact` alone reads "total moved 3 up" — true, but it leaves
+    // the reader to find the numbers in copy that calls them a team's spread.
+    marketReaction: marketMove?.text
+      ?? situation.latestEvidence.find((event) => event.marketImpact)?.marketImpact
+      ?? canonicalUncertaintySummary(situation)
+      ?? latestEvidence,
+    marketMove,
     replayChain: [
       "First seen",
       canonicalLifecycleLabel(situation.lifecycleState),
@@ -108,6 +117,37 @@ export function mergeCanonicalWithBoardSituations(
   // After the storyKey pass, not before: a signal row dropped as a duplicate of
   // a canonical row must not leave behind a matchup it alone was covering.
   return dropGameSituationsCoveredByStories([...canonical, ...remainingFallback]);
+}
+
+/**
+ * The market move behind a canonical situation, when it is one.
+ *
+ * This lane is the inverse of the signal lane. It KNOWS which market moved —
+ * `marketImpact` is built from `market_context`, the one place the odds
+ * adapter's own `market: "spread" | "total"` survives — but it carries no
+ * `line_movement` object, so the two numbers have to come back out of the
+ * pipeline summary. See parsePipelineMoveSummary.
+ *
+ * It also carries no game id, only `teams`, so there is no games row to read
+ * `open_spread` / `open_total` from and the "from the opener" claim cannot be
+ * checked here the way it is on a signal row. That is why no openers are
+ * passed: an unchecked claim keeps the arrow, because a missing games row is
+ * not evidence against the move's own record of its open. A canonical row and
+ * a signal row for the same total can therefore disagree about the arrow — the
+ * signal row is the one with the evidence.
+ */
+function canonicalMarketMove(situation: CanonicalSituation): MarketMove | undefined {
+  const evidence = situation.latestEvidence.find((event) => event.marketImpact);
+  if (!evidence?.marketImpact) return undefined;
+  const parsed = parsePipelineMoveSummary(evidence.summary) ?? parsePipelineMoveSummary(situation.summary);
+  if (!parsed) return undefined;
+  return resolveMarketMove({
+    open: parsed.open,
+    current: parsed.current,
+    team: parsed.team,
+    league: situation.league,
+    marketImpact: situation.latestEvidence.map((event) => event.marketImpact),
+  });
 }
 
 export function canonicalBoardEscalationState(situation: CanonicalSituation): SituationEscalationState {

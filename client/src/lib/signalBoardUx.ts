@@ -1,4 +1,5 @@
 import { shouldCapSingleSourceStrength } from "./storyLanguage";
+import type { MarketMove } from "./marketMove";
 
 export type SignalLifecycle = "Early" | "Developing" | "Confirmed" | "Widely Known" | "Expiring" | "Stale";
 export type OperationalLifecycle =
@@ -255,10 +256,22 @@ export function signalTimingAdvantage(signal: BoardSignalLike) {
   return "monitoring only";
 }
 
-export function signalMarketReaction(signal: BoardSignalLike) {
+/**
+ * @param move The resolved market move for this signal, from
+ *   {@link resolveMarketMove}. Without it this function can only print the two
+ *   bare numbers — "48.5 -> 54.5" — which is a total described as if the reader
+ *   already knew it was one. Callers that hold the signal's games row pass it;
+ *   the parameter is optional so the ones that do not still get the old pair
+ *   rather than nothing.
+ */
+export function signalMarketReaction(signal: BoardSignalLike, move?: MarketMove) {
   if (!signalHasMovement(signal)) return "market reaction quiet";
   const movement = signal.lineMovement as { open?: string; current?: string; note?: string } | null | undefined;
-  const fromTo = movement?.open && movement.current ? `${movement.open} -> ${movement.current}` : "Context shifted";
+  const fromTo = move
+    ? move.text
+    : movement?.open && movement.current
+      ? `${movement.open} -> ${movement.current}`
+      : "Context shifted";
   const verdict = (signal.verdict ?? signal.status_tag ?? "").toLowerCase();
   const type = (signal.type ?? "").toLowerCase();
   if (type.includes("line")) return `${fromTo}; market reaction as supporting context`;

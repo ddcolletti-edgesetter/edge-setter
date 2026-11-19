@@ -8,6 +8,7 @@ import { deriveSignalVerificationState } from "@/lib/signalVerification";
 import { evidenceCountText, humanizeSignalType, marketFocusHeadline, publicConfidenceLabel, publicLifecycleLabel, publicStoryText, publicTimingLabel, publicUrgencyLabel, sourceCountText } from "@/lib/storyLanguage";
 import { toTeamAbbr } from "@/components/v2/SportVisuals";
 import { cfbGamesSchool, storedGameNames, teamDisplayLabel, teamDisplayName } from "@/lib/teamDisplayNames";
+import type { MarketMove } from "@/lib/marketMove";
 import type { LiveGamePillData, LiveGameStatus, BoardUrgency } from "./LiveGamePill";
 import type { SituationEscalationState, SituationEvidenceStep, SituationLifecycleVisualState, SituationMetric, SituationRowData } from "./SituationRow";
 
@@ -135,6 +136,19 @@ export type AnyBoardGame = {
   home_score?: number | null;
   away_score?: number | null;
   lineMovement?: unknown;
+  /**
+   * `games.open_spread` / `games.open_total` — this game's CURRENT opening
+   * numbers, as the games row holds them now.
+   *
+   * Carried so a line move can be told apart from the other market's move, and
+   * so the move's own stored `open` can be checked against the opener still on
+   * the board. Both spellings for the same reason the name fields have two.
+   * See lib/marketMove.
+   */
+  openSpread?: number | string | null;
+  openTotal?: number | string | null;
+  open_spread?: number | string | null;
+  open_total?: number | string | null;
   network?: string | null;
   conference?: string | null;
 };
@@ -144,6 +158,13 @@ export type AnyBoardGame = {
  * apply the same fallback order. Re-exported because this module is where the
  * rest of the client imports them from. */
 export { storedGameNames } from "@/lib/teamDisplayNames";
+
+/* Same arrangement, same reason: `resolveMarketMove` has to be reachable from
+ * lib/boardSituations and lib/signalBoardUx, which are both UPSTREAM of this
+ * module and must not import a file that pulls in React components. It lives in
+ * lib/marketMove and is re-exported here because this is where the rest of the
+ * client imports board copy helpers from. */
+export { resolveMarketMove, resolveSignalMarketMove, gameOpeners, type MarketKind, type MarketMove } from "@/lib/marketMove";
 
 /**
  * "Western Michigan Broncos @ Rice Owls" from an away/home token pair, plus
@@ -335,6 +356,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     detectionLeadTime: situation.detectionLeadTime,
     detectionLeadKind: situation.detectionLeadKind,
     marketReaction: situation.marketReaction,
+    marketMove: situation.marketMove,
     replayChain: situation.replayChain,
   };
 }
@@ -1245,11 +1267,15 @@ function dedupeAgainst(value: string | undefined, against: string | undefined): 
 }
 
 function editorialDeck(row: SituationRowData, headline: string): string | undefined {
-  const candidates = [
-    row.subtitle,
-    row.marketReaction,
-    row.market,
-  ].map((v) => cleanStoryLine(v)).filter(Boolean) as string[];
+  // On a resolved market move all three candidates are the SAME claim, and the
+  // one that wins — `subtitle` — is the mangled form: the canonical lane's
+  // subtitle is the pipeline summary, so the deck printed "DAL: +48.5 → +54.5"
+  // directly above a "What happened" tile that had just said "Total 48.5 →
+  // 54.5". The move belongs in one place, and `storyWhatHappened` is where it
+  // leads, so the deck skips straight to whatever else the row can offer.
+  const candidates = (row.marketMove ? [] : [row.subtitle, row.marketReaction, row.market])
+    .map((v) => cleanStoryLine(v))
+    .filter(Boolean) as string[];
   const summary = candidates.find((s) => s.toLowerCase() !== headline.toLowerCase());
   if (summary) return summary;
   const specific = situationDek(row);
@@ -1313,14 +1339,29 @@ function relatedWatchItems(row: SituationRowData, lines: { headline: string; wha
 
 function storyWhatHappened(row: SituationRowData) {
   const headline = editorialHeadline(row, row.matchup ?? matchupFromIdentity(row.sportsIdentity));
+  // A resolved market move states the market and the two numbers itself, so it
+  // leads. Everything the row would otherwise have offered here says the same
+  // thing wrong: `subtitle` on a game row is the pipeline headline, which reads
+  // "MIL: +225.5 → +228.5" for a TOTAL, and on a signal row it is the body,
+  // which asserts "from the opener" for an open the games row has since
+  // replaced. Neither is cleaned up by rewording — the fix is to print the
+  // move we actually resolved. The market-context sentence is kept after it
+  // because it is the part of the old copy that was true.
+  if (row.marketMove) {
+    return `${row.marketMove.text}. ${marketContextSentence(row.league)}`;
+  }
   const summary = cleanStoryLine(row.subtitle ?? row.marketReaction ?? row.market);
   if (summary && summary.toLowerCase() !== headline.toLowerCase()) return factualEvent(summary, row);
   if (row.market?.toLowerCase().includes("market") || row.title.toLowerCase().includes("line move")) {
-    return row.league === "NBA"
-      ? "The pre-tip market moved before the full availability picture was clear."
-      : "The market moved before the full lineup, pitching, injury, or weather picture was clear.";
+    return marketContextSentence(row.league);
   }
   return factualEvent(cleanRawReport(row.title), row);
+}
+
+function marketContextSentence(league?: string) {
+  return league === "NBA"
+    ? "The pre-tip market moved before the full availability picture was clear."
+    : "The market moved before the full lineup, pitching, injury, or weather picture was clear.";
 }
 
 function storyWhyItMatters(row: SituationRowData): string | undefined {

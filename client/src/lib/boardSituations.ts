@@ -12,6 +12,7 @@ import { ageHoursFrom } from "./storyAge";
 import type { Sport } from "./leagueModifiers";
 import { hasValidPublicSignalIdentity } from "./publicDisplayHygiene";
 import { storedGameNames, teamDisplayLabel } from "./teamDisplayNames";
+import { gameOpeners, resolveSignalMarketMove, type MarketMove } from "./marketMove";
 import {
   signalAgeMinutes,
   signalConfidence,
@@ -77,6 +78,13 @@ export type BoardSituation = {
   detectionLeadTime?: string;
   detectionLeadKind?: "confirmation" | "pickup";
   marketReaction?: string;
+  /**
+   * Which market a line move happened in, and the sentence to print for it.
+   * Resolved HERE, not in the adapters, because this is the only place that
+   * holds both the signal (the move's own numbers) and the games row (the
+   * market's current openers) at the same time. See resolveMarketMove.
+   */
+  marketMove?: MarketMove;
   replayChain?: string[];
   isLive: boolean;
   isActionable: boolean;
@@ -120,14 +128,29 @@ export type BoardGameInput = {
   total?: string | null;
   signals?: number | null;
   lineMovement?: unknown;
+  /** `games.open_spread` / `games.open_total`. See gameOpeners in lib/marketMove. */
+  openSpread?: number | string | null;
+  openTotal?: number | string | null;
+  open_spread?: number | string | null;
+  open_total?: number | string | null;
   homeScore?: number | null;
   awayScore?: number | null;
   home_score?: number | null;
   away_score?: number | null;
 };
 
-export function toBoardSignalSituation(signal: BoardSignalInput, league: Sport): BoardSituation {
+/**
+ * @param game The games row this signal sits on, when the caller found one.
+ *   Its openers are what tells a total move from a spread move, and whether the
+ *   move's own `open` is still the opener. Optional: a signal that matched no
+ *   game still gets a row, with its market resolved from magnitude alone.
+ */
+export function toBoardSignalSituation(signal: BoardSignalInput, league: Sport, game?: BoardGameInput): BoardSituation {
   const escalation = deriveBoardEscalation(signal);
+  const marketMove = resolveSignalMarketMove(signal as { team?: string | null; lineMovement?: unknown }, {
+    league,
+    ...gameOpeners(game),
+  });
   const isActionable = signalIsActionable(signal);
   const lifecycle = signalLifecycle(signal);
   const isConfirmed = lifecycle === "Confirmed";
@@ -156,7 +179,8 @@ export function toBoardSignalSituation(signal: BoardSignalInput, league: Sport):
     confidenceNote: signalConfidenceNarrative(signal),
     sourceSummary: signalSourceSummary(signal),
     timingAdvantage: signalTimingAdvantage(signal),
-    marketReaction: signalMarketReaction(signal),
+    marketReaction: signalMarketReaction(signal, marketMove),
+    marketMove,
     replayChain: signalReplayChain(signal),
     isLive: false,
     isActionable,
@@ -173,6 +197,10 @@ export function toBoardGameSituation(
   const statusLabel = game.statusDescription ?? game.status ?? "Scheduled";
   const isLive = isLiveStatus(statusLabel);
   const topSignal = rankSignals(relatedSignals)[0];
+  const marketMove = resolveSignalMarketMove(topSignal as { team?: string | null; lineMovement?: unknown } | undefined, {
+    league,
+    ...gameOpeners(game),
+  });
   const escalation = topSignal
     ? deriveBoardEscalation(topSignal, { isLiveGame: isLive })
     : isLive
@@ -225,7 +253,8 @@ export function toBoardGameSituation(
     confidenceNote: topSignal ? signalConfidenceNarrative(topSignal) : "Game context only; no verified story attached",
     sourceSummary: topSignal ? signalSourceSummary(topSignal) : "Source agreement pending",
     timingAdvantage: topSignal ? signalTimingAdvantage(topSignal) : isLive ? "Live game, no elevated story" : "Scheduled context only",
-    marketReaction: topSignal ? signalMarketReaction(topSignal) : game.lineMovement ? "Market reaction logged on game" : "Market reaction quiet",
+    marketReaction: topSignal ? signalMarketReaction(topSignal, marketMove) : game.lineMovement ? "Market reaction logged on game" : "Market reaction quiet",
+    marketMove,
     replayChain: topSignal ? signalReplayChain(topSignal) : ["Story detected", isLive ? "Live watch" : "Scheduled watch"],
     isLive,
     isActionable,
@@ -244,7 +273,15 @@ export function buildBoardSituations({
   signals?: BoardSignalInput[];
 }): BoardSituation[] {
   const publicSignals = signals.filter((signal) => hasValidPublicSignalIdentity(signal) && !isOpeningLineOnlyBoardSignal(signal));
-  const signalSituations = publicSignals.map(signal => toBoardSignalSituation(signal, league));
+  // The signal's own game, so its market move can be checked against that
+  // game's openers. The same predicate the game rows below use to collect their
+  // related signals, read the other way round; ambiguous is the same as absent,
+  // because an opener from the wrong game is worse than no opener at all.
+  const gameForSignal = (signal: BoardSignalInput) => {
+    const matches = games.filter(game => signalMatchesGame(signal, game));
+    return matches.length === 1 ? matches[0] : undefined;
+  };
+  const signalSituations = publicSignals.map(signal => toBoardSignalSituation(signal, league, gameForSignal(signal)));
   const gameSituations = games.map(game => {
     const related = publicSignals.filter(signal => signalMatchesGame(signal, game));
     return toBoardGameSituation(game, league, related);

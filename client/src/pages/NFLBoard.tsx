@@ -51,6 +51,13 @@ type NFLLiveGame = {
   homeScore: number | null;
   awayScore: number | null;
   cachedAt: Date;
+  /**
+   * `games.open_spread` / `games.open_total`. Carried so a line move on this
+   * game can be told apart from a move in the other market — see
+   * lib/marketMove. Null on a row the games table has no opener for.
+   */
+  openSpread: number | null;
+  openTotal: number | null;
   signals?: number;
 };
 
@@ -128,6 +135,8 @@ function NFLBoardInner() {
             homeScore: game.home_score ?? null,
             awayScore: game.away_score ?? null,
             cachedAt: new Date(game.updated_at ?? game.created_at),
+            openSpread: game.open_spread ?? null,
+            openTotal: game.open_total ?? null,
             signals: game.signals ?? undefined,
           }));
         setLiveGames(adapted);

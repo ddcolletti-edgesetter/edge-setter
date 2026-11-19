@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock3, Link2, Radio, Shield
 import { AgentCalibrationBadge } from "@/components/AgentCalibration";
 import { Badge } from "@/components/ui/badge";
 import { PlayerAvatar, TeamLogoImg, isUnknownTeamAbbr, toTeamAbbr } from "@/components/v2/SportVisuals";
+import type { MarketMove } from "@/lib/marketMove";
 import { publicLifecycleLabel, publicStoryText, sourceCountText } from "@/lib/storyLanguage";
 import { cn } from "@/lib/utils";
 import type { BoardUrgency } from "./LiveGamePill";
@@ -145,6 +146,13 @@ export interface SituationRowData {
   detectionLeadTime?: string;
   detectionLeadKind?: "confirmation" | "pickup";
   marketReaction?: string;
+  /**
+   * The resolved market move behind {@link marketReaction} — which market it
+   * happened in, whether it is still a move from the opener, and the sentence
+   * to print. Undefined on every row that is not a line move. See
+   * lib/marketMove.
+   */
+  marketMove?: MarketMove;
   replayChain?: string[];
   body?: string;
   detail?: string;
