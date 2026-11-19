@@ -233,6 +233,36 @@ function buildPreScore(ls: LiveSignal): SignalScore {
   };
 }
 
+/**
+ * The opponent token from a stored `matchup`, or undefined.
+ *
+ * `live_signals.matchup` is a PAIR — "GRE @ WAV", every one of the 166 matchups
+ * in a 200-signal prod sample. The three adapters below each fed that whole
+ * string into `opponent`, which is a single team, so every surface that prints
+ * `${team} vs ${opponent}` rendered "WAV vs GRE @ WAV": the team named twice
+ * and the separator left in. It is not CFB-specific — the same line is in the
+ * NBA/MLB and NFL adapters.
+ *
+ * Returns the side that is NOT `team`. Undefined whenever that cannot be
+ * established — no team, a pair that does not contain it, or a string that is
+ * not two tokens — because an unset opponent prints nothing, while a wrong one
+ * is a claim about who is playing whom. Callers already treat it as optional.
+ */
+export function opponentFromMatchup(matchup?: string | null, team?: string | null): string | undefined {
+  const sides = String(matchup ?? "")
+    .split(/\s+(?:@|vs\.?|at)\s+/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (sides.length !== 2) return undefined;
+
+  const normalized = String(team ?? "").trim().toUpperCase();
+  if (!normalized) return undefined;
+  const [away, home] = sides;
+  if (away.toUpperCase() === normalized) return home;
+  if (home.toUpperCase() === normalized) return away;
+  return undefined;
+}
+
 /** Relative timestamp string from ISO */
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -267,7 +297,7 @@ export function adaptToV2Signal(ls: LiveSignal, sport: "NBA" | "MLB"): V2Signal 
     type:         toV2Type(ls.signal_type),
     player:       ls.player ?? undefined,
     team:         ls.team ?? "—",
-    opponent:     ls.matchup ?? undefined,
+    opponent:     opponentFromMatchup(ls.matchup, ls.team),
     headline:     ls.headline,
     detail:       ls.body,
     why_it_matters:   ls.why_it_matters,
@@ -315,7 +345,7 @@ export function adaptToNFLSignal(ls: LiveSignal): NFLSignal & { _score: SignalSc
     type:         toNFLType(ls.signal_type),
     player:       ls.player ?? undefined,
     team:         ls.team ?? "—",
-    opponent:     ls.matchup ?? undefined,
+    opponent:     opponentFromMatchup(ls.matchup, ls.team),
     headline:     ls.headline,
     detail:       ls.body,
     why_it_matters:   ls.why_it_matters,
@@ -362,7 +392,7 @@ export function adaptToCFBSignal(ls: LiveSignal): CFBSignal & { _score: SignalSc
     type:         toCFBType(ls.signal_type),
     player:       ls.player ?? undefined,
     team:         ls.team ?? "—",
-    opponent:     ls.matchup ?? undefined,
+    opponent:     opponentFromMatchup(ls.matchup, ls.team),
     headline:     ls.headline,
     detail:       ls.body,
     why_it_matters:   ls.why_it_matters,

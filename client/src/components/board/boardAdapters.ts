@@ -238,7 +238,19 @@ export function toLiveGamePillData(
     },
     status: normalizeGameStatus(status),
     clock: isLive ? status : undefined,
-    period: game.time ?? formatGameTime(game.gameDate ?? game.game_time),
+    // The SAME gate the story card applies to its kickoff line — see
+    // KICKOFF_TRUSTED_LEAGUES. Both surfaces read the same first-writer-wins
+    // games.game_time, so a league whose stored start time the card will not
+    // print has no business being printed here either; the slate was the one
+    // place a stale CFB time still reached a reader. An undefined period simply
+    // drops the element (LiveGamePill renders it conditionally), and the
+    // strip's featured line already falls back to the status label.
+    //
+    // A LIVE game is gated too: `clock` carries the live status separately, and
+    // the value this would print is still the stored kickoff.
+    period: kickoffIsTrustedForLeague(sport)
+      ? game.time ?? formatGameTime(game.gameDate ?? game.game_time)
+      : undefined,
     market: [game.spread, game.total].filter(Boolean).join(" / ") || undefined,
     note: game.network ?? game.conference ?? undefined,
     urgency: urgencyForGameStatus(status, relatedCount),
@@ -559,9 +571,32 @@ export function formatKickoff(value?: Date | string | null): string | undefined 
  * as "we don't have the time", which is true, and is the same blank the card
  * already shows for a missing or unparseable value — so no new code path.
  *
- * NFL is enabled because its schedule is written by the ESPN schedule
+ * WHY NFL IS THE ONE ENABLED — and what this comment used to say
+ * ──────────────────────────────────────────────────────────────
+ * It said "NFL is enabled because its schedule is written by the ESPN schedule
  * ingester before any odds adapter sees the game, so the first writer is also
- * the authoritative one.
+ * the authoritative one." THAT INGESTER DOES NOT EXIST. Exactly two modules
+ * outside the historical backfills write a games row —
+ * `adapters/the-odds-api.ts` (every league) and `adapters/mlb-statsapi.ts`
+ * (MLB only) — and `adapters/espn-nfl.ts` exports injuries and final scores,
+ * nothing that touches the schedule. The only other write to the table is the
+ * final-score UPDATE, which sets status and the two scores and never
+ * `game_time`. So for NFL the first writer IS the odds adapter, the same
+ * source the gate exists to be cautious about.
+ *
+ * What is actually true is narrower: `game_time` is first-writer-wins, and NFL
+ * kickoff windows are fixed months ahead and move rarely, so the first value
+ * the odds feed gives for an NFL game is almost always the right one. CFB start
+ * times are routinely corrected after the row exists — measured against prod on
+ * 2026-11-19, six of the 73 CFB games in the public window had a SECOND row
+ * from the same feed event with a start time 3.5 to 12 hours later, and the
+ * original row's time was never corrected. That is a judgment about two feeds'
+ * reliability, not a provenance guarantee, and it should be read as one.
+ *
+ * MLB is the only league with a schedule feed of its own (`ingestMLBSchedule`),
+ * which makes it the best-supported candidate to enable next — but it still
+ * races the odds adapter for the INSERT, so it is not automatically trustworthy
+ * either.
  *
  * TURNING ON A LEAGUE LATER
  * ─────────────────────────
@@ -569,7 +604,10 @@ export function formatKickoff(value?: Date | string | null): string | undefined 
  * for a trusted source — the planned fix is to add
  * `game_time=excluded.game_time` to the `ON CONFLICT` clauses of the schedule
  * upserts (NOT the odds path, which must never move a kickoff) — add that
- * league here and extend the test table. Nothing else needs to change.
+ * league here and extend the test table. Nothing else needs to change. Note
+ * that outside MLB there is no schedule upsert to make last-writer-wins: for
+ * NFL, NBA and CFB that fix means changing the odds path or adding a schedule
+ * ingester, which is a larger decision than this flag.
  */
 const KICKOFF_TRUSTED_LEAGUES = new Set(["NFL"]);
 
