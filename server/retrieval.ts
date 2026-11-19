@@ -17,6 +17,7 @@
  */
 
 import { getPipelineDb } from "./pipeline/store";
+import { resolveObservedOpener } from "./pipeline/odds-open-rebaseline";
 import { fetchNBAInjuries } from "./pipeline/adapters/balldontlie";
 import { fetchMLBTransactions } from "./pipeline/adapters/mlb-statsapi";
 
@@ -311,7 +312,7 @@ export function checkLineReaction(
 
   // Find the team's most recently updated game
   const game = db.prepare(`
-    SELECT spread_line, open_spread, total_line, open_total,
+    SELECT id, league, spread_line, open_spread, total_line, open_total,
            home_team, away_team, spread_team
     FROM games
     WHERE league = ?
@@ -330,6 +331,37 @@ export function checkLineReaction(
     return { ...noData, checked: true, notes: "Game found but no opening line recorded." };
   }
 
+  // Is this a market move, or a subtraction across a hole in our observation
+  // of the market? open_spread is insert-only, so on prod today it holds the
+  // 1 August futures price for every NFL game — and "NFL line moved +10.0 pts
+  // from open" is what this function used to report for one of those.
+  //
+  // checked:false rather than a softer note, because the caller
+  // (retrieverAgent, agents.ts) gates on `lineReaction.checked &&
+  // lineReaction.stance`: anything else still files a market evidence row, and
+  // the only honest content for that row is that there is no reading.
+  // Declining to answer has its own downstream consequence — see the PR — and
+  // that consequence is still better than an invented one.
+  const opener = resolveObservedOpener({
+    gameId: game.id as string,
+    league: (game.league as string) ?? league,
+    openSpread,
+    openTotal: game.open_total as number | null,
+    asOfIso: new Date().toISOString(),
+  });
+
+  if (!opener.observed) {
+    return {
+      ...noData,
+      checked: false,
+      openSpread,
+      currentSpread,
+      notes:
+        `Opening line is not observation-backed (${opener.status}` +
+        `${opener.gapDays !== null ? `, ${opener.gapDays}d gap` : ""}) — no market reading.`,
+    };
+  }
+
   const delta = currentSpread - openSpread;
 
   // Determine whether the movement validates an injury/negative claim:
@@ -337,9 +369,21 @@ export function checkLineReaction(
   // means: if team == spread_team → spread_line became more negative (bigger fav)
   // actually if team has an injury claim, the spread should move AGAINST them (they get worse).
   //
-  // Convention: spread_team is the favourite (spread_line is negative).
-  // If the injured team IS the favourite: their spread_line should decrease (more negative) → delta < 0
-  // If the injured team is NOT the favourite: spread_team (fav) should improve → delta > 0 (fav line goes up)
+  // THE CONVENTION BELOW IS WRONG, AND IS LEFT WRONG ON PURPOSE.
+  //
+  // It says spread_team is the favourite. It is not: the odds adapter sets
+  // `spread_team: shortCode(ag.home_team)` unconditionally, beside a
+  // spread_line read off the HOME team's outcome. Checked against prod — of
+  // 2,056 games rows carrying a spread across all four leagues, spread_team
+  // equals home_team in 2,056 of them, and 47 NFL rows carry a POSITIVE
+  // spread_line, i.e. a home underdog. So `teamIsFav` below is really
+  // `teamIsHome`, and for a home underdog the support/context branch is
+  // inverted.
+  //
+  // Not fixed here. Correcting it flips the stance on a population of
+  // evidence rows, which moves DST belief and therefore verdicts; that is a
+  // behaviour change with its own backtest, not a rider on a change about
+  // whether the opener was observed at all.
   //
   // Meaningful threshold: ≥0.5 point move
   const MEANINGFUL_DELTA = 0.5;

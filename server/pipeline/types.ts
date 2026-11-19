@@ -55,12 +55,35 @@ export interface Game {
   game_time: string;                // ISO 8601
   status: "scheduled" | "live" | "final" | "postponed";
   // Primary market snapshot (updated live)
-  spread_line: number | null;       // favourite perspective, e.g. -5.5
-  spread_team: string | null;       // which team is favoured
+  /**
+   * HOME perspective, always. Negative means the home team is favoured by
+   * that many points, positive means they are the underdog.
+   *
+   * This said "favourite perspective" until 2026-11; it never was. The odds
+   * adapter reads the point off the HOME outcome
+   * (`outcomes.find(o => o.name === ag.home_team).point`) and writes
+   * `spread_team: shortCode(ag.home_team)` beside it with no conditional. On
+   * prod, spread_team equals home_team in all 2,056 rows that carry a spread,
+   * and 47 NFL rows carry a positive spread_line — a home underdog, which the
+   * old wording could not describe.
+   */
+  spread_line: number | null;
+  /**
+   * The team spread_line is quoted from — i.e. the HOME team, always. Named
+   * for an intent the code never implemented; see spread_line above and the
+   * note on teamIsFav in retrieval.ts.
+   */
+  spread_team: string | null;
   total_line: number | null;        // e.g. 214
   moneyline_home: number | null;    // American odds
   moneyline_away: number | null;
-  // Open-market values (for CLV computation later)
+  /**
+   * The opening line, in the SAME home perspective as spread_line — it is a
+   * frozen copy of an earlier spread_line, written by the same upsertGame
+   * call. Insert-only, with exactly one audited exception: rebaselineGameOpen
+   * in odds-open-rebaseline.ts, which replaces an opener that is not on the
+   * same run of observations as the current line.
+   */
   open_spread: number | null;
   open_total: number | null;
   // Final scores (populated by settlement engine once game is complete)

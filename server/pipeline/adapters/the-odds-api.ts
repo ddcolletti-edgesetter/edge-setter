@@ -27,6 +27,7 @@
 import { upsertGame, touchGameSchedule, getGame, insertRawEvent, insertOddsSnapshot, getOddsFetchState, recordOddsFetchState, type OddsFetchState } from "../store";
 import type { League } from "../types";
 import { canonicalGameId } from "../canonical-game-id";
+import { resolveObservedOpener, rebaselineGameOpen, logRebaseline, oddsOpenRebaselineDays } from "../odds-open-rebaseline";
 
 const API_KEY = process.env.THE_ODDS_API_KEY ?? "";
 const BASE_URL = "https://api.the-odds-api.com/v4";
@@ -392,6 +393,8 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
   let gamesUpserted = 0;
   let eventsCreated = 0;
   let gamesFrozen = 0;
+  let gamesRebaselined = 0;
+  let movesSuppressed = 0;
 
   // ONE clock for the whole cycle, read AFTER the fetch resolved rather than
   // from the pre-fetch `now` the throttle used. The HTTP round trip sits
@@ -481,6 +484,56 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
     // Check if game already exists for open_line tracking
     const existing = getGame(gameId);
 
+    // GATE 5 — is the stored opener on the same run of observations as the
+    // price in hand? See odds-open-rebaseline.ts for why this is a question at
+    // all: open_spread is insert-only, and every future NFL game on prod has
+    // an opener from 1 August because that is the cycle the futures were
+    // posted on. Subtracting that from a November line produces a double-digit
+    // "move" that no one could have bet.
+    //
+    // Resolved BEFORE the writes below so the verdict is about this cycle's
+    // arrival, not about what this cycle is in the middle of storing. Only
+    // ever asked on the pre-kickoff path: after kickoff there is no snapshot,
+    // no market write and no move, so there is nothing for it to decide.
+    const opener = started ? null : resolveObservedOpener({
+      gameId,
+      league,
+      // The EFFECTIVE opener, matching exactly what the two move gates below
+      // compare against (`existing.open_spread ?? existing.spread_line`). A
+      // row with a null open_spread but a stored spread_line still measures
+      // its move from something, and that something is just as capable of
+      // being four months old.
+      openSpread: existing?.open_spread ?? existing?.spread_line ?? null,
+      openTotal: existing?.open_total ?? existing?.total_line ?? null,
+      asOfIso: new Date(cycleNowMs).toISOString(),
+      // TAIL, not the whole history, and the division of labour is the point.
+      // A hole is a tail gap exactly once — on the cycle that closes it — and
+      // that is the cycle where something needs doing. Looking further back
+      // every cycle would cost 802ms per CFB slate (measured on 160 games x
+      // 2,600 snapshots) to re-derive an answer that cannot have changed, and
+      // would quietly rewrite openers that predate this deploy with no
+      // operator in the loop. Those older holes are the repair script's job:
+      // script/rebaseline-stale-openers.ts, which asks with scope "history",
+      // prints what it would do, and writes only on --apply.
+      scope: "tail",
+    });
+
+    // What happens to the opener turns on whether the league kept being
+    // ingested through the hole:
+    //
+    //   active — the hole is this game's alone, so the stored opener is from a
+    //            market we stopped watching. Replace it with the price in hand
+    //            and start measuring from there.
+    //   silent — our ingester was down. The opener may well still be the real
+    //            one; we simply cannot say what the market did meanwhile. Keep
+    //            it, and say so.
+    //
+    // Either way no move goes out on the cycle that CROSSES the hole, because
+    // the only delta available there is measured across it. `suppressMove` is
+    // the crossing, not the hole: a hole stays in the history forever, and
+    // suppressing on its mere presence would silence the game until kickoff.
+    const suppressMove = opener?.suppressMove === true;
+
     // GATE 2 — the games row. Before kickoff, unchanged. After kickoff, the
     // conflict updates status and nothing else; the five market columns keep
     // their pre-game values (or stay NULL, if this game was first seen after
@@ -531,12 +584,50 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
     }
     gamesUpserted++;
 
+    // The one audited exception to the insert-only rule on open_spread /
+    // open_total. AFTER upsertGame, never instead of it: upsertGame's
+    // ON CONFLICT clause still does not name either column, so the two writes
+    // do not race for the same cell — the first preserves the old opener, the
+    // second replaces it, and the invariant that exactly one function other
+    // than the INSERT can move these columns stays checkable by grep.
+    if (opener?.shouldRebaseline) {
+      const result = rebaselineGameOpen(
+        gameId,
+        // Always the tail gap on this path (scope: "tail"), so the post-gap
+        // line is the price this cycle is holding. The `??` is belt and
+        // braces against a future caller widening the scope here.
+        opener.postGapSpread ?? spreadLine,
+        opener.postGapTotal ?? totalLine,
+        `observation gap of ${opener.gapDays}d (threshold ${opener.thresholdDays}d), league still ingesting`,
+        { nowIso: new Date(cycleNowMs).toISOString() },
+      );
+      if (result.written) gamesRebaselined++;
+    } else if (suppressMove) {
+      logRebaseline({
+        event: "move_suppressed_unobserved",
+        game_id: gameId,
+        league,
+        status: opener!.status,
+        gap_days: opener!.gapDays,
+        threshold_days: opener!.thresholdDays,
+        gap_from: opener!.gapFrom,
+        stored_open_spread: existing?.open_spread ?? null,
+        current_spread: spreadLine,
+      });
+      movesSuppressed++;
+    }
+
     // Detect line move — spread
     // Trigger: line changed this cycle AND cumulative move from open >= 0.5.
     // Comparing to spread_line (previous cycle) misses gradual moves that never
     // jump 0.5 in a single 15-min window but accumulate to a meaningful shift.
     // GATE 3a — an in-play spread move is not a market signal about the game.
-    if (!started && existing && spreadLine !== null && existing.spread_line !== null && spreadLine !== existing.spread_line) {
+    // GATE 5a — neither is a delta measured across a hole we have only just
+    // crossed. On the re-baselining verdict the open was replaced with this
+    // cycle's own price a few lines up, so the only move left to emit is zero;
+    // on the league-silent one the open is genuinely old and the delta across
+    // the hole is genuinely unknowable. Both are one cycle, not forever.
+    if (!started && !suppressMove && existing && spreadLine !== null && existing.spread_line !== null && spreadLine !== existing.spread_line) {
       const openSpread = existing.open_spread ?? existing.spread_line;
       const deltaFromOpen = Math.abs(spreadLine - openSpread);
       if (deltaFromOpen >= 0.5) {
@@ -571,7 +662,8 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
 
     // Detect line move — total
     // GATE 3b — same for totals. An in-play total is not a pre-game move.
-    if (!started && existing && totalLine !== null && existing.total_line !== null && totalLine !== existing.total_line) {
+    // GATE 5b — and the same observation-gap rule as the spread above.
+    if (!started && !suppressMove && existing && totalLine !== null && existing.total_line !== null && totalLine !== existing.total_line) {
       const openTotal = existing.open_total ?? existing.total_line;
       const totalDeltaFromOpen = Math.abs(totalLine - openTotal);
       if (totalDeltaFromOpen >= 0.5) {
@@ -638,6 +730,18 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
     console.log(
       `[odds-api] ${league}: ${gamesFrozen} of ${apiGames.length} game(s) past kickoff — ` +
       `no snapshot, no market-column overwrite, no line_move (ODDS_KICKOFF_GUARD)`,
+    );
+  }
+
+  // Same shape as the kickoff-guard line above, and silent when it did
+  // nothing: in steady state both of these are zero every cycle, and a cycle
+  // that prints them is one where a game came back from a hole or the whole
+  // league did. Per-game detail is in the [odds-open] lines.
+  if (gamesRebaselined > 0 || movesSuppressed > 0) {
+    console.log(
+      `[odds-api] ${league}: ${gamesRebaselined} opener(s) re-baselined, ` +
+      `${movesSuppressed} move(s) suppressed as unobserved ` +
+      `(ODDS_OPEN_REBASELINE_DAYS=${oddsOpenRebaselineDays()})`,
     );
   }
 
