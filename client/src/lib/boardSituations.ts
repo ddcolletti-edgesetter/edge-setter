@@ -11,6 +11,7 @@ import { getLeagueBoardProfile } from "./leagueBoardProfiles";
 import { ageHoursFrom } from "./storyAge";
 import type { Sport } from "./leagueModifiers";
 import { hasValidPublicSignalIdentity } from "./publicDisplayHygiene";
+import { storedGameNames, teamDisplayLabel } from "./teamDisplayNames";
 import {
   signalAgeMinutes,
   signalConfidence,
@@ -40,6 +41,18 @@ export type BoardSituation = {
   lane: SituationLane;
   escalation: BoardEscalation;
   title: string;
+  /**
+   * {@link title} with each side under the name the feed gave it, for DISPLAY
+   * only. Undefined when there is no better name than the tokens already in
+   * `title`, which is every signal-sourced situation and every games row with
+   * neither a stored name nor a CFB token one school owns.
+   *
+   * `title` itself stays in tokens because headline copy parses it —
+   * `editorialHeadline` reads it for the player, the team and the
+   * market-dominant test, and `storyTitleHasValidPlayerName` gates on it.
+   * Same split, and the same reason, as `matchup` / `matchupLabel`.
+   */
+  titleLabel?: string;
   detail?: string;
   gameId?: string | number;
   awayTeam?: string;
@@ -93,6 +106,11 @@ export type BoardGameInput = {
   homeTeam?: string | null;
   away_team?: string | null;
   home_team?: string | null;
+  /** `games.away_team_name` / `home_team_name`. See AnyBoardGame in boardAdapters. */
+  awayTeamName?: string | null;
+  homeTeamName?: string | null;
+  away_team_name?: string | null;
+  home_team_name?: string | null;
   status?: string | null;
   statusDescription?: string | null;
   gameDate?: Date | string | null;
@@ -171,6 +189,14 @@ export function toBoardGameSituation(
   const homeTeam = game.homeTeam ?? game.home_team ?? game.home ?? game.homeFull ?? "TBD";
   const id = game.id ?? `${league}-${awayTeam}-${homeTeam}`;
   const scores = scoreLabel(game);
+  // Display-only names for the title. The tokens above are untouched: they are
+  // the `awayTeam`/`homeTeam` fields below, which every logo lookup and every
+  // headline parser reads. See BoardSituation.titleLabel.
+  const stored = storedGameNames(game);
+  const awayLabel = teamDisplayLabel(awayTeam, stored.away, league) ?? awayTeam;
+  const homeLabel = teamDisplayLabel(homeTeam, stored.home, league) ?? homeTeam;
+  const title = scores ? `${awayTeam} @ ${homeTeam} ${scores}` : `${awayTeam} @ ${homeTeam}`;
+  const titleLabel = scores ? `${awayLabel} @ ${homeLabel} ${scores}` : `${awayLabel} @ ${homeLabel}`;
 
   return {
     id: `game-${String(id)}`,
@@ -178,7 +204,10 @@ export function toBoardGameSituation(
     league,
     lane,
     escalation,
-    title: scores ? `${awayTeam} @ ${homeTeam} ${scores}` : `${awayTeam} @ ${homeTeam}`,
+    title,
+    // Omitted, not echoed, when it adds nothing: an undefined titleLabel is how
+    // every consumer's `titleLabel ?? title` fallback stays honest.
+    titleLabel: titleLabel === title ? undefined : titleLabel,
     detail: topSignal?.headline ?? game.spread ?? game.total ?? undefined,
     gameId: id,
     awayTeam,
@@ -233,6 +262,67 @@ function isOpeningLineOnlyBoardSignal(signal: BoardSignalInput) {
   const current = Number(movement.current);
   const sameNumber = Number.isFinite(open) && Number.isFinite(current) && Math.abs(open - current) < 0.05;
   return sameNumber || /moved\s+\+?0(?:\.0+)?\s+pts?/i.test(movement.note ?? "");
+}
+
+/**
+ * The unordered pair of team tokens a situation names, or null when it does not
+ * name two distinct ones.
+ *
+ * Tokens, never the display names #101/#104 added: a games row stores
+ * `shortCode(odds name)` and a signal carries the same abbreviation, so the two
+ * lineages only line up before either is resolved to a school. Unordered
+ * because the two lineages disagree about direction on purpose — a games row is
+ * away-then-home, while a signal is subject-then-opponent, so prod serves
+ * `BEA @ GAM` for the game and `GAM-BEA` for the signal about it.
+ *
+ * "TBD" is not a team. Two unscheduled rows would otherwise share one pair and
+ * suppress each other.
+ */
+export function situationMatchupPair(situation: BoardSituation): string | null {
+  const away = normalizeTeamToken(situation.awayTeam ?? situation.team);
+  const home = normalizeTeamToken(situation.homeTeam ?? situation.opponent);
+  if (!away || !home || away === home) return null;
+  if (away === "tbd" || home === "tbd") return null;
+  return [away, home].sort().join("|");
+}
+
+/**
+ * Drop a game-derived row when a signal- or canonical-derived row already
+ * covers the same matchup.
+ *
+ * A game row is a scheduled-context placeholder: it carries no story of its own
+ * ("Game context only; no verified story attached"), and its whole contribution
+ * is the matchup, the kickoff and the score. When a real story already names
+ * both of the same teams, the game row is a second card saying less about the
+ * same fixture.
+ *
+ * Measured against the prod slates on 2026-11-19: 59 of 67 CFB game rows and
+ * 11 of 11 NFL game rows sat on a matchup that already had a story card.
+ *
+ * Only a row that names BOTH teams suppresses, and only an exact unordered
+ * match counts. A story about one team does not stand in for the fixture: a
+ * Georgia injury says nothing about who Georgia plays, and a one-sided rule
+ * would erase a game row for every team with any open story.
+ *
+ * Deliberately computed over the whole merged list rather than the filtered
+ * one, so a game row does not blink back into view when a lane or urgency
+ * filter hides the story that covers it.
+ */
+export function dropGameSituationsCoveredByStories(
+  situations: readonly BoardSituation[],
+): BoardSituation[] {
+  const covered = new Set<string>();
+  for (const situation of situations) {
+    if (situation.kind === "game") continue;
+    const pair = situationMatchupPair(situation);
+    if (pair) covered.add(pair);
+  }
+  if (!covered.size) return [...situations];
+  return situations.filter((situation) => {
+    if (situation.kind !== "game") return true;
+    const pair = situationMatchupPair(situation);
+    return !pair || !covered.has(pair);
+  });
 }
 
 export function rankBoardSituations(situations: BoardSituation[]): BoardSituation[] {

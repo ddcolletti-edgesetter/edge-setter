@@ -12,6 +12,26 @@ export interface SportsStoryVisualProps {
   sport?: Sport;
   primaryTeam?: string;
   secondaryTeam?: string;
+  /**
+   * Display names for {@link primaryTeam} / {@link secondaryTeam} — the name
+   * the games row stored, else the CFB token lookup. The caption prints these;
+   * the logos and the backdrop keep resolving from the tokens, because
+   * "Memphis Tigers" is not a logo key. Undefined falls back to the token.
+   */
+  primaryTeamName?: string;
+  secondaryTeamName?: string;
+  /**
+   * Whether the artwork prints its caption — the focus eyebrow, the subject
+   * line and the detail under it.
+   *
+   * On a STORY the subject is the player, which the artwork is the only place
+   * to name. On a MATCHUP the subject is the headline, which the card already
+   * prints several times larger a few pixels to the left; the caption is a
+   * fixed 250px column with `white-space: nowrap`, so that repeat arrived
+   * ellipsised ("Central Michigan Chi...") and said less than the two crests
+   * above it already did. False drops the block and keeps the crests.
+   */
+  showCaption?: boolean;
   player?: string;
   /** ESPN athlete id for {@link player}. When present (with a resolved sport), the
    *  visual renders the player's headshot over a team-badge/jersey backdrop,
@@ -46,6 +66,11 @@ export interface HeadlineStoryItem {
   rawSignal?: unknown;
 }
 
+/** A display name worth printing, or "" so `||` falls through to the token. */
+function displayName(value?: string) {
+  return value?.trim() || "";
+}
+
 const SPORT_FALLBACKS: Record<Sport, { label: string; texture: string }> = {
   nba: { label: "NBA", texture: "is-nba" },
   mlb: { label: "MLB", texture: "is-mlb" },
@@ -58,6 +83,9 @@ export function SportsStoryVisual({
   sport,
   primaryTeam,
   secondaryTeam,
+  primaryTeamName,
+  secondaryTeamName,
+  showCaption = true,
   player,
   playerEspnId,
   playerJersey,
@@ -73,7 +101,13 @@ export function SportsStoryVisual({
   const secondary = cleanTeamAbbr(secondaryTeam);
   const showMatchup = Boolean(secondary && secondary !== primary);
   const leagueLabel = league?.toUpperCase() ?? (resolvedSport ? SPORT_FALLBACKS[resolvedSport].label : "SPORT");
-  const subject = player || title || (showMatchup ? `${primary} @ ${secondary}` : primary);
+  // Caption-only. `primary`/`secondary` above are the lookup keys and are not
+  // touched. A name is only applied to the slot it was given for: `primary`
+  // can fall back to the SECONDARY token (or the league), and printing the
+  // away team's name over the home team's logo would be worse than a token.
+  const primaryLabel = (cleanTeamAbbr(primaryTeam) && displayName(primaryTeamName)) || primary;
+  const secondaryLabel = (secondary && displayName(secondaryTeamName)) || secondary;
+  const subject = player || title || (showMatchup ? `${primaryLabel} @ ${secondaryLabel}` : primaryLabel);
   const texture = resolvedSport ? SPORT_FALLBACKS[resolvedSport].texture : "is-generic";
 
   // Player headshot resolves from the roster-backed ESPN id. If it 404s, onError
@@ -132,11 +166,13 @@ export function SportsStoryVisual({
           </>
         ) : null}
       </div>
-      <div className="sports-story-visual-copy">
-        <span>{player ? "Player focus" : showMatchup ? "Matchup focus" : "Team focus"}</span>
-        <strong>{subject}</strong>
-        {detail && <small>{detail}</small>}
-      </div>
+      {showCaption && (
+        <div className="sports-story-visual-copy">
+          <span>{player ? "Player focus" : showMatchup ? "Matchup focus" : "Team focus"}</span>
+          <strong>{subject}</strong>
+          {detail && <small>{detail}</small>}
+        </div>
+      )}
     </div>
   );
 }
@@ -146,16 +182,24 @@ export function SportsImageFallback({
   sport,
   team,
   opponent,
+  teamName,
+  opponentName,
   player,
   storyType,
   className,
 }: Pick<SportsStoryVisualProps, "league" | "sport" | "player" | "storyType" | "className"> & {
   team?: string;
   opponent?: string;
+  /** Display names for {@link team} / {@link opponent}. See SportsStoryVisualProps. */
+  teamName?: string;
+  opponentName?: string;
 }) {
   const resolvedSport = sport ?? leagueToSport(league);
   const primary = cleanTeamAbbr(team) || league?.toUpperCase() || "ES";
   const secondary = cleanTeamAbbr(opponent);
+  // Caption-only, same split as SportsStoryVisual above.
+  const primaryLabel = (cleanTeamAbbr(team) && displayName(teamName)) || primary;
+  const secondaryLabel = (secondary && displayName(opponentName)) || secondary;
   return (
     <div className={cn("sports-image-fallback", resolvedSport && `is-${resolvedSport}`, className)}>
       <div className="sports-image-fallback-texture" />
@@ -165,7 +209,7 @@ export function SportsImageFallback({
       </div>
       <div className="sports-image-fallback-copy">
         <span>{league?.toUpperCase() ?? "SPORT"} / {storyType || "Story watch"}</span>
-        <strong>{player || (secondary && secondary !== primary ? `${primary} @ ${secondary}` : primary)}</strong>
+        <strong>{player || (secondary && secondary !== primary ? `${primaryLabel} @ ${secondaryLabel}` : primaryLabel)}</strong>
       </div>
     </div>
   );

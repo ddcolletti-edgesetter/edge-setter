@@ -297,12 +297,15 @@ describe("SituationStoryCard identity line", () => {
  * These are the cases to extend when a league is switched on.
  */
 describe("kickoff is gated by league", () => {
-  it("prints the kickoff for NFL, the one league whose first writer is authoritative", () => {
-    const story = toSituationStoryCardData(buildRow({ league: "NFL" }), [game()]);
-    expect(story.kickoff).toBe(expectedKickoff(KICKOFF_ISO));
-  });
+  it.each(["NFL", "NBA"])(
+    "prints the kickoff for %s, whose stored game_time was checked and holds",
+    (league) => {
+      const story = toSituationStoryCardData(buildRow({ league }), [game()]);
+      expect(story.kickoff).toBe(expectedKickoff(KICKOFF_ISO));
+    },
+  );
 
-  it.each(["CFB", "NBA", "MLB"])(
+  it.each(["CFB", "MLB"])(
     "omits the kickoff for %s, whose stored game_time can be wrong",
     (league) => {
       const story = toSituationStoryCardData(buildRow({ league }), [game()]);
@@ -328,12 +331,12 @@ describe("kickoff is gated by league", () => {
   });
 
   describe("kickoffIsTrustedForLeague", () => {
-    it("trusts NFL in any casing", () => {
-      expect(kickoffIsTrustedForLeague("NFL")).toBe(true);
-      expect(kickoffIsTrustedForLeague("nfl")).toBe(true);
+    it.each(["NFL", "NBA"])("trusts %s in any casing", (league) => {
+      expect(kickoffIsTrustedForLeague(league)).toBe(true);
+      expect(kickoffIsTrustedForLeague(league.toLowerCase())).toBe(true);
     });
 
-    it.each(["CFB", "NBA", "MLB", "", undefined])("does not trust %s", (league) => {
+    it.each(["CFB", "MLB", "", undefined])("does not trust %s", (league) => {
       expect(kickoffIsTrustedForLeague(league as string | undefined)).toBe(false);
     });
   });

@@ -7,7 +7,7 @@ import { hasCleanPublicTeamIdentity, hasCleanPublicText, hasMalformedPublicMatch
 import { deriveSignalVerificationState } from "@/lib/signalVerification";
 import { evidenceCountText, humanizeSignalType, marketFocusHeadline, publicConfidenceLabel, publicLifecycleLabel, publicStoryText, publicTimingLabel, publicUrgencyLabel, sourceCountText } from "@/lib/storyLanguage";
 import { toTeamAbbr } from "@/components/v2/SportVisuals";
-import { cfbSchoolForGamesToken } from "@/lib/cfbTeamLogos";
+import { cfbGamesSchool, storedGameNames, teamDisplayLabel, teamDisplayName } from "@/lib/teamDisplayNames";
 import type { LiveGamePillData, LiveGameStatus, BoardUrgency } from "./LiveGamePill";
 import type { SituationEscalationState, SituationEvidenceStep, SituationLifecycleVisualState, SituationMetric, SituationRowData } from "./SituationRow";
 
@@ -31,6 +31,13 @@ export type SituationStoryCardData = {
   matchup?: string;
   primaryTeam?: string;
   secondaryTeam?: string;
+  /**
+   * Display names for {@link primaryTeam} / {@link secondaryTeam}, for the
+   * visual's caption. The tokens stay as they are: they are the logo and
+   * sports-image lookup keys. Undefined when the row has no better name.
+   */
+  primaryTeamName?: string;
+  secondaryTeamName?: string;
   player?: string;
   /**
    * Short availability tag — "OUT" / "DOUBTFUL" / "QUESTIONABLE" and the
@@ -132,36 +139,11 @@ export type AnyBoardGame = {
   conference?: string | null;
 };
 
-/**
- * CFB `games`-table token -> school name, for display only.
- *
- * Returns undefined for every other league and for any token two schools share,
- * and the caller then prints the token exactly as it does today. Gated on
- * league because the resolver is only correct for games-sourced tokens — see
- * cfbSchoolForGamesToken for the FLA trap.
- */
-function cfbGamesSchool(token: string | undefined | null, league?: string): string | undefined {
-  if (String(league ?? "").toUpperCase() !== "CFB") return undefined;
-  return cfbSchoolForGamesToken(token) ?? undefined;
-}
-
-/**
- * The names the games row stored for its two sides, blanks dropped.
- *
- * See {@link AnyBoardGame}. A row written before the columns existed, or by a
- * feed with no name to give, yields `{}` and every caller falls through to what
- * it did before.
- */
-export function storedGameNames(game?: AnyBoardGame | null): { away?: string; home?: string } {
-  const clean = (value?: string | null) => {
-    const text = String(value ?? "").trim();
-    return text || undefined;
-  };
-  return {
-    away: clean(game?.awayTeamName ?? game?.away_team_name),
-    home: clean(game?.homeTeamName ?? game?.home_team_name),
-  };
-}
+/* `cfbGamesSchool` and `storedGameNames` moved to lib/teamDisplayNames so the
+ * row title — built in lib/boardSituations, upstream of every adapter — can
+ * apply the same fallback order. Re-exported because this module is where the
+ * rest of the client imports them from. */
+export { storedGameNames } from "@/lib/teamDisplayNames";
 
 /**
  * "Western Michigan Broncos @ Rice Owls" from an away/home token pair, plus
@@ -190,8 +172,7 @@ function cfbMatchupLabel(
 ): string | undefined {
   const isCfb = String(league ?? "").toUpperCase() === "CFB";
   if (!names?.away && !names?.home && !isCfb) return undefined;
-  const side = (token?: string | null, stored?: string) =>
-    stored ?? (token ? cfbGamesSchool(token, league) ?? token : undefined);
+  const side = (token?: string | null, stored?: string) => teamDisplayLabel(token, stored, league);
   return [side(away, names?.away), side(home, names?.home)].filter(Boolean).join(" @ ") || undefined;
 }
 
@@ -293,7 +274,12 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
 
   return {
     id: situation.id,
+    kind: situation.kind,
     title: fanFirstTitle(situation, canonical),
+    // Only a game row's raw title passes through fanFirstTitle untouched, so
+    // only a game row can carry the names version of it. Everything else gets
+    // a rewritten headline that the label would no longer match.
+    titleLabel: situation.kind === "game" ? situation.titleLabel : undefined,
     subtitle: situation.detail,
     league: situation.league,
     matchup: matchup || undefined,
@@ -571,8 +557,8 @@ export function formatKickoff(value?: Date | string | null): string | undefined 
  * as "we don't have the time", which is true, and is the same blank the card
  * already shows for a missing or unparseable value — so no new code path.
  *
- * WHY NFL IS THE ONE ENABLED — and what this comment used to say
- * ──────────────────────────────────────────────────────────────
+ * WHY NFL AND NBA ARE ENABLED — and what this comment used to say
+ * ───────────────────────────────────────────────────────────────
  * It said "NFL is enabled because its schedule is written by the ESPN schedule
  * ingester before any odds adapter sees the game, so the first writer is also
  * the authoritative one." THAT INGESTER DOES NOT EXIST. Exactly two modules
@@ -593,10 +579,35 @@ export function formatKickoff(value?: Date | string | null): string | undefined 
  * original row's time was never corrected. That is a judgment about two feeds'
  * reliability, not a provenance guarantee, and it should be read as one.
  *
+ * NBA IS ENABLED ON THE SAME KIND OF EVIDENCE, MEASURED DIRECTLY. The question
+ * the gate asks is not who wrote the row, it is whether the stored `game_time`
+ * is still when the game starts — and for a league that has already played,
+ * the finished games answer it. Measured against prod on 2026-11-19, over
+ * every one of the 138 NBA rows at `status='final'`: 137 of them were written
+ * final between 2.06 and 3.16 hours after their stored `game_time`. That is
+ * the length of a basketball game plus one pipeline cycle, and it can only be
+ * true if the stored tip-off is the real one. A stale start time would have
+ * shown up as a SPREAD of distances; this is a cluster, with 102 of the 137
+ * inside a single half-hour (2.25-2.75h) and 131 inside 2.25-3.00h.
+ *
+ * The 138th, CHA @ LAL on 2026-11-18, sits at 8.08h and is an ingestion-pause
+ * artefact rather than a late game: the pipeline wrote nothing at all between
+ * 04:59Z and 12:14Z that night, so the final-score write, not the tip-off, set
+ * that distance. It does not weaken the other 137 — it is the pipeline's clock
+ * being wrong about when it ran, not the feed's being wrong about when the
+ * game started.
+ *
+ * This is still a judgment, and it is a judgment about TODAY'S rows. It does
+ * not promise NBA start times can never move; it says the stored values we can
+ * check are right. If that stops being true the check is cheap to re-run —
+ * `game_time` to `updated_at` on `status='final'` rows, which is exactly what
+ * nba-kickoff-trust-evidence.test.ts replays against the captured data — and
+ * this flag is where the answer goes.
+ *
  * MLB is the only league with a schedule feed of its own (`ingestMLBSchedule`),
  * which makes it the best-supported candidate to enable next — but it still
  * races the odds adapter for the INSERT, so it is not automatically trustworthy
- * either.
+ * either, and nobody has run the finished-game check on it.
  *
  * TURNING ON A LEAGUE LATER
  * ─────────────────────────
@@ -607,9 +618,11 @@ export function formatKickoff(value?: Date | string | null): string | undefined 
  * league here and extend the test table. Nothing else needs to change. Note
  * that outside MLB there is no schedule upsert to make last-writer-wins: for
  * NFL, NBA and CFB that fix means changing the odds path or adding a schedule
- * ingester, which is a larger decision than this flag.
+ * ingester, which is a larger decision than this flag. A league can also be
+ * enabled the way NBA was, without any such change, by measuring that the
+ * stored times are in fact correct.
  */
-const KICKOFF_TRUSTED_LEAGUES = new Set(["NFL"]);
+const KICKOFF_TRUSTED_LEAGUES = new Set(["NFL", "NBA"]);
 
 export function kickoffIsTrustedForLeague(league?: string): boolean {
   return league !== undefined && KICKOFF_TRUSTED_LEAGUES.has(league.toUpperCase());
@@ -708,6 +721,12 @@ const verification = publicStoryText(mappedVerification, row.league);
     matchup: matchupDisplay,
     primaryTeam: identity?.awayTeam ?? identity?.team,
     secondaryTeam: identity?.homeTeam ?? identity?.opponent,
+    // Names for the caption only. primaryTeam/secondaryTeam above stay in
+    // tokens because they are the TeamLogoImg and resolveSportsImageAsset
+    // lookup keys. Tied to the awayTeam/homeTeam branch, not the
+    // team/opponent fallback, which is signal-sourced.
+    primaryTeamName: identity?.awayTeam ? identity.awayTeamName : undefined,
+    secondaryTeamName: identity?.homeTeam ? identity.homeTeamName : undefined,
     player: identity?.player,
     // Gated, not just normalized: a fabricated "Questionable" and a contradicted
     // badge are both withheld here. See badgeableInjuryDesignation for the
@@ -1092,9 +1111,22 @@ function sportsIdentityForSituation(situation: BoardSituation, canonical?: Canon
         : situation.league === "CFB" ? "cfb"
           : undefined;
   const guard = (v: string | undefined) => (v && isValidTeamToken(v, sport)) ? v : undefined;
+  const awayTeam = guard(situation.awayTeam ?? teams[0] ?? situation.team);
+  const homeTeam = guard(situation.homeTeam ?? teams[1] ?? situation.opponent);
+  // Same gate cfbMatchupLabelFromIdentity uses, for the same reason: without a
+  // real away/home pair these are injury-adapter abbreviations, where FLA
+  // genuinely is Florida and the mascot-slice table would mis-resolve it.
+  const sideKnown = Boolean(guard(situation.awayTeam) && guard(situation.homeTeam));
+  // Stored names come off the games row the situation was built from, so they
+  // need no league gate — a feed that named the team named that team.
+  const stored = storedGameNames(situation.game as AnyBoardGame | undefined);
+  const nameFor = (token: string | undefined, storedName: string | undefined) =>
+    teamDisplayName(token, storedName, sideKnown ? situation.league : undefined);
   return {
-    awayTeam: guard(situation.awayTeam ?? teams[0] ?? situation.team),
-    homeTeam: guard(situation.homeTeam ?? teams[1] ?? situation.opponent),
+    awayTeam,
+    homeTeam,
+    awayTeamName: nameFor(awayTeam, stored.away),
+    homeTeamName: nameFor(homeTeam, stored.home),
     team: guard(situation.team ?? teams[0]),
     opponent: guard(situation.opponent ?? teams[1]),
     player: canonical?.players?.[0] ?? situation.player,
@@ -1106,7 +1138,7 @@ function sportsIdentityForSituation(situation: BoardSituation, canonical?: Canon
     playerJersey: canonical?.playerJersey,
     // Recorded BEFORE the `?? situation.team` fallbacks above collapse the
     // distinction — see SituationSportsIdentity.sideKnown.
-    sideKnown: Boolean(guard(situation.awayTeam) && guard(situation.homeTeam)),
+    sideKnown,
     sport,
   };
 }
@@ -1150,7 +1182,10 @@ function cleanStoryLine(value?: string) {
 }
 
 function editorialHeadline(row: SituationRowData, matchup?: string) {
-  const raw = cleanRawReport(row.title);
+  // `raw` is only ever printed — it is the final fallthrough below and nothing
+  // branches on it — so it is the one place the names version belongs. Every
+  // predicate under it keeps reading `row.title`, which stays in tokens.
+  const raw = cleanRawReport(row.titleLabel ?? row.title);
   const context = `${row.title} ${row.subtitle ?? ""} ${row.market ?? ""}`.toLowerCase();
   const player = row.sportsIdentity?.player ?? playerFromRawTitle(row.title);
   const team = row.sportsIdentity?.team ?? row.sportsIdentity?.awayTeam ?? teamFromRawTitle(row.title);

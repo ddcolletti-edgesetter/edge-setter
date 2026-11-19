@@ -1,6 +1,6 @@
 import type { SituationEscalationState } from "@/components/board/SituationRow";
 import type { Sport } from "./leagueModifiers";
-import type { BoardSituation } from "./boardSituations";
+import { dropGameSituationsCoveredByStories, type BoardSituation } from "./boardSituations";
 import type { BoardEscalation, SituationLane } from "./boardEscalation";
 import type { OperationalLifecycle, SignalLifecycle } from "./signalBoardUx";
 import {
@@ -76,11 +76,28 @@ export function canonicalSituationToBoardSituation(situation: CanonicalSituation
   };
 }
 
+/**
+ * Assemble a board's situation list from its two lineages.
+ *
+ * Two different kinds of duplicate are removed here, and this is the only
+ * function that can remove either, because it is the only one that sees both
+ * lineages at once: `buildBoardSituations` never meets a canonical situation,
+ * and by the time a board page has the merged list it has already started
+ * filtering it.
+ *
+ * 1. A signal row the canonical pipeline has already told the same story about
+ *    (same league, type, player and team) — the pre-existing `storyKey` pass.
+ * 2. A game row whose matchup already has a story on it, from either lineage —
+ *    see dropGameSituationsCoveredByStories. A game row used to be exempt from
+ *    (1) outright, on the reasoning that it carries a fixture rather than a
+ *    story; what that missed is that a fixture nobody is telling a story about
+ *    is the only fixture worth a card of its own.
+ */
 export function mergeCanonicalWithBoardSituations(
   canonical: readonly BoardSituation[],
   fallback: readonly BoardSituation[],
 ): BoardSituation[] {
-  if (!canonical.length) return [...fallback];
+  if (!canonical.length) return dropGameSituationsCoveredByStories(fallback);
 
   const canonicalKeys = new Set(canonical.map(storyKey));
   const remainingFallback = fallback.filter((situation) => {
@@ -88,7 +105,9 @@ export function mergeCanonicalWithBoardSituations(
     return !canonicalKeys.has(storyKey(situation));
   });
 
-  return [...canonical, ...remainingFallback];
+  // After the storyKey pass, not before: a signal row dropped as a duplicate of
+  // a canonical row must not leave behind a matchup it alone was covering.
+  return dropGameSituationsCoveredByStories([...canonical, ...remainingFallback]);
 }
 
 export function canonicalBoardEscalationState(situation: CanonicalSituation): SituationEscalationState {

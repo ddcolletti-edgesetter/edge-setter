@@ -38,6 +38,17 @@ export interface SituationSportsIdentity {
   homeTeam?: string;
   team?: string;
   opponent?: string;
+  /**
+   * Display names for {@link awayTeam} / {@link homeTeam} — the name the games
+   * row stored, else the CFB token lookup. Undefined when neither has anything
+   * to add, and every reader falls back to the token.
+   *
+   * Carried BESIDE the tokens, never instead of them: the tokens are the
+   * TeamLogoImg and sports-image lookup keys, and "Memphis Tigers" resolves no
+   * logo. See lib/teamDisplayNames.
+   */
+  awayTeamName?: string;
+  homeTeamName?: string;
   player?: string;
   /** ESPN athlete id for {@link player}, when the situation resolved one via the
    *  roster gazetteer. Drives the story-card headshot; absent otherwise. */
@@ -58,7 +69,22 @@ export interface SituationSportsIdentity {
 
 export interface SituationRowData {
   id: string;
+  /**
+   * Which lineage built this row: a live signal, a games-table row, or a
+   * canonical situation. Carried so surfaces can tell a MATCHUP from a STORY
+   * without re-deriving it from the shape of the other fields — the artwork
+   * caption is dropped on a game row because it would only repeat the
+   * headline, and `player` being absent is not the same fact.
+   */
+  kind?: "signal" | "game" | "canonical";
   title: string;
+  /**
+   * `title` with each side under the name the feed gave it, for display. Set
+   * only on game-derived rows that have a better name than their tokens.
+   * `title` stays in tokens because headline copy parses it — see
+   * BoardSituation.titleLabel.
+   */
+  titleLabel?: string;
   subtitle?: string;
   league?: string;
   matchup?: string;
@@ -209,7 +235,7 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
         </span>
 
         <span className="mt-0.5 flex min-w-0 items-center gap-2">
-          <strong className="min-w-0 truncate text-sm font-bold leading-tight text-foreground [overflow-wrap:anywhere]">{situation.title}</strong>
+          <strong className="min-w-0 truncate text-sm font-bold leading-tight text-foreground [overflow-wrap:anywhere]">{situation.titleLabel ?? situation.title}</strong>
           {situation.urgencyScore != null && (
             copyVariant === "editorial" ? (
               <span className="shrink-0 rounded border border-border bg-muted/20 px-1.5 py-0.5 text-[0.58rem] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
@@ -332,13 +358,19 @@ export function SportsIdentityLine({ identity }: { identity?: SituationSportsIde
   const home = cleanTeamAbbr(identity?.homeTeam ?? identity?.opponent);
   const team = cleanTeamAbbr(identity?.team ?? identity?.awayTeam);
   const player = identity?.player && !isUnknownTeamAbbr(identity.player) ? identity.player : undefined;
+  // Separate from the tokens above, which stay exactly as they were: they are
+  // what `hasIdentityAnchor` gated on and what SportsIdentityMark resolves its
+  // logos from. A stored name only applies to the side it was stored for, so
+  // it is not carried across the `?? identity.team` fallback.
+  const awayLabel = (away && identity?.awayTeam ? identity.awayTeamName : undefined) ?? away;
+  const homeLabel = (home && identity?.homeTeam ? identity.homeTeamName : undefined) ?? home;
   return (
     <span className="situation-sports-anchor">
       <SportsIdentityMark identity={identity} />
       <span className="min-w-0">
         <span className="data-label block text-[0.55rem] leading-none">Sports context</span>
         <span className="block truncate text-[0.72rem] font-bold text-foreground">
-          {player ? `${player}${team ? ` / ${team}` : ""}` : away && home ? `${away} @ ${home}` : team}
+          {player ? `${player}${team ? ` / ${team}` : ""}` : away && home ? `${awayLabel} @ ${homeLabel}` : team}
         </span>
       </span>
     </span>

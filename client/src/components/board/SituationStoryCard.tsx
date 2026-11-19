@@ -137,12 +137,19 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           sport={leagueToSport(story.league)}
           primaryTeam={story.primaryTeam}
           secondaryTeam={story.secondaryTeam}
+          primaryTeamName={story.primaryTeamName}
+          secondaryTeamName={story.secondaryTeamName}
           player={story.player}
           playerEspnId={identity?.playerEspnId}
           playerJersey={identity?.playerJersey}
           title={story.headline}
           storyType={story.storyType}
           detail={story.edgeSetterKnows}
+          // A game row's caption is its own headline, printed smaller and
+          // ellipsised in a 250px column. The crests say the same thing and
+          // say it whole. A signal row keeps its caption: the player name is
+          // not printed anywhere else on the artwork.
+          showCaption={story.row.kind !== "game"}
           size={featured ? "feature" : "compact"}
           imageAsset={imageAsset}
         />

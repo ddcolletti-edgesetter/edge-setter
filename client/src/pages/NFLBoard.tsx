@@ -30,6 +30,7 @@ import {
   toLiveGamePillData,
   toSituationRowData,
   toSituationStoryCardData,
+  type AnyBoardGame,
 } from "../components/board/boardAdapters";
 import type { LiveGamePillData } from "../components/board/LiveGamePill";
 import type { SituationLaneType } from "../components/board/SituationRow";
@@ -163,8 +164,13 @@ function NFLBoardInner() {
 
   const situations = useMemo(() => {
     const fallback = buildBoardSituations({
+      // The board's own slate, already windowed and deduped by
+      // publicGamesForLeague. It used to be `[]`, which meant this board
+      // produced no game-derived rows at all and every label built from a
+      // games row — the matchup line, the stored team names, the row title —
+      // was dead code here.
       league: "NFL",
-      games: [],
+      games: liveGames as AnyBoardGame[],
       signals: visibleSignals as any[],
     });
     const canonicalBoard = canonicalSituationsToBoardSituations(
@@ -177,7 +183,7 @@ function NFLBoardInner() {
     return rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback))
       .filter((situation) => showConfirmed || situation.lane !== "confirmed")
       .filter((situation) => situationMatchesPriority(situation, urgencyFilter));
-  }, [activeFilter, canonicalSituations, showConfirmed, urgencyFilter, visibleSignals]);
+  }, [activeFilter, canonicalSituations, liveGames, showConfirmed, urgencyFilter, visibleSignals]);
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "NFL");
