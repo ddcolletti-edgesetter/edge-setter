@@ -44,6 +44,9 @@ type CFBLiveGame = {
   espnEventId: string;
   homeTeam: string | null;
   awayTeam: string | null;
+  /** games.home_team_name / away_team_name — the feed's own name, or null. */
+  homeTeamName: string | null;
+  awayTeamName: string | null;
   gameDate: Date | null;
   statusDescription: string | null;
   homeScore: number | null;
@@ -120,6 +123,12 @@ function CFBBoardInner() {
             espnEventId: game.source_game_id ?? game.id,
             homeTeam: game.home_team ?? null,
             awayTeam: game.away_team ?? null,
+            // Carried through so the strip, the matchup line and the story
+            // card can print the name the feed used instead of the code
+            // shortCode() cut out of it. Null on an unnamed row, which every
+            // reader treats as "use the token".
+            homeTeamName: game.home_team_name ?? null,
+            awayTeamName: game.away_team_name ?? null,
             gameDate: game.game_time ? new Date(game.game_time) : null,
             statusDescription: statusLabel[game.status] ?? game.status ?? null,
             homeScore: game.home_score ?? null,

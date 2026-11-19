@@ -491,6 +491,15 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
         league,
         home_team: shortCode(ag.home_team),
         away_team: shortCode(ag.away_team),
+        // The feed's own names, stored beside the codes shortCode() derives
+        // from them. For 88 of 136 FBS teams that code is a slice of the
+        // MASCOT ("Rice Owls" -> "OWL"), and 16 of those slices are shared by
+        // more than one school, so the name cannot be recovered from the code
+        // afterwards. Display only; nothing reads it back for grading or
+        // matching. Passed on the post-kickoff path too, because a team's name
+        // is not market data.
+        home_team_name: ag.home_team,
+        away_team_name: ag.away_team,
         game_time: ag.commence_time,
         status: "scheduled",
         source_game_id: ag.id,
@@ -501,6 +510,10 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
         league,
         home_team: shortCode(ag.home_team),
         away_team: shortCode(ag.away_team),
+        // See the touchGameSchedule call above. This is the only writer in the
+        // pipeline that has a full team name in hand for every league.
+        home_team_name: ag.home_team,
+        away_team_name: ag.away_team,
         game_time: ag.commence_time,
         status: "scheduled",
         spread_line: spreadLine,
