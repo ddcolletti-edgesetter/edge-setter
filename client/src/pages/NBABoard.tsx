@@ -23,7 +23,8 @@ import {
   type AnyBoardGame,
 } from "@/components/board/boardAdapters";
 import { useNBASignals } from "@/hooks/useSignals";
-import { buildBoardSituations, rankBoardSituations, type BoardSituation } from "@/lib/boardSituations";
+import { buildBoardSituations, withinBoardAge, rankBoardSituations, type BoardSituation } from "@/lib/boardSituations";
+import { BoardShowMoreCards, useBoardCardCap } from "@/components/board/BoardCardCap";
 import { selectFeaturedSituation } from "@/lib/leadRanker";
 import { getLeagueBoardProfile } from "@/lib/leagueBoardProfiles";
 import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations } from "@/lib/situationAdapters";
@@ -184,7 +185,11 @@ export default function NBABoard() {
       }),
       "NBA",
     );
-    return rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback))
+    // Age cut, before the view filters: a board is a claim that these are the
+    // stories live now, and neither endpoint sorts by recency — /api/v2/signals
+    // serves the newest 100 regardless of age and /api/v2/situations the top
+    // 100 by operational visibility score. See BOARD_MAX_AGE_DAYS.
+    return withinBoardAge(rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback)))
       .filter((situation) => showConfirmed || situation.lane !== "confirmed")
       .filter((situation) => situationMatchesPriority(situation, urgencyFilter));
   }, [activeTab, canonicalSituations, filteredSignals, liveGames, showConfirmed, urgencyFilter]);
@@ -194,7 +199,7 @@ export default function NBABoard() {
   const leadSituation = hasElevatedLeadStory ? featured : null;
   const featuredRow = useMemo(() => leadSituation ? toSituationRowData(leadSituation) : undefined, [leadSituation]);
   const featuredDetails = useMemo(() => featuredCopy(leadSituation, "NBA"), [leadSituation]);
-  const storyItems = useMemo(() => situations.map((situation) => {
+  const allStoryItems = useMemo(() => situations.map((situation) => {
     const row = toSituationRowData(situation);
     return {
       situation,
@@ -202,6 +207,10 @@ export default function NBABoard() {
       story: toSituationStoryCardData(row, liveGames),
     };
   }), [situations]);
+  // View cap, not a filter: the ranking above is invisible when every row is
+  // printed. See useBoardCardCap.
+  // No `total` here: this board prints no "N stories shown" footer to name it.
+  const { visible: storyItems, hidden: hiddenCards, showAll: showAllCards } = useBoardCardCap(allStoryItems);
   const livePills = useMemo(() => liveGames.map((game) => toLiveGamePillData(game, relatedSignalCount(game, allSignals), "nba")), [allSignals, liveGames]);
   const visibleLanes = profile.laneOrder.filter((lane) => activeLane === "all" || activeLane === lane);
   const hasSituations = situations.length > 0;
@@ -350,6 +359,8 @@ export default function NBABoard() {
                   );
                 })}
               </div>
+
+              <BoardShowMoreCards hidden={hiddenCards} onShowAll={showAllCards} />
             </>
           ) : isInitialBoardLoading ? (
             <BoardLoadingState
