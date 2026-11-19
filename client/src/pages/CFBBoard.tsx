@@ -13,7 +13,8 @@ import { type CFBSignal, type CFBSignalType } from "../data/cfbMockData";
 import { useCFBSignals } from "../hooks/useSignals";
 import { scoreAndRankSignals } from "../lib/signalScorer";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "../lib/signalBoardUx";
-import { buildBoardSituations, rankBoardSituations, type BoardSituation } from "../lib/boardSituations";
+import { buildBoardSituations, withinBoardAge, rankBoardSituations, type BoardSituation } from "../lib/boardSituations";
+import { BoardShowMoreCards, useBoardCardCap } from "../components/board/BoardCardCap";
 import { selectFeaturedSituation } from "../lib/leadRanker";
 import { getLeagueBoardProfile } from "../lib/leagueBoardProfiles";
 import { canonicalSituationsToBoardSituations, mergeCanonicalWithBoardSituations } from "../lib/situationAdapters";
@@ -198,12 +199,16 @@ function CFBBoardInner() {
       }),
       "CFB",
     );
-    return rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback))
+    // Age cut, before the view filters: a board is a claim that these are the
+    // stories live now, and neither endpoint sorts by recency — /api/v2/signals
+    // serves the newest 100 regardless of age and /api/v2/situations the top
+    // 100 by operational visibility score. See BOARD_MAX_AGE_DAYS.
+    return withinBoardAge(rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback)))
       .filter((situation) => showConfirmed || situation.lane !== "confirmed")
       .filter((situation) => situationMatchesPriority(situation, urgencyFilter));
   }, [canonicalSituations, liveGames, showConfirmed, sidebarFilter, urgencyFilter, visibleSignals]);
 
-  const storyItems = situations
+  const allStoryItems = situations
     .filter((situation) => {
       const signal = situation.signal as { headline?: string; detail?: string } | undefined;
       return !isSourceNoise(signal?.headline) && !isSourceNoise(signal?.detail);
@@ -212,6 +217,9 @@ function CFBBoardInner() {
       const row = toSituationRowData(situation);
       return { situation, row, story: toSituationStoryCardData(row, liveGames) };
     });
+  // View cap, not a filter: the ranking above is invisible when every row is
+  // printed. See useBoardCardCap.
+  const { visible: storyItems, hidden: hiddenCards, total: totalCards, showAll: showAllCards } = useBoardCardCap(allStoryItems);
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "CFB");
@@ -373,9 +381,11 @@ function CFBBoardInner() {
           })}
         </div>
 
+        <BoardShowMoreCards hidden={hiddenCards} onShowAll={showAllCards} />
+
         {storyItems.length > 0 && (
           <div className="flex items-center justify-between rounded border border-border/50 bg-muted/5 px-3 py-2 text-[0.7rem] font-semibold text-muted-foreground/70">
-            <span>{storyItems.length} CFB stories shown</span>
+            <span>{hiddenCards > 0 ? `${storyItems.length} of ${totalCards} CFB stories shown` : `${storyItems.length} CFB stories shown`}</span>
             <span>Board updated {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
           </div>
         )}
