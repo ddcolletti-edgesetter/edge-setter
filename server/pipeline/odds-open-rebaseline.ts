@@ -136,6 +136,29 @@ export function oddsOpenRebaselineDays(): number {
   return Number.isFinite(v) && v > 0 ? v : DEFAULT_REBASELINE_DAYS;
 }
 
+/**
+ * Kill switch for the LIVE path. `ODDS_OPEN_REBASELINE=0` turns it off;
+ * anything else (including unset) leaves it on.
+ *
+ * Same shape and same default as ODDS_KICKOFF_GUARD, deliberately: one
+ * variable, "0" means off, read per call so Render's env editor takes effect
+ * on the next cycle without a redeploy.
+ *
+ * WHAT IT DISABLES, exactly: the adapter stops ASKING the question. With no
+ * verdict there is no re-baseline write and no move suppression, so the
+ * ingestion path behaves exactly as it did before this change — one switch,
+ * one well-understood state, rather than a half-on mode where openers are
+ * frozen but moves are still being dropped.
+ *
+ * WHAT IT DOES NOT DISABLE: the repair script. That one is operator-driven,
+ * prints before it writes and needs --apply, so the reason for a kill switch
+ * — an unattended loop doing something unexpected — does not apply to it.
+ * Killing the live path while still repairing by hand is a legitimate state
+ * and this keeps it reachable.
+ */
+export const oddsOpenRebaselineEnabled = (): boolean =>
+  process.env.ODDS_OPEN_REBASELINE !== "0";
+
 /* ─── The predicate ──────────────────────────────────────────────────── */
 
 export type OpenerStatus =
@@ -474,7 +497,16 @@ export function rebaselineGameOpen(
   openSpread: number | null,
   openTotal: number | null,
   reason: string,
-  opts?: { nowIso?: string; db?: ReturnType<typeof getPipelineDb>; quiet?: boolean },
+  opts?: {
+    nowIso?: string;
+    db?: ReturnType<typeof getPipelineDb>;
+    quiet?: boolean;
+    /** Carried into the log line only. Both callers have them; neither is
+     *  needed to decide anything, and a log you cannot filter by league or
+     *  sort by hole size is a log you have to read line by line. */
+    league?: string;
+    gapDays?: number | null;
+  },
 ): RebaselineResult {
   const db = opts?.db ?? getPipelineDb();
   const nowIso = opts?.nowIso ?? new Date().toISOString();
@@ -518,11 +550,14 @@ export function rebaselineGameOpen(
     logRebaseline({
       event: "open_rebaselined",
       game_id: gameId,
+      league: opts?.league ?? null,
       reason,
+      gap_days: opts?.gapDays ?? null,
       from_spread: row.open_spread,
       to_spread: nextSpread,
       from_total: row.open_total,
       to_total: nextTotal,
+      at: nowIso,
     });
   }
 
@@ -583,6 +618,11 @@ export interface RepairCandidate {
   gap_from: string | null;
   gap_to: string | null;
   status: OpenerStatus;
+  /** Reporting only — see openerProvenance. */
+  created_at: string | null;
+  first_snapshot_at: string | null;
+  snapshot_count: number;
+  opener_lead_days: number | null;
 }
 
 /**
@@ -594,7 +634,8 @@ export interface RepairCandidate {
  * whose score landed before its clock did.
  */
 const REPAIR_CANDIDATES_SQL = `
-  SELECT id, league, game_time, open_spread, open_total, spread_line, total_line
+  SELECT id, league, game_time, open_spread, open_total, spread_line, total_line,
+         created_at
   FROM games
   WHERE league = ?
     AND status != 'final'
@@ -602,6 +643,99 @@ const REPAIR_CANDIDATES_SQL = `
     AND (open_spread IS NOT NULL OR open_total IS NOT NULL)
   ORDER BY game_time ASC
 `;
+
+/**
+ * When the opener was written, and when the snapshot record for that game
+ * actually starts.
+ *
+ * `games.open_spread` is insert-only, so `games.created_at` IS the instant the
+ * stored opener was written — not an approximation of it. Comparing that
+ * against the game's earliest snapshot answers a question the gap predicate
+ * structurally cannot: the predicate finds holes BETWEEN snapshot rows, so a
+ * hole that opens before the first row has no `prev_at` to be measured from
+ * and is invisible to it.
+ *
+ * Reported, never acted on. A long lead here means "this opener predates the
+ * evidence we hold", which is a reason to look, not a licence to overwrite —
+ * there is no post-gap line to re-baseline TO that the gap rule has not
+ * already found. It exists so the dry run can show whether the population an
+ * operator is worried about is the population this script actually repairs.
+ */
+const OPENER_PROVENANCE_SQL = `
+  SELECT MIN(snapshot_at) AS first_at, COUNT(*) AS n
+  FROM odds_snapshots WHERE game_id = ?
+`;
+
+export interface OpenerProvenance {
+  /** games.created_at — the instant open_spread was written. */
+  createdAt: string | null;
+  /** Earliest snapshot we hold for the game, if any. */
+  firstSnapshotAt: string | null;
+  /** Snapshot rows held for the game. */
+  snapshotCount: number;
+  /**
+   * Days from the opener's write to the first snapshot. Null when either end
+   * is missing or unparseable. Negative is possible and harmless (a snapshot
+   * written in the same cycle, microseconds either side).
+   */
+  leadDays: number | null;
+}
+
+export function openerProvenance(
+  gameId: string,
+  createdAt: string | null,
+  db?: ReturnType<typeof getPipelineDb>,
+): OpenerProvenance {
+  const handle = db ?? getPipelineDb();
+  const row = handle.prepare(OPENER_PROVENANCE_SQL).get(gameId) as
+    | { first_at: string | null; n: number }
+    | undefined;
+  const firstSnapshotAt = row?.first_at ?? null;
+  let leadDays: number | null = null;
+  if (createdAt && firstSnapshotAt) {
+    const d = (Date.parse(firstSnapshotAt) - Date.parse(createdAt)) / 86_400_000;
+    if (Number.isFinite(d)) leadDays = Math.round(d * 100) / 100;
+  }
+  return { createdAt, firstSnapshotAt, snapshotCount: row?.n ?? 0, leadDays };
+}
+
+/**
+ * The line_move signals standing on a game right now.
+ *
+ * Part of the dry run's record rather than its decision: re-baselining an
+ * opener does not touch a stored signal (that is what keeps replay hashes
+ * still), so these rows are what was already published off the old opener.
+ * An operator reading the plan wants to see them next to the number being
+ * changed.
+ */
+const LINE_MOVE_SIGNALS_SQL = `
+  SELECT id, signal_type, headline, line_movement, score, created_at
+  FROM live_signals
+  WHERE game_id = ? AND signal_type = 'line_move'
+  ORDER BY created_at ASC
+`;
+
+export interface LineMoveSignalRow {
+  id: string;
+  signal_type: string;
+  headline: string;
+  line_movement: string | null;
+  score: number;
+  created_at: string;
+}
+
+export function lineMoveSignalsForGame(
+  gameId: string,
+  db?: ReturnType<typeof getPipelineDb>,
+): LineMoveSignalRow[] {
+  const handle = db ?? getPipelineDb();
+  try {
+    return handle.prepare(LINE_MOVE_SIGNALS_SQL).all(gameId) as LineMoveSignalRow[];
+  } catch {
+    // A reporting extra must never take the plan down with it.
+    return [];
+  }
+}
 
 export function planOpenerRepair(opts: {
   leagues: readonly string[];
@@ -619,6 +753,7 @@ export function planOpenerRepair(opts: {
       id: string; league: string; game_time: string;
       open_spread: number | null; open_total: number | null;
       spread_line: number | null; total_line: number | null;
+      created_at: string | null;
     }>;
 
     for (const row of rows) {
@@ -632,10 +767,16 @@ export function planOpenerRepair(opts: {
         db,
       });
 
+      const prov = openerProvenance(row.id, row.created_at ?? null, db);
+
       const base = {
         game_id: row.id,
         league: row.league,
         game_time: row.game_time,
+        created_at: prov.createdAt,
+        first_snapshot_at: prov.firstSnapshotAt,
+        snapshot_count: prov.snapshotCount,
+        opener_lead_days: prov.leadDays,
         open_spread: row.open_spread,
         open_total: row.open_total,
         spread_line: row.spread_line,

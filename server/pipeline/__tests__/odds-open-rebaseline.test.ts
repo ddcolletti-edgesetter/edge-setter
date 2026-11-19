@@ -177,6 +177,7 @@ beforeEach(() => {
   delete process.env.ODDS_KICKOFF_GUARD;
   delete process.env.ODDS_KICKOFF_GUARD_LEAGUES;
   delete process.env.ODDS_OPEN_REBASELINE_DAYS;
+  delete process.env.ODDS_OPEN_REBASELINE;
   process.env.ODDS_MIN_INTERVAL_MIN = "1";
 });
 
@@ -184,6 +185,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   delete process.env.ODDS_OPEN_REBASELINE_DAYS;
+  delete process.env.ODDS_OPEN_REBASELINE;
 });
 
 /* ═══ 1. The sign convention ═════════════════════════════════════════ */
@@ -684,5 +686,251 @@ describe("6. replay hashes do not move", () => {
       .prepare("SELECT line_movement FROM live_signals WHERE id='sig-hash-2'")
       .get() as { line_movement: string };
     expect(JSON.parse(row.line_movement).open).toBe(-5.5);
+  });
+});
+
+/* ═══ 7. The kill switch ═════════════════════════════════════════════ */
+
+/**
+ * ODDS_OPEN_REBASELINE=0 has to return the ingestion path to EXACTLY what it
+ * did before this change — not "mostly", and not "frozen openers but still
+ * dropping moves". The anchor for "exactly" is the number main published on
+ * the same fixture: a 3.0 spread move and a 4.0 total move, measured from the
+ * stale opener. If a later change makes the off state diverge from that, T43
+ * fails rather than the divergence shipping quietly.
+ */
+describe("7. ODDS_OPEN_REBASELINE kill switch", () => {
+  function seedGappedGame(openSpread = -5.5, openTotal = 42.5) {
+    const now = Date.now();
+    seedGame({ openSpread, openTotal, spreadLine: openSpread, totalLine: openTotal });
+    snapshotAt(GAME_ID, "NFL", now - 110 * DAY, openSpread, openTotal);
+    snapshotAt("NFL_OTHER", "NFL", now - 60 * DAY, -3, 44);
+  }
+
+  it("T37 — default (variable unset) is ON: the gapped opener is re-baselined", async () => {
+    expect(process.env.ODDS_OPEN_REBASELINE).toBeUndefined();
+    expect(rebase.oddsOpenRebaselineEnabled()).toBe(true);
+
+    seedGappedGame();
+    await runCycle("NFL", oddsPayload({ spread: -2.5, total: 38.5 }));
+
+    expect(store.getGame(GAME_ID)!.open_spread).toBe(-2.5);
+    expect(rawEvents(GAME_ID, "line_move")).toHaveLength(0);
+  });
+
+  it('T38 — "0" is the only off value; other values leave it on', () => {
+    process.env.ODDS_OPEN_REBASELINE = "0";
+    expect(rebase.oddsOpenRebaselineEnabled()).toBe(false);
+
+    for (const v of ["1", "true", "on", "", "00", "false"]) {
+      process.env.ODDS_OPEN_REBASELINE = v;
+      expect(rebase.oddsOpenRebaselineEnabled()).toBe(true);
+    }
+  });
+
+  it("T39 — OFF: the opener is left exactly as stored, and nothing is written to it", async () => {
+    process.env.ODDS_OPEN_REBASELINE = "0";
+    seedGappedGame();
+
+    await runCycle("NFL", oddsPayload({ spread: -2.5, total: 38.5 }));
+
+    const g = store.getGame(GAME_ID)!;
+    expect(g.open_spread).toBe(-5.5);   // untouched
+    expect(g.open_total).toBe(42.5);
+    expect(g.spread_line).toBe(-2.5);   // the current line still tracks
+  });
+
+  it("T40 — OFF: the move is published again, with main's numbers", async () => {
+    process.env.ODDS_OPEN_REBASELINE = "0";
+    seedGappedGame();
+
+    await runCycle("NFL", oddsPayload({ spread: -2.5, total: 38.5 }));
+
+    // The pre-PR behaviour, stale opener and all: -5.5 -> -2.5 and 42.5 -> 38.5.
+    expect(moveDeltas(GAME_ID, "spread")).toEqual([3]);
+    expect(moveDeltas(GAME_ID, "total")).toEqual([4]);
+  });
+
+  it("T41 — OFF: nothing is suppressed, so no [odds-open] line is logged at all", async () => {
+    process.env.ODDS_OPEN_REBASELINE = "0";
+    seedGappedGame();
+
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...a: unknown[]) => { logs.push(a.join(" ")); });
+
+    await runCycle("NFL", oddsPayload({ spread: -2.5, total: 38.5 }));
+
+    expect(logs.find(l => l.includes("[odds-open]"))).toBeUndefined();
+    // and the state is announced once, so an operator can see WHY from the log
+    expect(logs.find(l => l.includes("ODDS_OPEN_REBASELINE=0"))).toBeTruthy();
+  });
+
+  it("T42 — OFF kills only the LIVE path: the repair script still plans and writes", () => {
+    process.env.ODDS_OPEN_REBASELINE = "0";
+    const now = Date.now();
+    seedGame({ openSpread: -5.5, openTotal: 42.5, spreadLine: -2.5, totalLine: 38.5 });
+    snapshotAt(GAME_ID, "NFL", now - 110 * DAY, -5.5, 42.5);
+    snapshotAt("NFL_OTHER", "NFL", now - 60 * DAY, -3, 44);
+    snapshotAt(GAME_ID, "NFL", now - 2 * DAY, -2.5, 38.5);
+
+    const plan = rebase.planOpenerRepair({ leagues: ["NFL"], nowIso: iso(now) });
+    const mine = plan.find(c => c.game_id === GAME_ID)!;
+    expect(mine.verdict).toBe("rebaseline");
+
+    const result = rebase.rebaselineGameOpen(GAME_ID, mine.new_open_spread, mine.new_open_total, "test");
+    expect(result.written).toBe(true);
+    expect(store.getGame(GAME_ID)!.open_spread).toBe(-2.5);
+  });
+
+  it("T43 — ON vs OFF differ on the SAME fixture, so T39/T40 are not vacuous", async () => {
+    seedGappedGame();
+    await runCycle("NFL", oddsPayload({ spread: -2.5, total: 38.5 }));
+    const on = {
+      open: store.getGame(GAME_ID)!.open_spread,
+      moves: moveDeltas(GAME_ID, "spread"),
+    };
+
+    for (const t of ["odds_snapshots", "raw_events", "games", "odds_fetch_state"]) {
+      db().prepare(`DELETE FROM ${t}`).run();
+    }
+
+    process.env.ODDS_OPEN_REBASELINE = "0";
+    seedGappedGame();
+    await runCycle("NFL", oddsPayload({ spread: -2.5, total: 38.5 }));
+    const off = {
+      open: store.getGame(GAME_ID)!.open_spread,
+      moves: moveDeltas(GAME_ID, "spread"),
+    };
+
+    expect(on.open).toBe(-2.5);
+    expect(off.open).toBe(-5.5);
+    expect(on.moves).toEqual([]);
+    expect(off.moves).toEqual([3]);
+  });
+});
+
+/* ═══ 8. The audit trail ═════════════════════════════════════════════ */
+
+describe("8. every re-baseline is logged with enough to undo it", () => {
+  it("T44 — the write log carries game id, league, gap days, reason and BOTH old and new values", async () => {
+    const now = Date.now();
+    seedGame({ openSpread: -5.5, openTotal: 42.5, spreadLine: -5.5, totalLine: 42.5 });
+    snapshotAt(GAME_ID, "NFL", now - 110 * DAY, -5.5, 42.5);
+    snapshotAt("NFL_OTHER", "NFL", now - 60 * DAY, -3, 44);
+
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...a: unknown[]) => { logs.push(a.join(" ")); });
+
+    await runCycle("NFL", oddsPayload({ spread: -2.5, total: 38.5 }));
+
+    const line = logs.find(l => l.includes("open_rebaselined"));
+    expect(line).toBeTruthy();
+    const payload = JSON.parse(line!.slice(line!.indexOf("{")));
+
+    expect(payload.game_id).toBe(GAME_ID);
+    expect(payload.league).toBe("NFL");
+    expect(typeof payload.gap_days).toBe("number");
+    expect(payload.gap_days).toBeGreaterThan(3);
+    expect(payload.from_spread).toBe(-5.5);   // the value being replaced
+    expect(payload.to_spread).toBe(-2.5);
+    expect(payload.from_total).toBe(42.5);
+    expect(payload.to_total).toBe(38.5);
+    expect(typeof payload.reason).toBe("string");
+    expect(payload.reason).toContain("gap");
+    expect(typeof payload.at).toBe("string");
+  });
+
+  it("T45 — the repair script's writes carry the same fields", () => {
+    const now = Date.now();
+    seedGame({ openSpread: -5.5, openTotal: 42.5, spreadLine: -2.5, totalLine: 38.5 });
+    snapshotAt(GAME_ID, "NFL", now - 110 * DAY, -5.5, 42.5);
+    snapshotAt("NFL_OTHER", "NFL", now - 60 * DAY, -3, 44);
+    snapshotAt(GAME_ID, "NFL", now - 2 * DAY, -2.5, 38.5);
+
+    const logs: string[] = [];
+    vi.spyOn(console, "log").mockImplementation((...a: unknown[]) => { logs.push(a.join(" ")); });
+
+    const mine = rebase.planOpenerRepair({ leagues: ["NFL"], nowIso: iso(now) })
+      .find(c => c.game_id === GAME_ID)!;
+    rebase.rebaselineGameOpen(
+      mine.game_id, mine.new_open_spread, mine.new_open_total,
+      `one-time repair: ${mine.gap_days}d observation gap`,
+      { league: mine.league, gapDays: mine.gap_days },
+    );
+
+    const payload = JSON.parse(logs.find(l => l.includes("open_rebaselined"))!.slice(
+      logs.find(l => l.includes("open_rebaselined"))!.indexOf("{"),
+    ));
+    expect(payload.league).toBe("NFL");
+    expect(payload.gap_days).toBeGreaterThan(3);
+    expect(payload.from_spread).toBe(-5.5);
+    expect(payload.to_spread).toBe(-2.5);
+  });
+});
+
+/* ═══ 9. Opener provenance (reporting only) ══════════════════════════ */
+
+/**
+ * The gap predicate finds holes BETWEEN snapshot rows. An opener written
+ * before the game's first snapshot leaves no such hole, so the predicate
+ * cannot see it. These pin that the dry run can still SAY so.
+ */
+describe("9. openerProvenance", () => {
+  it("T46 — reports the lead between the opener's write and the first snapshot", () => {
+    const now = Date.now();
+    seedGame({});
+    snapshotAt(GAME_ID, "NFL", now - 70 * DAY, -5.5, 42.5);
+    snapshotAt(GAME_ID, "NFL", now - 2 * DAY, -2.5, 38.5);
+
+    const prov = rebase.openerProvenance(GAME_ID, iso(now - 110 * DAY));
+    expect(prov.snapshotCount).toBe(2);
+    expect(prov.firstSnapshotAt).toBe(iso(now - 70 * DAY));
+    expect(prov.leadDays).toBeCloseTo(40, 0);
+  });
+
+  it("T47 — a game with NO snapshots reports null, not a crash or a zero", () => {
+    const prov = rebase.openerProvenance("NFL_NO_SNAPS", iso(Date.now()));
+    expect(prov.snapshotCount).toBe(0);
+    expect(prov.firstSnapshotAt).toBeNull();
+    expect(prov.leadDays).toBeNull();
+  });
+
+  it("T48 — THE CASE THAT MATTERS: a long lead with an unbroken snapshot run is NOT repaired", () => {
+    // An opener written 110 days before the first snapshot we hold, then a
+    // dense run since. No hole BETWEEN rows, so the gap rule says "observed".
+    const now = Date.now();
+    seedGame({ openSpread: -5.5, openTotal: 42.5, spreadLine: -2.5, totalLine: 38.5 });
+    for (let d = 20; d >= 1; d--) snapshotAt(GAME_ID, "NFL", now - d * DAY, -3, 40);
+
+    const mine = rebase.planOpenerRepair({ leagues: ["NFL"], nowIso: iso(now) })
+      .find(c => c.game_id === GAME_ID)!;
+
+    expect(mine.verdict).toBe("skip_observed");       // the script leaves it alone
+    expect(store.getGame(GAME_ID)!.open_spread).toBe(-5.5);
+  });
+});
+
+/* ═══ 10. line_move signals on a game (reporting only) ═══════════════ */
+
+describe("10. lineMoveSignalsForGame", () => {
+  it("T49 — returns the line_move signals standing on the game, and ignores other types", () => {
+    const nowIso = new Date().toISOString();
+    const insert = (id: string, type: string) => db().prepare(
+      `INSERT INTO live_signals (id, league, game_id, signal_type, headline, body, signal_time, created_at, updated_at, line_movement, score)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+    ).run(id, "NFL", GAME_ID, type, `${type} headline`, "", nowIso, nowIso, nowIso,
+          JSON.stringify({ open: -5.5, current: 4.5 }), 80);
+
+    insert("sig-move-1", "line_move");
+    insert("sig-move-2", "line_move");
+    insert("sig-injury", "injury");
+
+    const rows = rebase.lineMoveSignalsForGame(GAME_ID);
+    expect(rows.map(r => r.id).sort()).toEqual(["sig-move-1", "sig-move-2"]);
+    expect(rows[0].line_movement).toContain("-5.5");
+  });
+
+  it("T50 — a game with no signals returns an empty list", () => {
+    expect(rebase.lineMoveSignalsForGame("NFL_NOTHING_HERE")).toEqual([]);
   });
 });

@@ -27,7 +27,7 @@
 import { upsertGame, touchGameSchedule, getGame, insertRawEvent, insertOddsSnapshot, getOddsFetchState, recordOddsFetchState, type OddsFetchState } from "../store";
 import type { League } from "../types";
 import { canonicalGameId } from "../canonical-game-id";
-import { resolveObservedOpener, rebaselineGameOpen, logRebaseline, oddsOpenRebaselineDays } from "../odds-open-rebaseline";
+import { resolveObservedOpener, rebaselineGameOpen, logRebaseline, oddsOpenRebaselineDays, oddsOpenRebaselineEnabled } from "../odds-open-rebaseline";
 
 const API_KEY = process.env.THE_ODDS_API_KEY ?? "";
 const BASE_URL = "https://api.the-odds-api.com/v4";
@@ -411,6 +411,17 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
   // Resolved once per cycle — see kickoffGuardActiveFor.
   const guardActive = kickoffGuardActiveFor(league);
 
+  // Also once per cycle. Read here rather than per game so one cycle cannot
+  // straddle a change made in the dashboard mid-slate, and so the "off" state
+  // is announced exactly once per league per cycle instead of per game.
+  const rebaselineEnabled = oddsOpenRebaselineEnabled();
+  if (!rebaselineEnabled) {
+    console.log(
+      `[odds-api] ${league}: opener re-baseline OFF (ODDS_OPEN_REBASELINE=0) — ` +
+      `openers frozen as stored, no move suppression`,
+    );
+  }
+
   for (const ag of apiGames) {
     // Recomputed every cycle, never persisted — see the kickoff guard notes.
     //
@@ -495,7 +506,11 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
     // arrival, not about what this cycle is in the middle of storing. Only
     // ever asked on the pre-kickoff path: after kickoff there is no snapshot,
     // no market write and no move, so there is nothing for it to decide.
-    const opener = started ? null : resolveObservedOpener({
+    // GATE 5 is skippable from the dashboard. `ODDS_OPEN_REBASELINE=0` leaves
+    // `opener` null, which is the same state a post-kickoff game is in: no
+    // re-baseline write, no suppression, and the two move gates below revert
+    // to measuring from whatever is stored. That is exactly main's behaviour.
+    const opener = (started || !rebaselineEnabled) ? null : resolveObservedOpener({
       gameId,
       league,
       // The EFFECTIVE opener, matching exactly what the two move gates below
@@ -599,7 +614,7 @@ export async function ingestOdds(league: League): Promise<{ games: number; event
         opener.postGapSpread ?? spreadLine,
         opener.postGapTotal ?? totalLine,
         `observation gap of ${opener.gapDays}d (threshold ${opener.thresholdDays}d), league still ingesting`,
-        { nowIso: new Date(cycleNowMs).toISOString() },
+        { nowIso: new Date(cycleNowMs).toISOString(), league, gapDays: opener.gapDays },
       );
       if (result.written) gamesRebaselined++;
     } else if (suppressMove) {

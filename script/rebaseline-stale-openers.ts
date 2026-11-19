@@ -89,6 +89,7 @@
 import {
   planOpenerRepair,
   rebaselineGameOpen,
+  lineMoveSignalsForGame,
   oddsOpenRebaselineDays,
   REPAIR_LEAGUES,
   REPAIR_DEFAULT_LEAGUES,
@@ -173,6 +174,7 @@ function parseArgs(argv: string[]): Args {
 }
 
 const num = (v: number | null): string => (v === null ? "—" : String(v));
+const day = (v: string | null): string => (v ? v.slice(0, 10) : "—");
 
 function describe(c: RepairCandidate): string {
   const when = c.game_time.slice(0, 16).replace("T", " ");
@@ -187,6 +189,71 @@ function describe(c: RepairCandidate): string {
     `  cur ${num(c.spread_line).padStart(6)}` +
     `  ${gap} (${window})  ${c.status}`
   );
+}
+
+/**
+ * The full record for a game that WOULD change.
+ *
+ * Written to be saved and read back later, so every number needed to put the
+ * old value back by hand sits next to the one replacing it.
+ *
+ * The line_move signals are listed because they are what was already
+ * published off the opener being replaced. This script does NOT rewrite them,
+ * and that is the point: re-baselining moves the game's opener, not the
+ * history of what we already said about it. Seeing both together is how an
+ * operator judges whether the change is the one they want.
+ */
+function describeFull(c: RepairCandidate, db: ReturnType<typeof getPipelineDb>): string[] {
+  const out: string[] = [];
+  const when = c.game_time.slice(0, 16).replace("T", " ");
+
+  out.push(`  ${c.game_id}   kickoff ${when}   [${c.league}]`);
+  out.push(
+    `      open_spread  ${num(c.open_spread).padStart(7)}  ->  ${num(c.new_open_spread).padStart(7)}` +
+    `       (current line ${num(c.spread_line)})`,
+  );
+  out.push(
+    `      open_total   ${num(c.open_total).padStart(7)}  ->  ${num(c.new_open_total).padStart(7)}`,
+  );
+
+  const window = c.gap_from
+    ? `${c.gap_from.slice(0, 16).replace("T", " ")} -> ${c.gap_to ? c.gap_to.slice(0, 16).replace("T", " ") : "now"}`
+    : "—";
+  out.push(
+    `      gap          ${c.gap_days === null ? "—" : `${c.gap_days}d`}  (${window})   status ${c.status}`,
+  );
+  out.push(
+    `      opener       written ${day(c.created_at)}` +
+    `   first snapshot ${day(c.first_snapshot_at)}` +
+    `   lead ${c.opener_lead_days === null ? "—" : `${c.opener_lead_days}d`}` +
+    `   snapshots ${c.snapshot_count}`,
+  );
+
+  const signals = lineMoveSignalsForGame(c.game_id, db);
+  if (signals.length === 0) {
+    out.push(`      line_move    none on this game`);
+  } else {
+    out.push(`      line_move    ${signals.length} already published off the old opener:`);
+    for (const sig of signals) {
+      let move = "";
+      if (sig.line_movement) {
+        try {
+          const lm = JSON.parse(sig.line_movement) as { open?: unknown; current?: unknown };
+          if (lm && (lm.open !== undefined || lm.current !== undefined)) {
+            move = `  [open ${String(lm.open ?? "—")} -> ${String(lm.current ?? "—")}]`;
+          }
+        } catch {
+          // A malformed blob must not cost us the row it is attached to.
+          move = "  [line_movement unparseable]";
+        }
+      }
+      out.push(
+        `        ${sig.created_at.slice(0, 16).replace("T", " ")}  ${sig.id}  score ${sig.score}${move}`,
+      );
+      out.push(`          ${sig.headline}`);
+    }
+  }
+  return out;
 }
 
 async function main(): Promise<void> {
@@ -223,10 +290,31 @@ async function main(): Promise<void> {
     console.log(`    ${verdict.padEnd(24)} ${String(buckets.get(verdict)?.length ?? 0).padStart(5)}`);
   }
 
+  // Opener provenance census. The gap predicate finds holes BETWEEN snapshot
+  // rows, so an opener written before the game's FIRST snapshot cannot produce
+  // one -- and that is exactly the "futures posted months early" population.
+  // This states, in the dry run itself, how much of the slate is in that state
+  // and therefore how much of it this script can and cannot repair.
+  const LEAD_DAYS = 30;
+  const preHistory = plan.filter(c => (c.opener_lead_days ?? 0) > LEAD_DAYS);
+  console.log("");
+  console.log(`  Opener provenance (games.created_at IS the write time of open_spread):`);
+  console.log(`    opener written >${LEAD_DAYS}d before the game's first snapshot : ${preHistory.length}`);
+  console.log(`    ...of those, in the WOULD RE-BASELINE set below        : ${preHistory.filter(c => c.verdict === "rebaseline").length}`);
+  const notFixed = preHistory.filter(c => c.verdict !== "rebaseline");
+  if (notFixed.length > 0) {
+    console.log(`    ...NOT repaired here (no gap BETWEEN snapshot rows)    : ${notFixed.length}`);
+    console.log(`         These carry an opener older than their own snapshot history.`);
+    console.log(`         The gap rule cannot see that; --all lists them.`);
+  }
+
   const todo = buckets.get("rebaseline") ?? [];
   if (todo.length > 0) {
     console.log(`\n  WOULD RE-BASELINE (${todo.length}):`);
-    for (const c of todo) console.log(describe(c));
+    for (const c of todo) {
+      for (const line of describeFull(c, db)) console.log(line);
+      console.log("");
+    }
   }
 
   if (args.all) {
@@ -252,7 +340,7 @@ async function main(): Promise<void> {
       c.new_open_spread,
       c.new_open_total,
       `one-time repair: ${c.gap_days}d observation gap (threshold ${args.days}d), league still ingesting`,
-      { db },
+      { db, league: c.league, gapDays: c.gap_days },
     );
     if (result.written) written++;
     else refused.push(`${c.game_id} (${result.reason})`);
