@@ -402,7 +402,12 @@ describe("badgeableInjuryDesignation", () => {
 
 describe("the story card's injury badge", () => {
   it("renders no badge at all for a fabricated Questionable", () => {
-    const story = toSituationStoryCardData(buildRow({ injuryDesignation: "Questionable" }), [game()]);
+    // TITLE_WITHOUT_PLAYER because this case asserts the player chip survives,
+    // and the default headline names him, which drops the chip on its own.
+    const story = toSituationStoryCardData(
+      buildRow({ injuryDesignation: "Questionable", title: TITLE_WITHOUT_PLAYER }),
+      [game()],
+    );
     expect(story.injuryDesignation).toBeUndefined();
     render(<SituationStoryCard story={story} />);
     expect(screen.queryByTestId("story-injury-designation")).not.toBeInTheDocument();
