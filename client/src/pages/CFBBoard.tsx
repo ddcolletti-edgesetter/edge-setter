@@ -246,9 +246,13 @@ function CFBBoardInner() {
         <BoardCommandBar
           kicker="CFB Story Board"
           title={profile.boardLabel}
+          // "Verified sources" was printed whenever the canonical endpoint
+          // returned anything at all — it was a count being non-zero, not a
+          // verification of anything. A neutral count makes the same claim the
+          // number already makes.
           statusLabel={hasLiveCFBData
-            ? `${canonicalSituations.length ? "Verified sources" : "Live coverage"} / ${rankedCFB.length} updates`
-            : `Watching, nothing confirmed / ${rankedCFB.length} watch items`}
+            ? `${rankedCFB.length} updates`
+            : `${rankedCFB.length} watch items`}
           liveCount={hasLiveCFBData ? situations.filter((situation) => situation.lane === "escalating" || situation.lane === "live").length : undefined}
           tabs={CFB_FILTERS.map((filter) => ({ id: filter.key, label: filter.label }))}
           activeTabId={sidebarFilter}

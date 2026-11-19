@@ -335,8 +335,13 @@ describe("CFB board", () => {
 
   it("still shows the story that covered it", async () => {
     await renderCFB();
-    expect(cardText().filter((t) => /line movement follows late availability context/i.test(t)).length)
-      .toBeGreaterThan(0);
+    // Identified by its matchup, not by its headline: the headline used to be
+    // "GAM-BEA line movement follows late availability context", which asserted
+    // a cause the row cannot support and is gone. Suppressing the fixture's
+    // card must still leave the story's card standing.
+    const storyCards = cardText().filter((t) => /GAM-BEA/.test(t));
+    expect(storyCards.length).toBeGreaterThan(0);
+    expect(storyCards.join(" ")).not.toMatch(/follows late availability context/i);
   });
 
   it("keeps the suppressed fixture on the slate strip, which is not a story card", async () => {

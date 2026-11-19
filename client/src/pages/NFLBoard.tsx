@@ -229,7 +229,9 @@ function NFLBoardInner() {
         <BoardCommandBar
           kicker="NFL Story Board"
           title={profile.boardLabel}
-          statusLabel={`${canonicalSituations.length ? "Verified source watch" : isLive ? "Live coverage" : "Watching, nothing confirmed"} / ${rankedNFL.length} updates`}
+          // Same as CFB: "Verified source watch" turned on when the canonical
+          // endpoint returned a non-empty list, which verifies nothing.
+          statusLabel={`${rankedNFL.length} updates`}
           liveCount={situations.filter((situation) => situation.lane === "escalating" || situation.lane === "live").length}
           tabs={NFL_FILTERS.map((filter) => ({ id: filter.id, label: filter.label }))}
           activeTabId={activeFilter}

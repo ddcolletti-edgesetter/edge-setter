@@ -9,7 +9,14 @@ import type { SituationRowData } from "@/components/board/SituationRow";
 const baseRow: SituationRowData = {
   id: "story-hierarchy-1",
   title: "LAD @ ARI movement puts ARI market context on watch",
-  subtitle: "Late roster context changed before first pitch.",
+  // "lineup", not "roster": this fixture is an MLB lineup story that moved the
+  // line, and storyImpactSections derives the Fantasy block from the card's
+  // words. It used to find them in storyWhyItMatters' per-league sentence
+  // ("...lineup, pitcher, injury, weather, bullpen, or availability..."), which
+  // is deleted — so the row now has to say what it means itself. Measured on
+  // prod: 30 cards lose the Fantasy block, every one of them a `market` row
+  // with no player, whose block body was the generic fallback.
+  subtitle: "Late lineup context changed before first pitch.",
   league: "MLB",
   matchup: "LAD @ ARI",
   market: "Market reaction detected",
@@ -19,6 +26,11 @@ const baseRow: SituationRowData = {
   statusLabel: "Context Moving",
   lifecycleLabel: "Context Moving",
   timingStageLabel: "Early market reaction",
+  // This row's own evidence growth. storyWhyItMatters no longer falls back to a
+  // per-league sentence, so without it the "Why it matters" tile is omitted and
+  // the ordering assertions below would have nothing to order. The omission
+  // itself is covered in board-copy-honesty.test.ts.
+  evidenceGrowthLabel: "A second report attached overnight",
   sportsIdentity: {
     sport: "mlb",
     awayTeam: "LAD",
@@ -35,7 +47,11 @@ describe("sports story hierarchy", () => {
 
     const text = document.body.textContent ?? "";
     expect(story.headline).not.toMatch(/market context on watch|role picture on watch|keeps .* on watch/i);
-    expect(story.headline).toContain("line movement follows late roster context");
+    // Was "LAD-ARI line movement follows late roster context" — a cause this
+    // row asserts and cannot support. The headline now states only what the
+    // row knows; this test is about section order, so it pins the subject.
+    expect(story.headline).toContain("LAD-ARI");
+    expect(story.headline).not.toMatch(/follows late (roster|availability) context/i);
     expect(screen.getByText("More impact context")).toBeInTheDocument();
     expect(screen.getByText("Fantasy impact")).toBeInTheDocument();
     expect(screen.getByText("Betting/market impact")).toBeInTheDocument();
