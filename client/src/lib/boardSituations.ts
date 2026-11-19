@@ -33,6 +33,44 @@ import {
   type SignalLifecycle,
 } from "./signalBoardUx";
 
+/**
+ * How stale a row may be and still appear on a board, and how many cards a
+ * board shows before the reader asks for more.
+ *
+ * WHY AN AGE CUT. The boards had none. `/api/v2/signals` serves the newest 100
+ * regardless of age and `/api/v2/situations` the top 100 by operational
+ * visibility score, which is not a recency measure at all — so on prod today
+ * the NBA board carries 15 canonical situations between 7 and 30 days old and
+ * the MLB board carries 78, mixed in among rows from this morning with nothing
+ * to tell them apart but a relative timestamp. A board is a claim that these
+ * are the stories live right now.
+ *
+ * WHY lastUpdatedAt AND NOT firstSeenAt. A situation founded last week whose
+ * evidence changed an hour ago is live; its first-seen date says the opposite.
+ * The featured-story selector uses first-detected deliberately (a board LEAD
+ * implies active development, see FEATURED_MAX_AGE_HOURS) — this is the
+ * different question of whether the row belongs on the page at all.
+ *
+ * WHY UNKNOWN AGE IS KEPT. Same rule featuredAgeHours already follows: a games
+ * row carries no update time we can read as an age, and `publicGamesForLeague`
+ * has already windowed the slate. Dropping a row because we cannot date it
+ * would take the whole slate off every board.
+ *
+ * MEASURED on prod, four boards, 2026-11-19. Rows removed by the 3-day cut:
+ * NFL 46 (signals only), CFB 52 (signals only), NBA 67 (38 situations + 29
+ * signals), MLB 78 (situations, all offseason). MLB's board goes nearly empty,
+ * which is what an offseason board honestly looks like — MLBBoard already has
+ * a quiet-board state for it.
+ */
+export const BOARD_MAX_AGE_DAYS = 3;
+
+/**
+ * Cards shown before "Show more". The boards rendered every row they had — 185
+ * to 212 cards on NFL and CFB — so the twentieth card and the two-hundredth
+ * were presented as equally worth reading.
+ */
+export const BOARD_INITIAL_CARD_CAP = 25;
+
 export type BoardSituationKind = "signal" | "game" | "canonical";
 
 export type BoardSituation = {
@@ -362,6 +400,56 @@ export function dropGameSituationsCoveredByStories(
   });
 }
 
+/**
+ * When this situation last CHANGED, as an ISO string, or null when the row
+ * carries nothing we can read as one.
+ *
+ * Canonical rows carry `lastUpdatedAt`. Signal rows carry `updated_at` when the
+ * caller passed the raw row through and `isoTimestamp` once the board adapters
+ * have been over it (they set it from `signal_time ?? created_at`). Game rows
+ * carry neither: `cachedAt` is when WE fetched the fixture, not when anything
+ * about it changed, so reading it as an age would date every fixture to this
+ * minute and the filter would be theatre.
+ */
+function lastUpdatedIso(situation: BoardSituation): string | null {
+  if (situation.kind === "canonical" && situation.canonicalSituation) {
+    const raw = (situation.canonicalSituation as { lastUpdatedAt?: string | null }).lastUpdatedAt;
+    if (raw) return raw;
+  }
+  if (situation.kind === "signal" && situation.signal) {
+    const sig = situation.signal as {
+      updated_at?: string | null;
+      isoTimestamp?: string | null;
+      signal_time?: string | null;
+      created_at?: string | null;
+    };
+    return sig.updated_at ?? sig.isoTimestamp ?? sig.signal_time ?? sig.created_at ?? null;
+  }
+  return null;
+}
+
+/**
+ * The situations that have changed within {@link BOARD_MAX_AGE_DAYS}.
+ *
+ * A row we cannot date is kept — see the constant for why. `maxAgeDays` is a
+ * parameter only so tests can pin the boundary without reaching for fake
+ * timers; every board passes the default.
+ */
+export function withinBoardAge(
+  situations: readonly BoardSituation[],
+  referenceTime: number = Date.now(),
+  maxAgeDays: number = BOARD_MAX_AGE_DAYS,
+): BoardSituation[] {
+  const maxHours = maxAgeDays * 24;
+  return situations.filter((situation) => {
+    const iso = lastUpdatedIso(situation);
+    if (!iso) return true;
+    const hours = ageHoursFrom(iso, referenceTime);
+    if (!Number.isFinite(hours)) return true;
+    return hours <= maxHours;
+  });
+}
+
 export function rankBoardSituations(situations: BoardSituation[]): BoardSituation[] {
   return [...situations].sort((a, b) => {
     const laneDiff = SITUATION_LANE_RANK[b.lane] - SITUATION_LANE_RANK[a.lane];
@@ -391,6 +479,28 @@ const FEATURED_BLOCKED_SIGNAL_TYPES = new Set([
   "transaction",
   "depth_chart_update",
 ]);
+
+/**
+ * A situation that cannot lead a board, because leading it is a claim that this
+ * is the live story.
+ *
+ * The background LANE was already excluded. A Stale or Expiring LIFECYCLE was
+ * not, and the two do not imply each other: `laneForEscalation` puts a row in
+ * `decision` on `isActionable` plus a Watch escalation, and `signalIsActionable`
+ * only excludes Stale — so an Expiring row with an action note lands in
+ * `decision` and was eligible to lead. On prod today that is exactly what the
+ * CFB board does: its lead is a line move whose lifecycle is Expiring.
+ *
+ * Both exclusions are applied together, at both tiers, so the cascade is
+ * unchanged: a board with nothing but cooling rows still shows a lead rather
+ * than the quiet-board state, because the final fallback is the whole
+ * within-age pool.
+ */
+function isCooling(situation: BoardSituation): boolean {
+  return situation.lane === "background"
+    || situation.lifecycle === "Stale"
+    || situation.lifecycle === "Expiring";
+}
 
 /**
  * Shared lead-rank comparator: confidence descending, firstDetected descending.
@@ -462,11 +572,11 @@ export function selectFeaturedSituation(
   });
 
   const candidates = withinAge.filter(
-    s => s.lane !== "background" && !FEATURED_BLOCKED_SIGNAL_TYPES.has(s.signalType ?? "")
+    s => !isCooling(s) && !FEATURED_BLOCKED_SIGNAL_TYPES.has(s.signalType ?? "")
   );
   const nonBackground = candidates.length > 0
     ? candidates
-    : withinAge.filter(s => s.lane !== "background");
+    : withinAge.filter(s => !isCooling(s));
   const base = nonBackground.length > 0 ? nonBackground : withinAge;
   if (base.length === 0) return null;
 

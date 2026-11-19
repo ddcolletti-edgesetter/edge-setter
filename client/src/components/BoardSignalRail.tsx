@@ -142,6 +142,24 @@ function pluralTypeLabel(label: string): string {
   return label + "s";
 }
 
+/**
+ * Whether this row can name who it is about.
+ *
+ * `SignalRow` prints `s.player ?? s.team ?? ""`, so a row with neither renders
+ * as a bare topic — "Injury", "Market Movement" — with no subject at all.
+ *
+ * THE ORDER MATTERS, which is why this is its own function and is called where
+ * it is. `dedupeBySignalType` collapses a group of rows sharing a signal type
+ * into one summary row and deliberately CLEARS `player` and `team` on it
+ * ("4 injuries" is about four subjects, not one). Filtering after the dedupe
+ * would therefore throw away every summary row — the rail's most useful rows —
+ * while keeping the subjectless singletons it was meant to remove. Filtering
+ * first removes the subjectless rows and lets the rest group as before.
+ */
+function namesItsSubject(situation: BoardSituation): boolean {
+  return Boolean(situation.player?.trim() || situation.team?.trim());
+}
+
 function dedupeBySignalType(situations: BoardSituation[]): BoardSituation[] {
   const groups = new Map<string, BoardSituation[]>();
   for (const s of situations) {
@@ -179,7 +197,9 @@ function SignalRow({ s }: { s: BoardSituation }) {
 }
 
 export function BoardSignalRail({ situations, className }: { situations: BoardSituation[]; className?: string }) {
-  const feed = dedupeBySignalType(situations.filter((s) => !isStale(s))).slice(0, 7);
+  const feed = dedupeBySignalType(
+    situations.filter((s) => !isStale(s) && namesItsSubject(s)),
+  ).slice(0, 7);
   return (
     <>
       <style>{SIGNAL_RAIL_CSS}</style>
