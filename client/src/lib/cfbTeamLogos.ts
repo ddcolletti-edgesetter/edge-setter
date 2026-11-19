@@ -97,3 +97,35 @@ export function cfbTeamName(abbr: string): string | null {
   const canonical = CFB_ABBR_ALIASES[upper] ?? upper;
   return CFB_TEAM_NAMES[canonical] ?? null;
 }
+
+/**
+ * The school a `games`-table CFB token names, or null when we cannot say.
+ *
+ * `games.home_team` / `games.away_team` for CFB is `shortCode(<The Odds API
+ * team name>)`, which is a real abbreviation for the 48 schools NAME_TO_CODE
+ * covers and the first three letters of the MASCOT word for the rest. So the
+ * board prints "OWL vs PAN" where it means Rice and Georgia State.
+ *
+ * ORDER IS LOAD-BEARING. The mascot-slice table is consulted FIRST, and `FLA`
+ * is the proof: it is a mascot slice (Kent State Golden Flashes, Liberty
+ * Flames) AND it is ESPN's own abbreviation for Florida in CFB_TEAM_NAMES.
+ * Reading the name table first would relabel every Kent State and Liberty
+ * game "Florida Gators" — the exact mistake {@link CFB_MASCOT_SLICE_TOKEN_SET}
+ * already exists to stop on the logo side.
+ *
+ * Never guesses. A token two or more schools would both be stored as returns
+ * null and the caller keeps the token. 16 tokens are in that bucket; BEA, BUL,
+ * EAG and OWL each cover four schools.
+ *
+ * CFB and games-sourced tokens only. The same string arriving from the injury
+ * or transaction adapters is a real abbreviation out of CFB_DISPLAY_TO_ABBR,
+ * where `FLA` does mean Florida — callers gate on provenance exactly as
+ * `getTeamLogoUrl` does with `fromGamesTable`.
+ */
+export function cfbSchoolForGamesToken(token: string | null | undefined): string | null {
+  const upper = String(token ?? "").trim().toUpperCase();
+  if (!upper) return null;
+  const slice = CFB_MASCOT_SLICE_TOKENS.find((entry) => entry.token === upper);
+  if (slice) return slice.teams.length === 1 ? slice.teams[0] : null;
+  return CFB_TEAM_NAMES[CFB_ABBR_ALIASES[upper] ?? upper] ?? null;
+}

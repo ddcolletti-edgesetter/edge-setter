@@ -62,6 +62,11 @@ export interface SituationRowData {
   subtitle?: string;
   league?: string;
   matchup?: string;
+  /**
+   * `matchup` with CFB mascot tokens resolved to school names, for display.
+   * `matchup` itself stays in tokens because headline copy parses it.
+   */
+  matchupLabel?: string;
   market?: string;
   timestamp?: string;
   sourceCount?: number;
@@ -194,7 +199,7 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
       <span className="min-w-0 overflow-hidden">
         <span className="flex min-w-0 flex-wrap items-center gap-1.5">
           {situation.league && <span className="data-label text-[0.64rem] text-primary">{situation.league}</span>}
-          {situation.matchup && <span className="min-w-0 max-w-full truncate text-[0.72rem] font-semibold text-muted-foreground">{situation.matchup}</span>}
+          {situation.matchup && <span className="min-w-0 max-w-full truncate text-[0.72rem] font-semibold text-muted-foreground">{situation.matchupLabel ?? situation.matchup}</span>}
           {situation.timestamp && (
             <span className="ml-auto hidden items-center gap-1 text-[0.68rem] font-medium text-muted-foreground tabular-nums sm:inline-flex">
               <Clock3 className="h-3 w-3" />

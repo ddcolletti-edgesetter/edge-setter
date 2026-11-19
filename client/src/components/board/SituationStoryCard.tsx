@@ -205,14 +205,23 @@ function textNames(text?: string, name?: string): boolean {
 }
 
 /**
- * Is the opponent in `label` ("at BUF" / "vs BUF") already named by the
- * header's matchup ("KC @ BUF")? Compared as a whole token so "SF" cannot match
- * inside "SFO".
+ * Is the opponent in `label` ("at BUF" / "vs Rice Owls") already named by the
+ * header's matchup ("KC @ BUF" / "Temple Owls @ Rice Owls")?
+ *
+ * Split on the separator, not on every non-alphanumeric: a side is compared
+ * whole, so "SF" still cannot match inside "SFO" AND a multi-word school name
+ * matches the side that holds it. Splitting on word characters would read
+ * "Temple Owls @ Rice Owls" as four tokens, none of them "RICE OWLS", and the
+ * card would print the opponent twice.
  */
 function matchupNamesOpponent(matchup?: string, label?: string): boolean {
-  const token = String(label ?? "").replace(/^\s*(?:at|vs\.?)\s+/i, "").trim().toUpperCase();
-  if (!token || !matchup) return false;
-  return matchup.toUpperCase().split(/[^A-Z0-9]+/).includes(token);
+  const opponent = String(label ?? "").replace(/^\s*(?:at|vs\.?)\s+/i, "").trim().toUpperCase();
+  if (!opponent || !matchup) return false;
+  return matchup
+    .toUpperCase()
+    .split(/\s+@\s+|\s+VS\.?\s+/)
+    .map((side) => side.trim())
+    .includes(opponent);
 }
 
 function fantasyDetail(story: SituationStoryCardData) {

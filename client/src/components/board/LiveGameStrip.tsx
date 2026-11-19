@@ -38,13 +38,17 @@ export function LiveGameStrip({
   return (
     <section className={cn("board-live-strip max-w-full overflow-hidden rounded-md border border-border bg-card/80 shadow-[0_18px_48px_rgba(0,0,0,0.18)]", className)}>
       <div className={cn("board-live-strip-header flex flex-wrap items-center gap-2 border-b border-border/70 px-3 sm:px-4", compactMonitoring ? "py-1.5" : "py-2")}>
-        <div className="flex min-w-0 flex-1 items-center gap-2 sm:flex-none">
+        {/* shrink-0: the panel's own title is a fixed label, so the featured
+            line below absorbs the truncation instead of cutting "Live Board"
+            down to "LIV...". It only started competing for the space once the
+            featured line began carrying CFB school names. */}
+        <div className="flex shrink-0 items-center gap-2">
           <Radio className="h-4 w-4 text-primary" />
           <span className="data-label truncate text-primary">{title}</span>
         </div>
         {featuredGame && (
           <span className="board-live-featured-game min-w-0 truncate">
-            {featuredGame.away.abbreviation} @ {featuredGame.home.abbreviation} / {featuredGame.clock ?? featuredGame.period ?? statusLabel(featuredGame.status)}
+            {featuredGame.away.name ?? featuredGame.away.abbreviation} @ {featuredGame.home.name ?? featuredGame.home.abbreviation} / {featuredGame.clock ?? featuredGame.period ?? statusLabel(featuredGame.status)}
           </span>
         )}
         <span className="ml-auto shrink-0 rounded border border-border bg-muted/30 px-2 py-0.5 text-[0.68rem] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
