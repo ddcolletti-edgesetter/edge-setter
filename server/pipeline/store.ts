@@ -98,6 +98,12 @@ function initSchema(db: Database.Database) {
       league          TEXT NOT NULL,
       home_team       TEXT NOT NULL,
       away_team       TEXT NOT NULL,
+      -- Display names from the feed that created the row ("Rice Owls"), kept
+      -- because shortCode() of a CFB name is a mascot slice. NULLABLE and
+      -- never read by grading, matching or settlement — see Game in types.ts.
+      -- Also added by addColumnIfMissing below, for DBs that predate them.
+      home_team_name  TEXT,
+      away_team_name  TEXT,
       game_time       TEXT NOT NULL,
       status          TEXT NOT NULL DEFAULT 'scheduled',
       spread_line     REAL,
@@ -575,6 +581,13 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   // Migrate existing DBs that predate home_score/away_score columns on games
   addColumnIfMissing(db, "games", "home_score", "REAL");
   addColumnIfMissing(db, "games", "away_score", "REAL");
+  // Feed display names (see Game in types.ts). Plain nullable TEXT with no
+  // default, so every pre-existing row reads back NULL — which is the correct
+  // "we never stored a name for this game" and is exactly what the client
+  // treats as "fall back to the token". No backfill: the odds adapter fills a
+  // row in on its next cycle, and a row it never revisits has no name to give.
+  addColumnIfMissing(db, "games", "home_team_name", "TEXT");
+  addColumnIfMissing(db, "games", "away_team_name", "TEXT");
   // Migrate live_signals to support archival
   addColumnIfMissing(db, "live_signals", "is_archived", "INTEGER NOT NULL DEFAULT 0");
   // Migrate live_signals to track when the signal was first observed
@@ -1212,10 +1225,11 @@ export function upsertGame(g: Omit<Game, "created_at" | "updated_at"> & Partial<
   const now = new Date().toISOString();
   const game: Game = { ...g, created_at: g.created_at ?? now, updated_at: now } as Game;
   db.prepare(`
-    INSERT INTO games (id,league,home_team,away_team,game_time,status,
+    INSERT INTO games (id,league,home_team,away_team,home_team_name,away_team_name,
+      game_time,status,
       spread_line,spread_team,total_line,moneyline_home,moneyline_away,
       open_spread,open_total,source_game_id,created_at,updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       status=CASE WHEN status='final' THEN 'final' ELSE excluded.status END,
       spread_line=excluded.spread_line,
@@ -1223,9 +1237,25 @@ export function upsertGame(g: Omit<Game, "created_at" | "updated_at"> & Partial<
       total_line=excluded.total_line,
       moneyline_home=excluded.moneyline_home,
       moneyline_away=excluded.moneyline_away,
+      -- COALESCE, not plain assignment: ingestMLBSchedule calls this function
+      -- for every MLB game on the slate and has no team NAME to pass, so a
+      -- plain home_team_name=excluded.home_team_name would wipe the name the
+      -- odds adapter wrote minutes earlier, once per cycle, forever.
+      --
+      -- What COALESCE buys is exactly one rule: a writer that HAS a name sets
+      -- it (so a feed that renames a club corrects the row on its next cycle),
+      -- and a writer that has NONE leaves it alone. It does not freeze the
+      -- first name — excluded.home_team_name wins whenever it is non-NULL.
+      home_team_name=COALESCE(excluded.home_team_name, home_team_name),
+      away_team_name=COALESCE(excluded.away_team_name, away_team_name),
       updated_at=excluded.updated_at
   `).run(
-    game.id, game.league, game.home_team, game.away_team, game.game_time,
+    game.id, game.league, game.home_team, game.away_team,
+    // ?? null, not the bare value: these two are OPTIONAL on Game, and
+    // better-sqlite3 throws on an `undefined` bind rather than storing NULL.
+    // Both existing callers that pass no name reach this line.
+    game.home_team_name ?? null, game.away_team_name ?? null,
+    game.game_time,
     game.status, game.spread_line, game.spread_team, game.total_line,
     game.moneyline_home, game.moneyline_away, game.open_spread, game.open_total,
     game.source_game_id, game.created_at, game.updated_at,
@@ -1246,7 +1276,10 @@ export function upsertGame(g: Omit<Game, "created_at" | "updated_at"> & Partial<
  *                is the "first ingested after kickoff" case: we never saw a
  *                pre-game line for this game, and recording an in-play one as
  *                if it were the open would be a fabrication.
- *   on CONFLICT — status only. Two columns are deliberately left alone:
+ *   on CONFLICT — status, plus the team display names when the caller has them
+ *                (COALESCE, so a caller with no name cannot blank a stored one
+ *                — see the clause below). Two columns are deliberately left
+ *                alone:
  *
  *                game_time, because settlementWindowDays,
  *                findNextFinalGameForTeam and the situations filter
@@ -1279,6 +1312,8 @@ export function touchGameSchedule(g: {
   league: string;
   home_team: string;
   away_team: string;
+  home_team_name?: string | null;
+  away_team_name?: string | null;
   game_time: string;
   status: string;
   source_game_id: string | null;
@@ -1286,14 +1321,25 @@ export function touchGameSchedule(g: {
   const db = getPipelineDb();
   const now = new Date().toISOString();
   db.prepare(`
-    INSERT INTO games (id,league,home_team,away_team,game_time,status,
+    INSERT INTO games (id,league,home_team,away_team,home_team_name,away_team_name,
+      game_time,status,
       source_game_id,created_at,updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       status=CASE WHEN status='final' THEN 'final' ELSE excluded.status END,
+      -- Same COALESCE as upsertGame, which keeps the rule this function is
+      -- built on: the post-kickoff path writes no MORE than the pre-kickoff
+      -- path. A name is not market data — it is the label on the row's own
+      -- home_team/away_team, identical before and after kickoff — so a game
+      -- first seen in play still gets named, and a caller with no name to give
+      -- cannot blank the one that is there.
+      home_team_name=COALESCE(excluded.home_team_name, home_team_name),
+      away_team_name=COALESCE(excluded.away_team_name, away_team_name),
       updated_at=excluded.updated_at
   `).run(
-    g.id, g.league, g.home_team, g.away_team, g.game_time, g.status,
+    g.id, g.league, g.home_team, g.away_team,
+    g.home_team_name ?? null, g.away_team_name ?? null,
+    g.game_time, g.status,
     g.source_game_id, now, now,
   );
 }

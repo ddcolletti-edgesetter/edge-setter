@@ -98,6 +98,23 @@ export type AnyBoardGame = {
   homeTeam?: string | null;
   away_team?: string | null;
   home_team?: string | null;
+  /**
+   * The team name the games row stored — "Rice Owls", "Kansas City Chiefs".
+   *
+   * `games.home_team_name` / `away_team_name`, written by the odds adapter from
+   * the feed's own names. NULL on every row written before that shipped, and on
+   * rows the odds adapter has not revisited since, so every reader of these
+   * falls back the same way: stored name, then the CFB token lookup, then the
+   * token itself.
+   *
+   * Two spellings for the same reason the token fields have four: the API
+   * serves snake_case rows and each board page re-maps them into its own
+   * camelCase shape.
+   */
+  awayTeamName?: string | null;
+  homeTeamName?: string | null;
+  away_team_name?: string | null;
+  home_team_name?: string | null;
   status?: string | null;
   statusDescription?: string | null;
   gameDate?: Date | string | null;
@@ -129,16 +146,53 @@ function cfbGamesSchool(token: string | undefined | null, league?: string): stri
 }
 
 /**
- * "Western Michigan Broncos @ Rice Owls" from an away/home token pair.
+ * The names the games row stored for its two sides, blanks dropped.
  *
- * Per side: each half resolves on its own and falls back to its own token, so
- * a matchup with one ambiguous side still names the school we do know rather
- * than throwing both away.
+ * See {@link AnyBoardGame}. A row written before the columns existed, or by a
+ * feed with no name to give, yields `{}` and every caller falls through to what
+ * it did before.
  */
-function cfbMatchupLabel(away?: string | null, home?: string | null, league?: string): string | undefined {
-  if (String(league ?? "").toUpperCase() !== "CFB") return undefined;
-  const side = (token?: string | null) => (token ? cfbGamesSchool(token, league) ?? token : undefined);
-  return [side(away), side(home)].filter(Boolean).join(" @ ") || undefined;
+export function storedGameNames(game?: AnyBoardGame | null): { away?: string; home?: string } {
+  const clean = (value?: string | null) => {
+    const text = String(value ?? "").trim();
+    return text || undefined;
+  };
+  return {
+    away: clean(game?.awayTeamName ?? game?.away_team_name),
+    home: clean(game?.homeTeamName ?? game?.home_team_name),
+  };
+}
+
+/**
+ * "Western Michigan Broncos @ Rice Owls" from an away/home token pair, plus
+ * whatever names the row itself carries.
+ *
+ * THE ORDER IS THE WHOLE POINT. Per side: the stored name, then the CFB
+ * mascot-token lookup, then the token. A stored name is what the feed actually
+ * called the team, so it outranks a table that infers a school from three
+ * letters — and it is the only thing that can name one of the 16 tokens two
+ * schools share, which the lookup must refuse.
+ *
+ * The STORED branch is league-agnostic: an NFL row that carries "Kansas City
+ * Chiefs" prints it. The LOOKUP stays CFB-only, because the same token from a
+ * non-CFB source is a real abbreviation (see cfbSchoolForGamesToken on FLA).
+ * With neither a stored name nor a CFB league there is nothing to add, so this
+ * returns undefined and the caller keeps printing tokens.
+ *
+ * Per side on the fallbacks too: a matchup with one named side still names it
+ * rather than throwing both away.
+ */
+function cfbMatchupLabel(
+  away?: string | null,
+  home?: string | null,
+  league?: string,
+  names?: { away?: string; home?: string },
+): string | undefined {
+  const isCfb = String(league ?? "").toUpperCase() === "CFB";
+  if (!names?.away && !names?.home && !isCfb) return undefined;
+  const side = (token?: string | null, stored?: string) =>
+    stored ?? (token ? cfbGamesSchool(token, league) ?? token : undefined);
+  return [side(away, names?.away), side(home, names?.home)].filter(Boolean).join(" @ ") || undefined;
 }
 
 /**
@@ -160,6 +214,7 @@ export function toLiveGamePillData(
   const status = game.statusDescription ?? game.status ?? "Scheduled";
   const awayName = game.awayTeam ?? game.away_team ?? game.away ?? game.awayFull ?? "TBD";
   const homeName = game.homeTeam ?? game.home_team ?? game.home ?? game.homeFull ?? "TBD";
+  const stored = storedGameNames(game);
   const isLive = isLiveStatus(status);
 
   return {
@@ -168,15 +223,17 @@ export function toLiveGamePillData(
     sport,
     away: {
       abbreviation: abbreviateTeam(awayName),
-      // CFB only, and only when one school owns the token. The pill itself is
-      // too narrow for a school name and keeps the abbreviation; the strip's
-      // featured line and the pill's tooltip use this.
-      name: cfbGamesSchool(abbreviateTeam(awayName), sport),
+      // The name the row stored, else the CFB token lookup (CFB only, and only
+      // when one school owns the token), else nothing. The pill itself is too
+      // narrow for a full name and keeps the abbreviation; the strip's featured
+      // line and the pill's tooltip use this, and both already fall back to the
+      // abbreviation when it is undefined.
+      name: stored.away ?? cfbGamesSchool(abbreviateTeam(awayName), sport),
       score: game.awayScore ?? game.away_score ?? undefined,
     },
     home: {
       abbreviation: abbreviateTeam(homeName),
-      name: cfbGamesSchool(abbreviateTeam(homeName), sport),
+      name: stored.home ?? cfbGamesSchool(abbreviateTeam(homeName), sport),
       score: game.homeScore ?? game.home_score ?? undefined,
     },
     status: normalizeGameStatus(status),
@@ -208,13 +265,19 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
   const confidenceDelta = canonical?.confidenceHistoryPreview?.[0]?.delta ?? null;
   const matchup = [situation.awayTeam, situation.homeTeam].filter(Boolean).join(" @ ")
     || [situation.team, situation.opponent].filter(Boolean).join(" vs ");
-  // School names for display, tokens kept in `matchup` for everything that
+  // Real names for display, tokens kept in `matchup` for everything that
   // parses it (editorialHeadline -> cleanPublicMatchupLabel builds an
   // uppercase hyphenated pair, which full names would turn into
   // "RICE OWLS-TEMPLE OWLS"). Only the awayTeam/homeTeam branch is resolved:
-  // it is the one fed by /api/v2/games. The `team vs opponent` branch is
-  // signal-sourced and must not go through the mascot-slice table.
-  const matchupLabel = cfbMatchupLabel(situation.awayTeam, situation.homeTeam, situation.league);
+  // it is the one fed by /api/v2/games, and `situation.game` is the row it came
+  // from, so the names it stored are read from there. The `team vs opponent`
+  // branch is signal-sourced and must not go through the mascot-slice table.
+  const matchupLabel = cfbMatchupLabel(
+    situation.awayTeam,
+    situation.homeTeam,
+    situation.league,
+    storedGameNames(situation.game as AnyBoardGame | undefined),
+  );
   // Derive the canonical verification word from the same signal the detail
   // drawer opens on, so the story card and the drawer never disagree. Only the
   // signal lineage feeds a drawer (canonical situations open the /story page),
@@ -571,8 +634,12 @@ export function opponentLabelFor(
 
   if (match) {
     const tokens = gameTokens(match.game);
-    if (match.storyIsHome === true && tokens.away) return `vs ${school(tokens.away)}`;
-    if (match.storyIsHome === false && tokens.home) return `at ${school(tokens.home)}`;
+    // Stored name first, token lookup second, token last — the same order as
+    // the matchup label, from the same row. The stored half is league-agnostic;
+    // `school` stays CFB-gated.
+    const stored = storedGameNames(match.game);
+    if (match.storyIsHome === true && tokens.away) return `vs ${stored.away ?? school(tokens.away)}`;
+    if (match.storyIsHome === false && tokens.home) return `at ${stored.home ?? school(tokens.home)}`;
   }
 
   if (!identity?.sideKnown || !team) return undefined;
