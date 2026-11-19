@@ -113,10 +113,34 @@ function stubFetch(payload: unknown) {
   }) as any));
 }
 
+/**
+ * The real Date.now, captured before any test can spy on it.
+ *
+ * Each chained cycle has to land on its OWN instant. NEWEST_SNAPSHOT_SQL is
+ * `snapshot_at < asOf` (STRICT, so a cycle cannot find the row it just wrote),
+ * and the adapter stamps every snapshot with the cycle clock. Two cycles on
+ * the same millisecond therefore make cycle 2 skip cycle 1's row as well as
+ * its own, find the PRE-GAP seed as "newest", measure the old hole all over
+ * again, and re-baseline a second time.
+ *
+ * That is not reachable in prod — shouldSkipOddsFetch throttles each league to
+ * one successful fetch per ODDS_MIN_INTERVAL_MIN (default 60) — but it is very
+ * reachable on a fast CI runner, where two awaits can resolve inside one
+ * millisecond. It is what turned T17 red on GitHub while it passed locally.
+ * Reproduced directly before this fix: same millisecond gives -2.0, a minute
+ * apart gives -2.5.
+ */
+const REAL_NOW = Date.now.bind(Date);
+let cycleClockOffsetMs = 0;
+
 /** One ingest cycle. Clears the throttle first so cycles can be chained. */
 async function runCycle(league: "CFB" | "NFL" | "NBA" | "MLB", payload: unknown) {
   store.getPipelineDb().prepare("DELETE FROM odds_fetch_state").run();
   stubFetch(payload);
+  // A minute per cycle: enough that no two share an instant, far below any
+  // threshold in play (the smallest is 3 DAYS), so no test's meaning changes.
+  cycleClockOffsetMs += 60_000;
+  vi.spyOn(Date, "now").mockImplementation(() => REAL_NOW() + cycleClockOffsetMs);
   return odds.ingestOdds(league as any);
 }
 
@@ -179,6 +203,7 @@ beforeEach(() => {
   delete process.env.ODDS_OPEN_REBASELINE_DAYS;
   delete process.env.ODDS_OPEN_REBASELINE;
   process.env.ODDS_MIN_INTERVAL_MIN = "1";
+  cycleClockOffsetMs = 0;
 });
 
 afterEach(() => {
@@ -932,5 +957,33 @@ describe("10. lineMoveSignalsForGame", () => {
 
   it("T50 — a game with no signals returns an empty list", () => {
     expect(rebase.lineMoveSignalsForGame("NFL_NOTHING_HERE")).toEqual([]);
+  });
+});
+
+/* === 11. The harness guarantee T17 depends on ====================== */
+
+/**
+ * T17 is a REGRESSION test that only regresses when its two cycles land on
+ * different instants. It passed locally and failed on CI for exactly that
+ * reason. This pins the harness property directly, so the next person sees a
+ * named failure instead of a mystery flake in a test about something else.
+ */
+describe("11. chained cycles land on distinct instants", () => {
+  it("T51 — each runCycle advances the clock, so no two snapshots share a snapshot_at", async () => {
+    seedGame({});
+
+    await runCycle("NFL", oddsPayload({ spread: -3.5, total: 44.5 }));
+    await runCycle("NFL", oddsPayload({ spread: -3.0, total: 44.0 }));
+    await runCycle("NFL", oddsPayload({ spread: -2.5, total: 43.5 }));
+
+    const stamps = (db()
+      .prepare("SELECT snapshot_at FROM odds_snapshots WHERE game_id = ? ORDER BY snapshot_at ASC")
+      .all(GAME_ID) as Array<{ snapshot_at: string }>).map(r => r.snapshot_at);
+
+    expect(stamps).toHaveLength(3);
+    expect(new Set(stamps).size).toBe(3);
+    for (let i = 1; i < stamps.length; i++) {
+      expect(Date.parse(stamps[i])).toBeGreaterThan(Date.parse(stamps[i - 1]));
+    }
   });
 });
