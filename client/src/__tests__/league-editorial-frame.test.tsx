@@ -75,10 +75,14 @@ describe("LeagueEditorialPageFrame", () => {
 
     expect(story.headline).toBe("Mitchell Robinson finger injury puts Knicks availability in focus");
     expect(story.whatHappened).toBe("Robinson was diagnosed with a broken right pinky and is without a return timetable.");
-    expect(story.whyItMatters).toBe("Availability changes can shift starters, rotations, usage, and pre-tip pricing.");
-    // Was the NBA league fallback, printed identically under every NBA story.
-    // Dropped with the other placeholder reads (story-card-polish.test.tsx,
-    // item 4); this row carries no timing or uncertainty of its own.
+    // Was "Availability changes can shift starters, rotations, usage, and
+    // pre-tip pricing." — chosen by finding "injury" in the row's text and then
+    // printed under every NBA availability story, whoever it was about. A
+    // sentence identical on every card in a league is a label for the league,
+    // not a reason this story matters, so it went the same way the league
+    // "Watch next" fallbacks did. This row carries no evidence growth of its
+    // own, so the tile is omitted rather than filled.
+    expect(story.whyItMatters).toBeUndefined();
     expect(story.watchNext).toBeUndefined();
   });
 });

@@ -5,7 +5,7 @@ import { AgentCalibrationBadge } from "@/components/AgentCalibration";
 import { Badge } from "@/components/ui/badge";
 import { PlayerAvatar, TeamLogoImg, isUnknownTeamAbbr, toTeamAbbr } from "@/components/v2/SportVisuals";
 import type { MarketMove } from "@/lib/marketMove";
-import { publicLifecycleLabel, publicStoryText, sourceCountText } from "@/lib/storyLanguage";
+import { isGenericUncertaintyLine, publicLifecycleLabel, publicStoryText, sourceCountText } from "@/lib/storyLanguage";
 import { cn } from "@/lib/utils";
 import type { BoardUrgency } from "./LiveGamePill";
 
@@ -153,6 +153,16 @@ export interface SituationRowData {
    * lib/marketMove.
    */
   marketMove?: MarketMove;
+  /**
+   * Whether an official source — an injury report, a depth chart, a transaction
+   * wire — is attached to this row's signal.
+   *
+   * Carried as a field because it is half of the test for whether a "Verified"
+   * / "Confirmed" claim was earned (the other half is {@link sourceCount}), and
+   * the surfaces that make that claim read the row, not the signal. See
+   * verifiedClaimIsBacked.
+   */
+  officialSource?: boolean;
   replayChain?: string[];
   body?: string;
   detail?: string;
@@ -195,6 +205,10 @@ const lifecycleStyle: Record<SituationLifecycleState, string> = {
 
 export function SituationRow({ situation, selected, compact, copyVariant = "legacy", rightSlot, onSelect, className, ...props }: SituationRowProps) {
   const escalation = situation.escalationState ?? "monitoring";
+  // Whether this row's "Confirmed" was earned. The pipeline sets a confirmed
+  // verdict off a single designation, so the two chips below ask before
+  // printing the word. See verifiedClaimIsBacked.
+  const verifiedClaimContext = { sourceCount: situation.sourceCount, officialSource: situation.officialSource };
   const lane = situation.lane ?? "background";
   const metrics = situation.metrics?.slice(0, compact ? 1 : 2) ?? [];
   const lifecycle = situation.lifecycleState ?? "developing";
@@ -261,11 +275,11 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
 
         <span className="mt-2 flex min-w-0 max-w-full flex-wrap items-center gap-1.5 overflow-hidden">
           <Badge variant="outline" className={cn("h-5 max-w-full truncate px-1.5 text-[0.62rem] uppercase tracking-widest", escalationStyle[escalation])}>
-            {copyVariant === "editorial" ? publicLifecycleLabel(situation.statusLabel ?? escalation) : situation.statusLabel ?? escalation}
+            {copyVariant === "editorial" ? publicLifecycleLabel(situation.statusLabel ?? escalation, verifiedClaimContext) : situation.statusLabel ?? escalation}
           </Badge>
           {situation.lifecycleLabel && (
             <Badge variant="outline" className={cn("hidden h-5 max-w-full truncate px-1.5 text-[0.62rem] uppercase tracking-widest sm:inline-flex", lifecycleStyle[lifecycle])}>
-              {copyVariant === "editorial" ? publicLifecycleLabel(situation.lifecycleLabel) : situation.lifecycleLabel}
+              {copyVariant === "editorial" ? publicLifecycleLabel(situation.lifecycleLabel, verifiedClaimContext) : situation.lifecycleLabel}
             </Badge>
           )}
           {situation.market && (
@@ -320,7 +334,10 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
             {(situation.sourceProgressLabel || situation.sourceSummary) && <IntelLine icon={<Link2 className="h-3 w-3" />} label="Source support" value={storyText(situation.sourceProgressLabel ?? situation.sourceSummary ?? "", copyVariant)} />}
             {situation.timingAdvantage && <IntelLine label="Watch next" value={storyText(situation.timingAdvantage, copyVariant)} />}
             {!compact && situation.marketReaction && <IntelLine icon={<TrendingUp className="h-3 w-3" />} label="Market note" value={storyText(situation.marketReaction, copyVariant)} />}
-            {!compact && situation.uncertaintyLabel && <IntelLine label="Watch next" value={storyText(situation.uncertaintyLabel, copyVariant)} />}
+            {/* Same suppression as the story card's "Watch next" tile: the three
+                engine-state sentences are not something to watch. See
+                isGenericUncertaintyLine. */}
+            {!compact && situation.uncertaintyLabel && !isGenericUncertaintyLine(situation.uncertaintyLabel) && <IntelLine label="Watch next" value={storyText(situation.uncertaintyLabel, copyVariant)} />}
           </span>
         )}
 

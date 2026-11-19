@@ -72,12 +72,18 @@ export function evidenceCountText(count?: number | null) {
   return `${count} report${count === 1 ? "" : "s"}`;
 }
 
-export function publicLifecycleLabel(value?: string | null) {
+export function publicLifecycleLabel(value?: string | null, context?: VerifiedClaimContext | null) {
   const normalized = String(value ?? "").trim();
   if (!normalized) return "Developing";
   if (/context moving|market-reacting/i.test(normalized)) return "Market reacting";
   if (/urgent|breaking|live/i.test(normalized)) return "Urgent";
-  if (/verified|confirmed|consensus|official/i.test(normalized)) return "Confirmed";
+  // "Confirmed" is a claim about corroboration, so it needs corroboration. A
+  // lone source that reported a designation gets "Reported" — true, and it no
+  // longer contradicts the "1 report" sitting next to it. Callers that pass no
+  // context are unchanged. See verifiedClaimIsBacked.
+  if (/verified|confirmed|consensus|official/i.test(normalized)) {
+    return verifiedClaimIsBacked(context) ? "Confirmed" : "Reported";
+  }
   if (/watch|review|likely/i.test(normalized)) return "Watch";
   if (/developing|emerging|escalating|elevated|monitoring/i.test(normalized)) return "Developing";
   if (/resolved|stale|cooling/i.test(normalized)) return "Cooling";
@@ -114,6 +120,36 @@ export function shouldCapSingleSourceStrength(context?: EvidenceStrengthContext 
   return (context.sourceCount ?? 0) < 2;
 }
 
+/**
+ * Whether a "verified" / "confirmed" claim has anything behind it.
+ *
+ * The pipeline sets `verdict: "confirmed"` on an injury row as soon as it has a
+ * DESIGNATION — one wire saying "OUT" is enough — and the board then derived
+ * the operational lifecycle "Verified" from that verdict and printed "ES Agents
+ * verified". On prod today 36 of the 37 rows making that claim carry
+ * `source_count: 1`, and the same card prints "1 report / Needs more
+ * confirmation" a few pixels away. One source reporting a designation is a
+ * report, not a verification, and "ES Agents verified" says Edge Setter did
+ * something it did not do.
+ *
+ * This is the companion to {@link shouldCapSingleSourceStrength}, which caps
+ * STRENGTH wording and treats `verified` as a reason not to cap. That is right
+ * for strength and wrong here: this predicate asks whether the verified flag
+ * was earned in the first place. Two or more sources, or an official source
+ * attached, earns it; a lone designation does not.
+ */
+export interface VerifiedClaimContext {
+  readonly sourceCount?: number | null;
+  /** An official report / injury report / transaction wire source is attached. */
+  readonly officialSource?: boolean | null;
+}
+
+export function verifiedClaimIsBacked(context?: VerifiedClaimContext | null): boolean {
+  if (!context) return true;
+  if (context.officialSource) return true;
+  return (context.sourceCount ?? 0) >= 2;
+}
+
 export function publicConfidenceLabel(value?: string | number | null, context?: EvidenceStrengthContext | null) {
   const text = String(value ?? "").trim();
   const parsed = Number.parseFloat(text.replace("%", ""));
@@ -131,6 +167,30 @@ export function publicConfidenceLabel(value?: string | number | null, context?: 
   // (including callers that pass no context) is unchanged.
   if (shouldCapSingleSourceStrength(context) && /strong/i.test(label)) return "Still forming";
   return label;
+}
+
+/**
+ * The canonical engine's `confidenceFactors.whatRemainsUncertain[0]` has
+ * exactly three values, and all three describe the ENGINE's state rather than
+ * the story. On the four prod boards they account for every uncertainty line
+ * printed — 299 / 64 / 37 rows, 400 of 610 in all.
+ *
+ * Under a "Watch next" label they tell a reader to watch nothing: the first two
+ * restate the source count already on the card, and the third is a claim about
+ * confidence, not a next step. Both surfaces that print that tile — the story
+ * card's `storyWatchNext` and SituationRow's own "Watch next" line — route
+ * through here so they cannot disagree.
+ */
+const SUPPRESSED_UNCERTAINTY_VALUES = [
+  "independent confirmation is still limited",
+  "validator agreement is not yet strong enough",
+  "remaining uncertainty is low relative to the current evidence",
+];
+
+export function isGenericUncertaintyLine(value?: string | null): boolean {
+  const text = String(value ?? "").toLowerCase();
+  if (!text.trim()) return false;
+  return SUPPRESSED_UNCERTAINTY_VALUES.some((v) => text.includes(v));
 }
 
 export function publicTimingLabel(value?: string | null, league?: string) {

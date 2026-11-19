@@ -1,4 +1,4 @@
-import { shouldCapSingleSourceStrength } from "./storyLanguage";
+import { shouldCapSingleSourceStrength, verifiedClaimIsBacked } from "./storyLanguage";
 import type { MarketMove } from "./marketMove";
 
 export type SignalLifecycle = "Early" | "Developing" | "Confirmed" | "Widely Known" | "Expiring" | "Stale";
@@ -166,14 +166,26 @@ export function signalTrustReasons(signal: BoardSignalLike) {
   const confidence = signalConfidence(signal);
   const lifecycle = signalLifecycle(signal);
 
+  const backed = verifiedClaimIsBacked({ sourceCount: sources, officialSource: officialSourcePresent(signal) });
+
   if (sources > 1) reasons.push(`${sources} source checks`);
   else if (sources === 1) reasons.push("1 source check");
 
-  if (signal.confirmationStrength) reasons.push(signal.confirmationStrength);
+  // `confirmation_strength` is set by the pipeline from the shape of the event,
+  // not from how many sources agreed: a 2-point line move from one sportsbook
+  // is stored "Corroborated". Pushed verbatim, that produced
+  // "1 source check / corroborated" — a label that contradicts its own first
+  // half — on 177 of the 610 rows the four prod boards render. A corroboration
+  // claim needs corroboration; without it the strength word is dropped and the
+  // count stands on its own.
+  if (signal.confirmationStrength && (backed || !/corroborat|consensus|multiple/i.test(signal.confirmationStrength))) {
+    reasons.push(signal.confirmationStrength);
+  }
   if (confidence >= 80) reasons.push("agent confidence high");
   if (signalHasMovement(signal)) reasons.push("context shifted");
   if (lifecycle === "Early") reasons.push("early timing");
-  if (lifecycle === "Confirmed") reasons.push("confirmed status");
+  // Same test: "confirmed status" on one source is the claim, not the evidence.
+  if (lifecycle === "Confirmed" && backed) reasons.push("confirmed status");
 
   return reasons.slice(0, 3);
 }
@@ -207,7 +219,11 @@ export function signalConfidenceNarrative(signal: BoardSignalLike) {
     sourceCount > 1 ? `${sourceCount} reports aligned` : sourceCount === 1 ? "single-report read" : null,
     officialSourcePresent(signal) ? "official report attached" : null,
     signalHasMovement(signal) ? "market reaction" : null,
-    lifecycle === "Early" ? "early development" : lifecycle === "Confirmed" ? "ES Agents verified" : null,
+    lifecycle === "Early"
+      ? "early development"
+      : lifecycle === "Confirmed" && verifiedClaimIsBacked({ sourceCount, officialSource: officialSourcePresent(signal) })
+        ? "ES Agents verified"
+        : null,
   ].filter(Boolean);
 
   // "Strong evidence support" claims more than a lone unverified source can back;
@@ -250,7 +266,15 @@ export function signalTimingAdvantage(signal: BoardSignalLike) {
   if (lifecycle === "Early" && hasMovement) return "sports context moving";
   if (lifecycle === "Developing" && !hasMovement) return "developing window; verification still forming";
   if (lifecycle === "Developing" && hasMovement) return "partially priced; status still forming";
-  if (verdict.includes("confirmed") || lifecycle === "Confirmed") return hasMovement ? "ES Agents verified — context shifted" : "ES Agents verified";
+  if (verdict.includes("confirmed") || lifecycle === "Confirmed") {
+    // Same unbacked-verification gate as the board's timing stage. One wire
+    // reporting a designation is a report; "ES Agents verified" says Edge
+    // Setter corroborated it. See verifiedClaimIsBacked.
+    if (!verifiedClaimIsBacked({ sourceCount: signalSourceCount(signal), officialSource: officialSourcePresent(signal) })) {
+      return hasMovement ? "single report; context shifted" : "single report";
+    }
+    return hasMovement ? "ES Agents verified — context shifted" : "ES Agents verified";
+  }
   if (lifecycle === "Widely Known") return "widely known; fully priced";
   if (lifecycle === "Stale" || lifecycle === "Expiring") return "stale signal; no remaining edge";
   return "monitoring only";
