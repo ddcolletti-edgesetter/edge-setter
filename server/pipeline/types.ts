@@ -30,6 +30,28 @@ export interface Game {
   league: League;
   home_team: string;                // short code, e.g. "BOS"
   away_team: string;
+  /**
+   * The team name exactly as the feed that created the row sent it — "Rice
+   * Owls", "Kansas City Chiefs". Display only.
+   *
+   * WHY IT EXISTS. home_team/away_team hold shortCode() of the odds-API name,
+   * which for 88 of 136 FBS teams is a three-letter slice of the MASCOT ("OWL"
+   * for Rice Owls, "PAN" for Pittsburgh Panthers), and a CFB board printed
+   * that at readers. The client can resolve some of those tokens back to a
+   * school, but 16 are shared by more than one school and are unresolvable in
+   * principle. The adapter had the real name in hand and threw it away; this
+   * column keeps it.
+   *
+   * OPTIONAL, AND NULLABLE IN SQL, because it is a migration column:
+   *   • every row written before this shipped reads back NULL;
+   *   • the two writers that have no name to give — upsertHistoricalGame and
+   *     ingestMLBSchedule — leave it alone, and the ON CONFLICT clauses
+   *     COALESCE so neither erases a name the odds adapter stored.
+   * Nothing grades, matches, settles or hashes on it. home_team/away_team stay
+   * the identity columns and keep their exact current values.
+   */
+  home_team_name?: string | null;
+  away_team_name?: string | null;
   game_time: string;                // ISO 8601
   status: "scheduled" | "live" | "final" | "postponed";
   // Primary market snapshot (updated live)
