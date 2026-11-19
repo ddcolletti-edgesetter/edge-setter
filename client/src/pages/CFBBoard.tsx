@@ -31,6 +31,7 @@ import {
   toLiveGamePillData,
   toSituationRowData,
   toSituationStoryCardData,
+  type AnyBoardGame,
 } from "../components/board/boardAdapters";
 import type { LiveGamePillData } from "../components/board/LiveGamePill";
 import { SituationStoryCard } from "../components/board/SituationStoryCard";
@@ -172,8 +173,13 @@ function CFBBoardInner() {
 
   const situations = useMemo(() => {
     const fallback = buildBoardSituations({
+      // The board's own slate, already windowed and deduped by
+      // publicGamesForLeague. It used to be `[]`, which meant this board
+      // produced no game-derived rows at all and every label built from a
+      // games row — the matchup line, the stored team names, the row title —
+      // was dead code here.
       league: "CFB",
-      games: [],
+      games: liveGames as AnyBoardGame[],
       signals: visibleSignals as any[],
     });
     const canonicalBoard = canonicalSituationsToBoardSituations(
@@ -186,7 +192,7 @@ function CFBBoardInner() {
     return rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback))
       .filter((situation) => showConfirmed || situation.lane !== "confirmed")
       .filter((situation) => situationMatchesPriority(situation, urgencyFilter));
-  }, [canonicalSituations, showConfirmed, sidebarFilter, urgencyFilter, visibleSignals]);
+  }, [canonicalSituations, liveGames, showConfirmed, sidebarFilter, urgencyFilter, visibleSignals]);
 
   const storyItems = situations
     .filter((situation) => {

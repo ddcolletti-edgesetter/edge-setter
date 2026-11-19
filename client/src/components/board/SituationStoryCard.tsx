@@ -137,6 +137,8 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           sport={leagueToSport(story.league)}
           primaryTeam={story.primaryTeam}
           secondaryTeam={story.secondaryTeam}
+          primaryTeamName={story.primaryTeamName}
+          secondaryTeamName={story.secondaryTeamName}
           player={story.player}
           playerEspnId={identity?.playerEspnId}
           playerJersey={identity?.playerJersey}

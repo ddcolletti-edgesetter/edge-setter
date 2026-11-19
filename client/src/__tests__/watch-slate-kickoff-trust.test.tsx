@@ -43,12 +43,18 @@ const game = (over: Partial<AnyBoardGame> = {}): AnyBoardGame => ({
 });
 
 describe("the pill's time", () => {
-  it("is printed for NFL, the one league the card trusts", () => {
+  it("is printed for NFL, whose kickoff windows are fixed months ahead", () => {
     const pill = toLiveGamePillData(game({ awayTeam: "NYG", homeTeam: "DAL" }), 0, "nfl");
     expect(pill.period).toBeTruthy();
   });
 
-  it.each(["cfb", "mlb", "nba"] as const)("is withheld for %s", (sport) => {
+  it("is printed for NBA, whose stored tip times were measured against finals", () => {
+    // See NBA_FINAL_GAME_DURATIONS below for the measurement this rests on.
+    const pill = toLiveGamePillData(game({ awayTeam: "BOS", homeTeam: "NYK" }), 0, "nba");
+    expect(pill.period).toBeTruthy();
+  });
+
+  it.each(["cfb", "mlb"] as const)("is withheld for %s", (sport) => {
     expect(toLiveGamePillData(game(), 0, sport).period).toBeUndefined();
   });
 

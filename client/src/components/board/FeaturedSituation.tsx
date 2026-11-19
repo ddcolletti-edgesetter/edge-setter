@@ -60,7 +60,9 @@ export function FeaturedSituation({
   league,
   verificationStateEnabled = import.meta.env.VITE_VERIFICATION_STATE_HOMEPAGE === "true",
 }: FeaturedSituationProps) {
-  const displayTitle = title ?? situation?.title ?? "No developing story";
+  // titleLabel is the names version of a game row's title; `title` stays in
+  // tokens for the copy that parses it. See SituationRowData.titleLabel.
+  const displayTitle = title ?? situation?.titleLabel ?? situation?.title ?? "No developing story";
   const displaySummary = summary ?? situation?.subtitle;
   const displayMetrics = metrics ?? situation?.metrics ?? [];
   const escalation = situation?.escalationState ?? "monitoring";
@@ -239,6 +241,8 @@ function EditorialLeadBlock({ story, onOpen }: { story: SituationStoryCardData; 
           sport={identity?.sport}
           primaryTeam={story.primaryTeam}
           secondaryTeam={story.secondaryTeam}
+          primaryTeamName={story.primaryTeamName}
+          secondaryTeamName={story.secondaryTeamName}
           player={story.player}
           playerEspnId={identity?.playerEspnId}
           playerJersey={identity?.playerJersey}
@@ -446,6 +450,11 @@ function SportsIdentityPanel({ situation, title, compact }: { situation?: Situat
       sport={identity?.sport}
       primaryTeam={identity?.team ?? identity?.awayTeam}
       secondaryTeam={identity?.opponent ?? identity?.homeTeam}
+      // Only when the slot actually holds the away/home token: `team`/
+      // `opponent` win the fallback above and are signal-sourced, so a games
+      // row's name does not belong on them.
+      primaryTeamName={identity?.team ? undefined : identity?.awayTeamName}
+      secondaryTeamName={identity?.opponent ? undefined : identity?.homeTeamName}
       player={identity?.player}
       playerEspnId={identity?.playerEspnId}
       playerJersey={identity?.playerJersey}
