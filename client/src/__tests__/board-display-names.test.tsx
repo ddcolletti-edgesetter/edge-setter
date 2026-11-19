@@ -26,6 +26,11 @@
  * The signal-sourced path is out of scope by design: `team`/`opponent` come
  * from a signal, not a games row, and the mascot-slice table would mis-resolve
  * them (see cfbSchoolForGamesToken on FLA).
+ *
+ * Section 4 also covers where the caption is printed AT ALL. A game card drops
+ * it, because there the caption is the headline a second time; a signal card
+ * keeps it, because there it is the player's name and nothing else on the
+ * artwork carries that.
  */
 
 import fs from "node:fs";
@@ -64,6 +69,30 @@ function rowFor(game: BoardGameInput, league = "CFB") {
 function storyFor(game: BoardGameInput, league = "CFB") {
   return toSituationStoryCardData(rowFor(game, league), [game as AnyBoardGame]);
 }
+
+/** A signal-sourced story card, the control for every game-card assertion. */
+function signalStory(over: Record<string, unknown> = {}) {
+  const [situation] = buildBoardSituations({
+    league: "NFL" as never,
+    games: [],
+    signals: [
+      {
+        id: "s1",
+        headline: "Jahmyr Gibbs ankle injury puts Detroit availability in focus",
+        detail: "Listed limited in Wednesday practice.",
+        team: "DET",
+        opponent: "GB",
+        player: "Jahmyr Gibbs",
+        type: "injury",
+        ...over,
+      } as never,
+    ],
+  });
+  return toSituationStoryCardData(toSituationRowData(situation), []);
+}
+
+/** The artwork's caption block, or null when it was dropped. */
+const captionOf = (container: HTMLElement) => container.querySelector(".sports-story-visual-copy");
 
 /**
  * What the rendered logos were looked up by.
@@ -320,6 +349,53 @@ describe("the visual's caption", () => {
     expect(story.secondaryTeam).toBe(OWNED_HOME.token);
     expect(story.primaryTeamName).toBe(OWNED_AWAY.school);
     expect(story.secondaryTeamName).toBe(OWNED_HOME.school);
+  });
+
+  it("is dropped entirely on a GAME card, where it only repeats the headline", () => {
+    const story = storyFor({ id: "g1", awayTeam: OWNED_AWAY.token, homeTeam: OWNED_HOME.token });
+    const { container } = render(<SituationStoryCard story={story} />);
+    expect(captionOf(container)).toBeNull();
+    // The headline itself is untouched — this drops the echo, not the fact.
+    expect(screen.getByRole("heading", { name: `${OWNED_AWAY.school} @ ${OWNED_HOME.school}` })).toBeTruthy();
+  });
+
+  it("leaves the crests behind when it drops, so the panel still names the game", () => {
+    const { container } = render(
+      <SituationStoryCard story={storyFor({ id: "g1", awayTeam: OWNED_AWAY.token, homeTeam: OWNED_HOME.token })} />,
+    );
+    const keys = logoKeys(container);
+    expect(keys).toContain(OWNED_AWAY.token);
+    expect(keys).toContain(OWNED_HOME.token);
+  });
+
+  it("is KEPT on a signal card, where it is the only place the player is named", () => {
+    const { container } = render(<SituationStoryCard story={signalStory()} />);
+    const caption = captionOf(container);
+    expect(caption).not.toBeNull();
+    expect(caption?.textContent).toContain("Jahmyr Gibbs");
+  });
+
+  it("is kept on a signal card with no player, which is still not a matchup row", () => {
+    // The rule keys on the row's lineage, not on whether a player resolved.
+    // A team-level signal still has a caption nothing else on the card carries.
+    const story = signalStory({ player: undefined, headline: "Detroit Lions shuffle offensive line" });
+    expect(story.row.kind).toBe("signal");
+    const { container } = render(<SituationStoryCard story={story} />);
+    expect(captionOf(container)).not.toBeNull();
+  });
+
+  it("keys on the row's kind, which the adapter carries through", () => {
+    expect(storyFor({ id: "g1", awayTeam: OWNED_AWAY.token, homeTeam: OWNED_HOME.token }).row.kind).toBe("game");
+    expect(signalStory().row.kind).toBe("signal");
+  });
+
+  it("still renders when asked for directly, which is what the board lead does", () => {
+    // showCaption defaults to true, so no caller that does not know about the
+    // flag silently loses its caption.
+    const { container } = render(
+      <SportsStoryVisual league="CFB" sport="cfb" primaryTeam={OWNED_AWAY.token} secondaryTeam={OWNED_HOME.token} />,
+    );
+    expect(captionOf(container)).not.toBeNull();
   });
 });
 

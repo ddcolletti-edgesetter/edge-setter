@@ -424,13 +424,111 @@ describe("replay hashes", () => {
     } as any);
   }
 
+  /**
+   * The hashes THIS call computed.
+   *
+   * It used to read the newest audit back with
+   * `ORDER BY created_at DESC, id DESC LIMIT 1`. That ordering cannot do its
+   * job, and the tests below were riding on a coin flip:
+   *
+   *   - `replay_audits.created_at` is `new Date().toISOString()` — milliseconds
+   *     — and the work between two `getReplayState` calls on a one-game
+   *     fixture is a handful of indexed reads. Measured here: 191 of 200 such
+   *     pairs share a millisecond. So the tiebreak is reached almost always,
+   *     not rarely.
+   *   - the tiebreak is `id DESC`, and `replay_audits.id` is `randomUUID()`.
+   *     Ordering two audits by a random string picks the OLDER row half the
+   *     time, which is how "DO move" went red in CI on a client-only branch.
+   *   - worse, it made "do not move" VACUOUS on that same half: that test
+   *     asserts the hashes are EQUAL, and re-reading the before-row guarantees
+   *     equality no matter what the engine did.
+   *
+   * The fix removes the ordering rather than repairing it. The table is
+   * cleared first and the read asserts it found exactly one row, so the value
+   * can only be the audit this call just wrote — there is nothing left to
+   * order and no tie to break. Clearing is safe for what is being measured:
+   * all four columns come from `buildReplayHashes(replay)`, which hashes the
+   * reconstructed state (games, odds_snapshots, live_signals) and never reads
+   * `replay_audits`. Only `lineage_json.parent_replay_hash` looks at the
+   * previous audit, and this does not read that column. The
+   * "is stable across repeated calls" test below pins that.
+   */
   const hashes = () => {
+    const db = store.getPipelineDb();
+    db.prepare("DELETE FROM replay_audits").run();
     replay.getReplayState(GAME_ID, AS_OF);
-    return store.getPipelineDb().prepare(`
+    const rows = db.prepare(`
       SELECT replay_hash, timeline_hash, signal_hash, snapshot_hash
-      FROM replay_audits WHERE game_id=? ORDER BY created_at DESC, id DESC LIMIT 1
-    `).get(GAME_ID) as Record<string, string>;
+      FROM replay_audits WHERE game_id=?
+    `).all(GAME_ID) as Array<Record<string, string>>;
+    // If this is ever not 1, the helper is guessing again.
+    expect(rows).toHaveLength(1);
+    return rows[0];
   };
+
+  it("reads back exactly the audit it just wrote, every time", () => {
+    // The guard on the helper itself. Nothing about the replay state changes
+    // between these calls, so any difference would mean hashes() is reading
+    // some other row — the failure mode this helper was rewritten to remove.
+    seedReplayFixture();
+    const a = hashes();
+    const b = hashes();
+    const c = hashes();
+    expect(b).toEqual(a);
+    expect(c).toEqual(a);
+    expect(a.replay_hash).toBeTruthy();
+  });
+
+  /**
+   * The failure the rewrite removes, reproduced on the REAL code path.
+   *
+   * `created_at` is frozen so both audits of a before/after pair carry the
+   * same millisecond — which is the only thing a faster runner than this one
+   * does differently. On this machine `getReplayState` takes about 4ms and the
+   * two timestamps never tie, which is why the old helper passed 25 of 25
+   * local runs while going red in CI.
+   *
+   * Under the tie the old ordering returned the BEFORE hash in 18 of 30 runs,
+   * about the coin flip two random uuids predict. The second assertion is the
+   * one that matters: the two audits hold genuinely different hashes, so that
+   * red was the read picking the wrong row, never the engine failing to move.
+   */
+  it("survives two audits written in the same millisecond", () => {
+    const db = store.getPipelineDb();
+    const sameMs = "2026-11-19T12:00:00.000Z";
+    const freeze = () => vi.spyOn(Date.prototype, "toISOString").mockReturnValue(sameMs);
+
+    seedReplayFixture();
+    freeze();
+    const before = hashes();
+    vi.restoreAllMocks();
+
+    store.insertOddsSnapshot({
+      game_id: GAME_ID,
+      league: "CFB",
+      sportsbook: "pinnacle",
+      spread_line: -4.5,
+      spread_team: CFB_HOME_CODE,
+      total_line: 57.5,
+      moneyline_home: -175,
+      moneyline_away: 155,
+      source_game_id: "src-1",
+      snapshot_at: "2026-10-09T20:00:00.000Z",
+    });
+
+    freeze();
+    const after = hashes();
+    vi.restoreAllMocks();
+
+    // The clock really was frozen — without this the tie is never exercised
+    // and this test passes for the same reason the old one did locally.
+    expect(
+      db.prepare(`SELECT created_at FROM replay_audits WHERE game_id=?`).all(GAME_ID),
+    ).toEqual([{ created_at: sameMs }]);
+
+    expect(after.replay_hash).not.toBe(before.replay_hash);
+    expect(after.snapshot_hash).not.toBe(before.snapshot_hash);
+  });
 
   it("do not move when a games row is named", () => {
     seedReplayFixture();

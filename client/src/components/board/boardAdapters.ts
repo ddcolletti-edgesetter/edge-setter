@@ -274,6 +274,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
 
   return {
     id: situation.id,
+    kind: situation.kind,
     title: fanFirstTitle(situation, canonical),
     // Only a game row's raw title passes through fanFirstTitle untouched, so
     // only a game row can carry the names version of it. Everything else gets

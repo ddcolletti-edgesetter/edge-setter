@@ -145,6 +145,11 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           title={story.headline}
           storyType={story.storyType}
           detail={story.edgeSetterKnows}
+          // A game row's caption is its own headline, printed smaller and
+          // ellipsised in a 250px column. The crests say the same thing and
+          // say it whole. A signal row keeps its caption: the player name is
+          // not printed anywhere else on the artwork.
+          showCaption={story.row.kind !== "game"}
           size={featured ? "feature" : "compact"}
           imageAsset={imageAsset}
         />

@@ -69,6 +69,14 @@ export interface SituationSportsIdentity {
 
 export interface SituationRowData {
   id: string;
+  /**
+   * Which lineage built this row: a live signal, a games-table row, or a
+   * canonical situation. Carried so surfaces can tell a MATCHUP from a STORY
+   * without re-deriving it from the shape of the other fields — the artwork
+   * caption is dropped on a game row because it would only repeat the
+   * headline, and `player` being absent is not the same fact.
+   */
+  kind?: "signal" | "game" | "canonical";
   title: string;
   /**
    * `title` with each side under the name the feed gave it, for display. Set

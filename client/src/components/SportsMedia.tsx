@@ -20,6 +20,18 @@ export interface SportsStoryVisualProps {
    */
   primaryTeamName?: string;
   secondaryTeamName?: string;
+  /**
+   * Whether the artwork prints its caption — the focus eyebrow, the subject
+   * line and the detail under it.
+   *
+   * On a STORY the subject is the player, which the artwork is the only place
+   * to name. On a MATCHUP the subject is the headline, which the card already
+   * prints several times larger a few pixels to the left; the caption is a
+   * fixed 250px column with `white-space: nowrap`, so that repeat arrived
+   * ellipsised ("Central Michigan Chi...") and said less than the two crests
+   * above it already did. False drops the block and keeps the crests.
+   */
+  showCaption?: boolean;
   player?: string;
   /** ESPN athlete id for {@link player}. When present (with a resolved sport), the
    *  visual renders the player's headshot over a team-badge/jersey backdrop,
@@ -73,6 +85,7 @@ export function SportsStoryVisual({
   secondaryTeam,
   primaryTeamName,
   secondaryTeamName,
+  showCaption = true,
   player,
   playerEspnId,
   playerJersey,
@@ -153,11 +166,13 @@ export function SportsStoryVisual({
           </>
         ) : null}
       </div>
-      <div className="sports-story-visual-copy">
-        <span>{player ? "Player focus" : showMatchup ? "Matchup focus" : "Team focus"}</span>
-        <strong>{subject}</strong>
-        {detail && <small>{detail}</small>}
-      </div>
+      {showCaption && (
+        <div className="sports-story-visual-copy">
+          <span>{player ? "Player focus" : showMatchup ? "Matchup focus" : "Team focus"}</span>
+          <strong>{subject}</strong>
+          {detail && <small>{detail}</small>}
+        </div>
+      )}
     </div>
   );
 }
