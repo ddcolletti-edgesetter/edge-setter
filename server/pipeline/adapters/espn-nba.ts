@@ -9,6 +9,7 @@
 
 import { insertRawEvent, findGameByTeams, loadInjuryDedupKeys } from "../store";
 import { shortInjuryTag } from "./injury-tag";
+import { NBA_DISPLAY_TO_ABBR, resolveNBAScoreboardTeam } from "./espn-nba-teams";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 
@@ -40,7 +41,7 @@ interface ESPNInjuryResponse {
 interface ESPNCompetitor {
   homeAway: "home" | "away";
   score?: string;
-  team: { abbreviation: string };
+  team: { abbreviation: string; displayName?: string };
 }
 
 interface ESPNEvent {
@@ -56,23 +57,12 @@ interface ESPNScoreboardResponse {
   events?: ESPNEvent[];
 }
 
-const NBA_DISPLAY_TO_ABBR: Record<string, string> = {
-  "atlanta hawks": "ATL", "boston celtics": "BOS", "brooklyn nets": "BKN",
-  "charlotte hornets": "CHA", "chicago bulls": "CHI", "cleveland cavaliers": "CLE",
-  "dallas mavericks": "DAL", "denver nuggets": "DEN", "detroit pistons": "DET",
-  "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
-  "los angeles clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
-  "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN",
-  "new orleans pelicans": "NOP", "new york knicks": "NYK", "oklahoma city thunder": "OKC",
-  "orlando magic": "ORL", "philadelphia 76ers": "PHI", "phoenix suns": "PHX",
-  "portland trail blazers": "POR", "sacramento kings": "SAC", "san antonio spurs": "SAS",
-  "toronto raptors": "TOR", "utah jazz": "UTA", "washington wizards": "WAS",
-};
-
 function resolveNBATeamAbbr(group: ESPNTeamGroup): string {
   if (group.abbreviation) return group.abbreviation;
   return NBA_DISPLAY_TO_ABBR[group.displayName?.toLowerCase().trim() ?? ""] ?? "UNK";
 }
+
+export { resolveNBAScoreboardTeam };
 
 /* ─── Normalize designation ───────────────────────────────── */
 
@@ -205,6 +195,7 @@ export async function fetchNBAFinalScores(): Promise<Array<{
 
   const results: Array<{ game_id: string; home_score: number; away_score: number }> = [];
   const seen = new Set<string>();
+  const unmatched: string[] = [];
 
   for (const event of [...yesterdayEvents, ...todayEvents]) {
     const comp = event.competitions?.[0];
@@ -219,11 +210,23 @@ export async function fetchNBAFinalScores(): Promise<Array<{
     if (isNaN(homeScore) || isNaN(awayScore)) continue;
 
     const gameDate = event.date.slice(0, 10);
-    const game = findGameByTeams("NBA", home.team.abbreviation, away.team.abbreviation, gameDate);
-    if (!game || seen.has(game.id)) continue;
+    const homeCode = resolveNBAScoreboardTeam(home.team);
+    const awayCode = resolveNBAScoreboardTeam(away.team);
+    const game = findGameByTeams("NBA", homeCode, awayCode, gameDate);
+    if (!game) {
+      unmatched.push(`${awayCode}@${homeCode} ${gameDate}`);
+      continue;
+    }
+    if (seen.has(game.id)) continue;
 
     seen.add(game.id);
     results.push({ game_id: game.id, home_score: homeScore, away_score: awayScore });
+  }
+
+  if (unmatched.length > 0) {
+    console.warn(
+      `[espn-nba] ${unmatched.length} completed ESPN game(s) matched no games row: ${unmatched.join(", ")}`,
+    );
   }
 
   return results;
