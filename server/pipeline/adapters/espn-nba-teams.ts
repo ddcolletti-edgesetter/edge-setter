@@ -38,5 +38,13 @@ export const NBA_DISPLAY_TO_ABBR: Record<string, string> = {
  * is also ours.
  */
 export function resolveNBAScoreboardTeam(team: { abbreviation: string; displayName?: string }): string {
-  return NBA_DISPLAY_TO_ABBR[team.displayName?.toLowerCase().trim() ?? ""] ?? team.abbreviation;
+  return resolveNBAScoreboardTeamWithSource(team).code;
+}
+
+/** As resolveNBAScoreboardTeam, and says whether the name map or ESPN's abbreviation supplied the code. */
+export function resolveNBAScoreboardTeamWithSource(
+  team: { abbreviation: string; displayName?: string },
+): { code: string; via: "name" | "abbreviation" } {
+  const byName = NBA_DISPLAY_TO_ABBR[team.displayName?.toLowerCase().trim() ?? ""];
+  return byName ? { code: byName, via: "name" } : { code: team.abbreviation, via: "abbreviation" };
 }

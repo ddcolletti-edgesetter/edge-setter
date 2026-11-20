@@ -9,7 +9,7 @@
 
 import { insertRawEvent, findGameByTeams, loadInjuryDedupKeys } from "../store";
 import { shortInjuryTag } from "./injury-tag";
-import { NBA_DISPLAY_TO_ABBR, resolveNBAScoreboardTeam } from "./espn-nba-teams";
+import { NBA_DISPLAY_TO_ABBR, resolveNBAScoreboardTeam, resolveNBAScoreboardTeamWithSource } from "./espn-nba-teams";
 
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba";
 
@@ -196,6 +196,7 @@ export async function fetchNBAFinalScores(): Promise<Array<{
   const results: Array<{ game_id: string; home_score: number; away_score: number }> = [];
   const seen = new Set<string>();
   const unmatched: string[] = [];
+  const byAbbreviation: string[] = [];
 
   for (const event of [...yesterdayEvents, ...todayEvents]) {
     const comp = event.competitions?.[0];
@@ -210,8 +211,17 @@ export async function fetchNBAFinalScores(): Promise<Array<{
     if (isNaN(homeScore) || isNaN(awayScore)) continue;
 
     const gameDate = event.date.slice(0, 10);
-    const homeCode = resolveNBAScoreboardTeam(home.team);
-    const awayCode = resolveNBAScoreboardTeam(away.team);
+    const homeResolved = resolveNBAScoreboardTeamWithSource(home.team);
+    const awayResolved = resolveNBAScoreboardTeamWithSource(away.team);
+    const homeCode = homeResolved.code;
+    const awayCode = awayResolved.code;
+    // A name the map doesn't hold means the code is ESPN's own abbreviation —
+    // the thing that was wrong for six teams. Say so, so a new mismatch shows up.
+    for (const [side, resolved] of [[home, homeResolved], [away, awayResolved]] as const) {
+      if (resolved.via === "abbreviation") {
+        byAbbreviation.push(`"${side.team.displayName ?? "(no name)"}" → ${resolved.code} in ${awayCode}@${homeCode} ${gameDate}`);
+      }
+    }
     const game = findGameByTeams("NBA", homeCode, awayCode, gameDate);
     if (!game) {
       unmatched.push(`${awayCode}@${homeCode} ${gameDate}`);
@@ -223,6 +233,11 @@ export async function fetchNBAFinalScores(): Promise<Array<{
     results.push({ game_id: game.id, home_score: homeScore, away_score: awayScore });
   }
 
+  if (byAbbreviation.length > 0) {
+    console.warn(
+      `[espn-nba] ${byAbbreviation.length} team(s) not in the name map, resolved by ESPN abbreviation: ${byAbbreviation.join("; ")}`,
+    );
+  }
   if (unmatched.length > 0) {
     console.warn(
       `[espn-nba] ${unmatched.length} completed ESPN game(s) matched no games row: ${unmatched.join(", ")}`,

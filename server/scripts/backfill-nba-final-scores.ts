@@ -129,8 +129,23 @@ interface GamePlan {
   unsettled_archived: number;
   unsettled_by_type: Record<string, number>;
   line_moves: number;
-  totals_graded_as_spread: { recorded: number; inferred: number };
-  line_moves_market_unknown: number;
+  /**
+   * Each line move's market, and where that came from: "recorded" is the raw
+   * event's payload.market, "guessed" is resolveMarketMove (opener match, then
+   * magnitude). Kept apart so the guess never passes for the record. Every
+   * total is a move settlement.ts:117 would grade as a spread.
+   */
+  line_move_markets: MarketCounts;
+}
+
+interface MarketCounts {
+  spread: { recorded: number; guessed: number };
+  total: { recorded: number; guessed: number };
+  unknown: number;
+}
+
+function emptyMarketCounts(): MarketCounts {
+  return { spread: { recorded: 0, guessed: 0 }, total: { recorded: 0, guessed: 0 }, unknown: 0 };
 }
 
 /* ─── ESPN ───────────────────────────────────────────────── */
@@ -241,14 +256,15 @@ async function main() {
     const match = await findEspnFinal(game);
     const signals = unsettledStmt.all(game.id) as SignalRow[];
     const byType: Record<string, number> = {};
-    let lineMoves = 0, totalsRecorded = 0, totalsInferred = 0, unknown = 0;
+    let lineMoves = 0;
+    const markets = emptyMarketCounts();
     for (const signal of signals) {
       byType[signal.signal_type] = (byType[signal.signal_type] ?? 0) + 1;
       if (signal.signal_type !== "line_move") continue;
       lineMoves++;
       const market = lineMoveMarket(signal, game);
-      if (market.kind === "total") market.recorded ? totalsRecorded++ : totalsInferred++;
-      else if (market.kind === "unknown") unknown++;
+      if (market.kind === "unknown") markets.unknown++;
+      else markets[market.kind][market.recorded ? "recorded" : "guessed"]++;
     }
     plans.push({
       game_id: game.id,
@@ -263,8 +279,7 @@ async function main() {
       unsettled_archived: signals.filter((s) => s.is_archived === 1).length,
       unsettled_by_type: byType,
       line_moves: lineMoves,
-      totals_graded_as_spread: { recorded: totalsRecorded, inferred: totalsInferred },
-      line_moves_market_unknown: unknown,
+      line_move_markets: markets,
     });
   }
 
@@ -277,9 +292,16 @@ async function main() {
     // Only a matched game would be written, so only its signals would settle.
     signals_that_would_settle: matched.reduce((n, p) => n + p.unsettled_signals, 0),
     of_which_archived: matched.reduce((n, p) => n + p.unsettled_archived, 0),
-    totals_graded_as_spread_recorded: matched.reduce((n, p) => n + p.totals_graded_as_spread.recorded, 0),
-    totals_graded_as_spread_inferred: matched.reduce((n, p) => n + p.totals_graded_as_spread.inferred, 0),
-    line_moves_market_unknown: matched.reduce((n, p) => n + p.line_moves_market_unknown, 0),
+    line_moves: matched.reduce((n, p) => n + p.line_moves, 0),
+    // Every total here would be graded as a spread by settlement.ts:117.
+    line_move_markets: matched.reduce((sum, p) => {
+      for (const kind of ["spread", "total"] as const) {
+        sum[kind].recorded += p.line_move_markets[kind].recorded;
+        sum[kind].guessed += p.line_move_markets[kind].guessed;
+      }
+      sum.unknown += p.line_move_markets.unknown;
+      return sum;
+    }, emptyMarketCounts()),
   };
 
   if (asJson) {
@@ -291,11 +313,12 @@ async function main() {
   for (const p of plans) {
     const score = p.would_write ? `${p.would_write.away_score}-${p.would_write.home_score}` : "—";
     const types = Object.entries(p.unsettled_by_type).map(([t, n]) => `${t}:${n}`).join(" ") || "none";
+    const m = p.line_move_markets;
     console.log(
       `${p.game_time.slice(0, 16)}  ${p.game_id.padEnd(26)} ${p.match.padEnd(9)} espn=${p.espn_id ?? "—"} ` +
       `score(away-home)=${score}  unsettled=${p.unsettled_signals} archived=${p.unsettled_archived} ` +
-      `totals-as-spread=${p.totals_graded_as_spread.recorded}+${p.totals_graded_as_spread.inferred}(inferred) ` +
-      `market-unknown=${p.line_moves_market_unknown}  [${types}]`,
+      `line-moves: total recorded=${m.total.recorded} guessed=${m.total.guessed} | ` +
+      `spread recorded=${m.spread.recorded} guessed=${m.spread.guessed} | unknown=${m.unknown}  [${types}]`,
     );
   }
   console.log(`[nba-final-backfill] ${JSON.stringify(totals)}`);

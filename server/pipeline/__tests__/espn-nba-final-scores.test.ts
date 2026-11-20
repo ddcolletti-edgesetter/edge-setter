@@ -83,7 +83,13 @@ describe("fetchNBAFinalScores", () => {
       { game_id: "NBA_2026_11_20_NYK_MIN", home_score: 99, away_score: 102 },
       { game_id: "NBA_2026_11_20_POR_MIL", home_score: 114, away_score: 124 },
     ]);
-    expect(warn).not.toHaveBeenCalled();
+    // Every game matched, so no zero-match warning. LA Clippers is the one name
+    // the map does not hold ("los angeles clippers"), so that code came from
+    // ESPN's abbreviation, and that is said.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0][0]).toBe(
+      `[espn-nba] 1 team(s) not in the name map, resolved by ESPN abbreviation: "LA Clippers" → LAC in LAC@SAS 2026-11-20`,
+    );
   });
 
   it("would have matched only POR @ MIL with ESPN's codes passed straight through", () => {
@@ -100,8 +106,24 @@ describe("fetchNBAFinalScores", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const scores = await nba.fetchNBAFinalScores();
     expect(scores).toHaveLength(4);
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0][0]).toContain("1 completed ESPN game(s) matched no games row: GSW@MEM 2026-11-25");
+    const messages = warn.mock.calls.map((call) => String(call[0]));
+    expect(messages.filter((m) => m.includes("matched no games row"))).toEqual([
+      "[espn-nba] 1 completed ESPN game(s) matched no games row: GSW@MEM 2026-11-25",
+    ]);
+  });
+
+  it("warns, with the team name and matchup, for each code that came from ESPN's abbreviation", async () => {
+    // A name the map does not hold, on a game we do hold a row for.
+    const renamed = JSON.parse(JSON.stringify(SCOREBOARD.events[0]));
+    renamed.competitions[0].competitors.find((c: { homeAway: string }) => c.homeAway === "away").team =
+      { abbreviation: "GSW", displayName: "Golden State" };
+    stubScoreboard([renamed]);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const scores = await nba.fetchNBAFinalScores();
+    expect(scores).toEqual([{ game_id: "NBA_2026_11_20_GSW_MEM", home_score: 126, away_score: 98 }]);
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      `[espn-nba] 1 team(s) not in the name map, resolved by ESPN abbreviation: "Golden State" → GSW in GSW@MEM 2026-11-20`,
+    ]);
   });
 });
 
