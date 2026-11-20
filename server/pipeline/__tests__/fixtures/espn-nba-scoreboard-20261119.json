@@ -1,0 +1,133 @@
+{
+  "_source": "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard?dates=20261119, fetched 2026-11-20T11:18Z; trimmed to the fields fetchNBAFinalScores reads",
+  "events": [
+    {
+      "id": "401910019",
+      "date": "2026-11-20T01:00Z",
+      "competitions": [
+        {
+          "status": {
+            "type": {
+              "completed": true,
+              "description": "Final"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "126",
+              "team": {
+                "abbreviation": "MEM",
+                "displayName": "Memphis Grizzlies"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "98",
+              "team": {
+                "abbreviation": "GS",
+                "displayName": "Golden State Warriors"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401910020",
+      "date": "2026-11-20T01:00Z",
+      "competitions": [
+        {
+          "status": {
+            "type": {
+              "completed": true,
+              "description": "Final"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "114",
+              "team": {
+                "abbreviation": "MIL",
+                "displayName": "Milwaukee Bucks"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "124",
+              "team": {
+                "abbreviation": "POR",
+                "displayName": "Portland Trail Blazers"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401910021",
+      "date": "2026-11-20T01:00Z",
+      "competitions": [
+        {
+          "status": {
+            "type": {
+              "completed": true,
+              "description": "Final"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "99",
+              "team": {
+                "abbreviation": "MIN",
+                "displayName": "Minnesota Timberwolves"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "102",
+              "team": {
+                "abbreviation": "NY",
+                "displayName": "New York Knicks"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "401910022",
+      "date": "2026-11-20T01:00Z",
+      "competitions": [
+        {
+          "status": {
+            "type": {
+              "completed": true,
+              "description": "Final"
+            }
+          },
+          "competitors": [
+            {
+              "homeAway": "home",
+              "score": "124",
+              "team": {
+                "abbreviation": "SA",
+                "displayName": "San Antonio Spurs"
+              }
+            },
+            {
+              "homeAway": "away",
+              "score": "112",
+              "team": {
+                "abbreviation": "LAC",
+                "displayName": "LA Clippers"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
