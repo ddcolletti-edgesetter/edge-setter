@@ -12,7 +12,7 @@ export const NBA_DISPLAY_TO_ABBR: Record<string, string> = {
   "charlotte hornets": "CHA", "chicago bulls": "CHI", "cleveland cavaliers": "CLE",
   "dallas mavericks": "DAL", "denver nuggets": "DEN", "detroit pistons": "DET",
   "golden state warriors": "GSW", "houston rockets": "HOU", "indiana pacers": "IND",
-  "los angeles clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
+  "los angeles clippers": "LAC", "la clippers": "LAC", "los angeles lakers": "LAL", "memphis grizzlies": "MEM",
   "miami heat": "MIA", "milwaukee bucks": "MIL", "minnesota timberwolves": "MIN",
   "new orleans pelicans": "NOP", "new york knicks": "NYK", "oklahoma city thunder": "OKC",
   "orlando magic": "ORL", "philadelphia 76ers": "PHI", "phoenix suns": "PHX",
@@ -33,9 +33,10 @@ export const NBA_DISPLAY_TO_ABBR: Record<string, string> = {
  * Name first, not abbreviation first as the injury adapter's resolveNBATeamAbbr
  * does: the injury feed's groups carry no abbreviation, the scoreboard's teams
  * always do, and it is the scoreboard's abbreviation that is wrong. The
- * abbreviation is only the fall-back for a name the map doesn't hold — today
- * just "LA Clippers" (the map has "los angeles clippers"), whose ESPN code LAC
- * is also ours.
+ * abbreviation is only the fall-back for a name the map doesn't hold, and
+ * fetchNBAFinalScores warns whenever it is used. ESPN's scoreboard says
+ * "LA Clippers", so the map carries that spelling beside "los angeles
+ * clippers"; with it, all 30 scoreboard names resolve by name.
  */
 export function resolveNBAScoreboardTeam(team: { abbreviation: string; displayName?: string }): string {
   return resolveNBAScoreboardTeamWithSource(team).code;

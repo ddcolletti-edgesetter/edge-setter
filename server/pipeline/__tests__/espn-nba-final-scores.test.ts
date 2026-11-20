@@ -83,13 +83,9 @@ describe("fetchNBAFinalScores", () => {
       { game_id: "NBA_2026_11_20_NYK_MIN", home_score: 99, away_score: 102 },
       { game_id: "NBA_2026_11_20_POR_MIL", home_score: 114, away_score: 124 },
     ]);
-    // Every game matched, so no zero-match warning. LA Clippers is the one name
-    // the map does not hold ("los angeles clippers"), so that code came from
-    // ESPN's abbreviation, and that is said.
-    expect(warn).toHaveBeenCalledTimes(1);
-    expect(warn.mock.calls[0][0]).toBe(
-      `[espn-nba] 1 team(s) not in the name map, resolved by ESPN abbreviation: "LA Clippers" → LAC in LAC@SAS 2026-11-20`,
-    );
+    // Every game matched, and every team (LA Clippers included) resolved by
+    // name, so neither warning fires.
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it("would have matched only POR @ MIL with ESPN's codes passed straight through", () => {
@@ -142,9 +138,11 @@ describe("resolveNBAScoreboardTeam", () => {
     ["TOR", "Toronto Raptors", "TOR"], ["UTAH", "Utah Jazz", "UTA"], ["WSH", "Washington Wizards", "WAS"],
   ];
 
-  it("gives our code for all 30 teams", () => {
+  it("gives our code for all 30 teams, every one by name", async () => {
+    const { resolveNBAScoreboardTeamWithSource } = await import("../adapters/espn-nba-teams");
     for (const [abbreviation, displayName, ours] of ESPN_TEAMS) {
-      expect(nba.resolveNBAScoreboardTeam({ abbreviation, displayName }), displayName).toBe(ours);
+      expect(resolveNBAScoreboardTeamWithSource({ abbreviation, displayName }), displayName)
+        .toEqual({ code: ours, via: "name" });
     }
   });
 });
