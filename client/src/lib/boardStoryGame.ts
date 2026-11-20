@@ -20,12 +20,34 @@
  *    first-seen: a situation founded on the September SEA–SF game is still
  *    open, and still moving, for the November one. A story we cannot date is
  *    only matched when its pair names exactly one game.
+ * 3. By its one team. Most injury reports name a team and no opponent, and the
+ *    signal is written with no game_id, so neither rule above can place it. On
+ *    prod (2026-11-20) that left 18 NFL, 18 NBA and 23 MLB stories unplaced,
+ *    among them the NFL lead, an HOU injury report from four hours before the
+ *    final HOU–IND game. Such a story takes its team's first game, in its own
+ *    league, that kicks off at or after the story last changed. Unlike the pair
+ *    rule there is no fall-back to the latest game: a report filed after the
+ *    team's last stored game is about one we don't have, and stays. A team's
+ *    games are indexed by league as well as code, so an NFL IND story can never
+ *    land on a Pacers game. CFB is left out: its feed reuses one code for
+ *    several schools, so a lone code can name the wrong school's game.
  */
 import { lastUpdatedIso, rankBoardSituations, situationMatchupPair, type BoardGameInput, type BoardSituation } from "./boardSituations";
 
-export type StoryGameRow = BoardGameInput & { id?: string | number };
+export type StoryGameRow = BoardGameInput & { id?: string | number; league?: string | null };
 
-export type StoryGame = { game: StoryGameRow; how: "id" | "pair" };
+export type StoryGame = { game: StoryGameRow; how: "id" | "pair" | "team" };
+
+/** Leagues where one team code can belong to more than one team. */
+const SINGLE_TEAM_EXCLUDED_LEAGUES = new Set(["CFB"]);
+
+function leagueKey(value?: string | null) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function teamKey(league: string, team: string) {
+  return `${league}|${team}`;
+}
 
 function token(value?: string | null) {
   return value?.toLowerCase().replace(/[^a-z0-9]/g, "").trim() ?? "";
@@ -54,21 +76,40 @@ export function storySignalGameId(situation: BoardSituation): string | undefined
 export type StoryGameIndex = {
   byId: Map<string, StoryGameRow>;
   byPair: Map<string, StoryGameRow[]>;
+  /** `${LEAGUE}|${team token}` → that team's games, by kickoff. A game with no league is not indexed here. */
+  byTeam: Map<string, StoryGameRow[]>;
 };
+
+function pushTo(map: Map<string, StoryGameRow[]>, key: string, game: StoryGameRow) {
+  const list = map.get(key) ?? [];
+  list.push(game);
+  map.set(key, list);
+}
 
 export function indexStoryGames(games: readonly StoryGameRow[]): StoryGameIndex {
   const byId = new Map<string, StoryGameRow>();
   const byPair = new Map<string, StoryGameRow[]>();
+  const byTeam = new Map<string, StoryGameRow[]>();
   for (const game of games) {
     if (game.id != null) byId.set(String(game.id), game);
     const pair = gamePair(game);
     if (!pair) continue;
-    const list = byPair.get(pair) ?? [];
-    list.push(game);
-    byPair.set(pair, list);
+    pushTo(byPair, pair, game);
+    const league = leagueKey(game.league);
+    if (league) for (const team of pair.split("|")) pushTo(byTeam, teamKey(league, team), game);
   }
-  byPair.forEach((list) => list.sort((a, b) => (gameTimeMs(a) ?? 0) - (gameTimeMs(b) ?? 0)));
-  return { byId, byPair };
+  const byKickoff = (a: StoryGameRow, b: StoryGameRow) => (gameTimeMs(a) ?? 0) - (gameTimeMs(b) ?? 0);
+  byPair.forEach((list) => list.sort(byKickoff));
+  byTeam.forEach((list) => list.sort(byKickoff));
+  return { byId, byPair, byTeam };
+}
+
+/** The one team a story names, when it names exactly one. */
+function storyLoneTeam(situation: BoardSituation): string | null {
+  const teams = [situation.awayTeam ?? situation.team, situation.homeTeam ?? situation.opponent]
+    .map((value) => token(value))
+    .filter((value) => value && value !== "tbd");
+  return teams.length === 1 ? teams[0] : null;
 }
 
 export function resolveStoryGame(situation: BoardSituation, index: StoryGameIndex): StoryGame | undefined {
@@ -78,16 +119,27 @@ export function resolveStoryGame(situation: BoardSituation, index: StoryGameInde
   const exact = id ? index.byId.get(id) ?? (situation.game as StoryGameRow | undefined) : undefined;
   if (exact) return { game: exact, how: "id" };
 
-  const pair = situationMatchupPair(situation);
-  const candidates = pair ? index.byPair.get(pair) : undefined;
-  if (!candidates?.length) return undefined;
   const changedIso = lastUpdatedIso(situation);
   const changedMs = changedIso ? new Date(changedIso).getTime() : NaN;
+  const pair = situationMatchupPair(situation);
+  if (!pair) return resolveByLoneTeam(situation, index, changedMs);
+  const candidates = index.byPair.get(pair);
+  if (!candidates?.length) return undefined;
   if (!Number.isFinite(changedMs)) {
     return candidates.length === 1 ? { game: candidates[0], how: "pair" } : undefined;
   }
   const next = candidates.find((game) => (gameTimeMs(game) ?? -Infinity) >= changedMs);
   return { game: next ?? candidates[candidates.length - 1], how: "pair" };
+}
+
+function resolveByLoneTeam(situation: BoardSituation, index: StoryGameIndex, changedMs: number): StoryGame | undefined {
+  const league = leagueKey(situation.league);
+  if (!league || SINGLE_TEAM_EXCLUDED_LEAGUES.has(league) || !Number.isFinite(changedMs)) return undefined;
+  const team = storyLoneTeam(situation);
+  if (!team) return undefined;
+  const next = index.byTeam.get(teamKey(league, team))
+    ?.find((game) => (gameTimeMs(game) ?? -Infinity) >= changedMs);
+  return next ? { game: next, how: "team" } : undefined;
 }
 
 function gameStatusText(game: StoryGameRow) {
