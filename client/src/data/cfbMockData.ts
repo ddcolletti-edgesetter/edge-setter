@@ -45,6 +45,8 @@ export interface CFBSignal {
   player?: string;
   team: string;
   opponent?: string;
+  /** `live_signals.game_id` — the games row this signal was written against. */
+  gameId?: string;
   headline: string;
   detail: string;
   why_it_matters: string;

@@ -97,7 +97,9 @@ describe("NFL board render regressions", () => {
             away_team: "SF",
             status: "scheduled",
             signals: 4,
-            game_time: new Date().toISOString(),
+            // Later today, not this instant: an NFL story whose game has
+            // kicked off leaves the board (see dropStoriesNoLongerLive).
+            game_time: new Date(Date.now() + 3 * 3_600_000).toISOString(),
           },
         ],
       }),

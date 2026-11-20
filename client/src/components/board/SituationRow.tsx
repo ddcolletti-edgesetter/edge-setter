@@ -219,6 +219,19 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
   const hasSportsAnchor = hasIdentityAnchor(situation.sportsIdentity);
   const confidenceMetric = metrics.find((metric) => metric.label.toLowerCase().includes("confidence"));
   const confidence = parseMetricPercent(confidenceMetric?.value);
+  // Each chip says its text once. The status and lifecycle badges were both
+  // "Developing" on most rows, and the two tags were "medium medium".
+  const statusText = copyVariant === "editorial" ? publicLifecycleLabel(situation.statusLabel ?? escalation, verifiedClaimContext) : situation.statusLabel ?? escalation;
+  const lifecycleText = situation.lifecycleLabel
+    ? copyVariant === "editorial" ? publicLifecycleLabel(situation.lifecycleLabel, verifiedClaimContext) : situation.lifecycleLabel
+    : undefined;
+  const marketText = situation.market ? (copyVariant === "editorial" ? publicStoryText(situation.market) : situation.market) : undefined;
+  const tagTexts = Array.from(new Set(
+    (situation.tags ?? [])
+      .slice(0, 2)
+      .map((tag) => (copyVariant === "editorial" ? publicStoryText(tag) : tag))
+      .filter((tag): tag is string => Boolean(tag) && ![statusText, lifecycleText, marketText].some((chip) => sameChip(tag, chip))),
+  ));
 
   return (
     <button
@@ -258,14 +271,11 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
 
         <span className="mt-0.5 flex min-w-0 items-center gap-2">
           <strong className="min-w-0 truncate text-sm font-bold leading-tight text-foreground [overflow-wrap:anywhere]">{situation.titleLabel ?? situation.title}</strong>
-          {situation.urgencyScore != null && (
-            copyVariant === "editorial" ? (
-              <span className="shrink-0 rounded border border-border bg-muted/20 px-1.5 py-0.5 text-[0.58rem] font-bold uppercase tracking-widest text-muted-foreground tabular-nums">
-                Priority {situation.urgencyScore}
-              </span>
-            ) : (
-              <span className="shrink-0 font-mono text-[0.72rem] font-bold tabular-nums text-primary">{situation.urgencyScore}</span>
-            )
+          {/* No "Priority 100" on the editorial row: it is the ranker's internal
+              score, it pins at 100 for most of what reaches the strip, and the
+              row's position already says how it ranks. */}
+          {situation.urgencyScore != null && copyVariant !== "editorial" && (
+            <span className="shrink-0 font-mono text-[0.72rem] font-bold tabular-nums text-primary">{situation.urgencyScore}</span>
           )}
         </span>
 
@@ -275,16 +285,16 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
 
         <span className="mt-2 flex min-w-0 max-w-full flex-wrap items-center gap-1.5 overflow-hidden">
           <Badge variant="outline" className={cn("h-5 max-w-full truncate px-1.5 text-[0.62rem] uppercase tracking-widest", escalationStyle[escalation])}>
-            {copyVariant === "editorial" ? publicLifecycleLabel(situation.statusLabel ?? escalation, verifiedClaimContext) : situation.statusLabel ?? escalation}
+            {statusText}
           </Badge>
-          {situation.lifecycleLabel && (
+          {lifecycleText && !sameChip(lifecycleText, statusText) && (
             <Badge variant="outline" className={cn("hidden h-5 max-w-full truncate px-1.5 text-[0.62rem] uppercase tracking-widest sm:inline-flex", lifecycleStyle[lifecycle])}>
-              {copyVariant === "editorial" ? publicLifecycleLabel(situation.lifecycleLabel, verifiedClaimContext) : situation.lifecycleLabel}
+              {lifecycleText}
             </Badge>
           )}
-          {situation.market && (
+          {marketText && (
             <Badge variant="outline" className="hidden h-5 max-w-[9rem] truncate border-border bg-muted/20 px-1.5 text-[0.62rem] uppercase tracking-widest text-muted-foreground sm:inline-flex">
-              {copyVariant === "editorial" ? publicStoryText(situation.market) : situation.market}
+              {marketText}
             </Badge>
           )}
           {situation.sourceCount != null && (
@@ -307,9 +317,9 @@ export function SituationRow({ situation, selected, compact, copyVariant = "lega
                 : `${metric.label}: ${metric.value}`}
             </span>
           ))}
-          {situation.tags?.slice(0, 2).map((tag) => (
+          {tagTexts.map((tag) => (
             <span key={tag} className="hidden text-[0.68rem] font-medium text-muted-foreground sm:inline">
-              {copyVariant === "editorial" ? publicStoryText(tag) : tag}
+              {tag}
             </span>
           ))}
           {!compact && (
@@ -508,6 +518,11 @@ function parseMetricPercent(value?: string | number) {
   if (!value) return null;
   const parsed = Number.parseFloat(String(value).replace("%", ""));
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+function sameChip(left?: string | null, right?: string | null) {
+  const norm = (value?: string | null) => String(value ?? "").trim().toLowerCase();
+  return Boolean(norm(left)) && norm(left) === norm(right);
 }
 
 function cleanTeamAbbr(value?: string) {

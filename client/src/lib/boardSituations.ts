@@ -140,6 +140,7 @@ export type BoardSignalInput = BoardEscalationInput & {
   team?: string | null;
   opponent?: string | null;
   matchup?: string | null;
+  gameId?: string | number | null;
 };
 
 export type BoardGameInput = {
@@ -182,8 +183,11 @@ export type BoardGameInput = {
  *   Its openers are what tells a total move from a spread move, and whether the
  *   move's own `open` is still the opener. Optional: a signal that matched no
  *   game still gets a row, with its market resolved from magnitude alone.
+ * @param gameIsOwn True when `game` is the row named by the signal's own
+ *   `game_id`, not a team-token guess. Only then is the row carried on the
+ *   situation, with its away/home sides, so the card can name both teams.
  */
-export function toBoardSignalSituation(signal: BoardSignalInput, league: Sport, game?: BoardGameInput): BoardSituation {
+export function toBoardSignalSituation(signal: BoardSignalInput, league: Sport, game?: BoardGameInput, gameIsOwn = false): BoardSituation {
   const escalation = deriveBoardEscalation(signal);
   const marketMove = resolveSignalMarketMove(signal as { team?: string | null; lineMovement?: unknown }, {
     league,
@@ -194,6 +198,7 @@ export function toBoardSignalSituation(signal: BoardSignalInput, league: Sport, 
   const isConfirmed = lifecycle === "Confirmed";
   const lane = laneForEscalation(escalation, { isActionable, isConfirmed });
   const id = signal.id ?? `${league}-${signal.team ?? "signal"}-${signal.headline ?? "unknown"}`;
+  const own = gameIsOwn && game ? game : undefined;
 
   return {
     id: `signal-${String(id)}`,
@@ -203,6 +208,12 @@ export function toBoardSignalSituation(signal: BoardSignalInput, league: Sport, 
     escalation,
     title: signal.headline ?? "Untitled signal",
     detail: signal.detail ?? undefined,
+    ...(own ? {
+      game: own,
+      gameId: own.id,
+      awayTeam: own.awayTeam ?? own.away_team ?? undefined,
+      homeTeam: own.homeTeam ?? own.home_team ?? undefined,
+    } : {}),
     team: signal.team ?? undefined,
     opponent: signal.opponent ?? undefined,
     player: signal.player ?? undefined,
@@ -305,21 +316,36 @@ export function buildBoardSituations({
   league,
   games = [],
   signals = [],
+  allGames = [],
 }: {
   league: Sport;
   games?: BoardGameInput[];
   signals?: BoardSignalInput[];
+  /**
+   * The league's whole games table, unwindowed. Only read to look a signal's
+   * own `game_id` up — `games` is the three-day slate and misses the row for
+   * any signal written against a game outside it.
+   */
+  allGames?: BoardGameInput[];
 }): BoardSituation[] {
   const publicSignals = signals.filter((signal) => hasValidPublicSignalIdentity(signal) && !isOpeningLineOnlyBoardSignal(signal));
+  const byId = new Map<string, BoardGameInput>();
+  for (const game of [...allGames, ...games]) if (game.id != null) byId.set(String(game.id), game);
   // The signal's own game, so its market move can be checked against that
-  // game's openers. The same predicate the game rows below use to collect their
-  // related signals, read the other way round; ambiguous is the same as absent,
-  // because an opener from the wrong game is worse than no opener at all.
-  const gameForSignal = (signal: BoardSignalInput) => {
+  // game's openers: the row its `game_id` names first, then the same predicate
+  // the game rows below use to collect their related signals, read the other
+  // way round. Ambiguous is the same as absent, because an opener from the
+  // wrong game is worse than no opener at all.
+  const gameForSignal = (signal: BoardSignalInput): { game?: BoardGameInput; own: boolean } => {
+    const own = signal.gameId ? byId.get(String(signal.gameId)) : undefined;
+    if (own) return { game: own, own: true };
     const matches = games.filter(game => signalMatchesGame(signal, game));
-    return matches.length === 1 ? matches[0] : undefined;
+    return { game: matches.length === 1 ? matches[0] : undefined, own: false };
   };
-  const signalSituations = publicSignals.map(signal => toBoardSignalSituation(signal, league, gameForSignal(signal)));
+  const signalSituations = publicSignals.map(signal => {
+    const { game, own } = gameForSignal(signal);
+    return toBoardSignalSituation(signal, league, game, own);
+  });
   const gameSituations = games.map(game => {
     const related = publicSignals.filter(signal => signalMatchesGame(signal, game));
     return toBoardGameSituation(game, league, related);
@@ -411,7 +437,7 @@ export function dropGameSituationsCoveredByStories(
  * about it changed, so reading it as an age would date every fixture to this
  * minute and the filter would be theatre.
  */
-function lastUpdatedIso(situation: BoardSituation): string | null {
+export function lastUpdatedIso(situation: BoardSituation): string | null {
   if (situation.kind === "canonical" && situation.canonicalSituation) {
     const raw = (situation.canonicalSituation as { lastUpdatedAt?: string | null }).lastUpdatedAt;
     if (raw) return raw;
@@ -524,7 +550,7 @@ export function compareLeadRank(
 export const FEATURED_MAX_AGE_HOURS = 48;
 
 /** Raw first-detected ISO timestamp for a situation, or null if none is carried. */
-function firstDetectedIso(situation: BoardSituation): string | null {
+export function firstDetectedIso(situation: BoardSituation): string | null {
   if (situation.kind === "canonical" && situation.canonicalSituation) {
     const raw = (situation.canonicalSituation as { firstSeenAt?: string | null }).firstSeenAt;
     if (raw) return raw;

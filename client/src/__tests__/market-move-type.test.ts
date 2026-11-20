@@ -315,10 +315,10 @@ describe("board rows — a total is never printed as its team's spread", () => {
     expect(story.dek ?? "").not.toMatch(/48\.5/);
   });
 
-  it("keeps the card's other copy intact — this changes the market line only", () => {
+  it("prints the move as the whole 'What happened' sentence", () => {
     const { story } = storyFor([nflGame({ openTotal: 48.5 })]);
     expect(story.headline).toBeTruthy();
-    expect(story.whatHappened).toContain("The market moved before the full lineup");
+    expect(story.whatHappened).toBe("Total 48.5 → 54.5.");
   });
 
   it("leaves a story with no market move untouched", () => {

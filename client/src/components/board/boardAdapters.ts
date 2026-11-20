@@ -318,7 +318,9 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     metrics: [
       { label: "Confidence", value: publicConfidenceLabel(situation.confidence, strengthContext), tone: situation.confidence >= 80 ? "positive" : situation.confidence >= 60 ? "warning" : "default" },
     ].filter(Boolean) as SituationMetric[],
-    tags: [
+    // Case-insensitively unique: on a canonical row trustLabel IS the
+    // situation's confidenceLabel, so the strip printed "medium medium".
+    tags: uniqueTags([
       situation.trustLabel,
       canonical?.confidenceLabel,
       // Same honesty gate as the story-card badge, so the two surfaces cannot
@@ -330,7 +332,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
         ? signal?.injuryDesignation
         : undefined,
       signal?.conference,
-    ].filter(Boolean) as string[],
+    ]),
     // Also carried as a first-class field: `tags` is sliced to two entries by
     // SituationRow, which drops the designation in practice.
     injuryDesignation: signal?.injuryDesignation ?? undefined,
@@ -341,7 +343,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     confidenceDelta,
     confidenceMovementLabel: canonical ? confidenceMovementSummary(canonical) : fallbackConfidenceStage(situation),
     evidenceCount: canonical?.evidenceCount,
-    evidenceGrowthLabel: canonical ? evidenceGrowthLabel(canonical) : fanSafeContext(signal?.why_it_matters ?? signal?.detail),
+    evidenceGrowthLabel: canonical ? evidenceGrowthLabel(canonical) : withoutTemplateSentences(fanSafeContext(signal?.why_it_matters ?? signal?.detail)),
     sourceProgressLabel: canonical ? sourceProgressLabel(canonical) : fallbackSourceProgress(situation),
     sourceConvergenceStage: canonical ? sourceConvergenceStage(canonical) : fallbackSourceStage(situation),
     sourceReliabilityLabel: canonical ? sourceReliabilityLabel(canonical) : situation.trustLabel,
@@ -360,6 +362,18 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     officialSource: hasOfficialSource(signal),
     replayChain: situation.replayChain,
   };
+}
+
+function uniqueTags(values: ReadonlyArray<string | null | undefined>): string[] {
+  const seen = new Set<string>();
+  const tags: string[] = [];
+  for (const value of values) {
+    const tag = value?.trim();
+    if (!tag || seen.has(tag.toLowerCase())) continue;
+    seen.add(tag.toLowerCase());
+    tags.push(tag);
+  }
+  return tags;
 }
 
 /* ── Availability, opponent and kickoff ──────────────────────────────────────
@@ -907,7 +921,12 @@ export function featuredCopy(situation: BoardSituation | null, league: Sport) {
     title: fanFirstTitle(situation, canonical),
     summary: fanFirstSummary(situation, signal, canonical),
     primaryRead: fanFirstPrimaryRead(situation, signal, canonical),
-    secondaryRead: fanSafeContext([situation.sourceSummary, canonical?.confidenceFactors.whatRemainsUncertain[0], situation.timingAdvantage].filter(Boolean).join(" / ") || signal?.action_takeaway || situation.trustLabel),
+    // Nothing. This is the lead block's "Why it matters", and what used to fill
+    // it — "2 reports / Validator agreement is partial / developing edge with
+    // active evidence" — is the engine's state, printed under every lead whoever
+    // it was about. With no story-specific reason to give, the block is omitted
+    // (FeaturedSituation renders it only when this is set).
+    secondaryRead: undefined,
     metrics: [
       { label: "Story priority", value: editorialCopy ? publicUrgencyLabel(situation.score) : urgencyLabel(situation.score), tone: situation.score >= 82 ? "danger" : situation.score >= 65 ? "warning" : "default" },
       { label: "Confidence", value: publicConfidenceLabel(situation.confidence, strengthContext), tone: situation.confidence >= 80 ? "positive" : "default" },
@@ -1058,11 +1077,70 @@ function confidenceMovementSummary(canonical: CanonicalSituation) {
   return "thin";
 }
 
+/**
+ * The latest confidence reason that says something about THIS story, or
+ * undefined.
+ *
+ * Every reason the engine writes today is one of the fixed sentences in
+ * TEMPLATE_SENTENCES — on prod (2026-11-20) all 400 canonical rows carried
+ * "Official confirmation materially supports the situation" (294), "Independent
+ * confirmations show convergence beyond a single source" (105) or "Market
+ * movement aligns with the reported development" (1). So in practice this is
+ * undefined, and the "Why it matters" tile it feeds is omitted.
+ *
+ * The two old fallbacks are gone on purpose. The evidence summary is the
+ * pipeline headline ("DAL: +48.5 → +54.5"), which is "What happened" in its
+ * mangled form, and "N evidence events attached" is a count, not a reason.
+ */
 function evidenceGrowthLabel(canonical: CanonicalSituation) {
-  const latest = canonical.confidenceHistoryPreview[0];
-  if (latest?.reasons?.[0]) return fanSafeContext(latest.reasons[0]);
-  if (canonical.latestEvidence[0]?.summary) return fanSafeContext(canonical.latestEvidence[0].summary);
-  return `${canonical.evidenceCount} evidence events attached`;
+  for (const reason of canonical.confidenceHistoryPreview[0]?.reasons ?? []) {
+    const specific = withoutTemplateSentences(fanSafeContext(reason));
+    if (specific) return specific;
+  }
+  return undefined;
+}
+
+/**
+ * Sentences the pipeline writes identically on every story of a kind. Each is
+ * true of the engine's state or of a category, never of the story it is printed
+ * under, so none of them is a reason that story matters.
+ *
+ * Matched loosely on purpose: publicStoryText rewrites "Market movement" to
+ * "market reaction" and "official confirmation" to "official update" before
+ * some of these reach here.
+ *
+ * Sources: server/pipeline/situations-confidence.ts (the engine's confidence
+ * reasons), processor.ts handleInjuryUpdate / handleLineMove (`why_it_matters`)
+ * and publicDisplayHygiene's routine-roster rewrite.
+ */
+const TEMPLATE_SENTENCES: readonly RegExp[] = [
+  /materially supports the situation/i,
+  /convergence beyond a single source/i,
+  /aligns with the reported development/i,
+  /validator agreement supports the current read/i,
+  /freshness is weak; confidence is restrained/i,
+  /contradictory evidence applied an explicit penalty/i,
+  /confidence is supported by moderate evidence/i,
+  /confidence remains low and watch-only/i,
+  // "<player> is a confirmed scratch — direct market impact expected." It is
+  // written for every OUT designation, and a single wire's designation is not a
+  // confirmation of anything — see verifiedClaimIsBacked.
+  /is a confirmed scratch\s*[—–-]+\s*direct market impact expected/i,
+  // Written for every designation that is not OUT — including the
+  // "Questionable" processor.ts invents when the feed sent none (#96/#97).
+  /status is uncertain; wait for a final designation/i,
+  /may be reacting to new sports context before (?:full )?public confirmation/i,
+  /diverges from public consensus and may confirm/i,
+  /routine roster moves matter only when/i,
+];
+
+/** The value with every template sentence removed, or undefined if nothing is left. */
+export function withoutTemplateSentences(value?: string | null): string | undefined {
+  const kept = String(value ?? "")
+    .split(/(?<=[.!?])\s+/)
+    .filter((sentence) => sentence.trim() && !TEMPLATE_SENTENCES.some((pattern) => pattern.test(sentence)));
+  const text = kept.join(" ").trim();
+  return text || undefined;
 }
 
 function sourceConvergenceStage(canonical: CanonicalSituation) {
@@ -1278,7 +1356,7 @@ function editorialHeadline(row: SituationRowData, matchup?: string) {
   }
 
   if (isMarketDominantTitle(row.title) || context.includes("market")) {
-    const label = cleanPublicMatchupLabel(matchup, team, opponent);
+    const label = namedMatchup(row.sportsIdentity) ?? cleanPublicMatchupLabel(matchup, team, opponent);
     // What the move actually was, when we resolved one. The old headline here
     // read "<matchup> line movement follows late availability context" (or
     // "late roster context" in MLB) on EVERY market row in the league — it
@@ -1334,6 +1412,23 @@ function marketMoveHeadline(row: SituationRowData, subject?: string): string | u
   return move.fromOpener
     ? `${who} ${move.kind} moves ${numbers}`
     : `${who} ${move.kind} ${numbers}`;
+}
+
+/**
+ * "Iowa State Cyclones at UCF Knights" — only when the situation carries the
+ * games row it is about (`sideKnown`), so "at" is the row's own away/home
+ * order and not a guess from a signal's subject-then-opponent pair. Signal
+ * rows get that row from their `game_id`; see toBoardSignalSituation.
+ *
+ * Both sides or neither: half a named matchup next to a token reads as two
+ * different teams.
+ */
+function namedMatchup(identity?: SituationRowData["sportsIdentity"]): string | undefined {
+  if (!identity?.sideKnown) return undefined;
+  const away = identity.awayTeamName?.trim();
+  const home = identity.homeTeamName?.trim();
+  if (!away || !home || away === home) return undefined;
+  return `${away} at ${home}`;
 }
 
 function isSameClaim(left?: string, right?: string): boolean {
@@ -1414,12 +1509,13 @@ function situationDek(row: SituationRowData): string | undefined {
 }
 
 function relatedWatchItems(row: SituationRowData, lines: { headline: string; whatHappened: string; whyItMatters: string; watchNext: string }) {
+  // The headline is not one of them. The lead block prints this list directly
+  // under the headline, and its first entry used to be the headline again.
   const items = [
-    conciseHeadline(lines.headline, row.league),
     lines.watchNext,
     row.sourceProgressLabel ? cleanStoryLine(row.sourceProgressLabel) : undefined,
     row.timingStageLabel ? (row.timingStageLabel.toLowerCase().includes("public confirmation") ? "ES Agents verified" : cleanStoryLine(row.timingStageLabel)) : undefined,
-  ].filter(Boolean) as string[];
+  ].filter((item): item is string => Boolean(item) && !isSameClaim(item, lines.headline));
   return Array.from(new Set(items.map((item) => tightenSentence(item)))).slice(0, 4);
 }
 
@@ -1431,23 +1527,17 @@ function storyWhatHappened(row: SituationRowData) {
   // "MIL: +225.5 → +228.5" for a TOTAL, and on a signal row it is the body,
   // which asserts "from the opener" for an open the games row has since
   // replaced. Neither is cleaned up by rewording — the fix is to print the
-  // move we actually resolved. The market-context sentence is kept after it
-  // because it is the part of the old copy that was true.
-  if (row.marketMove) {
-    return `${row.marketMove.text}. ${marketContextSentence(row.league)}`;
-  }
+  // move we actually resolved.
+  //
+  // The number sentence stands alone. It used to be followed by "The market
+  // moved before the full lineup, pitching, injury, or weather picture was
+  // clear." (or the NBA "pre-tip ... availability" version) on every market
+  // card in the league: a claim about what the market knew, made identically
+  // for every move, with no field on the row behind it.
+  if (row.marketMove) return `${row.marketMove.text}.`;
   const summary = cleanStoryLine(row.subtitle ?? row.marketReaction ?? row.market);
   if (summary && summary.toLowerCase() !== headline.toLowerCase()) return factualEvent(summary, row);
-  if (row.market?.toLowerCase().includes("market") || row.title.toLowerCase().includes("line move")) {
-    return marketContextSentence(row.league);
-  }
   return factualEvent(cleanRawReport(row.title), row);
-}
-
-function marketContextSentence(league?: string) {
-  return league === "NBA"
-    ? "The pre-tip market moved before the full availability picture was clear."
-    : "The market moved before the full lineup, pitching, injury, or weather picture was clear.";
 }
 
 function storyWhyItMatters(row: SituationRowData): string | undefined {
@@ -1459,11 +1549,13 @@ function storyWhyItMatters(row: SituationRowData): string | undefined {
   // identical on every card in a league is not a reason the story matters; it
   // is a label for the league.
   //
-  // What is left is the row's OWN evidence growth, which is derived from this
-  // situation's evidence and differs between situations. When the row has none,
-  // the tile is omitted — the same choice storyWatchNext made.
-  if (row.evidenceGrowthLabel) return cleanStoryLine(row.evidenceGrowthLabel);
-  return undefined;
+  // What is left is the row's OWN evidence growth, with the pipeline's fixed
+  // sentences already removed (see withoutTemplateSentences). When the row has
+  // none, or it only repeats what happened, the tile is omitted — the same
+  // choice storyWatchNext made.
+  if (!row.evidenceGrowthLabel) return undefined;
+  const why = cleanStoryLine(row.evidenceGrowthLabel);
+  return dedupeAgainst(why || undefined, storyWhatHappened(row));
 }
 
 function storyWatchNext(row: SituationRowData): string | undefined {
@@ -1587,7 +1679,7 @@ function fanFirstTitle(situation: BoardSituation, canonical?: CanonicalSituation
 }
 
 function fanFirstSummary(situation: BoardSituation, signal?: AnyBoardSignal, canonical?: CanonicalSituation) {
-  const base = signal?.why_it_matters ?? situation.detail ?? canonical?.summary;
+  const base = withoutTemplateSentences(signal?.why_it_matters) ?? situation.detail ?? canonical?.summary;
   if (base && !isMarketDominantTitle(base)) return fanSafeContext(base);
   const identity = fanIdentityLabel(situation, canonical);
   const change = fanContextLabel(situation);
@@ -1595,7 +1687,7 @@ function fanFirstSummary(situation: BoardSituation, signal?: AnyBoardSignal, can
 }
 
 function fanFirstPrimaryRead(situation: BoardSituation, signal?: AnyBoardSignal, canonical?: CanonicalSituation) {
-  const evidence = canonical?.confidenceFactors.evidenceThatMattersMost[0] ?? signal?.why_it_matters;
+  const evidence = canonical?.confidenceFactors.evidenceThatMattersMost[0] ?? withoutTemplateSentences(signal?.why_it_matters);
   if (evidence && !isMarketDominantTitle(evidence)) return fanSafeContext(evidence);
   const identity = fanIdentityLabel(situation, canonical);
   return `${identity} is being reviewed for team, player, lineup, availability, fantasy, fan, and game-context impact before betting or market context is considered.`;

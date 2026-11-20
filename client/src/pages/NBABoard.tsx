@@ -23,7 +23,9 @@ import {
   type AnyBoardGame,
 } from "@/components/board/boardAdapters";
 import { useNBASignals } from "@/hooks/useSignals";
-import { buildBoardSituations, withinBoardAge, rankBoardSituations, type BoardSituation } from "@/lib/boardSituations";
+import { buildBoardSituations, withinBoardAge, rankBoardSituations, type BoardGameInput, type BoardSituation } from "@/lib/boardSituations";
+import { dropStoriesNoLongerLive } from "@/lib/boardStoryGame";
+import { kickoffIsTrustedForLeague } from "@/components/board/boardAdapters";
 import { BoardShowMoreCards, useBoardCardCap } from "@/components/board/BoardCardCap";
 import { selectFeaturedSituation } from "@/lib/leadRanker";
 import { getLeagueBoardProfile } from "@/lib/leagueBoardProfiles";
@@ -103,6 +105,9 @@ export default function NBABoard() {
   const [liveOnly, setLiveOnly] = useState(false);
   const [actionableOnly, setActionableOnly] = useState(false);
   const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
+  // The whole table, unwindowed: a story's game is often outside the slate
+  // (yesterday's final, a signal's own game_id). See lib/boardStoryGame.
+  const [allGames, setAllGames] = useState<BoardGameInput[]>([]);
   const [gamesLoading, setGamesLoading] = useState(true);
   const [selectedSig, setSelectedSig] = useState<SignalDetailLike | null>(null);
   const scrollContainerRef = useRef<HTMLElement>(null);
@@ -129,6 +134,7 @@ export default function NBABoard() {
     fetchWithTimeout("/api/v2/games?league=NBA", {}, 4500)
       .then((response) => response.json())
       .then((payload) => {
+        setAllGames(payload.games ?? []);
         const statusLabel: Record<string, string> = {
           live: "In Progress",
           final: "Final",
@@ -158,7 +164,7 @@ export default function NBABoard() {
           }));
         setLiveGames(adapted);
       })
-      .catch(() => setLiveGames([]))
+      .catch(() => { setLiveGames([]); setAllGames([]); })
       .finally(() => setGamesLoading(false));
   }, []);
 
@@ -176,6 +182,7 @@ export default function NBABoard() {
       league: "NBA",
       games: liveGames as AnyBoardGame[],
       signals: filteredSignals as any[],
+      allGames,
     });
     const canonicalType = canonicalTypeForTab(activeTab);
     const canonicalBoard = canonicalSituationsToBoardSituations(
@@ -189,10 +196,16 @@ export default function NBABoard() {
     // stories live now, and neither endpoint sorts by recency — /api/v2/signals
     // serves the newest 100 regardless of age and /api/v2/situations the top
     // 100 by operational visibility score. See BOARD_MAX_AGE_DAYS.
-    return withinBoardAge(rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback)))
+    // Then drop stories whose game is already over. See dropStoriesNoLongerLive.
+    const live = dropStoriesNoLongerLive(
+      withinBoardAge(rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback))),
+      allGames,
+      { kickoffTrusted: kickoffIsTrustedForLeague("NBA") },
+    );
+    return live
       .filter((situation) => showConfirmed || situation.lane !== "confirmed")
       .filter((situation) => situationMatchesPriority(situation, urgencyFilter));
-  }, [activeTab, canonicalSituations, filteredSignals, liveGames, showConfirmed, urgencyFilter]);
+  }, [activeTab, allGames, canonicalSituations, filteredSignals, liveGames, showConfirmed, urgencyFilter]);
 
   const featured = selectFeaturedSituation(situations);
   const hasElevatedLeadStory = Boolean(featured && featured.escalation !== "Quiet" && featured.lane !== "background");

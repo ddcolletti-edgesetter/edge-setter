@@ -226,10 +226,11 @@ describe("the card headline", () => {
     expect(story.row.matchup).toBe(`${SHARED_AWAY} @ ${SHARED_HOME}`);
   });
 
-  it("does not let a name reach the market-movement headline, which parses tokens", () => {
-    // A market-dominant title goes down the cleanPublicMatchupLabel branch and
-    // never reaches the `raw` fallthrough. If the names version leaked into the
-    // parse, this would read "RICE OWLS-PITTSBURGH PANTHERS line movement".
+  it("names both sides of a market headline as 'away at home', and never feeds names to the token parser", () => {
+    // A market-dominant title goes down the cleanPublicMatchupLabel branch,
+    // which parses tokens. If the names version leaked into that parse, this
+    // would read "RICE OWLS-PITTSBURGH PANTHERS". The names are used whole
+    // instead, in the games row's own away/home order — see namedMatchup.
     const row = rowFor({
       id: "g1",
       awayTeam: SHARED_AWAY,
@@ -241,8 +242,23 @@ describe("the card headline", () => {
       { ...row, title: "Line move: spread -3 to -6", market: "market reaction detected" },
       [],
     );
+    expect(headline).toBe("Rice Owls at Pittsburgh Panthers market moves");
+    expect(headline).not.toContain("RICE OWLS");
+    expect(headline).not.toContain(`${SHARED_AWAY}-${SHARED_HOME}`);
+  });
+
+  it("keeps the token pair when only one side has a name", () => {
+    const row = rowFor({
+      id: "g1",
+      awayTeam: SHARED_AWAY,
+      homeTeam: SHARED_HOME,
+      away_team_name: "Rice Owls",
+    });
+    const { headline } = toSituationStoryCardData(
+      { ...row, title: "Line move: spread -3 to -6", market: "market reaction detected" },
+      [],
+    );
     expect(headline).toContain(`${SHARED_AWAY}-${SHARED_HOME}`);
-    expect(headline).not.toContain("Rice Owls");
   });
 });
 

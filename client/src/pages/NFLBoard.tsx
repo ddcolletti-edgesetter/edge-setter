@@ -13,7 +13,9 @@ import { type NFLSignal, type NFLSignalType } from "../data/nflMockData";
 import { useNFLSignals } from "../hooks/useSignals";
 import { scoreAndRankSignals } from "../lib/signalScorer";
 import { boardFilterFeedback, boardSortFeedback, compareSignals, signalIsActionable, signalLifecycle, type BoardSortMode } from "../lib/signalBoardUx";
-import { buildBoardSituations, withinBoardAge, rankBoardSituations, type BoardSituation } from "../lib/boardSituations";
+import { buildBoardSituations, withinBoardAge, rankBoardSituations, type BoardGameInput, type BoardSituation } from "../lib/boardSituations";
+import { dropStoriesNoLongerLive } from "../lib/boardStoryGame";
+import { kickoffIsTrustedForLeague } from "../components/board/boardAdapters";
 import { BoardShowMoreCards, useBoardCardCap } from "../components/board/BoardCardCap";
 import { selectFeaturedSituation } from "../lib/leadRanker";
 import { getLeagueBoardProfile } from "../lib/leagueBoardProfiles";
@@ -107,11 +109,15 @@ function NFLBoardInner() {
   const [activeGameId, setActiveGameId] = useState<string | undefined>();
   const [selectedSig, setSelectedSig] = useState<SignalDetailLike | null>(null);
   const [liveGames, setLiveGames] = useState<NFLLiveGame[]>([]);
+  // The whole table, unwindowed: a story's game is often outside the slate
+  // (yesterday's final, a signal's own game_id). See lib/boardStoryGame.
+  const [allGames, setAllGames] = useState<BoardGameInput[]>([]);
 
   useEffect(() => {
     fetchWithTimeout("/api/v2/games?league=NFL", {}, 4500)
       .then((response) => response.json())
       .then((payload) => {
+        setAllGames(payload.games ?? []);
         const statusLabel: Record<string, string> = {
           live: "In Progress",
           final: "Final",
@@ -142,7 +148,7 @@ function NFLBoardInner() {
           }));
         setLiveGames(adapted);
       })
-      .catch(() => setLiveGames([]));
+      .catch(() => { setLiveGames([]); setAllGames([]); });
   }, []);
 
   const { signals: liveNFLSignals, loading, isLive, error, refresh } = useNFLSignals([]);
@@ -182,6 +188,7 @@ function NFLBoardInner() {
       league: "NFL",
       games: liveGames as AnyBoardGame[],
       signals: visibleSignals as any[],
+      allGames,
     });
     const canonicalBoard = canonicalSituationsToBoardSituations(
       filterCanonicalSituations(canonicalSituations, {
@@ -194,10 +201,16 @@ function NFLBoardInner() {
     // stories live now, and neither endpoint sorts by recency — /api/v2/signals
     // serves the newest 100 regardless of age and /api/v2/situations the top
     // 100 by operational visibility score. See BOARD_MAX_AGE_DAYS.
-    return withinBoardAge(rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback)))
+    // Then drop stories whose game is already over. See dropStoriesNoLongerLive.
+    const live = dropStoriesNoLongerLive(
+      withinBoardAge(rankBoardSituations(mergeCanonicalWithBoardSituations(canonicalBoard, fallback))),
+      allGames,
+      { kickoffTrusted: kickoffIsTrustedForLeague("NFL") },
+    );
+    return live
       .filter((situation) => showConfirmed || situation.lane !== "confirmed")
       .filter((situation) => situationMatchesPriority(situation, urgencyFilter));
-  }, [activeFilter, canonicalSituations, liveGames, showConfirmed, urgencyFilter, visibleSignals]);
+  }, [activeFilter, allGames, canonicalSituations, liveGames, showConfirmed, urgencyFilter, visibleSignals]);
 
   const featured = selectFeaturedSituation(situations);
   const featuredDetails = featuredCopy(featured, "NFL");

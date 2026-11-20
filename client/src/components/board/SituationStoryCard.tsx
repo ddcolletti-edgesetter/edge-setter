@@ -70,7 +70,7 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
               : <>⚡ EdgeSetter flagged {story.row.detectionLeadTime} before public confirmation</>}
           </div>
         )}
-        <SituationProgressBar state={story.row.lifecycleVisualState} />
+        <SituationProgressBar state={story.row.lifecycleVisualState} singleSource={isSingleSource(story)} />
         {story.dek && !compact && (
           <p className="mt-2 max-w-3xl break-words text-sm font-medium leading-snug text-muted-foreground">
             {story.dek}
@@ -90,7 +90,7 @@ export function SituationStoryCard({ story, compact, featured, className, onOpen
           <ProofPill label="Source trail" value={sourceCountText(story.sourceCount)} />
           <ProofPill label="Timing" value={story.timing ?? story.lifecycle ?? story.row.statusLabel ?? "Developing"} />
           <ProofPill label="Evidence" value={story.evidence ?? evidenceCountText(story.row.evidenceCount)} />
-          {(story.row.escalationState === "verified" || story.row.escalationState === "official")
+          {(story.row.escalationState === "verified" || story.row.escalationState === "official") && !isSingleSource(story)
             ? <ProofPill label="Verified" value="VERIFIED" />
             : story.row.confidenceJourney
             ? <ProofPill label="Confidence" value={story.row.confidenceJourney} />
@@ -273,8 +273,22 @@ function stageIndex(state?: string): number {
   return 0;
 }
 
-function SituationProgressBar({ state }: { state?: string }) {
+/**
+ * One report or none. Such a story can be many things, but not verified: the
+ * word needs a second source to check the first against. stageIndex reaches
+ * "Verified" off the lifecycle alone — a cooling or resolved story lands there
+ * whatever its sources — so on prod (2026-11-20) 68 single-source cards across
+ * the four boards printed it.
+ */
+function isSingleSource(story: SituationStoryCardData) {
+  return (story.sourceCount ?? 0) <= 1;
+}
+
+function SituationProgressBar({ state, singleSource }: { state?: string; singleSource?: boolean }) {
+  // The bar still fills — how far along its lifecycle a story is stays true —
+  // but the last stage's word is withheld when it would claim verification.
   const active = stageIndex(state);
+  const showLabel = (label: string) => !(singleSource && label === "Verified");
   return (
     <div className="mt-1.5 flex min-w-0 items-center gap-1">
       {PROGRESS_STAGES.map((label, i) => (
@@ -283,7 +297,7 @@ function SituationProgressBar({ state }: { state?: string }) {
             "h-0.5 w-full rounded-full transition-colors",
             i <= active ? "bg-primary" : "bg-border/60",
           )} />
-          {i === active && (
+          {i === active && showLabel(label) && (
             <span className="truncate text-[0.58rem] font-bold uppercase tracking-widest text-primary">{label}</span>
           )}
         </div>
