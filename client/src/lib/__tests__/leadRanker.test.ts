@@ -558,6 +558,26 @@ describe("selectFeaturedSituation", () => {
     expect(selectFeaturedSituation([nearCap], REF)?.id).toBe("near");
   });
 
+  it("measures lead age from lastUpdatedAt, not firstSeenAt", () => {
+    // Founded 5 days ago, moved 1h ago → developing story, can lead.
+    const developing = makeBoardSituation({
+      id: "developing",
+      lane: "escalating",
+      confidence: 70,
+      canonicalSituation: { firstSeenAt: hoursAgo(5 * 24), lastUpdatedAt: hoursAgo(1) },
+    });
+    // Founded 3h ago but last changed 30h ago is impossible in practice; use a
+    // stale-updated story instead: founded 4 days ago, untouched for 60h → barred.
+    const quiet = makeBoardSituation({
+      id: "quiet",
+      lane: "escalating",
+      confidence: 95,
+      canonicalSituation: { firstSeenAt: hoursAgo(4 * 24), lastUpdatedAt: hoursAgo(60) },
+    });
+    expect(selectFeaturedSituation([quiet, developing], REF)?.id).toBe("developing");
+    expect(selectFeaturedSituation([quiet], REF)).toBeNull();
+  });
+
   it("keeps unknown-age situations (relative-label signal feeds have no ISO timestamp)", () => {
     // No canonicalSituation/signal timestamp → featuredAgeHours returns null → kept.
     // Guards against the age gate wrongly nuking signal-fed boards.

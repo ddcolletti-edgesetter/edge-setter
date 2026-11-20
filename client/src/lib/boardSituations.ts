@@ -577,9 +577,14 @@ function firstDetectedMs(situation: BoardSituation): number {
  * so board pages fed by signal feeds that only carry relative time labels
  * (e.g. "12m ago") are never wrongly demoted to the quiet state.
  * Reuses ageHoursFrom from the shared storyAge leaf so both surfaces agree.
+ *
+ * Measured from when the story last changed, not when it was first seen — same
+ * reasoning as the board age cut (withinBoardAge). A situation founded days ago
+ * that moved an hour ago is a developing story; first-seen would bar it from the
+ * lead. Falls back to first-seen only when no last-updated time is carried.
  */
 function featuredAgeHours(situation: BoardSituation, referenceTime: number): number | null {
-  const iso = firstDetectedIso(situation);
+  const iso = lastUpdatedIso(situation) ?? firstDetectedIso(situation);
   if (!iso) return null;
   const hours = ageHoursFrom(iso, referenceTime);
   return Number.isFinite(hours) ? hours : null;
