@@ -248,10 +248,11 @@ function EditorialLeadBlock({ story, onOpen }: { story: SituationStoryCardData; 
           playerJersey={identity?.playerJersey}
           title={story.headline}
           storyType={story.storyType}
-          // Same rule as SituationStoryCard: on a game row this caption is the
-          // headline already printed beside it, so the crests carry the panel
-          // alone. A signal row keeps it, because it names the player.
-          showCaption={story.row.kind !== "game"}
+          // The caption prints the player, or failing that the headline — which
+          // the h2 beside it already prints in full. So it is kept only when it
+          // names a player; otherwise the crests carry the panel alone and the
+          // lead says its headline once.
+          showCaption={story.row.kind !== "game" && Boolean(story.player)}
           detail={story.dek}
           size="feature"
           imageAsset={imageAsset}

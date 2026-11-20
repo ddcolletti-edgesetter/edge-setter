@@ -1,6 +1,7 @@
 import type { SituationEscalationState } from "@/components/board/SituationRow";
 import type { Sport } from "./leagueModifiers";
 import { dropGameSituationsCoveredByStories, type BoardSituation } from "./boardSituations";
+import { collapseMarketTwins } from "./boardStoryGame";
 import type { BoardEscalation, SituationLane } from "./boardEscalation";
 import type { OperationalLifecycle, SignalLifecycle } from "./signalBoardUx";
 import {
@@ -101,12 +102,16 @@ export function canonicalSituationToBoardSituation(situation: CanonicalSituation
  *    (1) outright, on the reasoning that it carries a fixture rather than a
  *    story; what that missed is that a fixture nobody is telling a story about
  *    is the only fixture worth a card of its own.
+ * 3. Two or more rows about the same game's same market — see
+ *    collapseMarketTwins. storyKey cannot see these: a line move's canonical
+ *    situation and its signal carry different types and, often, a different
+ *    first team.
  */
 export function mergeCanonicalWithBoardSituations(
   canonical: readonly BoardSituation[],
   fallback: readonly BoardSituation[],
 ): BoardSituation[] {
-  if (!canonical.length) return dropGameSituationsCoveredByStories(fallback);
+  if (!canonical.length) return dropGameSituationsCoveredByStories(collapseMarketTwins(fallback));
 
   const canonicalKeys = new Set(canonical.map(storyKey));
   const remainingFallback = fallback.filter((situation) => {
@@ -116,7 +121,7 @@ export function mergeCanonicalWithBoardSituations(
 
   // After the storyKey pass, not before: a signal row dropped as a duplicate of
   // a canonical row must not leave behind a matchup it alone was covering.
-  return dropGameSituationsCoveredByStories([...canonical, ...remainingFallback]);
+  return dropGameSituationsCoveredByStories(collapseMarketTwins([...canonical, ...remainingFallback]));
 }
 
 /**
@@ -284,6 +289,17 @@ export function canonicalSituationToDrawerSignal(situation: CanonicalSituation) 
   };
 }
 
+/**
+ * Past these, a duration stops describing the story and starts describing how
+ * long a situation has been open. "Strong support within 312h" and "Detected
+ * 206h before national pickup" are both true of the timestamps and say nothing
+ * a reader can use: the first is a week-old situation that drifted up, the
+ * second is a note nobody else wrote about for nine days. Both are omitted
+ * rather than rounded, on every situation type.
+ */
+const CONFIDENCE_JOURNEY_MAX_HOURS = 72;
+const PICKUP_LEAD_MAX_HOURS = 48;
+
 function computeConfidenceJourney(situation: CanonicalSituation): string | undefined {
   const history = situation.confidenceHistoryPreview;
   if (!history.length || !situation.firstSeenAt) return undefined;
@@ -299,6 +315,7 @@ function computeConfidenceJourney(situation: CanonicalSituation): string | undef
   const firstMs = new Date(situation.firstSeenAt).getTime();
   const peakMs = new Date(peakEntry.timestamp).getTime();
   const gapMinutes = Math.round((peakMs - firstMs) / 60_000);
+  if (gapMinutes > CONFIDENCE_JOURNEY_MAX_HOURS * 60) return undefined;
 
   const peakLabel = publicConfidenceLabel(peak);
   if (gapMinutes < 3) return `${peakLabel} at first signal`;
@@ -363,6 +380,6 @@ export function computeDetectionLeadDisplay(
     .sort((a, b) => a - b)[0];
   if (!pickupMs) return undefined;
   const gapMinutes = Math.round((pickupMs - detectedMs) / 60_000);
-  if (gapMinutes < 15) return undefined;
+  if (gapMinutes < 15 || gapMinutes > PICKUP_LEAD_MAX_HOURS * 60) return undefined;
   return { lead: formatLeadGap(gapMinutes), kind: "pickup" };
 }
