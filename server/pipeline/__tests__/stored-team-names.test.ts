@@ -30,9 +30,9 @@ import path from "path";
  *      it would blank the name the odds adapter wrote minutes earlier, once per
  *      cycle, forever. COALESCE makes naming one-way. This test fails on plain
  *      assignment.
- *   5. upsertHistoricalGame is deliberately untouched: it never writes a name,
- *      and — because the two columns appear in neither its INSERT list nor its
- *      ON CONFLICT clause — it can never erase one either.
+ *   5. upsertHistoricalGame follows the same COALESCE rule: it stores a name
+ *      the caller passes (the CFB and NBA historical adapters do), and a call
+ *      with no name — MLB's historical adapter — can never erase one.
  *   6. A name is filled in where it is missing, survives a nameless writer,
  *      and is replaced only by another writer that actually has one.
  *   7. Replay hashes do not move. The hash reads live_signals and
@@ -242,7 +242,52 @@ describe("a nameless writer cannot blank a stored name", () => {
     expect(readNames(id)).toMatchObject({ home_team_name: MLB_HOME, away_team_name: MLB_AWAY });
   });
 
-  it("upsertHistoricalGame neither writes a name nor erases one", () => {
+  it("upsertHistoricalGame writes a name it is given, and never erases one", () => {
+    const id = "cfb_hist_401";
+    const base = {
+      id,
+      league: "CFB" as const,
+      home_team: "MEM",
+      away_team: "HOU",
+      game_time: PAST,
+      status: "final" as const,
+      spread_line: null, spread_team: null, total_line: null,
+      moneyline_home: null, moneyline_away: null, open_spread: null, open_total: null,
+      home_score: 27,
+      away_score: 24,
+      source_game_id: "401",
+    };
+    store.upsertHistoricalGame({ ...base, home_team_name: CFB_HOME, away_team_name: CFB_AWAY });
+    expect(readNames(id)).toMatchObject({ home_team_name: CFB_HOME, away_team_name: CFB_AWAY });
+
+    // A later pass with no names (MLB's historical adapter has none) keeps them.
+    store.upsertHistoricalGame({ ...base, home_score: 30 });
+    expect(readNames(id)).toMatchObject({ home_team_name: CFB_HOME, away_team_name: CFB_AWAY });
+    expect(store.getGame(id)?.home_score).toBe(30);
+  });
+
+  it("upsertHistoricalGame fills an empty name only, and never replaces one already there", () => {
+    const id = "nba_9001";
+    const base = {
+      id,
+      league: "NBA" as const,
+      home_team: "LAC",
+      away_team: "BOS",
+      game_time: PAST,
+      status: "final" as const,
+      spread_line: null, spread_team: null, total_line: null,
+      moneyline_home: null, moneyline_away: null, open_spread: null, open_total: null,
+      home_score: 101,
+      away_score: 99,
+      source_game_id: "9001",
+    };
+    // The odds adapter named home first; away is still empty.
+    store.upsertGame({ ...base, home_team_name: "Los Angeles Clippers", away_team_name: null });
+    store.upsertHistoricalGame({ ...base, home_team_name: "LA Clippers", away_team_name: "Boston Celtics" });
+    expect(readNames(id)).toMatchObject({ home_team_name: "Los Angeles Clippers", away_team_name: "Boston Celtics" });
+  });
+
+  it("upsertHistoricalGame without names neither writes a name nor erases one", () => {
     const id = "CFB_2026_10_08_COU_TIG";
     const historical = {
       id,
@@ -263,12 +308,12 @@ describe("a nameless writer cannot blank a stored name", () => {
       source_game_id: "hist-1",
     };
 
-    // Insert: the column is not in its INSERT list, so the row reads back NULL.
+    // Insert with no names: the row reads back NULL, not "" or a placeholder.
     store.upsertHistoricalGame(historical);
     expect(readNames(id)).toMatchObject({ home_team_name: null, away_team_name: null });
 
-    // Conflict, on a row the odds adapter has since named: the column is not in
-    // its ON CONFLICT clause either, so the name survives a backfill pass.
+    // Conflict, on a row the odds adapter has since named: COALESCE keeps the
+    // name through a nameless historical pass.
     store.upsertGame({ ...historical, home_team_name: CFB_HOME, away_team_name: CFB_AWAY });
     store.upsertHistoricalGame({ ...historical, home_score: 31 });
     expect(readNames(id)).toMatchObject({ home_team_name: CFB_HOME, away_team_name: CFB_AWAY });

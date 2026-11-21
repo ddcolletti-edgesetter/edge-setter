@@ -1347,24 +1347,37 @@ export function touchGameSchedule(g: {
 /**
  * Insert or update a historical game that already has a final score.
  * Unlike upsertGame, this also persists home_score/away_score and status on conflict.
+ *
+ * Team names: fill an EMPTY name only. The CFB and NBA historical adapters pass
+ * the feed's display name, so the rows they create are named at birth instead
+ * of waiting for a backfill. Unlike upsertGame, this writer never replaces a
+ * name that is already there: the odds adapter is the corrector (it re-sends
+ * the odds feed's name every cycle while a game is in the feed), and a
+ * historical pass spelling the same club differently ("LA Clippers") must not
+ * overwrite it. A caller with no name (MLB's historical adapter) changes nothing.
  */
 export function upsertHistoricalGame(g: Omit<Game, "created_at" | "updated_at">): Game {
   const db = getPipelineDb();
   const now = new Date().toISOString();
   const game: Game = { ...g, created_at: now, updated_at: now };
   db.prepare(`
-    INSERT INTO games (id,league,home_team,away_team,game_time,status,
+    INSERT INTO games (id,league,home_team,away_team,home_team_name,away_team_name,game_time,status,
       spread_line,spread_team,total_line,moneyline_home,moneyline_away,
       open_spread,open_total,home_score,away_score,source_game_id,created_at,updated_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       status=excluded.status,
       home_score=excluded.home_score,
       away_score=excluded.away_score,
       spread_line=COALESCE(excluded.spread_line, spread_line),
+      home_team_name=COALESCE(NULLIF(home_team_name, ''), excluded.home_team_name),
+      away_team_name=COALESCE(NULLIF(away_team_name, ''), excluded.away_team_name),
       updated_at=excluded.updated_at
   `).run(
-    game.id, game.league, game.home_team, game.away_team, game.game_time,
+    game.id, game.league, game.home_team, game.away_team,
+    // ?? null: optional on Game, and better-sqlite3 throws on an undefined bind.
+    game.home_team_name ?? null, game.away_team_name ?? null,
+    game.game_time,
     game.status, game.spread_line, game.spread_team, game.total_line,
     game.moneyline_home, game.moneyline_away, game.open_spread, game.open_total,
     game.home_score, game.away_score, game.source_game_id,

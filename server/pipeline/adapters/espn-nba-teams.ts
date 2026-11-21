@@ -21,6 +21,26 @@ export const NBA_DISPLAY_TO_ABBR: Record<string, string> = {
 };
 
 /**
+ * Our games-table code → the team's full name, as The Odds API spells it (the
+ * NBA keys of the odds adapter's NAME_TO_CODE, which is what writes
+ * games.home_team_name on every row it touches). Every code is one club, so a
+ * games row's code names its team exactly; this is what lets NBA rows created
+ * before the name columns existed be named after the fact.
+ */
+export const NBA_TEAM_NAME_BY_ABBR: Readonly<Record<string, string>> = {
+  ATL: "Atlanta Hawks", BOS: "Boston Celtics", BKN: "Brooklyn Nets",
+  CHA: "Charlotte Hornets", CHI: "Chicago Bulls", CLE: "Cleveland Cavaliers",
+  DAL: "Dallas Mavericks", DEN: "Denver Nuggets", DET: "Detroit Pistons",
+  GSW: "Golden State Warriors", HOU: "Houston Rockets", IND: "Indiana Pacers",
+  LAC: "Los Angeles Clippers", LAL: "Los Angeles Lakers", MEM: "Memphis Grizzlies",
+  MIA: "Miami Heat", MIL: "Milwaukee Bucks", MIN: "Minnesota Timberwolves",
+  NOP: "New Orleans Pelicans", NYK: "New York Knicks", OKC: "Oklahoma City Thunder",
+  ORL: "Orlando Magic", PHI: "Philadelphia 76ers", PHX: "Phoenix Suns",
+  POR: "Portland Trail Blazers", SAC: "Sacramento Kings", SAS: "San Antonio Spurs",
+  TOR: "Toronto Raptors", UTA: "Utah Jazz", WAS: "Washington Wizards",
+};
+
+/**
  * Our games-table code for a scoreboard competitor, by team NAME first.
  *
  * ESPN's scoreboard abbreviations are not ours for six teams — GS, NO, NY, SA,
