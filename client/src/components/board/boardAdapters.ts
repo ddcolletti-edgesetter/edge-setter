@@ -384,107 +384,11 @@ function uniqueTags(values: ReadonlyArray<string | null | undefined>): string[] 
  * assumed, or a kickoff we rounded would all be worse than a blank line.
  */
 
-/**
- * Fold a raw designation into the short tag the card shows.
- *
- * Only the four words with a single unambiguous reading are expanded. Anything
- * else — the practice-participation codes DNP/LP/FP, "IL-60", a value this feed
- * has not sent before — passes through uppercased, because inventing a longer
- * label for a code we have not verified is how "LP" becomes a claim about a
- * player's availability that no source made. `D` and `Q` are read as Doubtful
- * and Questionable to match signalScorer, which already scores them that way.
- */
-const INJURY_DESIGNATION_LABELS: Readonly<Record<string, string>> = {
-  O: "OUT",
-  OUT: "OUT",
-  D: "DOUBTFUL",
-  DOUBTFUL: "DOUBTFUL",
-  Q: "QUESTIONABLE",
-  QUESTIONABLE: "QUESTIONABLE",
-  P: "PROBABLE",
-  PROBABLE: "PROBABLE",
-};
-
-export function normalizeInjuryDesignation(raw?: string | null): string | undefined {
-  const key = String(raw ?? "").trim().toUpperCase();
-  if (!key) return undefined;
-  return INJURY_DESIGNATION_LABELS[key] ?? key;
-}
-
-/* ── Which designations we are willing to put on screen ──────────────────────
- *
- * `server/pipeline/processor.ts:64` builds every injury signal with
- *
- *     const designation: string = p.designation ?? p.status ?? "Questionable";
- *
- * and five of the ten injury producers — sports-rss, x-twitter, 247sports, on3
- * and cfb-school-sid — send a payload carrying neither key (see
- * `sports-rss.ts:395`, whose payload is headline/notes/source_url/...). So
- * every injury signal from a text-classified source is stored as
- * "Questionable" whether or not any source said anything about availability.
- *
- * ESPN NFL, CFB and NBA do report a real "Questionable", and the stored string
- * is byte-identical in both cases. Nothing on the client can tell a reported
- * designation from an invented one, so there is no test we could write here
- * that keeps the true badges and drops the false ones. A badge is a claim about
- * whether a player will play; we withhold the whole class rather than show a
- * coin flip as a fact.
- *
- * THE REAL FIX IS SERVER-SIDE. Remove the default at processor.ts:64 so the
- * column is NULL when no source supplied a status — and null-guard the three
- * prose templates just below it (headline :70, body :72, action_note :75) that
- * interpolate `designation`, or they will print the word "null". Once that
- * ships, ESPN's genuine QUESTIONABLE becomes distinguishable from silence and
- * this suppression should be deleted, not kept.
- */
-const UNPROVABLE_DESIGNATIONS: ReadonlySet<string> = new Set(["QUESTIONABLE"]);
-
-/**
- * Phrases that contradict any availability badge at all.
- *
- * The processor overwrites `headline` but not `body`, so a text-sourced
- * signal's own prose survives into `row.subtitle` — which means a story whose
- * reporting says the player came OFF the injury report can still carry a stored
- * designation saying he is on it. When the prose and the badge disagree we
- * trust the prose and drop the badge, for every designation including OUT.
- *
- * Deliberately blunt: /\bcleared\b/ also fires on "has not been cleared", which
- * suppresses a badge that was arguably right. That is the safe direction of
- * error — the cost is a missing tag, not a false claim — so it is left alone
- * rather than papered over with negation-matching we cannot test against real
- * copy.
- */
-const DESIGNATION_CONTRADICTIONS: readonly RegExp[] = [
-  /\b(?:off|removed from|not on)\s+the\s+injury\s+report\b/i,
-  /\bfull\s+partic/i,
-  /\bclear(?:ed|ance)\b/i,
-  /\bactivated\b/i,
-  /\bno\s+longer\s+listed\b/i,
-];
-
-/**
- * The designation a surface may render, or undefined.
- *
- * Kept separate from {@link normalizeInjuryDesignation} on purpose: that
- * function's job is to fold a raw code into a label and it still has to do that
- * faithfully for QUESTIONABLE, because the drawer, the scorer and the tests all
- * depend on the mapping. This is the display gate layered on top.
- *
- * @param raw      the stored `live_signals.injury_designation`
- * @param bodyText the signal's own prose — pass title + subtitle together
- */
-export function badgeableInjuryDesignation(
-  raw?: string | null,
-  bodyText?: string,
-): string | undefined {
-  const designation = normalizeInjuryDesignation(raw);
-  if (!designation) return undefined;
-  if (UNPROVABLE_DESIGNATIONS.has(designation)) return undefined;
-  if (bodyText && DESIGNATION_CONTRADICTIONS.some((pattern) => pattern.test(bodyText))) {
-    return undefined;
-  }
-  return designation;
-}
+// normalizeInjuryDesignation and the display gate badgeableInjuryDesignation
+// live in @/lib/injuryDesignation so lib code can share them without importing
+// the board. Re-exported here for existing callers.
+export { badgeableInjuryDesignation, normalizeInjuryDesignation } from "@/lib/injuryDesignation";
+import { badgeableInjuryDesignation, normalizeInjuryDesignation } from "@/lib/injuryDesignation";
 
 const normalizeTeamToken = (value?: string | null): string => {
   const raw = String(value ?? "").trim();

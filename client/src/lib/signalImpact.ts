@@ -5,6 +5,8 @@
  * No new API fields required — everything computed from fields already present.
  */
 
+import { badgeableInjuryDesignation } from "./injuryDesignation";
+
 export interface ImpactMetric {
   label: string;
   value: string;
@@ -57,16 +59,19 @@ export interface SignalForImpact {
 /* ─── Per-type handlers ─────────────────────────────────── */
 
 function injuryImpact(s: SignalForImpact): ComputedImpact {
-  const d      = s.injuryDesignation ?? "Q";
-  const isOut  = ["OUT", "DNP", "IL-60", "IL-15", "IL-10"].includes(d);
-  const isDoubt = d === "D" || d === "Doubtful";
+  // Same display gate as the story card. A missing designation is NOT "Q": it
+  // stays missing, and so does a stored QUESTIONABLE, which cannot yet be told
+  // apart from the old processor default (see @/lib/injuryDesignation).
+  const d      = badgeableInjuryDesignation(s.injuryDesignation, s.detail);
+  const isOut  = d !== undefined && ["OUT", "DNP", "IL-60", "IL-15", "IL-10"].includes(d);
+  const isDoubt = d === "DOUBTFUL";
 
   const dfs: DFSImpact = {
     relevant: true,
     affectedPositions: [],
     ownershipDirection: isOut || isDoubt ? "drop" : "neutral",
     metrics: [
-      { label: "Designation",   value: d,                                                         alert: isOut || isDoubt },
+      { label: "Designation",   value: d ?? "Not confirmed",                                      alert: isOut || isDoubt },
       { label: "Ownership",     value: isOut ? "Likely drop" : isDoubt ? "Monitor / drop" : "Monitor" },
       { label: "Backup Value",  value: isOut || isDoubt ? "Elevated" : "Neutral" },
       ...(s.matchupEdge ? [{ label: "Context", value: s.matchupEdge.slice(0, 52) + (s.matchupEdge.length > 52 ? "…" : "") }] : []),
@@ -257,7 +262,7 @@ function schemeImpact(s: SignalForImpact): ComputedImpact {
 }
 
 function transactionImpact(s: SignalForImpact): ComputedImpact {
-  const d    = s.injuryDesignation;
+  const d    = badgeableInjuryDesignation(s.injuryDesignation, s.detail);
   const isIL = d?.includes("IL") ?? false;
 
   const dfs: DFSImpact = {
