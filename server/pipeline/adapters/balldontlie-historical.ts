@@ -43,8 +43,8 @@ interface BDLGame {
   id: number;
   date: string;         // YYYY-MM-DD
   status: string;       // "Final" | "1st Qtr" | etc.
-  home_team: { abbreviation: string };
-  visitor_team: { abbreviation: string };
+  home_team: { abbreviation: string; full_name?: string };
+  visitor_team: { abbreviation: string; full_name?: string };
   home_team_score: number;
   visitor_team_score: number;
 }
@@ -99,6 +99,9 @@ function processGame(game: BDLGame): boolean {
     league: "NBA",
     home_team: homeAbbr,
     away_team: awayAbbr,
+    // balldontlie full_name ("Boston Celtics"), so the row is named at birth.
+    home_team_name: game.home_team.full_name?.trim() || null,
+    away_team_name: game.visitor_team.full_name?.trim() || null,
     game_time: `${game.date}T00:00:00Z`,
     status: "final",
     spread_line: null,

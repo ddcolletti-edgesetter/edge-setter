@@ -48,7 +48,7 @@ export type CFBHistoricalSeason = keyof typeof CFB_SEASONS;
 interface ESPNCompetitor {
   homeAway: "home" | "away";
   score?: string;
-  team: { abbreviation: string };
+  team: { abbreviation: string; displayName?: string };
 }
 
 interface ESPNEvent {
@@ -145,6 +145,10 @@ function processEvent(event: ESPNEvent): boolean {
     league: "CFB",
     home_team: home.team.abbreviation,
     away_team: away.team.abbreviation,
+    // ESPN displayName ("Rice Owls"): the abbreviation alone cannot be turned
+    // back into a school for every team, so store the name while it is in hand.
+    home_team_name: home.team.displayName?.trim() || null,
+    away_team_name: away.team.displayName?.trim() || null,
     game_time: event.date,
     status: "final",
     spread_line: null,
