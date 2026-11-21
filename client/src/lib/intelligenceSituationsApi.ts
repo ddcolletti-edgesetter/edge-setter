@@ -2,6 +2,7 @@ import { apiRequest } from "./queryClient";
 import { fetchSignals, type LiveSignal } from "./signalsApi";
 import { publicGamesForLeague } from "./publicDisplayHygiene";
 import { publicConfidenceLabel } from "./storyLanguage";
+import { badgeableInjuryDesignation } from "./injuryDesignation";
 import { deriveVerificationState, evidenceFromLiveSignal, type VerificationStateResult } from "@shared/verification-state";
 
 export type EscalationState =
@@ -369,10 +370,13 @@ function confidenceExplanation(
 }
 
 function buildImplications(signal: LiveSignal) {
+  // Same display gate as the story card: a withheld or contradicted designation
+  // prints nothing rather than "Injury designation: Questionable."
+  const designation = badgeableInjuryDesignation(signal.injury_designation, `${signal.headline ?? ""} ${signal.body ?? ""}`);
   const implications = [
     signal.betting_relevance ? "Pricing or line context may change." : null,
     signal.fantasy_relevance ? "Role, usage, or availability context may change." : null,
-    signal.injury_designation ? `Injury designation: ${signal.injury_designation}.` : null,
+    designation ? `Injury designation: ${designation}.` : null,
     signal.lineup_status ? `Lineup status: ${signal.lineup_status}.` : null,
     signal.weather_note ? signal.weather_note : null,
   ].filter(Boolean) as string[];

@@ -15,6 +15,7 @@ import { containsPublicInvalidToken, hasCleanPublicTeamIdentity, hasCleanPublicT
 import { compareLeadRank } from "@/lib/boardSituations";
 import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { LEAD_MAX_AGE_HOURS, ageHoursFrom } from "@/lib/leadRanker";
+import { badgeableInjuryDesignation } from "@/lib/injuryDesignation";
 import { AlertTriangle, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
@@ -1435,7 +1436,7 @@ function buildTickerItems({ situations, games }: { situations: IntelligenceSitua
   // Priority 3: lineup/injury
   for (const situation of situations) {
     if (items.length >= 8) break;
-    if (!situation.raw.lineup_status && !situation.raw.injury_designation) continue;
+    if (!situation.raw.lineup_status && !shownDesignation(situation)) continue;
     tryAdd(situation.id, `${situation.league}: ${cleanTickerSubject(situation.subject.player ?? situation.subject.team ?? "availability")} update active`);
   }
 
@@ -1521,7 +1522,8 @@ function latestChangeLabel(situation: IntelligenceSituation | null) {
 }
 
 function storyChangeLabel(situation: IntelligenceSituation) {
-  if (situation.raw.injury_designation) return `${situation.raw.injury_designation} availability signal`;
+  const designation = shownDesignation(situation);
+  if (designation) return `${designation} availability signal`;
   if (situation.raw.lineup_status) return `${situation.raw.lineup_status} lineup context`;
   if (situation.marketReaction) return `${situation.subject.matchup ?? situation.subject.team ?? "Team news"} shifted`;
   return situation.timeline.at(-1)?.label ?? "Live read updated";
@@ -1572,7 +1574,7 @@ function generateHeadline(situation: IntelligenceSituation): string | null {
   }
 
   // Injury — the designation is the concrete development
-  const status = publicAvailabilityStatus(situation.raw.injury_designation);
+  const status = publicAvailabilityStatus(shownDesignation(situation));
   if (status) {
     const injury = text.match(INJURY_TYPE_PATTERN)?.[1] ?? null;
     const subject = player ?? `${team}`;
@@ -1602,7 +1604,7 @@ function buildPublicSituationStory(situation: IntelligenceSituation) {
   const specificHeadline = generateHeadline(situation);
   const teamContext = team ? `${team} ${teamContextNoun(situation)}` : `${situation.league} context`;
   const type = publicSituationType(situation);
-  const status = publicAvailabilityStatus(situation.raw.injury_designation);
+  const status = publicAvailabilityStatus(shownDesignation(situation));
   const hasPlayer = Boolean(player);
   const sourcePhrase = publicSourceSummary(situation.sourceSummary.convergence).toLowerCase();
   const marketPhrase = situation.marketReaction ? " Books, fantasy markets, and team context are already reacting." : "";
@@ -1894,8 +1896,9 @@ function publicSituationType(situation: IntelligenceSituation) {
 }
 
 function isAvailabilitySituation(situation: IntelligenceSituation) {
-  const text = `${situation.raw.signal_type} ${situation.raw.injury_designation ?? ""} ${situation.headline} ${situation.currentRead}`.toLowerCase();
-  return Boolean(situation.raw.injury_designation) || /(injury|availability|questionable|doubtful|out|practice|limited|dnp|status)/i.test(text);
+  const designation = shownDesignation(situation);
+  const text = `${situation.raw.signal_type} ${designation ?? ""} ${situation.headline} ${situation.currentRead}`.toLowerCase();
+  return Boolean(designation) || /(injury|availability|questionable|doubtful|out|practice|limited|dnp|status)/i.test(text);
 }
 
 function isRosterMoveSituation(situation: IntelligenceSituation) {
@@ -1911,6 +1914,20 @@ function isLineupSituation(situation: IntelligenceSituation) {
 function isDepthChartSituation(situation: IntelligenceSituation) {
   const text = `${situation.raw.signal_type} ${situation.headline} ${situation.currentRead}`.toLowerCase();
   return /(depth|qb1|role|snap|practice rep|rotation)/i.test(text);
+}
+
+/**
+ * The designation a homepage headline, label or tag may use: the same gate the
+ * story card uses (badgeableInjuryDesignation). Withholds QUESTIONABLE, which
+ * cannot yet be told apart from the old processor default, and any designation
+ * the story’s own prose contradicts. Ranking and filtering reads of the raw
+ * column are left alone; this is for words on screen.
+ */
+function shownDesignation(situation: IntelligenceSituation): string | undefined {
+  return badgeableInjuryDesignation(
+    situation.raw.injury_designation,
+    `${situation.headline} ${situation.currentRead ?? ""} ${situation.raw.body ?? ""}`,
+  );
 }
 
 function publicAvailabilityStatus(value?: string | null) {
@@ -2108,7 +2125,7 @@ function storyTimingLabel(situation: IntelligenceSituation) {
 function editorialHeadline(situation: IntelligenceSituation) {
   const subject = situation.subject.player ?? displayTeamName(situation.subject.team, situation.league) ?? situation.subject.matchup;
   if (situation.marketReaction && subject) return `${subject} confirmation window tightening`;
-  if (situation.raw.injury_designation && subject) return `${subject} availability remains on watch`;
+  if (shownDesignation(situation) && subject) return `${subject} availability remains on watch`;
   if (situation.raw.lineup_status && subject) return `${subject} lineup status is active`;
   return situation.headline;
 }
@@ -2126,7 +2143,7 @@ function overlayRead(situation: IntelligenceSituation) {
 function sportsFirstHeadline(situation: IntelligenceSituation) {
   const subject = situation.subject.player ?? displayTeamName(situation.subject.team, situation.league) ?? situation.subject.matchup;
   if (subject && situation.marketReaction) return `${subject} confirmation window tightening`;
-  if (subject && situation.raw.injury_designation) return `${subject} availability remains on watch`;
+  if (subject && shownDesignation(situation)) return `${subject} availability remains on watch`;
   if (subject && situation.raw.lineup_status) return `${subject} lineup status is active`;
   if (subject) return `${subject} is the active sports read`;
   return situation.league === "MLB" ? "Lineups and game status updating" : `${situation.league} board is active`;
@@ -2186,7 +2203,7 @@ function pressureWindowsForSituation(situation: IntelligenceSituation) {
   const windows = [
     situation.timing.window === "Early" ? "early signal" : null,
     situation.raw.lineup_status ? "Lineup window active" : null,
-    situation.raw.injury_designation ? "Availability impact watch" : null,
+    shownDesignation(situation) ? "Availability impact watch" : null,
     situation.marketReaction ? `Market reacting ${situation.marketReaction.delta ?? ""}`.trim() : "Impact still developing",
     situation.sourceSummary.count > 1 ? `${situation.sourceSummary.count} reports attached` : null,
   ].filter(Boolean) as string[];
@@ -2198,7 +2215,7 @@ function storyReactionLabel(situation: IntelligenceSituation) {
     situation.raw.betting_relevance ? "books" : null,
     situation.raw.fantasy_relevance ? "fantasy managers" : null,
     situation.raw.lineup_status ? "lineup desks" : null,
-    situation.raw.injury_designation ? "availability desks" : null,
+    shownDesignation(situation) ? "availability desks" : null,
     "report desks",
   ].filter(Boolean);
   return `${situation.league} ${groups.join(", ")} are watching whether this resolves before public consensus; no read is promoted without confirmation.`;
@@ -2256,7 +2273,7 @@ function sourceStorySteps(situation: IntelligenceSituation): Array<{ label: stri
 
 function storyFrameLabel(situation: IntelligenceSituation) {
   if (situation.marketReaction) return "Market reacting";
-  if (situation.raw.injury_designation) return "Availability impact watch";
+  if (shownDesignation(situation)) return "Availability impact watch";
   if (situation.raw.lineup_status) return "Lineup volatility";
   if (situation.raw.weather_note) return "Weather pressure";
   return situation.subject.player ?? situation.subject.team ?? situation.subject.matchup ?? "Team news";

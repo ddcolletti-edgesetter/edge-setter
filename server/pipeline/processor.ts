@@ -59,22 +59,60 @@ function buildMatchup(team: string | null, game?: { home_team: string; away_team
 
 /* ─── Handler: injury_update ────────────────────────────── */
 
+/**
+ * The designation a payload actually carries, or null. Text-classified
+ * producers (sports-rss, x-twitter, 247sports, on3, cfb-school-sid) and the
+ * vision agent send neither key; until this change they were stored as
+ * "Questionable", byte-identical to a real one. A blank string is not a status.
+ */
+export function payloadInjuryDesignation(payload: unknown): string | null {
+  const p = (payload ?? {}) as { designation?: unknown; status?: unknown };
+  for (const value of [p.designation, p.status]) {
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+/**
+ * True when the designation is a structured status field from a league data
+ * feed — the producers with source_type "api" (ESPN NFL/NBA/CFB injuries,
+ * balldontlie, MLB StatsAPI's transaction wire), which copy the injury report /
+ * IL status into payload.designation. Not text classification, not the vision
+ * agent, and not the operator /ingest endpoint ("manual"), which takes any
+ * payload a caller sends.
+ */
+function hasOfficialStructuredStatus(raw: RawEvent, designation: string | null): boolean {
+  return designation !== null && raw.source_type === "api";
+}
+
 function handleInjuryUpdate(raw: RawEvent): Partial<LiveSignal> {
   const p = raw.payload as any;
-  const designation: string = p.designation ?? p.status ?? "Questionable";
+  // No default: a payload without a designation or status stores NULL.
+  const designation = payloadInjuryDesignation(p);
   const bodyPart: string = p.body_part ?? p.injury ?? "undisclosed";
   const isOut = designation === "OUT" || designation === "IL-60" || designation === "DNP";
   const defaultConfidence = isOut ? 88 : 65;
+  const player = raw.player ?? "Player";
+  const bodyPartKnown = bodyPart !== "undisclosed";
   return {
     signal_type: "injury_update",
-    headline: `${raw.player ?? "Player"} (${bodyPart}) — ${designation}`,
-    body: p.notes ?? `${raw.player} listed ${designation} — ${bodyPart} issue.`,
+    headline: designation
+      ? `${player} (${bodyPart}) — ${designation}`
+      : `${player}${bodyPartKnown ? ` (${bodyPart})` : ""} — injury report`,
+    body: p.notes ?? (designation
+      ? `${player} listed ${designation} — ${bodyPart} issue.`
+      : `${player} injury report${bodyPartKnown ? ` — ${bodyPart}` : ""}; no designation given.`),
     action_note: isOut
       ? `Adjust roster exposure immediately. Line implications for ${raw.team} games.`
-      : `Monitor status. ${designation} designation may change before game time.`,
-    why_it_matters: isOut
-      ? `${raw.player} is a confirmed scratch — direct market impact expected.`
-      : `${raw.player}'s status is uncertain; wait for a final designation before committing.`,
+      : designation
+        ? `Monitor status. ${designation} designation may change before game time.`
+        : `Monitor status. No designation has been reported yet.`,
+    // "confirmed scratch" is a claim only the official injury report can make.
+    why_it_matters: isOut && hasOfficialStructuredStatus(raw, designation)
+      ? `${player} is a confirmed scratch — direct market impact expected.`
+      : isOut
+        ? `${player} is reported ${designation}; the official injury report has not confirmed it.`
+        : `${player}'s status is uncertain; wait for a final designation before committing.`,
     injury_designation: designation,
     betting_relevance: true,
     fantasy_relevance: true,
