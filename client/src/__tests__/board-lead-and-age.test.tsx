@@ -17,7 +17,7 @@
  *   row they had: 185 cards on NFL, 212 on CFB, with canonical situations up to
  *   30 days old mixed in among this morning's.
  */
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
@@ -109,6 +109,18 @@ const railRows = () =>
   }));
 
 describe("the signal rail only lists rows it can name", () => {
+  // BoardSignalRail drops rows older than 48h, measured by signalAgeMinutes
+  // against the real clock. The fixtures are dated relative to NOW, so without
+  // this every row went stale at NOW + 46h (2026-11-21T10:00Z) and the rail
+  // rendered empty. Only Date is faked: testing-library's timers stay real.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("drops a row with neither a player nor a team", () => {
     cleanup();
     render(<BoardSignalRail situations={[
