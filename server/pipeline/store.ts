@@ -599,6 +599,10 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   addColumnIfMissing(db, "live_signals", "is_archived", "INTEGER NOT NULL DEFAULT 0");
   // Migrate live_signals to track when the signal was first observed
   addColumnIfMissing(db, "live_signals", "first_seen_at", "TEXT");
+  // Provenance of injury_designation (shared/injury-designation-source.ts).
+  // No default and no backfill: rows written before it read NULL, and the
+  // badge gate treats NULL as "not an official structured status".
+  addColumnIfMissing(db, "live_signals", "injury_designation_source", "TEXT");
   // Roster-gazetteer candidate (separate from the regex-driven `player` column —
   // never overwrites it). *_confidence is the match-strength flag: "full_name"
   // (high) or "last_name" (low, single-surname fallback).
@@ -2200,12 +2204,12 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
     INSERT INTO live_signals (
       id,league,game_id,signal_type,headline,body,action_note,why_it_matters,
       team,player,matchup,sources,source_count,verdict,confidence,
-      confirmation_strength,line_movement,injury_designation,lineup_status,
-      weather_note,betting_relevance,fantasy_relevance,score,score_band,
+      confirmation_strength,line_movement,injury_designation,injury_designation_source,
+      lineup_status,weather_note,betting_relevance,fantasy_relevance,score,score_band,
       urgency_label,urgency_reason,trust_label,score_explanation,breakdown,
       raw_event_ids,signal_time,first_seen_at,created_at,updated_at,outcome_id,
       market,graded_side
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       score=excluded.score,
       score_band=excluded.score_band,
@@ -2220,6 +2224,7 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       why_it_matters=excluded.why_it_matters,
       line_movement=excluded.line_movement,
       injury_designation=excluded.injury_designation,
+      injury_designation_source=excluded.injury_designation_source,
       lineup_status=excluded.lineup_status,
       weather_note=excluded.weather_note,
       verdict=excluded.verdict,
@@ -2246,7 +2251,7 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
     JSON.stringify(s.sources), s.source_count, s.verdict, s.confidence,
     s.confirmation_strength,
     s.line_movement ? JSON.stringify(s.line_movement) : null,
-    s.injury_designation, s.lineup_status, s.weather_note,
+    s.injury_designation, s.injury_designation_source ?? null, s.lineup_status, s.weather_note,
     s.betting_relevance ? 1 : 0, s.fantasy_relevance ? 1 : 0,
     s.score, s.score_band, s.urgency_label, s.urgency_reason,
     s.trust_label, s.score_explanation, JSON.stringify(s.breakdown),

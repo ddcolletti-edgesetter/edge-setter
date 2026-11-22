@@ -66,10 +66,12 @@ export { resolveNBAScoreboardTeam };
 
 /* ─── Normalize designation ───────────────────────────────── */
 
-function normalizeDesignation(status: string): string {
+export function normalizeDesignation(status: string): string {
   const s = status.toLowerCase();
   if (s.includes("out"))          return "OUT";
-  if (s.includes("day-to-day"))   return "Questionable";
+  // Day-to-day is its own status, not Questionable: the feed did not say
+  // "Questionable", and the badge gate treats the two differently.
+  if (s.includes("day-to-day"))   return "Day-to-day";
   if (s.includes("questionable")) return "Questionable";
   if (s.includes("doubtful"))     return "Doubtful";
   if (s.includes("probable"))     return "Probable";

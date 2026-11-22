@@ -392,7 +392,11 @@ function confidenceExplanation(
 function buildImplications(signal: LiveSignal) {
   // Same display gate as the story card: a withheld or contradicted designation
   // prints nothing rather than "Injury designation: Questionable."
-  const designation = badgeableInjuryDesignation(signal.injury_designation, `${signal.headline ?? ""} ${signal.body ?? ""}`);
+  const designation = badgeableInjuryDesignation(
+    signal.injury_designation,
+    `${signal.headline ?? ""} ${signal.body ?? ""}`,
+    signal.injury_designation_source,
+  );
   const implications = [
     signal.betting_relevance ? "Pricing or line context may change." : null,
     signal.fantasy_relevance ? "Role, usage, or availability context may change." : null,

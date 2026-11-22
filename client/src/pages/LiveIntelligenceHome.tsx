@@ -1921,8 +1921,8 @@ function isDepthChartSituation(situation: IntelligenceSituation) {
 
 /**
  * The designation a homepage headline, label or tag may use: the same gate the
- * story card uses (badgeableInjuryDesignation). Withholds QUESTIONABLE, which
- * cannot yet be told apart from the old processor default, and any designation
+ * story card uses (badgeableInjuryDesignation). Withholds a QUESTIONABLE that
+ * no official structured feed reported, and any designation
  * the story’s own prose contradicts. Ranking and filtering reads of the raw
  * column are left alone; this is for words on screen.
  */
@@ -1930,6 +1930,7 @@ function shownDesignation(situation: IntelligenceSituation): string | undefined 
   return badgeableInjuryDesignation(
     situation.raw.injury_designation,
     `${situation.headline} ${situation.currentRead ?? ""} ${situation.raw.body ?? ""}`,
+    situation.raw.injury_designation_source,
   );
 }
 

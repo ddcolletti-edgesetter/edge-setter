@@ -92,6 +92,7 @@ export type AnyBoardSignal = {
   confirmationStrength?: string | null;
   lineMovement?: { open?: string; current?: string; note?: string } | null;
   injuryDesignation?: string | null;
+  injuryDesignationSource?: string | null;
   conference?: string | null;
   _score?: { totalScore?: number | null; urgencyLabel?: string | null; urgencyReason?: string | null } | null;
 };
@@ -328,7 +329,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
       // badgeableInjuryDesignation. The raw value is kept rather than the
       // normalized one: this is a plain tag, not the badge, and its casing is
       // not ours to change.
-      badgeableInjuryDesignation(signal?.injuryDesignation, `${situation.title} ${situation.detail ?? ""}`)
+      badgeableInjuryDesignation(signal?.injuryDesignation, `${situation.title} ${situation.detail ?? ""}`, signal?.injuryDesignationSource)
         ? signal?.injuryDesignation
         : undefined,
       signal?.conference,
@@ -336,6 +337,7 @@ export function toSituationRowData(situation: BoardSituation): SituationRowData 
     // Also carried as a first-class field: `tags` is sliced to two entries by
     // SituationRow, which drops the designation in practice.
     injuryDesignation: signal?.injuryDesignation ?? undefined,
+    injuryDesignationSource: signal?.injuryDesignationSource ?? undefined,
     actionLabel: situation.kind === "signal" ? "Open story" : undefined,
     lifecycleLabel: situation.lifecycleStage,
     lifecycleState: lifecycleStateForLabel(situation.lifecycleStage),
@@ -675,6 +677,7 @@ const verification = publicStoryText(mappedVerification, row.league);
     injuryDesignation: badgeableInjuryDesignation(
       row.injuryDesignation,
       `${row.title} ${row.subtitle ?? ""}`,
+      row.injuryDesignationSource,
     ),
     opponentLabel: opponentLabelFor(identity, gameMatch),
     // Gated by league: see KICKOFF_TRUSTED_LEAGUES. An untrusted league takes
@@ -1130,7 +1133,7 @@ function verifiedTimingStage(situation: BoardSituation) {
     return "ES Agents verified";
   }
   const designation = normalizeInjuryDesignation(
-    badgeableInjuryDesignation(signal?.injuryDesignation, `${situation.title} ${situation.detail ?? ""}`),
+    badgeableInjuryDesignation(signal?.injuryDesignation, `${situation.title} ${situation.detail ?? ""}`, signal?.injuryDesignationSource),
   );
   if (designation === "OUT") return "Reported out";
   return "single report";

@@ -46,6 +46,7 @@ export interface SignalForImpact {
     note?: string;
   };
   injuryDesignation?: string;
+  injuryDesignationSource?: string;
   bettingRelevance?: boolean;
   fantasyRelevance?: boolean;
   schemeNote?: string;
@@ -60,9 +61,9 @@ export interface SignalForImpact {
 
 function injuryImpact(s: SignalForImpact): ComputedImpact {
   // Same display gate as the story card. A missing designation is NOT "Q": it
-  // stays missing, and so does a stored QUESTIONABLE, which cannot yet be told
-  // apart from the old processor default (see @/lib/injuryDesignation).
-  const d      = badgeableInjuryDesignation(s.injuryDesignation, s.detail);
+  // stays missing, and so does a QUESTIONABLE without an official structured
+  // source (see @/lib/injuryDesignation).
+  const d      = badgeableInjuryDesignation(s.injuryDesignation, s.detail, s.injuryDesignationSource);
   const isOut  = d !== undefined && ["OUT", "DNP", "IL-60", "IL-15", "IL-10"].includes(d);
   const isDoubt = d === "DOUBTFUL";
 
@@ -262,7 +263,7 @@ function schemeImpact(s: SignalForImpact): ComputedImpact {
 }
 
 function transactionImpact(s: SignalForImpact): ComputedImpact {
-  const d    = badgeableInjuryDesignation(s.injuryDesignation, s.detail);
+  const d    = badgeableInjuryDesignation(s.injuryDesignation, s.detail, s.injuryDesignationSource);
   const isIL = d?.includes("IL") ?? false;
 
   const dfs: DFSImpact = {

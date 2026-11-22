@@ -1,8 +1,10 @@
 /**
  * Injury designations: fold a stored value into a label, and decide whether a
- * surface may show it. A leaf module (no imports), so lib code, pages and the
- * board adapters all read one gate. boardAdapters re-exports both functions.
+ * surface may show it. Imports only the shared provenance allowlist, so lib
+ * code, pages and the board adapters all read one gate. boardAdapters
+ * re-exports both functions.
  */
+import { isOfficialInjuryDesignationSource } from "@shared/injury-designation-source";
 
 /**
  * Fold a raw designation into the short tag the card shows.
@@ -23,6 +25,9 @@ const INJURY_DESIGNATION_LABELS: Readonly<Record<string, string>> = {
   QUESTIONABLE: "QUESTIONABLE",
   P: "PROBABLE",
   PROBABLE: "PROBABLE",
+  // ESPN NBA and balldontlie's own status, stored as the feed's words rather
+  // than mapped onto QUESTIONABLE (the card's CSS uppercases it).
+  "DAY-TO-DAY": "Day-to-day",
 };
 
 export function normalizeInjuryDesignation(raw?: string | null): string | undefined {
@@ -33,7 +38,7 @@ export function normalizeInjuryDesignation(raw?: string | null): string | undefi
 
 /* ── Which designations we are willing to put on screen ──────────────────────
  *
- * Until this change, `server/pipeline/processor.ts` handleInjuryUpdate built
+ * Before #113, `server/pipeline/processor.ts` handleInjuryUpdate built
  * every injury signal with
  *
  *     const designation: string = p.designation ?? p.status ?? "Questionable";
@@ -45,22 +50,22 @@ export function normalizeInjuryDesignation(raw?: string | null): string | undefi
  * "Questionable" whether or not any source said anything about availability.
  *
  * ESPN NFL, CFB and NBA do report a real "Questionable", and the stored string
- * is byte-identical in both cases. Nothing on the client can tell a reported
- * designation from an invented one, so there is no test we could write here
- * that keeps the true badges and drops the false ones. A badge is a claim about
- * whether a player will play; we withhold the whole class rather than show a
+ * is byte-identical in both cases, so the value alone cannot tell a reported
+ * designation from an invented one. A badge is a claim about whether a player
+ * will play; without provenance we withheld the whole class rather than show a
  * coin flip as a fact.
  *
- * The server default is gone: handleInjuryUpdate now stores NULL when the
- * payload has no designation or status, so NEW rows no longer carry an invented
- * "Questionable". QUESTIONABLE is still withheld, deliberately, because:
- *   - rows written before that change still hold the default, byte-identical to
- *     a real one, and are not rewritten; and
- *   - even a non-default "Questionable" can come from a payload whose `status`
- *     was set by something other than an official injury report (the manual
- *     /ingest endpoint takes any payload).
- * Releasing it needs a stored marker of where the designation came from. Until
- * then this gate is the only thing standing between a guess and a badge.
+ * The server default is gone (#113): handleInjuryUpdate stores NULL when the
+ * payload has no designation or status. And the processor now records where
+ * every designation came from in live_signals.injury_designation_source
+ * (shared/injury-designation-source.ts). So QUESTIONABLE is shown only when
+ * that column names a structured status field from an official league feed —
+ * ESPN NFL, ESPN NBA, balldontlie or MLB StatsAPI. Everything else stays
+ * withheld:
+ *   - rows written before the column existed read NULL, and some of them hold
+ *     the old default, byte-identical to a real one;
+ *   - ESPN CFB, text classifiers, the vision agent and the manual /ingest
+ *     endpoint are not on the list.
  */
 const UNPROVABLE_DESIGNATIONS: ReadonlySet<string> = new Set(["QUESTIONABLE"]);
 
@@ -97,14 +102,19 @@ const DESIGNATION_CONTRADICTIONS: readonly RegExp[] = [
  *
  * @param raw      the stored `live_signals.injury_designation`
  * @param bodyText the signal's own prose — pass title + subtitle together
+ * @param source   the stored `live_signals.injury_designation_source`; omitted
+ *                 or null withholds QUESTIONABLE
  */
 export function badgeableInjuryDesignation(
   raw?: string | null,
   bodyText?: string,
+  source?: string | null,
 ): string | undefined {
   const designation = normalizeInjuryDesignation(raw);
   if (!designation) return undefined;
-  if (UNPROVABLE_DESIGNATIONS.has(designation)) return undefined;
+  if (UNPROVABLE_DESIGNATIONS.has(designation) && !isOfficialInjuryDesignationSource(source)) {
+    return undefined;
+  }
   if (bodyText && DESIGNATION_CONTRADICTIONS.some((pattern) => pattern.test(bodyText))) {
     return undefined;
   }
