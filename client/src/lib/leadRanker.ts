@@ -4,7 +4,12 @@
 // Canonical lead selection for the homepage and board pages.
 //
 // selectHomepageLead — canonical situations, Gate 1 (storyTypeTiers) +
-//   Gate 2 (age cap) + scoring (confidence × proximity × recency + verification)
+//   Gate 2 (age cap) + scoring (confidence × proximity × recency + verification).
+//   NOT what the live homepage calls: LiveIntelligenceHome ranks
+//   IntelligenceSituation[] (live_signals) with its own scorer, and has since
+//   before this note. That page takes its candidate pool from
+//   homepageLeadPool and its ages from homepageLeadAgeIso, both below, so the
+//   rules that decide what may lead live here even though the scorer does not.
 // selectFeaturedSituation — board pages, re-exported from boardSituations
 //
 // Both surfaces agree on which situation leads because they share the same
@@ -12,9 +17,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { CanonicalSituationRecord } from "../types/situation";
+import type { IntelligenceSituation } from "./intelligenceSituationsApi";
+import type { BoardSituation } from "./boardSituations";
 import { isLeadEligible } from "./storyTypeTiers";
 import { gameProximityScore } from "./gameProximityScore";
 import { ageHoursFrom } from "./storyAge";
+import { dropStoriesNoLongerLive, type StoryGameRow } from "./boardStoryGame";
+import { opponentFromMatchup } from "./signalsApi";
+import { kickoffIsTrustedForLeague } from "../components/board/boardAdapters";
 
 export { selectFeaturedSituation } from "./boardSituations";
 
@@ -82,4 +92,84 @@ function _leadScore(s: CanonicalSituationRecord, referenceTime: number): number 
     : s.verificationState === "escalating" ? 10
     : 0;
   return s.confidenceScore * proximity * recency + verificationBoost;
+}
+
+/**
+ * The homepage's lead candidates, minus every story whose game is over.
+ *
+ * Same filter, same matching rules as the boards (dropStoriesNoLongerLive in
+ * boardStoryGame): a signal's own game_id first, then the unordered team pair,
+ * then — outside CFB — its one team's next same-league game at or after the
+ * story last changed. Final drops in every league; started drops only where
+ * the stored kickoff is trusted (NFL, NBA).
+ *
+ * The homepage holds IntelligenceSituation, the boards BoardSituation, so each
+ * story is projected onto the handful of fields that filter reads. The values
+ * are the ones the boards' own signal adapters (adaptToNFLSignal and friends)
+ * produce from the same live_signals row: team as served, opponent from the
+ * matchup string, gameId from game_id, and signal_time ?? created_at as the
+ * last-changed time. Anything else on BoardSituation is unread by the filter.
+ *
+ * A CFB story that names one team and no opponent is never placed — one CFB
+ * code can belong to several schools — so it stays in the pool even when a
+ * game under that code is final. That is the boards' rule, kept on purpose.
+ *
+ * @param gamesTable Every league's whole games table (fetchGamesTable), not
+ *   the windowed slate: yesterday's final is exactly the row this needs.
+ */
+export function homepageLeadPool(
+  situations: readonly IntelligenceSituation[],
+  gamesTable: readonly StoryGameRow[],
+  now: number = Date.now(),
+): IntelligenceSituation[] {
+  const byLeague = new Map<string, IntelligenceSituation[]>();
+  for (const situation of situations) {
+    byLeague.set(situation.league, [...(byLeague.get(situation.league) ?? []), situation]);
+  }
+  const keep = new Set<string>();
+  byLeague.forEach((members, league) => {
+    const projected = members.map(toStoryGameProbe);
+    const games = gamesTable.filter((game) => String(game.league ?? "").toUpperCase() === league);
+    for (const survivor of dropStoriesNoLongerLive(projected, games, { kickoffTrusted: kickoffIsTrustedForLeague(league), now })) {
+      keep.add(survivor.id);
+    }
+  });
+  return situations.filter((situation) => keep.has(situation.id));
+}
+
+function toStoryGameProbe(situation: IntelligenceSituation): BoardSituation {
+  const raw = situation.raw;
+  return {
+    id: situation.id,
+    kind: "signal",
+    league: situation.league,
+    title: situation.headline,
+    team: raw.team ?? undefined,
+    opponent: opponentFromMatchup(raw.matchup, raw.team),
+    signal: { gameId: raw.game_id ?? undefined, isoTimestamp: raw.signal_time ?? raw.created_at },
+  } as BoardSituation;
+}
+
+/**
+ * The time a homepage story's age is measured from.
+ *
+ * A line move is dated by `line_move_first_received_at`: when we first received
+ * the line its game and market are on now. Not `timing.firstSeen` — that is
+ * when the signal row was founded, and every later move on the same game is
+ * folded into that row, so a row founded days ago still carries its founding
+ * day after today's move. Not the game's start either. When the server could
+ * not work the time out, this is null and the story has no age, which every
+ * caller treats as too old to lead rather than borrowing the founding time.
+ *
+ * Every other story keeps `timing.firstSeen`.
+ */
+export function homepageLeadAgeIso(situation: IntelligenceSituation): string | null {
+  if (situation.raw.signal_type === "line_move") return situation.raw.line_move_first_received_at ?? null;
+  return situation.timing.firstSeen;
+}
+
+/** Hours since {@link homepageLeadAgeIso}; Infinity when there is none. */
+export function homepageLeadAgeHours(situation: IntelligenceSituation, now: number = Date.now()): number {
+  const iso = homepageLeadAgeIso(situation);
+  return iso ? ageHoursFrom(iso, now) : Number.POSITIVE_INFINITY;
 }
