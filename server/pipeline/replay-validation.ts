@@ -1,6 +1,8 @@
 import type { ReplayMarketState } from "../storage";
 import { deriveReplayClvStates, getReplaySignals } from "./replay";
-import { getClosingSnapshot, getOutcomes, getPipelineDb, getSnapshotHistory } from "./store";
+import { getClosingSnapshot, getGame, getLiveSignal, getOutcomes, getPipelineDb, getSnapshotHistory } from "./store";
+import { gradeSignalV2, GRADING_VERSION } from "./grading-v2";
+import { loadGradingInputs } from "./settlement";
 
 export interface ReplayOutcomeValidation {
   signal_id: string;
@@ -50,6 +52,33 @@ export function validateReplayAgainstOutcome(
   }
 
   const asOf = outcome.recorded_at ?? outcome.created_at;
+
+  // A v2 outcome is checked by re-running the v2 grader on the same inputs it
+  // saw (snapshots as of the recording), and comparing the whole result, not
+  // just CLV. Legacy rows keep the legacy CLV replay below.
+  if (outcome.grading_version === GRADING_VERSION) {
+    const signal = getLiveSignal(signalId);
+    const game = getGame(outcome.game_id);
+    if (!signal || !game || outcome.home_score == null || outcome.away_score == null) {
+      return {
+        signal_id: signalId, outcome_id: outcome.id, game_id: outcome.game_id, as_of: asOf,
+        matched: false, replay_clv: null, outcome_clv: outcome.clv,
+        reason: "v2 outcome: signal, game or score missing, cannot regrade",
+      };
+    }
+    const inputs = loadGradingInputs(signal, game, outcome.home_score, outcome.away_score);
+    const regraded = gradeSignalV2({ ...inputs, snapshots: inputs.snapshots.filter((s) => s.snapshot_at <= asOf) });
+    const matched = regraded.clv === outcome.clv
+      && regraded.hit === outcome.hit
+      && regraded.state === (outcome.settlement_state ?? "graded")
+      && (regraded.reason ?? null) === (outcome.no_grade_reason ?? null);
+    return {
+      signal_id: signalId, outcome_id: outcome.id, game_id: outcome.game_id, as_of: asOf,
+      matched, replay_clv: regraded.clv, outcome_clv: outcome.clv,
+      reason: matched ? null : "v2 regrade does not match stored outcome",
+    };
+  }
+
   const snapshotHistory = getSnapshotHistory(outcome.game_id, 200, asOf);
   const replay: ReplayMarketState = {
     game_id: outcome.game_id,

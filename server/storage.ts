@@ -436,6 +436,26 @@ sqlite.exec(`
   }
 })();
 
+// Settlement v2 mirror of outcomes.settlement_state / no_grade_reason /
+// grading_version. Same invariant: a no_grade row has hit NULL, which every
+// accuracy read already filters on.
+(function migrateSettledOutcomeV2() {
+  try {
+    const cols = (sqlite.prepare("PRAGMA table_info(settled_outcomes)").all() as any[]).map((c: any) => c.name);
+    if (!cols.includes("settlement_state")) {
+      sqlite.exec("ALTER TABLE settled_outcomes ADD COLUMN settlement_state TEXT NOT NULL DEFAULT 'graded';");
+    }
+    if (!cols.includes("no_grade_reason")) {
+      sqlite.exec("ALTER TABLE settled_outcomes ADD COLUMN no_grade_reason TEXT;");
+    }
+    if (!cols.includes("grading_version")) {
+      sqlite.exec("ALTER TABLE settled_outcomes ADD COLUMN grading_version TEXT;");
+    }
+  } catch (e: any) {
+    console.warn("[db] settled_outcomes v2 migration skipped:", e.message);
+  }
+})();
+
 (function migrateSignalStateHistory() {
   try {
     sqlite.exec(`
@@ -1399,13 +1419,21 @@ export function insertSettledOutcome(data: {
   hit:            boolean | null;
   clv:            number | null;
   recorded_at:    string;
+  settlement_state?: string;
+  no_grade_reason?: string | null;
+  grading_version?: string | null;
 }): void {
+  const state = data.settlement_state ?? "graded";
+  if (state === "no_grade" && data.hit !== null) {
+    throw new Error(`[settled_outcomes] no_grade outcome for ${data.signal_id} must have hit = null`);
+  }
   sqlite.prepare(`
     INSERT OR IGNORE INTO settled_outcomes
       (id, signal_id, game_id, league, signal_type, sources, team, market,
        home_score, away_score, line_at_signal, closing_line, actual_result,
-       hit, clv, recorded_at, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       hit, clv, recorded_at, created_at,
+       settlement_state, no_grade_reason, grading_version)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     crypto.randomUUID(),
     data.signal_id, data.game_id,
@@ -1414,6 +1442,7 @@ export function insertSettledOutcome(data: {
     data.actual_result,
     data.hit === null ? null : (data.hit ? 1 : 0),
     data.clv, data.recorded_at, new Date().toISOString(),
+    state, data.no_grade_reason ?? null, data.grading_version ?? null,
   );
 }
 

@@ -27,6 +27,8 @@ import {
   archiveFinishedMarketSignals,
  getLatestSnapshotBefore,
 getClosingSnapshot,
+  getAllOddsSnapshotsForGame,
+  getRawEventMarkets,
 recordSignalStateChange,
 getPipelineMeta,
 setPipelineMeta,
@@ -37,8 +39,11 @@ import { fetchNBAFinalScores } from "./adapters/espn-nba";
 import { fetchNFLFinalScores } from "./adapters/espn-nfl";
 import { fetchCFBFinalScores } from "./adapters/espn-cfb";
 import { storage, insertSettledOutcome, getSettledOutcomesForAccuracy, markSettledOutcomesStale, countStaleSettledOutcomes } from "../storage";
-import type { LiveSignal, Game } from "./types";
+import type { LiveSignal, Game, League } from "./types";
 import { computeSpreadOrTotalClv } from "./clv";
+import { gradeSignalV2, GRADING_VERSION, type GradingResult } from "./grading-v2";
+import { kickoffGuardActiveFor } from "./adapters/the-odds-api";
+import type { NoGradeReason, SettlementState } from "@shared/settlement-grading";
 
 /* ─── Schema for source accuracy table ─────────────────── */
 
@@ -208,6 +213,130 @@ function settleSignal(signal: LiveSignal, game: Game, homeScore: number, awaySco
   }
 }
 
+/* ─── Settlement v2 dispatch and the single write path ───── */
+
+/** SETTLEMENT_V2=0 is the kill switch: back to the pre-v2 rules. */
+export function settlementV2Enabled(): boolean {
+  return process.env.SETTLEMENT_V2 !== "0";
+}
+
+export interface SettlementOutcomeResult extends SettleResult {
+  state: SettlementState;
+  reason: NoGradeReason | null;
+  gradingVersion: string | null;
+}
+
+/** Load the inputs v2 grades on. Exported so replay validation and the regrade script use the same reads. */
+export function loadGradingInputs(signal: LiveSignal, game: Game, homeScore: number, awayScore: number) {
+  return {
+    signal,
+    game: { league: game.league, game_time: game.game_time, home_score: homeScore, away_score: awayScore },
+    snapshots: getAllOddsSnapshotsForGame(game.id),
+    rawEventMarkets: signal.signal_type === "line_move" && !signal.market
+      ? getRawEventMarkets(signal.raw_event_ids ?? [])
+      : [],
+    kickoffGuardCoversLeague: kickoffGuardActiveFor(game.league as League),
+  };
+}
+
+function fromV2(r: GradingResult): SettlementOutcomeResult {
+  return {
+    hit: r.hit,
+    actualResult: r.actualResult,
+    // OutcomeMarket is wider than the legacy union; the column is TEXT.
+    market: r.market as SettleResult["market"],
+    lineAtSignal: r.lineAtSignal,
+    closingLine: r.closingLine,
+    clv: r.clv,
+    state: r.state,
+    reason: r.reason,
+    gradingVersion: GRADING_VERSION,
+  };
+}
+
+export function settleOne(signal: LiveSignal, game: Game, homeScore: number, awayScore: number): SettlementOutcomeResult {
+  if (settlementV2Enabled()) {
+    return fromV2(gradeSignalV2(loadGradingInputs(signal, game, homeScore, awayScore)));
+  }
+  const legacy = settleSignal(signal, game, homeScore, awayScore);
+  return legacy.hit === null
+    ? { ...legacy, state: "no_grade", reason: "legacy_no_result", gradingVersion: null }
+    : { ...legacy, state: "graded", reason: null, gradingVersion: null };
+}
+
+function settledStateName(result: SettlementOutcomeResult): "SETTLED_WIN" | "SETTLED_LOSS" | "SETTLED_NO_GRADE" {
+  if (result.state === "no_grade" || result.hit === null) return "SETTLED_NO_GRADE";
+  return result.hit ? "SETTLED_WIN" : "SETTLED_LOSS";
+}
+
+/**
+ * The one place a settlement is written: pipeline outcome, signal link, state
+ * history, storage mirror. Both the linked-game and null-game paths use it.
+ * Previously each had its own copy, and both recorded SETTLED_LOSS for a
+ * signal with no result.
+ */
+function recordSettlement(
+  signal: LiveSignal,
+  gameId: string,
+  homeScore: number,
+  awayScore: number,
+  result: SettlementOutcomeResult,
+): void {
+  const recordedAt = new Date().toISOString();
+  const outcome = createOutcome({
+    signal_id: signal.id,
+    game_id: gameId,
+    market: result.market,
+    home_score: homeScore,
+    away_score: awayScore,
+    line_at_signal: result.lineAtSignal,
+    closing_line: result.closingLine,
+    actual_result: result.actualResult,
+    hit: result.hit,
+    clv: result.clv,
+    recorded_at: recordedAt,
+    settlement_state: result.state,
+    no_grade_reason: result.reason,
+    grading_version: result.gradingVersion,
+  });
+
+  linkOutcomeToSignal(signal.id, outcome.id);
+  recordSignalStateChange({
+    signal_id: signal.id,
+    previous_state: "UPDATED",
+    new_state: settledStateName(result),
+    reason: result.state === "no_grade" ? `Settled without a grade: ${result.reason}` : "Outcome settlement completed",
+    metadata: {
+      game_id: gameId,
+      market: result.market,
+      clv: result.clv,
+      settlement_state: result.state,
+      no_grade_reason: result.reason,
+      grading_version: result.gradingVersion,
+    },
+  });
+  insertSettledOutcome({
+    signal_id:      signal.id,
+    game_id:        gameId,
+    league:         signal.league,
+    signal_type:    signal.signal_type,
+    sources:        JSON.stringify(signal.sources),
+    team:           signal.team ?? null,
+    market:         result.market,
+    home_score:     homeScore,
+    away_score:     awayScore,
+    line_at_signal: result.lineAtSignal,
+    closing_line:   result.closingLine,
+    actual_result:  result.actualResult,
+    hit:            result.hit,
+    clv:            result.clv,
+    recorded_at:    recordedAt,
+    settlement_state: result.state,
+    no_grade_reason:  result.reason,
+    grading_version:  result.gradingVersion,
+  });
+}
+
 /* ─── Main settlement function ───────────────────────────── */
 
 export interface GameSettlementResult {
@@ -239,51 +368,8 @@ export function settleGame(
   for (const raw of rawSignals) {
     try {
       const signal = deserializeSignal(raw);
-      const result = settleSignal(signal, { ...game, home_score: homeScore, away_score: awayScore } as Game, homeScore, awayScore);
-
-      const outcome = createOutcome({
-        signal_id: signal.id,
-        game_id: gameId,
-        market: result.market,
-        home_score: homeScore,
-        away_score: awayScore,
-        line_at_signal: result.lineAtSignal,
-        closing_line: result.closingLine,
-        actual_result: result.actualResult,
-        hit: result.hit,
-        clv: result.clv,
-        recorded_at: new Date().toISOString(),
-      });
-
-      linkOutcomeToSignal(signal.id, outcome.id);
-      recordSignalStateChange({
-        signal_id: signal.id,
-        previous_state: "UPDATED",
-        new_state: result.hit ? "SETTLED_WIN" : "SETTLED_LOSS",
-        reason: "Outcome settlement completed",
-        metadata: {
-          game_id: gameId,
-          market: result.market,
-          clv: result.clv,
-        },
-      });
-      insertSettledOutcome({
-        signal_id:      signal.id,
-        game_id:        gameId,
-        league:         signal.league,
-        signal_type:    signal.signal_type,
-        sources:        JSON.stringify(signal.sources),
-        team:           signal.team ?? null,
-        market:         result.market,
-        home_score:     homeScore,
-        away_score:     awayScore,
-        line_at_signal: result.lineAtSignal,
-        closing_line:   result.closingLine,
-        actual_result:  result.actualResult,
-        hit:            result.hit,
-        clv:            result.clv,
-        recorded_at:    new Date().toISOString(),
-      });
+      const result = settleOne(signal, { ...game, home_score: homeScore, away_score: awayScore } as Game, homeScore, awayScore);
+      recordSettlement(signal, gameId, homeScore, awayScore, result);
 
       if (result.hit !== null) {
         settled++;
@@ -306,7 +392,10 @@ export interface AutoSettleResult {
   scores_fetched: { NBA: number; MLB: number; NFL: number; CFB: number };
   games_updated: number;
   games_settled: number;
+  /** Signals settled WITH a grade (hit not null). */
   signals_settled: number;
+  /** Signals settled without a grade (settlement_state no_grade). Outcome written, signal never retried. */
+  signals_no_grade: number;
   signals_expired: number;
   market_signals_archived: number;
   /** Final scores held back by the per-cycle cap; picked up next cycle. */
@@ -409,7 +498,7 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
     );
   }
 
-  let gamesSettled = 0, signalsSettled = 0;
+  let gamesSettled = 0, signalsSettled = 0, signalsNoGrade = 0;
 
   const settleable = await trackJob("settlement:read-settleable", () => getSettleable());
   await trackJob("settlement:settle-linked", () => forEachBounded(settleable, (game) => {
@@ -417,6 +506,7 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
     const result = settleGame(game.id, game.home_score, game.away_score);
     if (result.settled > 0 || result.skipped > 0) gamesSettled++;
     signalsSettled += result.settled;
+    signalsNoGrade += result.skipped;
   }));
 
   let signalsExpired = 0;
@@ -451,60 +541,20 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
       }
 
       try {
-        const result = settleSignal(
+        const result = settleOne(
           signal,
           { ...game, home_score: game.home_score, away_score: game.away_score },
           game.home_score,
           game.away_score,
         );
 
-        const outcome = createOutcome({
-          signal_id: signal.id,
-          game_id: game.id,
-          market: result.market,
-          home_score: game.home_score,
-          away_score: game.away_score,
-          line_at_signal: result.lineAtSignal,
-          closing_line: result.closingLine,
-          actual_result: result.actualResult,
-          hit: result.hit,
-          clv: result.clv,
-          recorded_at: new Date().toISOString(),
-        });
-
-        linkOutcomeToSignal(signal.id, outcome.id);
-        recordSignalStateChange({
-          signal_id: signal.id,
-          previous_state: "UPDATED",
-          new_state: result.hit ? "SETTLED_WIN" : "SETTLED_LOSS",
-          reason: "Outcome settlement completed",
-          metadata: {
-            game_id: game.id,
-            market: result.market,
-            clv: result.clv,
-          },
-        });
-        insertSettledOutcome({
-          signal_id:      signal.id,
-          game_id:        game.id,
-          league:         signal.league,
-          signal_type:    signal.signal_type,
-          sources:        JSON.stringify(signal.sources),
-          team:           signal.team ?? null,
-          market:         result.market,
-          home_score:     game.home_score,
-          away_score:     game.away_score,
-          line_at_signal: result.lineAtSignal,
-          closing_line:   result.closingLine,
-          actual_result:  result.actualResult,
-          hit:            result.hit,
-          clv:            result.clv,
-          recorded_at:    new Date().toISOString(),
-        });
+        recordSettlement(signal, game.id, game.home_score, game.away_score, result);
 
         if (result.hit !== null) {
           signalsSettled++;
           gamesSettled++;
+        } else {
+          signalsNoGrade++;
         }
       } catch (err: any) {
         console.error(`[settlement] Error settling null-game signal ${signal.id}:`, err.message);
@@ -536,6 +586,7 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
     games_updated: gamesUpdated,
     games_settled: gamesSettled,
     signals_settled: signalsSettled,
+    signals_no_grade: signalsNoGrade,
     signals_expired: signalsExpired,
     market_signals_archived: marketSignalsArchived,
     new_finals_deferred: newFinalsDeferred,

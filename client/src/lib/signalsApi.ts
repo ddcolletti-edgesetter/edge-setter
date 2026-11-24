@@ -97,7 +97,8 @@ export interface Outcome {
   id: string;
   signal_id: string;
   game_id: string;
-  market: "spread" | "total" | "moneyline";
+  /** Ungraded v2 rows may also carry "unknown" | "mixed" | "none". */
+  market: "spread" | "total" | "moneyline" | "unknown" | "mixed" | "none";
   home_score: number | null;
   away_score: number | null;
   line_at_signal: number | null;
@@ -106,6 +107,11 @@ export interface Outcome {
   hit: boolean | null;
   clv: number | null;
   clv_points: number | null;
+  /** "graded" | "no_grade" (settlement v2). Absent on rows from before the column. */
+  settlement_state?: "graded" | "no_grade";
+  /** A code from shared/settlement-grading.ts NO_GRADE_REASONS. */
+  no_grade_reason?: string | null;
+  grading_version?: string | null;
   recorded_at: string | null;
   created_at: string;
 }

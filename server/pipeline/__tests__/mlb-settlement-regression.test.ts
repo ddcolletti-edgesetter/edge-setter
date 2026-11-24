@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeAll, beforeEach, vi } from "vitest";
+import { describe, expect, it, beforeAll, beforeEach, vi, afterEach } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -124,7 +124,14 @@ beforeEach(() => {
   fetchMLBFinalScores.mockResolvedValue([]);
 });
 
-describe("MLB settlement produces non-null hits after game-identity unification", () => {
+// These pin the PRE-v2 grading rules (game identity unification made them
+// reachable). Settlement v2 grades only a claimed side, so a pitcher or injury
+// signal settles as no_grade / no_side_claimed; that is covered in
+// settlement-v2.test.ts. Here the kill switch selects the rules under test.
+describe("MLB settlement produces non-null hits after game-identity unification (SETTLEMENT_V2=0)", () => {
+  beforeEach(() => { process.env.SETTLEMENT_V2 = "0"; });
+  afterEach(() => { delete process.env.SETTLEMENT_V2; });
+
   it("settles both the pitcher (game_id) and injury (null game_id) paths to non-null hits", async () => {
     // Seed the CANONICAL (odds-bearing) game row — the one settlement must use.
     store.upsertGame({

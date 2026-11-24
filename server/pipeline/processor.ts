@@ -210,6 +210,9 @@ function handleWeather(raw: RawEvent): Partial<LiveSignal> {
     signal_type: "weather_update",
     headline: `${raw.team ?? "Game"} weather: ${windMph} MPH winds — ${conditions}`,
     body: p.notes ?? `Weather forecast: ${windMph} MPH winds${tempF !== undefined ? `, ${tempF}°F` : ""}. Conditions: ${conditions}.`,
+    // graded_side must say exactly what this copy says (see grading-v2.ts
+    // claimedSide, which also reads this prefix on rows older than the column).
+    graded_side: isHighImpact ? "under" : null,
     action_note: isHighImpact
       ? `Favour unders — wind above 15 MPH consistently suppresses scoring.`
       : `Weather is a minor factor today; no large adjustment needed.`,
@@ -556,6 +559,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         confirmation_strength: fields.confirmation_strength ?? "Developing",
         line_movement: fields.line_movement ?? null,
         market: fields.market ?? null,
+        graded_side: fields.graded_side ?? null,
         injury_designation: fields.injury_designation ?? null,
         lineup_status: fields.lineup_status ?? null,
         weather_note: fields.weather_note ?? null,
@@ -663,6 +667,7 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
       confirmation_strength: fields.confirmation_strength ?? "Developing",
       line_movement: fields.line_movement ?? null,
       market: fields.market ?? null,
+      graded_side: fields.graded_side ?? null,
       injury_designation: fields.injury_designation ?? null,
       lineup_status: fields.lineup_status ?? null,
       weather_note: fields.weather_note ?? null,

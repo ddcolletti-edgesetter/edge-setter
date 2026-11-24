@@ -203,3 +203,37 @@ describe("findExistingSignal market term", () => {
     expect(lookups[2]).toContain("market IS NULL");
   });
 });
+
+describe("graded_side follows the weather card's copy", () => {
+  const weather = (wind: number) => ({
+    ...oddsRaw("line_move", {}),
+    source_id: "manual", source_type: "manual", event_type: "weather_update",
+    payload: { wind_mph: wind, conditions: "windy" },
+  } as any);
+  const sideOf = (id: string) =>
+    (store.getPipelineDb().prepare("SELECT graded_side, action_note FROM live_signals WHERE id = ?").get(id) as any);
+
+  it("a high-wind card says Favour unders and stores the Under", async () => {
+    const s = await processor.processOne(weather(22));
+    expect(sideOf(s!.id)).toMatchObject({ graded_side: "under" });
+    expect(sideOf(s!.id).action_note).toMatch(/^Favour unders/);
+  });
+
+  it("a calm card claims nothing and stores NULL", async () => {
+    const s = await processor.processOne(weather(5));
+    expect(sideOf(s!.id).graded_side).toBeNull();
+    expect(sideOf(s!.id).action_note).not.toMatch(/unders/i);
+  });
+
+  it("when a merge rewrites the copy, the stored side follows it", async () => {
+    const first = await processor.processOne(weather(22));
+    const second = await processor.processOne(weather(5));
+    expect(second!.id).toBe(first!.id);
+    expect(sideOf(first!.id).graded_side).toBeNull();
+  });
+
+  it("no other handler stores a side", async () => {
+    const move = await processor.processOne(spreadMove(-3, -4.5));
+    expect(sideOf(move!.id).graded_side).toBeNull();
+  });
+});
