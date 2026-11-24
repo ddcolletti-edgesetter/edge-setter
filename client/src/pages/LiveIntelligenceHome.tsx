@@ -18,6 +18,7 @@ import { compareLeadRank } from "@/lib/boardSituations";
 import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { LEAD_MAX_AGE_HOURS, ageHoursFrom, homepageLeadAgeHours, homepageLeadPool } from "@/lib/leadRanker";
 import { badgeableInjuryDesignation } from "@/lib/injuryDesignation";
+import { buildLeadCardSlots } from "@/lib/leadCardSlots";
 import { AlertTriangle, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import { Link, useLocation } from "wouter";
 
@@ -193,11 +194,12 @@ export default function LiveIntelligenceHome() {
       featured,
       editorialSituation,
       games: leadGames,
+      gamesTable,
       loading,
       pressure: livePressure,
       situations: visibleSituations,
     }),
-    [activeLeague, editorialSituation, featured, leadGames, livePressure, loading, visibleSituations],
+    [activeLeague, editorialSituation, featured, gamesTable, leadGames, livePressure, loading, visibleSituations],
   );
   const hasAssignmentRail = homepageStories.rail.length > 0;
   // Feature flag: surface the shared verification word ("Verified" / "Escalating"
@@ -270,14 +272,7 @@ export default function LiveIntelligenceHome() {
                 {featured ? "Lead story" : "Coverage status"}
               </div>
               {featured
-                ? (
-                  <>
-                    <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" verificationStateEnabled={verificationStateEnabled} />
-                    <p className="media-lead-interim-note" data-testid="homepage-lead-interim-note" style={{ fontSize: 12, opacity: 0.75, margin: "6px 0 0" }}>
-                      Interim display: status, line and report count only.
-                    </p>
-                  </>
-                )
+                ? <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" verificationStateEnabled={verificationStateEnabled} />
                 : <HomepageQuietLead loading={loading} situations={publicSituations} />
               }
               <HomepageSupportStack stories={homepageStories} pressure={livePressure} loading={loading} />
@@ -330,6 +325,7 @@ export function buildHomepageStoryModel({
   editorialSituation,
   featured,
   games,
+  gamesTable = [],
   loading,
   pressure,
   situations,
@@ -338,6 +334,8 @@ export function buildHomepageStoryModel({
   editorialSituation: IntelligenceSituation | null | undefined;
   featured: IntelligenceSituation | null | undefined;
   games: LiveGameSituation[];
+  /** Every league's whole games table; the lead card's matchup and Line fact read it. */
+  gamesTable?: readonly GamesTableRow[];
   loading: boolean;
   pressure: LivePressureContext;
   situations: IntelligenceSituation[];
@@ -346,7 +344,7 @@ export function buildHomepageStoryModel({
   const cleanFeatured = featured && isCleanHomepageSituation(featured) ? featured : null;
   const cleanEditorial = editorialSituation && isCleanHomepageSituation(editorialSituation) ? editorialSituation : null;
   const lead = cleanFeatured
-    ? situationToStoryCard(cleanFeatured, { slot: "lead" })
+    ? situationToStoryCard(cleanFeatured, { slot: "lead", gamesTable })
     : quietNetworkStory(activeLeague, loading, cleanSituations);
 
   const usedSituationIds = new Set<string>();
@@ -414,7 +412,10 @@ function uniqueSituations(items: Array<IntelligenceSituation | null | undefined>
 
 // North Star timing advantage for homepage stories: detection (timing.firstSeen)
 // vs the timeline entry where the story reached Official. Verified stories only.
-function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot: "lead" | "rail" | "league" }): StoryCardData {
+function situationToStoryCard(
+  situation: IntelligenceSituation,
+  { slot, gamesTable = [] }: { slot: "lead" | "rail" | "league"; gamesTable?: readonly GamesTableRow[] },
+): StoryCardData {
   const matchupTeams = splitMatchup(situation.subject.matchup);
   const rawPrimaryTeam = matchupTeams.length === 2 ? matchupTeams[0] : situation.subject.team ?? matchupTeams[0] ?? undefined;
   const rawSecondaryTeam = matchupTeams.length === 2 ? matchupTeams[1] : undefined;
@@ -463,6 +464,8 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
       status: "Story support",
     },
     situation,
+    // The lead card renders only these slots (build spec: Slots + Facts).
+    ...(slot === "lead" ? { leadSlots: buildLeadCardSlots(situation, headline, gamesTable) } : {}),
     imageAsset: resolveSportsImageAsset({
       league: situation.league,
       team: primaryTeam,
