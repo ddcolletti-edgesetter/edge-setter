@@ -204,7 +204,7 @@ describe("homepage public story render", () => {
     render(<LiveIntelligenceHome />);
     await waitFor(() => {
       expect(screen.getByRole("heading", {
-        name: "Brandon Aiyuk — OUT",
+        name: "Report: Brandon Aiyuk's availability is in question",
       })).toBeInTheDocument();
     });
 
@@ -234,7 +234,10 @@ describe("homepage public story render", () => {
     expect(lead.querySelector("[data-slot='state-chip']")).not.toBeNull();
     expect(lead.querySelector("[data-slot='button']")?.textContent).toBe("Open story");
     const facts = Array.from(lead.querySelectorAll("[data-slot='facts'] dt")).map((el) => el.textContent);
-    expect(facts).toEqual(["Status", "Reports"]);
+    // No official-source flag yet (#114): no Status fact, and rule 1 rewrites the headline.
+    expect(facts).toEqual(["Reports"]);
+    expect(lead.querySelector("[data-slot='headline']")?.textContent).toBe("Report: Brandon Aiyuk's availability is in question");
+    expect(lead.querySelector("[data-slot='headline']")?.textContent).not.toMatch(/(confirmed|out|will miss|ruled out)/i);
     expect(leadText).toContain("2 reports");
     for (const gone of [
       "ES Agent",
@@ -352,10 +355,10 @@ describe("homepage public story render", () => {
       // injury penalty (vs 0.7 for other offseason types) ensures that NBA
       // injury_update at 88% STRONG does not outscore an active-league signal
       // with a game on tonight's slate.
-      expect(screen.getByRole("heading", { name: "Paul Skenes scratched for Pirates" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Report: Paul Skenes' availability is in question" })).toBeInTheDocument();
     });
 
-    const leadHeading = screen.getByRole("heading", { name: "Paul Skenes scratched for Pirates" });
+    const leadHeading = screen.getByRole("heading", { name: "Report: Paul Skenes' availability is in question" });
     const leadArticle = leadHeading.closest("article");
     // Stock photos are retired — no /sports/*.jpg image renders; the lead falls
     // back to the photo-free team-badge treatment.

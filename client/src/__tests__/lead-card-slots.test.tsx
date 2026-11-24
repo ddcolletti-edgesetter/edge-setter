@@ -1,7 +1,7 @@
 import { render, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { buildLeadCardSlots } from "@/lib/leadCardSlots";
+import { buildLeadCardSlots, ruleOneHeadline } from "@/lib/leadCardSlots";
 import { adaptSignalToSituation, type GamesTableRow } from "@/lib/intelligenceSituationsApi";
 import type { LiveSignal } from "@/lib/signalsApi";
 import { StoryCard, type StoryCardData } from "@/components/StoryCard";
@@ -53,9 +53,10 @@ describe("Kicker", () => {
     expect(k.age).toBe("2h ago");
   });
 
-  it("over 6 hours: the chip becomes 'N hours old' and replaces the age", () => {
-    const k = slots(signal({ signal_time: iso(-27), created_at: iso(-27) })).kicker;
-    expect(k).toMatchObject({ chip: "27 hours old", stale: true, age: null });
+  it("6 hours or more: the chip becomes 'N hours old' and replaces the age", () => {
+    const k = slots(signal({ signal_time: iso(-13), created_at: iso(-13) })).kicker;
+    expect(k).toMatchObject({ chip: "13 hours old", stale: true, age: null });
+    expect(slots(signal({ signal_time: iso(-6), created_at: iso(-6) })).kicker.stale).toBe(true);
   });
 });
 
@@ -74,17 +75,43 @@ describe("Matchup", () => {
   });
 });
 
+describe("Headline rule 1 (no official-source flag stored yet, #114)", () => {
+  it("bans certainty words and prefixes 'Report:' on every report headline", () => {
+    const s = slots(signal({ headline: "Colton McKivitz — OUT" }));
+    expect(s.headline).toBe("Report: Colton McKivitz's availability is in question");
+    expect(s.headline).not.toMatch(/(confirmed|out|will miss|ruled out)/i);
+  });
+
+  it("team story with a certainty word and no player", () => {
+    const h = ruleOneHeadline(adaptSignalToSituation(signal({ player: null })), "49ers starter ruled out");
+    expect(h).toBe("Report: SF availability is in question");
+  });
+
+  it("team story without certainty words keeps its words behind the prefix", () => {
+    const h = ruleOneHeadline(adaptSignalToSituation(signal({ player: null })), "49ers practice report");
+    expect(h).toBe("Report: 49ers practice report");
+  });
+
+  it("a line we observed ourselves takes no prefix", () => {
+    const h = ruleOneHeadline(adaptSignalToSituation(signal({ signal_type: "line_move", player: null })), "SF: -3 → -4.5");
+    expect(h).toBe("SF: -3 → -4.5");
+  });
+
+  it("possessive of a name ending in s", () => {
+    expect(slots(signal({ player: "Marcus Williams" })).headline).toBe("Report: Marcus Williams' availability is in question");
+  });
+});
+
 describe("Facts", () => {
-  it("Status, Line, Reports in fixed order with exact values", () => {
+  it("unofficial report (every story today): Line, Reports — no Status", () => {
     expect(slots(signal()).facts).toEqual([
-      { label: "Status", value: "OUT", sub: "Injury report" },
       { label: "Line", value: "SF −3" },
       { label: "Reports", value: "1 report", sub: "ESPN injury report" },
     ]);
   });
 
   it("drops a fact with no data instead of padding it", () => {
-    const f = slots(signal({ injury_designation: "Questionable" }), []).facts;
+    const f = slots(signal(), []).facts;
     expect(f.map((x) => x.label)).toEqual(["Reports"]);
   });
 
@@ -112,11 +139,13 @@ describe("rail cards", () => {
     };
     const { container } = render(<StoryCard story={story} variant="rail" copyVariant="public" />);
     const text = container.textContent ?? "";
-    for (const gone of ["ES Agent", "View evidence", "EdgeSetter evidence", "Historical pattern match", "More impact context", "⚡"]) {
+    for (const gone of ["ES Agent", "View evidence", "EdgeSetter evidence", "EdgeSetter review", "Historical pattern match", "More impact context", "pattern match", "⚡"]) {
       expect(text).not.toContain(gone);
     }
     expect(container.querySelector(".edge-overlay-replay")).toBeNull();
     expect(container.querySelector(".agent-calibration-badge")).toBeNull();
     expect(container.querySelector(".story-impact-details")).toBeNull();
+    expect(container.querySelector(".edge-overlay-top")).toBeNull();
+    expect(container.querySelector(".story-card-conf")).toBeNull();
   });
 });

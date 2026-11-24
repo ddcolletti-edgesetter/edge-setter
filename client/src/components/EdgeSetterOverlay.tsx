@@ -90,12 +90,14 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
 
   return (
     <div className={`${compact ? "edge-overlay is-compact" : "edge-overlay"} grid w-full gap-1.5 border-t border-[#6fa4bf]/20 pt-2`}>
+      {decorations && (
       <div className="edge-overlay-top flex items-center gap-2 text-[0.68rem] font-extrabold text-[#94a3b8]">
         {publicCopy
           ? <span className="edge-overlay-status inline-flex w-fit items-center rounded-full border border-[#94a3b8]/30 px-2 py-1 text-[0.64rem] font-black uppercase tracking-[0.08em] text-[#94a3b8]">{publicStatusLabel(data.escalationState, data.status)}</span>
           : data.escalationState ? <EscalationBadge state={data.escalationState} /> : <span className="edge-overlay-status inline-flex w-fit items-center rounded-full border border-[#94a3b8]/30 px-2 py-1 text-[0.64rem] font-black uppercase tracking-[0.08em] text-[#94a3b8]">{data.status ?? "Monitoring"}</span>}
         <span>{publicCopy ? "EdgeSetter review" : "EdgeSetter evidence"}</span>
       </div>
+      )}
 
       {situation && !compact && !publicCopy ? (
         <div className="edge-overlay-primitives">
@@ -104,11 +106,14 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
         </div>
       ) : (
         <div className="edge-overlay-grid grid grid-cols-1 gap-1.5">
+          {/* Without decorations (homepage rail) the hardcoded-prior label ("Strong pattern match") is cut; a real verification word still shows. */}
+          {(decorations || showVerificationWord) && (
           <div className={cellClass}>
             <ShieldCheck size={13} className={iconClass} />
             <span className={labelClass}>{showVerificationWord ? "Verification" : "Confidence support"}</span>
             <strong className={valueClass} data-verification-word={showVerificationWord ? "true" : undefined}>{confidenceLabel}</strong>
           </div>
+          )}
           <div className={cellClass}>
             <ShieldCheck size={13} className={iconClass} />
             <span className={labelClass}>Source support</span>

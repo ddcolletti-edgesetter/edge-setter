@@ -31,6 +31,15 @@ export { selectFeaturedSituation } from "./boardSituations";
 /** Hard cap: situations older than this never lead the homepage. */
 export const LEAD_MAX_AGE_HOURS = 7 * 24;
 
+/**
+ * Homepage lead age window (lead card build spec, Rules → Age): under 6 hours
+ * is fresh; 6 to 24 hours leads only when nothing fresh is eligible, in the
+ * stale state; 24 hours or older never leads. LEAD_MAX_AGE_HOURS above is the
+ * canonical ranker's cap and does not apply to the homepage lead.
+ */
+export const HOMEPAGE_LEAD_FRESH_HOURS = 6;
+export const HOMEPAGE_LEAD_MAX_AGE_HOURS = 24;
+
 // ageHoursFrom lives in the storyAge leaf module so boardSituations can share it
 // without importing back from here (this module re-exports selectFeaturedSituation
 // from boardSituations, so the reverse import would be a cycle). Re-exported to
