@@ -21,17 +21,24 @@ import { indexStoryGames, resolveStoryGame, type StoryGameRow } from "./boardSto
 import type { BoardSituation } from "./boardSituations";
 import { HOMEPAGE_LEAD_FRESH_HOURS, homepageLeadAgeHours } from "./leadRanker";
 import { badgeableInjuryDesignation } from "./injuryDesignation";
+import { isOfficialInjuryDesignationSource } from "@shared/injury-designation-source";
 
 /** At or over this, the chip becomes "N hours old" in gray (spec: States → Stale). */
 export const LEAD_STALE_AFTER_HOURS = HOMEPAGE_LEAD_FRESH_HOURS;
 
 /**
- * Rule 1's official-source flag. It is not stored on any signal yet (#114), so
- * it is false for every story: certainty words are banned and every report
- * headline takes "Report:". Flip this only when the server sends a real flag.
+ * Rule 1's official-source flag: true only when the story's designation was
+ * stored from an official league feed's structured field
+ * (live_signals.injury_designation_source, #114, checked against the shared
+ * allowlist: ESPN NFL, ESPN NBA, balldontlie NBA, MLB StatsAPI). Every other
+ * story, including ESPN CFB, a text story and any row written before the
+ * column existed (NULL), stays false: certainty words banned, "Report:" prefix.
+ *
+ * VISIBLE COPY CHANGE: with this true, an official story's lead headline is
+ * printed as stored and may say "out", "confirmed" or "ruled out".
  */
-function officialSourceFlag(_situation: IntelligenceSituation): boolean {
-  return false;
+export function officialSourceFlag(situation: IntelligenceSituation): boolean {
+  return isOfficialInjuryDesignationSource(situation.raw.injury_designation_source);
 }
 
 const CERTAINTY_WORDS = /\b(confirmed|out|will miss|ruled out)\b/i;
@@ -187,13 +194,14 @@ function factsFor(situation: IntelligenceSituation, game: StoryGameRow | null): 
   const isLineMove = raw.signal_type === "line_move";
 
   // Status: only a structured status from an official injury report (spec:
-  // Status source). With no official-source flag stored yet, no story
-  // qualifies, so Status is dropped — the unofficial-report row of the spec's
-  // story-type table shows Line and Reports only. The badge gate also
-  // withholds the server's default "Questionable".
+  // Status source), i.e. when the official-source flag is true. Otherwise
+  // Status is dropped and the unofficial-report row of the spec's story-type
+  // table shows Line and Reports only. The badge gate also applies the prose
+  // contradiction check.
   const status = isLineMove || !officialSourceFlag(situation) ? undefined : badgeableInjuryDesignation(
     raw.injury_designation,
     `${situation.headline} ${situation.currentRead ?? ""} ${raw.body ?? ""}`,
+    raw.injury_designation_source,
   );
   if (status) facts.push({ label: "Status", value: status, sub: "Injury report" });
 
