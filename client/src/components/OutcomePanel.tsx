@@ -1,9 +1,19 @@
 /**
  * Edge Setter — OutcomePanel  (Sprint 8)
  *
- * Minimal per-signal outcome + CLV display for signal detail panels.
+ * Minimal per-signal outcome + line-value display for signal detail panels.
  * Only renders when an Outcome exists for the signal.
  * Shows nothing (null) if no outcome has been recorded.
+ *
+ * WORDING. `outcome.closing_line` is NOT a closing line and this panel must not
+ * call it one. It is the last line the odds adapter stored before kickoff, and
+ * the adapter fetches at most once per ODDS_MIN_INTERVAL_MIN (default 60) per
+ * league — so it can be up to about an hour stale, and because one fetch covers
+ * a whole slate, that staleness is correlated across every game on it. The copy
+ * below therefore says "last pregame line" and "line value", never "closing
+ * line" or "CLV". The field and prop names are unchanged: they are a published
+ * API contract, and renaming them is a migration for cosmetic gain.
+ * pregame-line-copy-honesty.test.tsx locks the wording.
  *
  * Design: secondary meta — not a badge, not a dashboard.
  * Aligned with existing detail panel typography: Barlow Condensed labels,
@@ -93,7 +103,7 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
         Settled Outcome
       </div>
 
-      {/* Outcome + CLV row */}
+      {/* Outcome + line-value row */}
       <div style={{ display: "flex", gap: 24, alignItems: "flex-start", flexWrap: "wrap" }}>
 
         {/* Hit/Loss */}
@@ -110,13 +120,13 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
           }}>{hitLabel}</div>
         </div>
 
-        {/* CLV */}
+        {/* Line value (field name: clv) */}
         <div>
           <div style={{
             fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
             fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase",
             color: TH.textFaint, marginBottom: 2,
-          }}>CLV</div>
+          }}>Line value</div>
           <div style={{
             fontSize: 14,
             fontWeight: 700,
@@ -144,7 +154,7 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 9, letterSpacing: "0.12em", textTransform: "uppercase",
               color: TH.textFaint, marginBottom: 2,
-            }}>Line</div>
+            }}>Signal → pregame</div>
             <div style={{
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: TH.textMuted,
@@ -157,7 +167,7 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
         )}
       </div>
 
-      {/* CLV explainer — secondary meta */}
+      {/* Line-value explainer — secondary meta */}
       {hasClv && (
         <div style={{
           marginTop: 7,
@@ -168,8 +178,8 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
           lineHeight: 1.4,
         }}>
           {clvPositive
-            ? `Beat the closing line by ${Math.abs(clvVal).toFixed(1)} pts — signal added positive EV.`
-            : `Market moved ${Math.abs(clvVal).toFixed(1)} pts against the signal — negative CLV.`}
+            ? `Beat the last pregame line by ${Math.abs(clvVal).toFixed(1)} pts.`
+            : `Market moved ${Math.abs(clvVal).toFixed(1)} pts against the signal before kickoff.`}
         </div>
       )}
       {!hasClv && outcome.market !== "moneyline" && (
@@ -178,7 +188,7 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
           fontSize: 11, color: TH.textFaint, fontStyle: "italic",
         }}>
-          No numeric line recorded — CLV not applicable for this signal type.
+          No numeric line recorded — no line value for this signal type.
         </div>
       )}
       {!hasClv && outcome.market === "moneyline" && (
@@ -187,7 +197,7 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
           fontSize: 11, color: TH.textFaint, fontStyle: "italic",
         }}>
-          Moneyline CLV computed via implied probability — coming next sprint.
+          Line value is not computed for moneyline signals.
         </div>
       )}
     </div>
