@@ -3,13 +3,14 @@ import { Fragment } from "react";
 import { Link } from "wouter";
 
 import { EdgeSetterOverlay, type EdgeSetterOverlayData } from "@/components/EdgeSetterOverlay";
-import { StoryImpactBlocks } from "@/components/StoryImpactBlocks";
 import { SportsStoryVisual, leagueToSport } from "@/components/SportsMedia";
 import type { IntelligenceSituation } from "@/lib/intelligenceSituationsApi";
 import type { SportsImageAsset } from "@/lib/sportsImageAssets";
 import { hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
 import { publicConfidenceLabel } from "@/lib/storyLanguage";
 import { cn } from "@/lib/utils";
+import type { LeadCardSlots } from "@/lib/leadCardSlots";
+import { TeamLogoImg, type TeamLogoSport } from "@/components/v2/SportVisuals";
 
 export interface StoryCardData {
   id: string;
@@ -37,6 +38,8 @@ export interface StoryCardData {
   imageAsset?: SportsImageAsset | null;
   timingAdvantageLead?: string | null;
   timingAdvantageKind?: "confirmation" | "pickup" | null;
+  /** The lead card's six spec'd slots. Only the lead variant reads it. */
+  leadSlots?: LeadCardSlots;
 }
 
 interface StoryCardProps {
@@ -80,116 +83,82 @@ export function confidenceDisplay(
   return { text: label, tone: "forming" };
 }
 
-// Same agreement thresholds as the signal detail drawer (4-agent consensus).
-function agentsFromOverlay(overlay: EdgeSetterOverlayData): number {
-  const confidence = overlay.confidence?.current ?? 0;
-  const sources = overlay.sourceSummary?.count ?? 0;
-  if (overlay.escalationState === "Official") return 4;
-  if (confidence >= 85 && sources >= 2) return 4;
-  if (confidence >= 72 && sources >= 2) return 3;
-  if (confidence >= 58 || sources >= 2) return 2;
-  if (confidence > 0 || sources >= 1) return 1;
-  return 0;
-}
-
 export function StoryCard({ story, variant = "feature", className, copyVariant = "legacy", verificationStateEnabled = false }: StoryCardProps) {
   const publicCopy = copyVariant === "public";
   const displayStory = publicCopy ? sanitizePublicStory(story) : story;
   const isLead = variant === "lead";
-  // Rail cards only: the lead card no longer prints an agent count.
-  const agentsAgree = agentsFromOverlay(displayStory.overlay);
   const confidenceRead = confidenceDisplay(displayStory.overlay, verificationStateEnabled);
   const freshness = displayStory.overlay.timing?.freshnessLabel;
-  const sourceCount = displayStory.overlay.sourceSummary?.count ?? 0;
 
   // ── Lead card ──────────────────────────────────────────────────────────────
-  // Interim display: status, line and report count only. Removed until each is
-  // backed by something real (decision before #117 merged):
-  // - ES Agent count: a confidence/source threshold lookup, not a count.
-  // - Timing banner ("flagged Xh before public confirmation"): measured the
-  //   signal row's own updated_at, not an external confirmation time. Off on
-  //   every homepage card until it is wired to a real external timestamp — see
-  //   situationToStoryCard, which no longer sets timingAdvantageLead.
-  // - "Why it matters": templated per league/injury; impact calculation is
-  //   not built.
-  // - Overlay replay line, calibration badge, "Historical pattern match":
-  //   hardcoded strings (EdgeSetterOverlay decorations={false}).
-  // - "More impact context": fixed fallback sentences.
+  // Exactly the six slots of the approved build spec ("EdgeSetter lead story
+  // card: build spec", Slots + Facts): Kicker, Matchup, Headline, Sentence
+  // (never shown), Facts, Button. Content comes from story.leadSlots
+  // (lib/leadCardSlots); nothing else on StoryCardData is read here. Anything
+  // added to this card goes through the spec doc first.
   if (isLead) {
+    const slots = story.leadSlots;
     const card = (
-      <article className={cn("story-card story-card-lead", className)}>
-        {/* ── Sports story visual ── */}
-        <div className="story-card-visual">
-          <SportsStoryVisual
-            league={displayStory.league}
-            sport={leagueToSport(displayStory.league)}
-            primaryTeam={displayStory.primaryTeam}
-            secondaryTeam={displayStory.secondaryTeam}
-            player={displayStory.player}
-            title={displayStory.headline}
-            storyType={displayStory.storyType ?? displayStory.label ?? "Developing story"}
-            detail={displayStory.detail ?? displayStory.watchNext}
-            size="hero"
-            imageAsset={displayStory.imageAsset}
-          />
-        </div>
-
-        {/* ── Sports story copy (The Athletic layer) ── */}
-        <div className="story-card-copy">
-          <div className="story-card-kicker">
-            <span>{displayStory.league}</span>
-            <i className="story-card-kicker-sep" aria-hidden="true">·</i>
-            <strong>{displayStory.storyType ?? displayStory.label ?? "Developing story"}</strong>
-            {freshness && (
-              <>
-                <i className="story-card-kicker-sep" aria-hidden="true">·</i>
-                <small className="story-card-kicker-time">{freshness}</small>
-              </>
-            )}
-          </div>
-          <h2>{leadHeadlineNode(displayStory)}</h2>
-          {displayStory.dek && <p className="story-lead-dek">{displayStory.dek}</p>}
-
-          <div className="story-card-reads">
-            {displayStory.whatChanged && (
-              <div>
-                <span>{publicCopy ? "What happened: " : "What changed: "}</span>
-                <strong>{displayStory.whatChanged}</strong>
-              </div>
-            )}
-            {displayStory.watchNext && (
-              <div>
-                <span>Watch next: </span>
-                <strong>{displayStory.watchNext}</strong>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ── Intelligence strip — source count and agreement status, no click required ── */}
-        <div className="story-intel-strip">
-          <ConfidenceJourney overlay={displayStory.overlay} situation={displayStory.situation} />
-          <div className="story-intel-meta">
-            <span className="story-intel-sources-count">
-              {sourceCount} {sourceCount === 1 ? "source" : "sources"} tracked
+      <article className={cn("story-card story-card-lead story-card-lead-slots grid gap-3 rounded-lg border border-[#6fa4bf]/25 bg-[#0b1220]/80 p-4", className)} style={{ display: "grid", gap: 12, padding: 16 }} data-testid="homepage-lead-card">
+        <div className="flex flex-wrap items-center gap-2 text-[0.7rem] font-extrabold uppercase tracking-[0.08em]" data-slot="kicker">
+          <span className="text-[#34D17F]">{slots?.kicker.league ?? story.league}</span>
+          {slots && (
+            <span
+              className={cn(
+                "rounded-full border px-2 py-0.5 normal-case tracking-normal",
+                slots.kicker.stale ? "border-[#94a3b8]/40 text-[#94a3b8]" : "border-[#F5B13D]/50 text-[#F5B13D]",
+              )}
+              data-slot="state-chip"
+            >
+              {slots.kicker.chip}
             </span>
-            {displayStory.overlay.sourceSummary?.convergence && (
-              <>
-                <i className="story-intel-sep" aria-hidden="true">·</i>
-                <span className="story-intel-agreement">
-                  {sourceAgreementLabel(displayStory.overlay.sourceSummary.convergence)}
-                </span>
-              </>
-            )}
-          </div>
+          )}
+          {slots?.kicker.age && <span className="font-semibold normal-case tracking-normal text-[#94a3b8]">{slots.kicker.age}</span>}
         </div>
 
-        <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={false} copyVariant={publicCopy ? "editorial" : "legacy"} verificationStateEnabled={verificationStateEnabled} decorations={false} />
+        {slots?.matchup && (
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2" data-slot="matchup">
+            {slots.matchup.teams.map((team, index) => (
+              <Fragment key={`${team.abbr}-${index}`}>
+                {index > 0 && <span className="text-[0.75rem] font-bold text-[#64748b]">vs</span>}
+                <span className="inline-flex items-center gap-2">
+                  {story.league === "CFB" && team.name === team.abbr
+                    ? <span className="inline-flex h-7 w-7 items-center justify-center rounded bg-[#334155] text-[0.6rem] font-black text-[#cbd5e1]">{team.abbr}</span>
+                    : <TeamLogoImg abbr={team.abbr} size={28} sport={leagueToSport(story.league) as TeamLogoSport} fromGamesTable={story.league === "CFB"} />}
+                  <span className="text-[0.95rem] font-bold text-[#e2e8f0]">{team.name}</span>
+                </span>
+              </Fragment>
+            ))}
+            {slots.matchup.time && <span className="ml-auto text-[0.78rem] font-semibold text-[#94a3b8]">{slots.matchup.time}</span>}
+          </div>
+        )}
+
+        <h2 className="line-clamp-2" data-slot="headline">{slots?.headline ?? story.headline}</h2>
+
+        {slots && slots.facts.length > 0 && (
+          <dl className="grid gap-3 border-t border-[#6fa4bf]/20 pt-3" style={{ gridTemplateColumns: `repeat(${slots.facts.length}, minmax(0, 1fr))` }} data-slot="facts">
+            {slots.facts.map((fact) => (
+              <div key={fact.label} className="min-w-0">
+                <dt className="text-[0.6rem] font-bold uppercase tracking-[0.07em] text-[#64748b]">{fact.label}</dt>
+                <dd className="truncate text-[0.95rem] font-bold text-[#e2e8f0]">{fact.value}</dd>
+                {fact.sub && <dd className="truncate text-[0.72rem] text-[#94a3b8]">{fact.sub}</dd>}
+              </div>
+            ))}
+          </dl>
+        )}
+
+        {slots && (
+          <Link href={slots.button.href} className="inline-flex w-full items-center justify-center rounded-md bg-[#F5B13D] px-4 py-2 text-[0.8rem] font-extrabold text-[#0b1220] sm:w-fit" data-slot="button">
+            {slots.button.label}
+          </Link>
+        )}
+
+        <p className="text-[0.72rem] text-[#94a3b8]" data-testid="homepage-lead-interim-note">
+          Interim display: status, line and report count only.
+        </p>
       </article>
     );
-
-    if (!displayStory.href) return card;
-    return <Link href={displayStory.href}>{card}</Link>;
+    return card;
   }
 
   // ── Non-lead variants (feature / rail / compact) — unchanged ──────────────
@@ -250,24 +219,13 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
         {variant === "rail" && (
           <div className="story-card-footer">
             <strong className={`story-card-conf is-${confidenceRead.tone}`}>{confidenceRead.text}</strong>
-            <span className="story-card-agents">{agentsAgree}/4 ES Agents</span>
           </div>
         )}
       </div>
 
-      <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={variant === "rail" || variant === "compact"} copyVariant={publicCopy ? "editorial" : "legacy"} verificationStateEnabled={verificationStateEnabled} />
-      <StoryImpactBlocks
-        compact={variant === "rail" || variant === "compact"}
-        input={{
-          text: [displayStory.headline, displayStory.dek, displayStory.whatChanged, displayStory.whyItMatters, displayStory.watchNext, displayStory.storyType].filter(Boolean).join(" "),
-          fantasyRelevance: displayStory.fantasyRelevance,
-          bettingRelevance: displayStory.bettingRelevance,
-          dfsRelevance: displayStory.dfsRelevance,
-          fantasyDetail: displayStory.fantasyDetail,
-          bettingDetail: displayStory.bettingDetail,
-          dfsDetail: displayStory.dfsDetail,
-        }}
-      />
+      {/* decorations={false}: no replay line, calibration badge or pattern match — fixed strings. */}
+      <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={variant === "rail" || variant === "compact"} copyVariant={publicCopy ? "editorial" : "legacy"} verificationStateEnabled={verificationStateEnabled} decorations={false} />
+      {/* "More impact context" removed: fixed fallback sentences. */}
     </article>
   );
 
@@ -277,85 +235,6 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
 
 // Lead headline treatment: gold accent on the opening team/player name only.
 // Text content is unchanged, so accessible names and copy tests are unaffected.
-function leadHeadlineNode(story: StoryCardData) {
-  const headline = story.headline;
-  const candidates = [story.player, story.primaryTeam].filter((name): name is string => Boolean(name && name.length > 1));
-  for (const name of candidates) {
-    if (headline.toLowerCase().startsWith(name.toLowerCase())) {
-      return (
-        <>
-          <span className="story-headline-accent">{headline.slice(0, name.length)}</span>
-          {headline.slice(name.length)}
-        </>
-      );
-    }
-  }
-  return headline;
-}
-
-function ConfidenceJourney({ overlay, situation }: {
-  overlay: EdgeSetterOverlayData;
-  situation?: IntelligenceSituation | null;
-}) {
-  const esc = overlay.escalationState ?? "Monitoring";
-  const isVerified = esc === "Official" || (overlay.confidence?.current ?? 0) >= 100;
-  const isEscalating = esc === "Escalating" || esc === "Significant" || esc === "Confirming" || esc === "Emerging";
-
-  const firstSeen = situation?.timing.firstSeen;
-  const escalatingEntry = situation?.timeline.find(
-    (e) => e.state === "Escalating" || e.state === "Significant" || e.state === "Confirming",
-  );
-  const verifiedEntry = situation?.timeline.find((e) => e.state === "Official");
-
-  const nodes: Array<{ label: string; time?: string; state: "complete" | "active" | "waiting" }> = [
-    { label: "Detected", time: firstSeen ? formatJourneyTime(firstSeen) : undefined, state: "complete" },
-    {
-      label: "Escalating",
-      time: escalatingEntry?.at ? formatJourneyTime(escalatingEntry.at) : undefined,
-      state: isVerified ? "complete" : isEscalating ? "active" : "waiting",
-    },
-    {
-      label: "Verified",
-      time: verifiedEntry?.at ? formatJourneyTime(verifiedEntry.at) : undefined,
-      state: isVerified ? "complete" : "waiting",
-    },
-  ];
-
-  return (
-    <div className="conf-journey" aria-label="Confidence journey">
-      {nodes.map((node, i) => (
-        <Fragment key={node.label}>
-          <div className={`conf-journey-node is-${node.state}`}>
-            <div className="conf-journey-dot" />
-            {node.time
-              ? <time className="conf-journey-time">{node.time}</time>
-              : <span className="conf-journey-time conf-journey-time-blank">—</span>}
-            <span className="conf-journey-label">{node.label}</span>
-          </div>
-          {i < nodes.length - 1 && (
-            <div className={`conf-journey-line${nodes[i + 1].state !== "waiting" ? " is-filled" : ""}`} aria-hidden="true" />
-          )}
-        </Fragment>
-      ))}
-    </div>
-  );
-}
-
-function formatJourneyTime(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function sourceAgreementLabel(convergence?: string | null): string {
-  const norm = (convergence ?? "").toLowerCase();
-  if (norm.includes("official")) return "Official confirmed";
-  if (norm.includes("corroborate") || norm.includes("consensus") || norm.includes("confirmed")) return "Sources agree";
-  if (norm.includes("single")) return "Single source";
-  if (norm.includes("await")) return "Pending";
-  return "Sources checked";
-}
-
 function sanitizePublicStory(story: StoryCardData): StoryCardData {
   const headlineFallback = publicFallbackLabel(`${story.headline} ${story.storyType}`, story.league);
   return {

@@ -1,0 +1,122 @@
+import { render, cleanup } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
+
+import { buildLeadCardSlots } from "@/lib/leadCardSlots";
+import { adaptSignalToSituation, type GamesTableRow } from "@/lib/intelligenceSituationsApi";
+import type { LiveSignal } from "@/lib/signalsApi";
+import { StoryCard, type StoryCardData } from "@/components/StoryCard";
+
+/**
+ * The lead card's slots, per the build spec (Slots + Facts): Kicker (league,
+ * ONE state chip, age), Matchup, Headline, Facts (Status, Line or Total,
+ * Reports — fixed order, dropped never padded), Button. And the rail cards
+ * carry none of the cut elements.
+ */
+
+const NOW = Date.now();
+const iso = (h: number) => new Date(NOW + h * 3_600_000).toISOString();
+
+function signal(over: Partial<LiveSignal> = {}): LiveSignal {
+  return {
+    id: "s1", league: "NFL", game_id: null, signal_type: "injury_update",
+    headline: "Colton McKivitz (Lower Leg) — OUT", body: "", action_note: "", why_it_matters: "",
+    team: "SF", player: "Colton McKivitz", matchup: null,
+    sources: [{ name: "ESPN injury report", type: "official" }], source_count: 1,
+    verdict: "confirmed", confidence: 84, confirmation_strength: "Consensus", line_movement: null,
+    injury_designation: "OUT", lineup_status: null, weather_note: null,
+    betting_relevance: true, fantasy_relevance: true, score: 80, score_band: "Strong",
+    urgency_label: "WATCH", urgency_reason: "", trust_label: "", score_explanation: "",
+    breakdown: { confidenceScore: 84, sourceQualityScore: 0, marketImpactScore: 0, recencyBonus: 0, relevanceScore: 0, contextScore: 0 },
+    raw_event_ids: [], signal_time: iso(-2), created_at: iso(-2), updated_at: iso(-2), outcome_id: null,
+    ...over,
+  } as LiveSignal;
+}
+
+const sfGame: GamesTableRow & Record<string, unknown> = {
+  id: "NFL_SEA_SF", league: "NFL", away_team: "SEA", home_team: "SF",
+  away_team_name: "Seattle Seahawks", home_team_name: "San Francisco 49ers",
+  game_time: iso(100), status: "scheduled", spread_line: -3, spread_team: "SF", total_line: 46.5,
+  home_score: null, away_score: null,
+};
+
+const slots = (s: LiveSignal, table: GamesTableRow[] = [sfGame]) =>
+  buildLeadCardSlots(adaptSignalToSituation(s), s.headline, table, NOW);
+
+afterEach(cleanup);
+
+describe("Kicker", () => {
+  it("fresh: league, one tier chip, and the age", () => {
+    const k = slots(signal()).kicker;
+    expect(k.league).toBe("NFL");
+    expect(["Breaking", "Urgent", "Elevated", "Watch", "Quiet"]).toContain(k.chip);
+    expect(k.stale).toBe(false);
+    expect(k.age).toBe("2h ago");
+  });
+
+  it("over 6 hours: the chip becomes 'N hours old' and replaces the age", () => {
+    const k = slots(signal({ signal_time: iso(-27), created_at: iso(-27) })).kicker;
+    expect(k).toMatchObject({ chip: "27 hours old", stale: true, age: null });
+  });
+});
+
+describe("Matchup", () => {
+  it("both teams by stored name from the story's game, then the kickoff time", () => {
+    const m = slots(signal()).matchup!;
+    expect(m.teams).toEqual([{ abbr: "SEA", name: "Seattle Seahawks" }, { abbr: "SF", name: "San Francisco 49ers" }]);
+    expect(m.time).toBeTruthy();
+  });
+
+  it("CFB one-team story is not placed on a game: one team, no time", () => {
+    const cfbGame = { ...sfGame, id: "cfb", league: "CFB", away_team: "MIA", home_team: "FSU", away_team_name: null, home_team_name: null };
+    const m = slots(signal({ league: "CFB", team: "MIA" }), [cfbGame])!.matchup!;
+    expect(m.teams).toEqual([{ abbr: "MIA", name: "MIA" }]);
+    expect(m.time).toBeNull();
+  });
+});
+
+describe("Facts", () => {
+  it("Status, Line, Reports in fixed order with exact values", () => {
+    expect(slots(signal()).facts).toEqual([
+      { label: "Status", value: "OUT", sub: "Injury report" },
+      { label: "Line", value: "SF −3" },
+      { label: "Reports", value: "1 report", sub: "ESPN injury report" },
+    ]);
+  });
+
+  it("drops a fact with no data instead of padding it", () => {
+    const f = slots(signal({ injury_designation: "Questionable" }), []).facts;
+    expect(f.map((x) => x.label)).toEqual(["Reports"]);
+  });
+
+  it("a line move drops Line (its headline prints the numbers) and counts Books", () => {
+    const f = slots(signal({
+      signal_type: "line_move", player: null, injury_designation: null, game_id: "NFL_SEA_SF",
+      headline: "SF: -3 → -4.5 — market movement", sources: [{ name: "DraftKings", type: "sportsbook" }],
+      line_movement: { open: -3, current: -4.5, delta: 1.5, direction: "down" },
+    })).facts;
+    expect(f).toEqual([{ label: "Books", value: "1 book", sub: "DraftKings" }]);
+  });
+});
+
+describe("rail cards", () => {
+  it("carry no agent count, calibration badge, pattern match, replay line or impact context", () => {
+    const situation = adaptSignalToSituation(signal());
+    const story: StoryCardData = {
+      id: "r1", league: "NFL", headline: "Colton McKivitz — OUT", storyType: "Availability watch",
+      overlay: {
+        escalationState: situation.escalationState, verification: situation.verification,
+        confidence: situation.confidence, sourceSummary: situation.sourceSummary, timing: situation.timing,
+        replay: ["Sources checked", "Timing tracked"],
+      },
+      fantasyRelevance: true, bettingRelevance: true, situation,
+    };
+    const { container } = render(<StoryCard story={story} variant="rail" copyVariant="public" />);
+    const text = container.textContent ?? "";
+    for (const gone of ["ES Agent", "View evidence", "EdgeSetter evidence", "Historical pattern match", "More impact context", "⚡"]) {
+      expect(text).not.toContain(gone);
+    }
+    expect(container.querySelector(".edge-overlay-replay")).toBeNull();
+    expect(container.querySelector(".agent-calibration-badge")).toBeNull();
+    expect(container.querySelector(".story-impact-details")).toBeNull();
+  });
+});

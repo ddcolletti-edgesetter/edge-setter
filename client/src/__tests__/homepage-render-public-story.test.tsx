@@ -213,54 +213,55 @@ describe("homepage public story render", () => {
       expect(domText).not.toContain(phrase);
     }
 
-    expect(screen.getByText("What happened:")).toBeInTheDocument();
-    expect(screen.getAllByText("Watch next:").length).toBeGreaterThan(0);
     expect(screen.getByTestId("homepage-lead-support-stack")).toBeInTheDocument();
     expect(screen.getByText("Game Windows")).toBeInTheDocument();
     expect(screen.getByText("Stories to Watch")).toBeInTheDocument();
     expect(screen.getByText("Source Trail")).toBeInTheDocument();
     expect(screen.getByText("Quiet Board Context")).toBeInTheDocument();
     expect(screen.getByText("Latest Verified Notes")).toBeInTheDocument();
-    expect(domText).toContain("Brandon Aiyuk won't play. 49ers has to account for the absence and the plan adjusts from here.");
-    expect(domText).toContain("Watch for confirmed beat reports, practice participation, and any official roster adjustments before game time.");
 
-    // The lead card was stripped to status, line and report count before #117
-    // merged. None of these may come back on it: an agent "count" that is a
-    // confidence threshold, templated "Why it matters", fixed overlay strings,
-    // a "historical pattern match" with no matching behind it, fixed impact
-    // fallbacks, and a timing claim measured off our own row's updated_at.
-    const lead = screen.getByRole("heading", { name: "Brandon Aiyuk — OUT" }).closest("article")!;
+    // The lead card is exactly the build spec's slots (Slots + Facts):
+    // Kicker, Matchup, Headline, Facts, Button — the Sentence slot is never
+    // shown — plus the interim line. Nothing else may render on it.
+    const lead = screen.getByTestId("homepage-lead-card");
+    const slots = Array.from(lead.querySelectorAll("[data-slot]"))
+      .filter((el) => el.parentElement === lead)
+      .map((el) => el.getAttribute("data-slot"));
+    expect(slots).toEqual(["kicker", "matchup", "headline", "facts", "button"]);
+    expect(Array.from(lead.children).map((el) => el.getAttribute("data-slot") ?? el.getAttribute("data-testid")))
+      .toEqual(["kicker", "matchup", "headline", "facts", "button", "homepage-lead-interim-note"]);
     const leadText = lead.textContent ?? "";
-    expect(leadText).toContain("2 sources tracked");
+    expect(lead.querySelector("[data-slot='state-chip']")).not.toBeNull();
+    expect(lead.querySelector("[data-slot='button']")?.textContent).toBe("Open story");
+    const facts = Array.from(lead.querySelectorAll("[data-slot='facts'] dt")).map((el) => el.textContent);
+    expect(facts).toEqual(["Status", "Reports"]);
+    expect(leadText).toContain("2 reports");
     for (const gone of [
       "ES Agent",
       "Why it matters",
-      "ES Agents monitoring",
+      "What happened",
+      "Watch next",
       "Historical pattern match",
       "Similar situations have moved markets",
       "More impact context",
-      "Fantasy impact",
-      "Betting/market impact",
       "before public confirmation",
+      "Sources checked",
+      "sources tracked",
+      "EdgeSetter review",
+      "Detected",
+      "Player focus",
       "⚡",
     ]) {
       expect(leadText).not.toContain(gone);
     }
+    // Removed from the DOM, not hidden: no overlay, no image header, no journey.
+    expect(lead.querySelector(".edge-overlay")).toBeNull();
+    expect(lead.querySelector(".sports-story-visual")).toBeNull();
+    expect(lead.querySelector(".conf-journey")).toBeNull();
     expect(screen.getByTestId("homepage-lead-interim-note").textContent).toBe("Interim display: status, line and report count only.");
 
     expect(screen.queryByRole("heading", { name: "SF availability status is moving" })).not.toBeInTheDocument();
-    expect(domText).not.toMatch(/\b[A-Z]{2,4} availability status is moving\b/);
-
-    const leadStory = screen.getByRole("heading", {
-      name: "Brandon Aiyuk — OUT",
-    }).closest("article");
-    expect(leadStory).not.toBeNull();
-    // Stock photos are retired: the lead visual no longer renders a /sports/*.jpg
-    // image. With no roster-backed headshot for this signal it degrades to the
-    // photo-free matchup/team treatment, so no story-image element is present.
-    const leadImage = leadStory?.querySelector<HTMLImageElement>("[data-testid='homepage-story-image']");
-    expect(leadImage).toBeNull();
-    expect(leadStory?.querySelector(".sports-story-visual")).not.toBeNull();
+    expect(domText).not.toMatch(/[A-Z]{2,4} availability status is moving/);
 
     expect(document.querySelector(".edgesetter-sidebar-wordmark img")?.getAttribute("width")).toBe("174");
     expect(document.querySelector(".edgesetter-sidebar-wordmark")).toBeInTheDocument();
@@ -358,8 +359,8 @@ describe("homepage public story render", () => {
     const leadArticle = leadHeading.closest("article");
     // Stock photos are retired — no /sports/*.jpg image renders; the lead falls
     // back to the photo-free team-badge treatment.
-    const leadImage = leadArticle?.querySelector<HTMLImageElement>("[data-testid='homepage-story-image']");
-    expect(leadImage).toBeNull();
-    expect(leadArticle?.querySelector(".sports-story-visual")).not.toBeNull();
+    // The lead card has no image header (not a spec'd slot).
+    expect(leadArticle?.querySelector("[data-testid='homepage-story-image']")).toBeNull();
+    expect(leadArticle?.querySelector(".sports-story-visual")).toBeNull();
   });
 });

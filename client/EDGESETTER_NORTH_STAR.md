@@ -52,7 +52,7 @@ right before it happened.
 1. ES Agents detect a signal from one or more sources
 2. ES Agents cross-reference, weigh source quality, and build a confidence score
 3. When agent consensus reaches the verified threshold → the story is VERIFIED
-4. When wire services later confirm → EdgeSetter shows the timing gap as proof
+4. When wire services later confirm → the confirmation is recorded (no timing claim is displayed; see 4.2)
 
 Step 4 is evidence of EdgeSetter's advantage. It is never a prerequisite for step 3.
 
@@ -143,8 +143,8 @@ not yet structurally prevented. The Critic Agent is a required build — see Par
 - Not already confirmed for this situation
 
 This function is live but has not yet fired on any situation in production. When it
-fires, it enables the timing gap callout. This is the most important feature to
-validate in the next active sports period.
+fires, it records a wire timestamp. No display uses it: the timing gap callout was
+withdrawn (4.2).
 
 ### 3.6 Known data gap — team resolution
 
@@ -177,41 +177,26 @@ circumstances. Pipeline-internal states are mapped before rendering.
 **This mapping is the authoritative definition.** Any code that maps `confirmed` or
 `official` to any other label is incorrect and must be fixed immediately.
 
-Verified stories never show a percentage. Display "Verified" and the timing advantage.
+Verified stories never show a percentage. Display "Verified". No timing claim is shown (see 4.2).
 Sub-100% percentages on a Verified story communicate doubt on a settled fact.
 This destroys trust. Never do it.
 
-### 4.2 The timing advantage display
+### 4.2 Timing claims — removed, not deferred
 
-The timing advantage callout is the single most important trust signal in the product.
-It is proof that EdgeSetter was right before the wire confirmed it.
+**Status (2026-11-23, PR #117): no surface shows a timing advantage.** Not the lead
+card, not rail cards, not the ticker, not the story page.
 
-**Format when public confirmation exists:**
-```
-ES Agents verified [time] · Wire pickup [time] — [N] min later
-```
+The only timing claim that ever shipped ("EdgeSetter flagged Xh before public
+confirmation", and the ticker's "ES Agents verified X — Nh before public
+confirmation") was computed from the signal's `signal_time` to the same row's
+`updated_at`. `updated_at` moves on every internal re-score, so the number measured
+our own database writes, not a lead over the wire or anyone else. It was a false
+claim and its calculation was deleted (`detectionLeadForIntelligence`).
 
-**Format when no public confirmation yet:**
-```
-ES Agents verified · [timestamp]
-```
-
-**CFB format (primary source taxonomy exists):**
-```
-[Source type] · [N] min before wire pickup
-Examples:
-  School SID · 47 min before wire pickup
-  Player account · 31 min before wire pickup
-  Beat source · 22 min before wire pickup
-```
-
-**Rules:**
-- Never name a specific outlet (ESPN, AP, The Athletic, Rotoworld). Use tier language:
-  "wire pickup," "wire service," "national media," "public confirmation"
-- Never show the timing gap as the verification trigger. ES Agents verified first.
-  Wire pickup is the proof, not the cause.
-- When `detectionLeadMinutes` exists, this callout is mandatory. It cannot be hidden,
-  collapsed, or moved behind a toggle.
+Nothing in this document requires a timing claim. A timing field may come back only
+as a new feature: computed from a real external confirmation timestamp, and added
+to the card through the build spec ("EdgeSetter lead story card: build spec") like
+any other slot. Until then it is not a launch criterion and not a mandatory display.
 
 ### 4.3 The confidence journey
 
@@ -231,11 +216,9 @@ Full spec for story detail page:
 - Never hidden behind a toggle or expand
 - Mobile: compress to single text line
   "Detected 9:14am → Verified 9:58am → Wire pickup 10:45am"
-- The timing advantage references the gap from `firstDetected` to wire pickup —
-  not from `verifiedAt` to wire pickup
 
 **Confidence floor rule:** The journey never surfaces a sub-70% confidence number on
-a story that is currently Verified. Show the timing gap without the early number.
+a story that is currently Verified. No timing gap is shown (see 4.2).
 
 ### 4.4 Agent transparency on every card
 
@@ -336,7 +319,6 @@ an interesting story has no way to get more information about it.
 3. Every source tracked — name, tier, what they reported, agreement status
 4. All ES Agent findings — what each agent detected and when
 5. Evidence trail — full, not truncated
-6. Timing advantage callout — mandatory when detectionLeadMinutes exists
 7. Fantasy / betting impact — below all of the above, never before
 8. Watch Next — what would change this story
 
@@ -373,18 +355,11 @@ signal. It cannot be the same process reviewing its own output.
 
 **This is a required build. It cannot be skipped under any circumstances.**
 
-### Priority 5 — Validate timing gap callout with live data
+### Priority 5 — Withdrawn (timing gap callout)
 
-**Gap:** `insertSituationPublicConfirmation()` has never fired in production.
-The timing advantage callout has never appeared on a real story.
-
-**Action:** During next active sports period, monitor `processor.ts` logs to confirm
-`maybeRecordPublicConfirmation()` is being evaluated on incoming events. Check whether
-guard conditions in `public-confirmation.ts` are too restrictive for current ingestion
-volume.
-
-**Test:** One real situation with EdgeSetter detection timestamp earlier than wire
-pickup timestamp, with the timing gap displayed on the story card and story detail page.
+Withdrawn 2026-11-23. The callout's calculation was removed as a false claim; see 4.2.
+Whether `insertSituationPublicConfirmation()` fires is still worth knowing, as an input
+to any future timing feature, but no display depends on it.
 
 ### Priority 6 — Standardize all board and page layouts
 
@@ -423,7 +398,7 @@ The preferences can be saved but alerts are never sent.
 **What needs to be built:**
 - Email delivery: wire saved alert preferences to `server/email.ts` (Resend is already
   imported). When a situation reaches Verified and matches a user's saved preferences,
-  send an alert email with the story headline, confidence state, and timing advantage.
+  send an alert email with the story headline and confidence state.
 - Push notifications: implement web push or mobile push delivery channel.
 - Alert routing: on every verified situation, check all subscribed users whose
   preferences match (league, signal type, confidence threshold) and trigger delivery.
@@ -444,14 +419,9 @@ into a paying subscriber.
 **Build after:** Story detail page (Priority 3) and Alerts delivery (Priority 7) are
 complete. My Edge is only valuable when stories can be read in full and alerts fire.
 
-### Priority 9 — Build CFB timing callout with source type naming
+### Priority 9 — Withdrawn (CFB timing callout)
 
-**Spec:** CFB verified stories must name the source type in the timing callout:
-```
-[Source type] · [N] min before wire pickup
-```
-Source taxonomy exists in `cfb-school-sources.ts`. Non-CFB leagues fall back to
-generic timing gap callout until equivalent source taxonomy is built for those leagues.
+Withdrawn 2026-11-23 with every other timing claim; see 4.2.
 
 ### Priority 10 — Kill V2Home stub data
 
@@ -479,10 +449,7 @@ Tier 0 — primary_visual (sourceType: "vision_agent")
         Visual evidence alone is never sufficient for Verified.
 ```
 
-**Timing callout when live:**
-```
-Visual feed detected 9:14am · First text report 9:41am · Wire pickup 10:45am
-```
+**Timing callout:** none (see 4.2).
 
 ---
 
@@ -493,9 +460,8 @@ Every page, every card, every design decision must follow this order:
 1. The sports story — what happened, who it involves
 2. The evidence — what sources, what signals
 3. The agent consensus — how many ES Agents agree, confidence score
-4. The timing advantage — when EdgeSetter detected it vs. wire pickup
-5. Fantasy / betting / DFS impact
-6. Downstream context
+4. Fantasy / betting / DFS impact
+5. Downstream context
 
 Fantasy and betting value belong in the product. They must never appear before the
 sports story is clear. Any feature proposal that surfaces fantasy, betting, or DFS
@@ -580,11 +546,11 @@ below are true simultaneously. Do not launch until all are met.
 | # | Criterion | Current status |
 |---|---|---|
 | 1 | User understands "knows things before other sites" within 5 seconds | Needs user test |
-| 2 | At least one story with visible timing advantage callout | Blocked — timing gap never fired in production |
+| 2 | ~~At least one story with visible timing advantage callout~~ | Withdrawn 2026-11-23 — calculation removed as a false claim (4.2) |
 | 3 | Confidence scores display correctly (Developing/Escalating/Verified) | **FIXED June 22** — official_confirmation misfire fixed across all adapters and lifecycle engine. Copy violations removed from explainConfidenceFactors. Monitor for regressions. || 4 | No broken logos, no placeholder imagery | Partial — matchup logos work, transaction/injury UNK |
 | 5 | Source count visible on lead story without clicking | Needs UI audit |
 | 6 | Verified story shows confidence journey with wire pickup point | Partial — detected/escalating render, verified + wire pickup not yet |
-| 7 | CFB timing callout names source type | Not built |
+| 7 | ~~CFB timing callout names source type~~ | Withdrawn 2026-11-23 (4.2) |
 | 8 | All league boards and pages match visual standard | Partial — NFL/CFB/Sources/Alerts/My Edge need alignment |
 | 9 | Story detail page opens from any card or lead story click | Not built / broken routing |
 | 10 | Alerts delivery fires on verified stories matching user preferences | Not built |
@@ -690,7 +656,7 @@ In order:
 1. teams: ["UNK"] — team resolution in transaction/lineup adapters (Section 3.6)
 2. NFL ingest 404 — HEAD /api/pipeline/ingest/nfl returning 404
 3. CFB SID: 0 — CFB ingestion returning nothing  
-4. insertSituationPublicConfirmation never fired — timing advantage callout blocked
+4. insertSituationPublicConfirmation never fired — no display depends on it (timing callout withdrawn, 4.2)
 5. Story detail page — routing works, content thin
 
 *EdgeSetter North Star — Version 2.1*
