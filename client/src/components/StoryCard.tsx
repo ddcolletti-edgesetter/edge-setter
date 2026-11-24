@@ -87,7 +87,6 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
   const publicCopy = copyVariant === "public";
   const displayStory = publicCopy ? sanitizePublicStory(story) : story;
   const isLead = variant === "lead";
-  const confidenceRead = confidenceDisplay(displayStory.overlay, verificationStateEnabled);
   const freshness = displayStory.overlay.timing?.freshnessLabel;
 
   // ── Lead card ──────────────────────────────────────────────────────────────
@@ -216,14 +215,10 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
           )}
         </div>
 
-        {variant === "rail" && (
-          <div className="story-card-footer">
-            <strong className={`story-card-conf is-${confidenceRead.tone}`}>{confidenceRead.text}</strong>
-          </div>
-        )}
+        {/* Rail confidence chip ("Strong pattern match") removed: it reads a hardcoded confidence prior. */}
       </div>
 
-      {/* decorations={false}: no replay line, calibration badge or pattern match — fixed strings. */}
+      {/* decorations={false}: no header ("Developing · EdgeSetter review"), replay line, calibration badge or pattern match. */}
       <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={variant === "rail" || variant === "compact"} copyVariant={publicCopy ? "editorial" : "legacy"} verificationStateEnabled={verificationStateEnabled} decorations={false} />
       {/* "More impact context" removed: fixed fallback sentences. */}
     </article>

@@ -19,11 +19,44 @@ import { adaptToCFBSignal, adaptToNFLSignal, adaptToV2Signal, opponentFromMatchu
 import { deriveBoardEscalation, type BoardEscalation } from "./boardEscalation";
 import { indexStoryGames, resolveStoryGame, type StoryGameRow } from "./boardStoryGame";
 import type { BoardSituation } from "./boardSituations";
-import { homepageLeadAgeHours } from "./leadRanker";
+import { HOMEPAGE_LEAD_FRESH_HOURS, homepageLeadAgeHours } from "./leadRanker";
 import { badgeableInjuryDesignation } from "./injuryDesignation";
 
-/** Over this, the chip becomes "N hours old" in gray (spec: States → Stale). */
-export const LEAD_STALE_AFTER_HOURS = 6;
+/** At or over this, the chip becomes "N hours old" in gray (spec: States → Stale). */
+export const LEAD_STALE_AFTER_HOURS = HOMEPAGE_LEAD_FRESH_HOURS;
+
+/**
+ * Rule 1's official-source flag. It is not stored on any signal yet (#114), so
+ * it is false for every story: certainty words are banned and every report
+ * headline takes "Report:". Flip this only when the server sends a real flag.
+ */
+function officialSourceFlag(_situation: IntelligenceSituation): boolean {
+  return false;
+}
+
+const CERTAINTY_WORDS = /\b(confirmed|out|will miss|ruled out)\b/i;
+
+/**
+ * Headline rule 1: "confirmed", "out", "will miss" or "ruled out" (whole
+ * words, any case) only when the official-source flag is true. Otherwise those
+ * words are banned and the headline is prefixed "Report:". A line we observed
+ * ourselves takes no prefix. Player stories use the spec's unofficial-report
+ * template: "Report: {player}'s availability is in question".
+ */
+export function ruleOneHeadline(situation: IntelligenceSituation, headline: string): string {
+  if (situation.raw.signal_type === "line_move") return headline;
+  if (officialSourceFlag(situation)) return headline;
+  const player = String(situation.raw.player ?? situation.subject?.player ?? "").trim();
+  if (player) return `Report: ${possessive(player)} availability is in question`;
+  const body = headline.replace(/^report:\s*/i, "");
+  if (!CERTAINTY_WORDS.test(body)) return `Report: ${body}`;
+  const team = String(situation.raw.team ?? "").trim();
+  return team ? `Report: ${team} availability is in question` : "Report: availability is in question";
+}
+
+function possessive(name: string): string {
+  return /s$/i.test(name) ? `${name}'` : `${name}'s`;
+}
 
 const KICKOFF_TIME_LEAGUES = new Set(["NFL", "NBA"]);
 
@@ -54,7 +87,7 @@ export function buildLeadCardSlots(
 ): LeadCardSlots {
   const raw = situation.raw;
   const ageHours = homepageLeadAgeHours(situation, now);
-  const stale = !Number.isFinite(ageHours) || ageHours > LEAD_STALE_AFTER_HOURS;
+  const stale = !Number.isFinite(ageHours) || ageHours >= LEAD_STALE_AFTER_HOURS;
   const game = resolveGame(situation, gamesTable);
 
   return {
@@ -65,7 +98,7 @@ export function buildLeadCardSlots(
       age: stale ? null : ageLabel(ageHours),
     },
     matchup: matchupFor(situation, game),
-    headline,
+    headline: ruleOneHeadline(situation, headline),
     facts: factsFor(situation, game),
     button: { label: "Open story", href: `/${situation.league.toLowerCase()}` },
   };
@@ -153,9 +186,12 @@ function factsFor(situation: IntelligenceSituation, game: StoryGameRow | null): 
   const facts: LeadCardFact[] = [];
   const isLineMove = raw.signal_type === "line_move";
 
-  // Status: a designation the story card's gate passes. The gate withholds
-  // "Questionable", which the server still writes as a default.
-  const status = isLineMove ? undefined : badgeableInjuryDesignation(
+  // Status: only a structured status from an official injury report (spec:
+  // Status source). With no official-source flag stored yet, no story
+  // qualifies, so Status is dropped — the unofficial-report row of the spec's
+  // story-type table shows Line and Reports only. The badge gate also
+  // withholds the server's default "Questionable".
+  const status = isLineMove || !officialSourceFlag(situation) ? undefined : badgeableInjuryDesignation(
     raw.injury_designation,
     `${situation.headline} ${situation.currentRead ?? ""} ${raw.body ?? ""}`,
   );

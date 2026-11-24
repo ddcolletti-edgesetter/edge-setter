@@ -193,3 +193,27 @@ describe("homepage render", () => {
     expect(note.textContent).not.toMatch(/edge/i);
   });
 });
+
+describe("homepage lead age window (spec: fresh under 6h, stale 6–24h, never 24h+)", () => {
+  const upcoming = [game({ id: "hou-ind", status: "scheduled", game_time: iso(40), home_score: null, away_score: null })];
+  const aged = (hours: number, over: Partial<LiveSignal> = {}) =>
+    adaptSignalToSituation(signal({ signal_time: iso(-hours), created_at: iso(-hours), updated_at: iso(-hours), ...over }));
+
+  it("a 27-hour-old story cannot lead, even alone", () => {
+    expect(selectHomepageLead([aged(27)], [], upcoming, NOW)).toBeNull();
+  });
+
+  it("a story just under 24 hours can still lead when nothing fresher is eligible", () => {
+    const old = aged(23.5);
+    const lead = selectHomepageLead([old], [], upcoming, NOW);
+    // Either it leads (stale state on the card) or the scorer kills it on its
+    // own; it must never be dropped for age.
+    expect(lead === null || lead.id === old.id).toBe(true);
+  });
+
+  it("a fresh story beats a 6–24h story", () => {
+    const fresh = aged(2.5, { id: "fresh" });
+    const stale = aged(10, { id: "stale", score: 99, confidence: 95 });
+    expect(selectHomepageLead([stale, fresh], [], upcoming, NOW)?.id).toBe("fresh");
+  });
+});

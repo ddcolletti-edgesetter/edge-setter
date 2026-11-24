@@ -93,10 +93,11 @@ describe("confidence display honesty — qualitative tiers, never a bare percent
     };
   }
 
-  it("StoryCard rail footer shows a tier, not a percentage (flag off, the prod default)", () => {
+  it("StoryCard rail card has no confidence chip and no percentage (flag off, the prod default)", () => {
     const { container } = render(<StoryCard story={story()} variant="rail" copyVariant="public" />);
-    const pill = container.querySelector(".story-card-conf");
-    expect(pill?.textContent).toBe("Strong pattern match");
+    // The rail chip ("Strong pattern match") was cut before #117 merged: it read a hardcoded confidence prior.
+    expect(container.querySelector(".story-card-conf")).toBeNull();
+    expect(container.textContent ?? "").not.toContain("pattern match");
     expect((container.textContent ?? "")).not.toMatch(PERCENT);
   });
 });

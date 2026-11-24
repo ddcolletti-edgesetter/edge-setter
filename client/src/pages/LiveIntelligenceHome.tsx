@@ -16,7 +16,7 @@ import { fetchSignals } from "@/lib/signalsApi";
 import { containsPublicInvalidToken, hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
 import { compareLeadRank } from "@/lib/boardSituations";
 import { publicConfidenceLabel } from "@/lib/storyLanguage";
-import { LEAD_MAX_AGE_HOURS, ageHoursFrom, homepageLeadAgeHours, homepageLeadPool } from "@/lib/leadRanker";
+import { HOMEPAGE_LEAD_FRESH_HOURS, HOMEPAGE_LEAD_MAX_AGE_HOURS, LEAD_MAX_AGE_HOURS, ageHoursFrom, homepageLeadAgeHours, homepageLeadPool } from "@/lib/leadRanker";
 import { badgeableInjuryDesignation } from "@/lib/injuryDesignation";
 import { buildLeadCardSlots } from "@/lib/leadCardSlots";
 import { AlertTriangle, RefreshCw, ShieldCheck, Zap } from "lucide-react";
@@ -1162,11 +1162,14 @@ export function selectHomepageLead(
     })
     // Filter on the PRE-multiplier rawScore so a hard kill (-1000) can't be
     // rescued by the offseason multiplier into a still-eligible -400/-700.
-    .filter((entry) => entry.rawScore > -999 && entry.ageHours <= LEAD_MAX_AGE_HOURS);
+    // Spec age window: 24 hours or older never leads.
+    .filter((entry) => entry.rawScore > -999 && entry.ageHours < HOMEPAGE_LEAD_MAX_AGE_HOURS);
 
   if (eligible.length === 0) return null;
 
-  const freshPool = eligible.filter((entry) => entry.ageHours <= 24);
+  // Under 6 hours beats anything older; a 6–24h story leads only when nothing
+  // fresh is eligible, and the card shows it in the stale state.
+  const freshPool = eligible.filter((entry) => entry.ageHours < HOMEPAGE_LEAD_FRESH_HOURS);
   const pool = freshPool.length > 0 ? freshPool : eligible;
 
   return [...pool].sort((a, b) => b.base - a.base)[0]?.situation ?? null;

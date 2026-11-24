@@ -51,9 +51,8 @@ describe("StoryCard — verification-state display", () => {
     expect(text).not.toMatch(/\d+%/);
     expect(container.querySelector('[data-verification-word="true"]')).toBeNull();
 
-    const pill = container.querySelector(".story-card-conf");
-    expect(pill?.textContent).toBe("Still forming");
-    expect(pill?.textContent).not.toBe("Escalating");
+    // Rail confidence chip cut before #117 merged (hardcoded confidence prior).
+    expect(container.querySelector(".story-card-conf")).toBeNull();
   });
 
   it("shows the verification word and no percentage when the flag is on", () => {
@@ -65,8 +64,7 @@ describe("StoryCard — verification-state display", () => {
     const word = container.querySelector('[data-verification-word="true"]');
     expect(word?.textContent).toBe("Escalating");
 
-    const pill = container.querySelector(".story-card-conf");
-    expect(pill?.textContent).toBe("Escalating");
+    expect(container.querySelector(".story-card-conf")).toBeNull();
   });
 
   it("falls back to the qualitative tier when the flag is on but no verification word is attached", () => {
@@ -76,8 +74,7 @@ describe("StoryCard — verification-state display", () => {
     const text = container.textContent ?? "";
 
     expect(text).not.toMatch(/\d+%/);
-    const pill = container.querySelector(".story-card-conf");
-    expect(pill?.textContent).toBe("Still forming");
+    expect(container.querySelector(".story-card-conf")).toBeNull();
     expect(container.querySelector('[data-verification-word="true"]')).toBeNull();
   });
 });

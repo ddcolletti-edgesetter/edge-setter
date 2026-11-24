@@ -101,9 +101,9 @@ describe("homepage", () => {
     expect(text).not.toContain("Injury designation:");
   });
 
-  it("still prints a designation the gate passes", async () => {
+  it("a designation the gate passes still can't put a certainty word in the lead headline (rule 1, no official-source flag yet)", async () => {
     await render_(injury({ headline: "Rashee Rice knee update", injury_designation: "OUT" }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: /Rashee Rice.*— OUT/ })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Report: Rashee Rice's availability is in question" })).toBeInTheDocument());
   });
 
   it("drops a designation the story's own prose contradicts", async () => {
