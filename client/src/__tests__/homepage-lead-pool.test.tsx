@@ -179,13 +179,29 @@ describe("homepage render", () => {
   };
 
   it("does not lead with the HOU story once HOU–IND is final", async () => {
-    await renderHome([signal()], [game({ id: "hou-ind", status: "final" })]);
+    // Plus a line move (never leads: no player, no designation) so the
+    // "Quiet Board Context" tile takes its line-move branch.
+    const move = signal({
+      id: "hou-move", signal_type: "line_move", player: null, injury_designation: null,
+      headline: "HOU: +3 → +4.5", game_id: "hou-ind",
+      line_movement: { open: 3, current: 4.5, delta: 1.5, direction: "up" },
+    } as Partial<LiveSignal>);
+    await renderHome([signal(), move], [game({ id: "hou-ind", status: "final" })]);
     await waitFor(() => expect(screen.getByText("Coverage status")).toBeInTheDocument());
     expect(screen.queryByText("Lead story")).toBeNull();
     expect(screen.queryByTestId("homepage-lead-interim-note")).toBeNull();
     // The no-lead state makes no wire-beating claim (cut with the timing banner).
     await waitFor(() => expect(document.body.textContent).toContain("No story qualifies to lead right now."));
     expect(document.body.textContent).not.toMatch(/before wire pickup|lands here before/);
+    // No claim of beating the public anywhere on the page, lead or no lead.
+    expect(document.body.textContent).not.toMatch(/before public (consensus|confirmation)/);
+    // League tiles say only what is known: no fixed notes that ignore the league's real state.
+    for (const fixed of ["Awaiting lineup confirmations", "Warmup reports pending", "Lineup impact still developing", "Injury impact still developing", "Transfer impact still developing", "Availability board quiet", "Depth charts quiet", "Roster board quiet"]) {
+      expect(document.body.textContent).not.toContain(fixed);
+    }
+    expect(document.body.textContent).toMatch(/\d+ (story has|stories have) a line move attached/);
+    expect(document.body.textContent).toMatch(/\d+ (story|stories) tracked/);
+    expect(document.body.textContent).toContain("No stories tracked");
   });
 
   it("leads with it while the game is upcoming, with the interim line under the lead", async () => {

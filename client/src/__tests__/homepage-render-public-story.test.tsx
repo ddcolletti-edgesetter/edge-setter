@@ -219,6 +219,8 @@ describe("homepage public story render", () => {
     expect(screen.getByText("Source Trail")).toBeInTheDocument();
     expect(screen.getByText("Quiet Board Context")).toBeInTheDocument();
     expect(screen.getByText("Latest Verified Notes")).toBeInTheDocument();
+    // With a lead on the page too: no claim of beating the public.
+    expect(domText).not.toMatch(/before public (consensus|confirmation)|before wire pickup/);
 
     // The lead card is exactly the build spec's slots (Slots + Facts):
     // Kicker, Matchup, Headline, Facts, Button — the Sentence slot is never
