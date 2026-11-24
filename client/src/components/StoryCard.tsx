@@ -96,16 +96,25 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
   const publicCopy = copyVariant === "public";
   const displayStory = publicCopy ? sanitizePublicStory(story) : story;
   const isLead = variant === "lead";
-  const confidenceRead = confidenceDisplay(displayStory.overlay, verificationStateEnabled);
+  // Rail cards only: the lead card no longer prints an agent count.
   const agentsAgree = agentsFromOverlay(displayStory.overlay);
+  const confidenceRead = confidenceDisplay(displayStory.overlay, verificationStateEnabled);
   const freshness = displayStory.overlay.timing?.freshnessLabel;
   const sourceCount = displayStory.overlay.sourceSummary?.count ?? 0;
 
-  const timingAdvantage = buildTimingAdvantageNode(displayStory);
-
   // ── Lead card ──────────────────────────────────────────────────────────────
-  // Athletic layer: serif headline + prose body copy.
-  // Bloomberg layer: confidence journey + source/agent counts always visible, no click required.
+  // Interim display: status, line and report count only. Removed until each is
+  // backed by something real (decision before #117 merged):
+  // - ES Agent count: a confidence/source threshold lookup, not a count.
+  // - Timing banner ("flagged Xh before public confirmation"): measured the
+  //   signal row's own updated_at, not an external confirmation time. Off on
+  //   every homepage card until it is wired to a real external timestamp — see
+  //   situationToStoryCard, which no longer sets timingAdvantageLead.
+  // - "Why it matters": templated per league/injury; impact calculation is
+  //   not built.
+  // - Overlay replay line, calibration badge, "Historical pattern match":
+  //   hardcoded strings (EdgeSetterOverlay decorations={false}).
+  // - "More impact context": fixed fallback sentences.
   if (isLead) {
     const card = (
       <article className={cn("story-card story-card-lead", className)}>
@@ -123,10 +132,6 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
             size="hero"
             imageAsset={displayStory.imageAsset}
           />
-          {/* North Star: timing advantage — THIS DISPLAY MUST NEVER BE REMOVED. */}
-          {timingAdvantage && (
-            <div className="story-card-timing-advantage story-hero-timing-banner">{timingAdvantage}</div>
-          )}
         </div>
 
         {/* ── Sports story copy (The Athletic layer) ── */}
@@ -152,12 +157,6 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
                 <strong>{displayStory.whatChanged}</strong>
               </div>
             )}
-            {displayStory.whyItMatters && (
-              <div>
-                <span>Why it matters: </span>
-                <strong>{displayStory.whyItMatters}</strong>
-              </div>
-            )}
             {displayStory.watchNext && (
               <div>
                 <span>Watch next: </span>
@@ -167,17 +166,12 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
           </div>
         </div>
 
-        {/* ── Intelligence strip (Bloomberg layer) — ALWAYS VISIBLE, NO CLICK REQUIRED ── */}
-        {/* North Star: source count, ES Agent count, agreement status, confidence journey all visible without interaction */}
+        {/* ── Intelligence strip — source count and agreement status, no click required ── */}
         <div className="story-intel-strip">
           <ConfidenceJourney overlay={displayStory.overlay} situation={displayStory.situation} />
           <div className="story-intel-meta">
             <span className="story-intel-sources-count">
               {sourceCount} {sourceCount === 1 ? "source" : "sources"} tracked
-            </span>
-            <i className="story-intel-sep" aria-hidden="true">·</i>
-            <span className="story-intel-agents-count">
-              {agentsAgree} ES Agent{agentsAgree !== 1 ? "s" : ""} monitoring
             </span>
             {displayStory.overlay.sourceSummary?.convergence && (
               <>
@@ -187,29 +181,10 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
                 </span>
               </>
             )}
-            {/* North Star: timing advantage in intel strip — THIS DISPLAY MUST NEVER BE REMOVED. */}
-            {displayStory.timingAdvantageLead && (
-              <>
-                <i className="story-intel-sep" aria-hidden="true">·</i>
-                <span className="story-intel-timing-edge">⚡ {displayStory.timingAdvantageLead} early</span>
-              </>
-            )}
           </div>
         </div>
 
-        <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={false} copyVariant={publicCopy ? "editorial" : "legacy"} verificationStateEnabled={verificationStateEnabled} />
-        <StoryImpactBlocks
-          compact={false}
-          input={{
-            text: [displayStory.headline, displayStory.dek, displayStory.whatChanged, displayStory.whyItMatters, displayStory.watchNext, displayStory.storyType].filter(Boolean).join(" "),
-            fantasyRelevance: displayStory.fantasyRelevance,
-            bettingRelevance: displayStory.bettingRelevance,
-            dfsRelevance: displayStory.dfsRelevance,
-            fantasyDetail: displayStory.fantasyDetail,
-            bettingDetail: displayStory.bettingDetail,
-            dfsDetail: displayStory.dfsDetail,
-          }}
-        />
+        <EdgeSetterOverlay data={displayStory.overlay} situation={displayStory.situation} compact={false} copyVariant={publicCopy ? "editorial" : "legacy"} verificationStateEnabled={verificationStateEnabled} decorations={false} />
       </article>
     );
 
@@ -246,12 +221,6 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
           )}
         </div>
         <h2>{displayStory.headline}</h2>
-        {/* North Star: timing advantage — THIS DISPLAY MUST NEVER BE REMOVED. */}
-        {variant !== "rail" && timingAdvantage && (
-          <div className="story-card-timing-advantage mt-1.5 inline-flex max-w-full flex-wrap items-center gap-1 rounded border border-[rgba(45,212,191,0.4)] bg-[rgba(45,212,191,0.08)] px-2 py-1 text-[0.72rem] font-extrabold leading-snug text-[#2DD4BF]">
-            {timingAdvantage}
-          </div>
-        )}
         <div className="story-card-context">
           {[displayStory.league, displayStory.primaryTeam && displayStory.secondaryTeam ? `${displayStory.primaryTeam} @ ${displayStory.secondaryTeam}` : displayStory.primaryTeam, displayStory.player, displayStory.storyType].filter(Boolean).join(" / ") || "Sports context"}
         </div>
@@ -282,12 +251,6 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
           <div className="story-card-footer">
             <strong className={`story-card-conf is-${confidenceRead.tone}`}>{confidenceRead.text}</strong>
             <span className="story-card-agents">{agentsAgree}/4 ES Agents</span>
-            {/* North Star: timing advantage — THIS DISPLAY MUST NEVER BE REMOVED. */}
-            {timingAdvantage && confidenceRead.tone === "verified" && (
-              <span className="story-card-timing-advantage story-card-timing-pill">
-                ⚡ {displayStory.timingAdvantageLead} early
-              </span>
-            )}
           </div>
         )}
       </div>
@@ -328,19 +291,6 @@ function leadHeadlineNode(story: StoryCardData) {
     }
   }
   return headline;
-}
-
-// North Star: timing advantage callout — names source type for CFB where taxonomy exists.
-function buildTimingAdvantageNode(story: StoryCardData): React.ReactNode | null {
-  const lead = story.timingAdvantageLead;
-  if (!lead) return null;
-  if (story.league === "CFB" && story.situation?.sources?.length) {
-    const src = story.situation.sources[0];
-    const isSid = /sid|official|athletic.?dept/i.test(`${src?.type ?? ""} ${src?.name ?? ""}`);
-    if (isSid) return <>⚡ EdgeSetter detected via SID post — pickup {lead} later</>;
-  }
-  if (story.timingAdvantageKind === "pickup") return <>⚡ Detected {lead} before national pickup</>;
-  return <>⚡ EdgeSetter flagged {lead} before public confirmation</>;
 }
 
 function ConfidenceJourney({ overlay, situation }: {

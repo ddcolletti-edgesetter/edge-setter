@@ -414,22 +414,6 @@ function uniqueSituations(items: Array<IntelligenceSituation | null | undefined>
 
 // North Star timing advantage for homepage stories: detection (timing.firstSeen)
 // vs the timeline entry where the story reached Official. Verified stories only.
-function detectionLeadForIntelligence(situation: IntelligenceSituation): { lead: string; kind: "confirmation" } | null {
-  if (situation.escalationState !== "Official" && situation.confidence.current < 100) return null;
-  const firstSeenMs = new Date(situation.timing.firstSeen).getTime();
-  if (!Number.isFinite(firstSeenMs)) return null;
-  const confirmEntry = situation.timeline.find((event) => event.state === "Official");
-  if (!confirmEntry) return null;
-  const confirmMs = new Date(confirmEntry.at).getTime();
-  if (!Number.isFinite(confirmMs)) return null;
-  const gapMinutes = Math.round((confirmMs - firstSeenMs) / 60_000);
-  if (gapMinutes < 15) return null;
-  if (gapMinutes < 60) return { lead: `${gapMinutes}m`, kind: "confirmation" };
-  const h = Math.floor(gapMinutes / 60);
-  const m = gapMinutes % 60;
-  return { lead: m > 0 ? `${h}h ${m}m` : `${h}h`, kind: "confirmation" };
-}
-
 function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot: "lead" | "rail" | "league" }): StoryCardData {
   const matchupTeams = splitMatchup(situation.subject.matchup);
   const rawPrimaryTeam = matchupTeams.length === 2 ? matchupTeams[0] : situation.subject.team ?? matchupTeams[0] ?? undefined;
@@ -444,12 +428,14 @@ function situationToStoryCard(situation: IntelligenceSituation, { slot }: { slot
   const deck = hasCleanPublicText(storyCopy.deck) ? storyCopy.deck : "EdgeSetter is monitoring source support, timing, and sports context before elevating this item.";
   const shortDeck = hasCleanPublicText(storyCopy.shortDeck) ? storyCopy.shortDeck : "Source support and timing remain under watch.";
   const player = hasCleanPublicText(situation.subject.player) && isValidPlayerName(situation.subject.player) ? situation.subject.player ?? undefined : undefined;
-  const detectionLead = detectionLeadForIntelligence(situation);
   return {
     id: situation.id,
     league: situation.league,
-    timingAdvantageLead: detectionLead?.lead ?? null,
-    timingAdvantageKind: detectionLead?.kind ?? null,
+    // Disabled: the only source (detectionLeadForIntelligence, removed) measured
+    // signal_time -> the row's own updated_at, not an external confirmation
+    // time. Comes back only when wired to a real external timestamp.
+    timingAdvantageLead: null,
+    timingAdvantageKind: null,
     headline: slot === "lead" ? headline : shortHeadline,
     dek: slot === "rail" ? shortDeck : deck,
     label: slot === "lead" ? "Top story" : storyType,
@@ -1446,17 +1432,9 @@ function buildTickerItems({ situations, games }: { situations: IntelligenceSitua
     items.push(text);
   };
 
-  // Priority 1: verified detections
-  for (const situation of situations) {
-    if (items.length >= 8) break;
-    const detection = detectionLeadForIntelligence(situation);
-    if (!detection) continue;
-    const storyCopy = buildPublicSituationStory(situation);
-    const headline = hasCleanPublicText(storyCopy.shortHeadline)
-      ? storyCopy.shortHeadline
-      : publicFallbackLabel(`${storyCopy.headline} ${situation.raw.signal_type}`, situation.league);
-    tryAdd(situation.id, `⚡ ES Agents verified ${headline} — ${detection.lead} before public confirmation`);
-  }
+  // "Verified detections" ("⚡ ES Agents verified X — Nh before public
+  // confirmation") removed with the lead card's timing banner: same measure,
+  // signal_time -> the row's own updated_at, not an external confirmation.
 
   // Priority 2: market reaction
   for (const situation of situations) {

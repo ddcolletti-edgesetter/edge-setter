@@ -43,9 +43,16 @@ interface EdgeSetterOverlayProps {
    * when off, or when no pre-computed verification word is attached.
    */
   verificationStateEnabled?: boolean;
+  /**
+   * False drops the replay line, the calibration badge and "Historical pattern
+   * match". All three are fixed strings on the public copy path, and no
+   * historical matching exists. The homepage lead passes false; other callers
+   * keep the old rendering until they get the same review.
+   */
+  decorations?: boolean;
 }
 
-export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "legacy", verificationStateEnabled = false }: EdgeSetterOverlayProps) {
+export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "legacy", verificationStateEnabled = false, decorations = true }: EdgeSetterOverlayProps) {
   const confidence = data.confidence?.current;
   const delta = data.confidence?.delta;
   const publicCopy = copyVariant === "editorial";
@@ -115,14 +122,18 @@ export function EdgeSetterOverlay({ data, situation, compact, copyVariant = "leg
         </div>
       )}
 
-      <div className="edge-overlay-replay flex items-center gap-2 text-[0.68rem] font-extrabold text-[#94a3b8]">
-        <History size={13} className={iconClass} />
-        <span className={valueClass}>{replay.length ? replay.join(" -> ") : `Verification ${deltaLabel} / ${sourcePosture}`}</span>
-      </div>
-      <div className="mt-1 flex min-w-0 flex-wrap gap-1.5">
-        <AgentCalibrationBadge input={calibrationInput} compact={compact} copyVariant={copyVariant} />
-        {!compact && <HistoricalPatternMatch input={calibrationInput} compact />}
-      </div>
+      {decorations && (
+        <>
+          <div className="edge-overlay-replay flex items-center gap-2 text-[0.68rem] font-extrabold text-[#94a3b8]">
+            <History size={13} className={iconClass} />
+            <span className={valueClass}>{replay.length ? replay.join(" -> ") : `Verification ${deltaLabel} / ${sourcePosture}`}</span>
+          </div>
+          <div className="mt-1 flex min-w-0 flex-wrap gap-1.5">
+            <AgentCalibrationBadge input={calibrationInput} compact={compact} copyVariant={copyVariant} />
+            {!compact && <HistoricalPatternMatch input={calibrationInput} compact />}
+          </div>
+        </>
+      )}
     </div>
   );
 }
