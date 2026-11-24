@@ -676,7 +676,10 @@ export function startIngestionScheduler() {
   // use it), then refresh once every 24h.
   const ROSTER_INITIAL_DELAY_MS = bootDelayMs("ROSTER_INITIAL_DELAY_MS", 20_000);
 
-  // Active hours: 7am–1am ET = 12:00–06:00 UTC
+  // Active hours: 12:00–06:59 UTC inclusive — the predicate is
+  // hourUTC >= 12 || hourUTC < 7, and `< 7` reaches through 06:59, not 06:00.
+  // So the quiet window, where BOTH the standard and fast cycles skip, is
+  // 07:00–11:59 UTC (= 7am–11:59am EST, 8am–12:59pm EDT).
   const isActiveHours = () => {
     const hourUTC = new Date().getUTCHours();
     return hourUTC >= 12 || hourUTC < 7;
