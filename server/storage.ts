@@ -1446,6 +1446,56 @@ export function insertSettledOutcome(data: {
   );
 }
 
+/** The grade columns a settlement v2 regrade writes on settled_outcomes. */
+export interface SettledOutcomeGrade {
+  market: string;
+  line_at_signal: number | null;
+  closing_line: number | null;
+  actual_result: number | null;
+  hit: number | null;              // 1 / 0 / NULL, as stored
+  clv: number | null;
+  settlement_state: string;
+  no_grade_reason: string | null;
+  grading_version: string | null;
+}
+
+/** The mirror row's grade, or null when storage.db has no row for the signal. */
+export function getSettledOutcomeGrade(signalId: string): SettledOutcomeGrade | null {
+  const row = sqlite.prepare(`
+    SELECT market, line_at_signal, closing_line, actual_result, hit, clv,
+           settlement_state, no_grade_reason, grading_version
+    FROM settled_outcomes WHERE signal_id = ?
+  `).get(signalId) as SettledOutcomeGrade | undefined;
+  return row ?? null;
+}
+
+/**
+ * Overwrite the mirror row's grade (settlement v2 regrade). insertSettledOutcome
+ * is INSERT OR IGNORE, so this is the only path that can change an existing
+ * row. Returns rows changed: 0 means storage.db has no row for the signal,
+ * which is not drift (it never settled there, or predates a reseed).
+ */
+export function updateSettledOutcomeGrade(signalId: string, g: SettledOutcomeGrade): number {
+  if (g.settlement_state === "no_grade" && g.hit !== null) {
+    throw new Error(`[settled_outcomes] no_grade outcome for ${signalId} must have hit = null`);
+  }
+  const res = sqlite.prepare(`
+    UPDATE settled_outcomes
+    SET market = ?, line_at_signal = ?, closing_line = ?, actual_result = ?, hit = ?, clv = ?,
+        settlement_state = ?, no_grade_reason = ?, grading_version = ?
+    WHERE signal_id = ?
+  `).run(
+    g.market, g.line_at_signal, g.closing_line, g.actual_result, g.hit, g.clv,
+    g.settlement_state, g.no_grade_reason, g.grading_version, signalId,
+  );
+  return res.changes;
+}
+
+/** Operator scripts only: pin storage.db's busy_timeout explicitly (the handle is module-private). */
+export function setStorageBusyTimeoutMs(ms: number): void {
+  sqlite.pragma(`busy_timeout = ${Math.max(0, Math.floor(ms))}`);
+}
+
 export function getSettledOutcomesForAccuracy(): Array<{
   signal_id:   string;
   league:      string;

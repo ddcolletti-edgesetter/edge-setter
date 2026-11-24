@@ -299,6 +299,67 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     CREATE INDEX IF NOT EXISTS idx_replay_audits_game
       ON replay_audits(game_id, created_at DESC);
 
+    -- Settlement v2 regrade audit (server/pipeline/regrade-v2.ts). One
+    -- regrade_runs row per --write or --reverse run; one outcome_regrades row
+    -- per outcome a run changed, holding the full before and after grade so a
+    -- reverse can restore it exactly. Created at boot, not by the script, so a
+    -- dry run writes nothing at all. Nothing here is ever deleted.
+    CREATE TABLE IF NOT EXISTS regrade_runs (
+      run_id            TEXT PRIMARY KEY,
+      mode              TEXT NOT NULL,          -- 'write' | 'reverse'
+      reverses_run_id   TEXT,                   -- mode 'reverse' only
+      league            TEXT,                   -- NULL = every league
+      rule_version      TEXT NOT NULL,          -- grading_version applied, e.g. 'v2'
+      git_sha           TEXT,
+      note              TEXT,
+      started_at        TEXT NOT NULL,
+      finished_at       TEXT,                   -- NULL = interrupted
+      candidates        INTEGER NOT NULL DEFAULT 0,
+      changed           INTEGER NOT NULL DEFAULT 0,
+      conflicts         INTEGER NOT NULL DEFAULT 0,
+      mirror_updated    INTEGER NOT NULL DEFAULT 0,
+      mirror_missing    INTEGER NOT NULL DEFAULT 0,
+      mirror_repaired   INTEGER NOT NULL DEFAULT 0,
+      summary_json      TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS outcome_regrades (
+      id                        TEXT PRIMARY KEY,
+      run_id                    TEXT NOT NULL,
+      outcome_id                TEXT NOT NULL,
+      signal_id                 TEXT NOT NULL,
+      game_id                   TEXT,
+      league                    TEXT,
+      signal_type               TEXT,
+      excluded_stale            INTEGER,        -- as found; a regrade never changes it
+      before_market             TEXT,
+      before_line_at_signal     REAL,
+      before_closing_line       REAL,
+      before_actual_result      REAL,
+      before_hit                INTEGER,
+      before_clv                REAL,
+      before_settlement_state   TEXT,
+      before_no_grade_reason    TEXT,
+      before_grading_version    TEXT,
+      after_market              TEXT,
+      after_line_at_signal      REAL,
+      after_closing_line        REAL,
+      after_actual_result       REAL,
+      after_hit                 INTEGER,
+      after_clv                 REAL,
+      after_settlement_state    TEXT,
+      after_no_grade_reason     TEXT,
+      after_grading_version     TEXT,
+      applied_at                TEXT NOT NULL,
+      reversed_at               TEXT,
+      reversed_by_run_id        TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_outcome_regrades_run
+      ON outcome_regrades(run_id);
+    CREATE INDEX IF NOT EXISTS idx_outcome_regrades_signal
+      ON outcome_regrades(signal_id, applied_at DESC);
+
     CREATE INDEX IF NOT EXISTS idx_replay_audits_hash
       ON replay_audits(replay_hash);
 
