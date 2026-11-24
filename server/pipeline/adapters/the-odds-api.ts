@@ -238,7 +238,7 @@ const kickoffGuardLeagues = (): ReadonlySet<string> => {
  * CFB. Still read per CYCLE, not per process, so an env change takes effect on
  * the next fetch.
  */
-function kickoffGuardActiveFor(league: League): boolean {
+export function kickoffGuardActiveFor(league: League): boolean {
   return kickoffGuardEnabled() && kickoffGuardLeagues().has(league);
 }
 

@@ -24,6 +24,7 @@ import { useState, useEffect } from "react";
 import { fetchOutcomesForSignal } from "../lib/signalsApi";
 import type { Outcome } from "../lib/signalsApi";
 import { T } from "./v2/SportVisuals";
+import { describeNoGrade } from "@shared/settlement-grading";
 
 interface OutcomePanelProps {
   signalId: string;
@@ -62,7 +63,9 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
   const outcome = outcomes[0]; // show most recent outcome
 
   // Resolve display values
-  const hitLabel = outcome.hit === true ? "Won" : outcome.hit === false ? "Lost" : "Pending";
+  // Settled without a grade is a final state, not "Pending": say so, and why.
+  const noGrade = outcome.settlement_state === "no_grade";
+  const hitLabel = noGrade ? "Not graded" : outcome.hit === true ? "Won" : outcome.hit === false ? "Lost" : "Pending";
   const hitColor = outcome.hit === true ? T.green : outcome.hit === false ? T.danger : TH.textFaint;
 
   const clvVal = outcome.clv ?? (outcome as any).clv_points ?? null;
@@ -159,9 +162,10 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
               fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
               fontSize: 12, color: TH.textMuted,
             }}>
-              {outcome.line_at_signal > 0 ? "+" : ""}{outcome.line_at_signal}
+              {/* A spread carries its sign; a total is just a number. */}
+              {outcome.market === "spread" && outcome.line_at_signal > 0 ? "+" : ""}{outcome.line_at_signal}
               {" → "}
-              {outcome.closing_line > 0 ? "+" : ""}{outcome.closing_line}
+              {outcome.market === "spread" && outcome.closing_line > 0 ? "+" : ""}{outcome.closing_line}
             </div>
           </div>
         )}
@@ -179,10 +183,24 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
         }}>
           {clvPositive
             ? `Beat the last pregame line by ${Math.abs(clvVal).toFixed(1)} pts.`
-            : `Market moved ${Math.abs(clvVal).toFixed(1)} pts against the signal before kickoff.`}
+            : clvVal === 0
+              ? `Matched the last pregame line.`
+              : `Market moved ${Math.abs(clvVal).toFixed(1)} pts against the signal before kickoff.`}
         </div>
       )}
-      {!hasClv && outcome.market !== "moneyline" && (
+      {noGrade && (
+        <div
+          data-testid="outcome-no-grade-reason"
+          style={{
+            marginTop: 7,
+            fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
+            fontSize: 11, color: TH.textFaint, fontStyle: "italic", lineHeight: 1.4,
+          }}
+        >
+          {describeNoGrade(outcome.no_grade_reason)}
+        </div>
+      )}
+      {!noGrade && !hasClv && outcome.market !== "moneyline" && (
         <div style={{
           marginTop: 7,
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",
@@ -191,7 +209,7 @@ export default function OutcomePanel({ signalId, darkMode }: OutcomePanelProps) 
           No numeric line recorded — no line value for this signal type.
         </div>
       )}
-      {!hasClv && outcome.market === "moneyline" && (
+      {!noGrade && !hasClv && outcome.market === "moneyline" && (
         <div style={{
           marginTop: 7,
           fontFamily: "'Barlow Condensed', 'Arial Narrow', Arial, sans-serif",

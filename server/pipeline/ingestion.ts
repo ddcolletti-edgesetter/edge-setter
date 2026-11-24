@@ -405,13 +405,14 @@ export async function runIngestionCycle(opts: { includeFastTier?: boolean } = {}
     // ── 8. Settle any games that are now final ───────────────
     const settlement = await trackJob("ingest:settlement", () => autoSettleFinishedGames().catch(e => {
       console.error("[ingestion] Settlement error:", e.message);
-      return { scores_fetched: { NBA: 0, MLB: 0, NFL: 0, CFB: 0 }, games_updated: 0, games_settled: 0, signals_settled: 0, signals_expired: 0, market_signals_archived: 0 };
+      return { scores_fetched: { NBA: 0, MLB: 0, NFL: 0, CFB: 0 }, games_updated: 0, games_settled: 0, signals_settled: 0, signals_no_grade: 0, signals_expired: 0, market_signals_archived: 0 };
     }));
-    if (settlement.signals_settled > 0) {
-      console.log(`[ingestion] Settlement: ${settlement.signals_settled} signals settled across ${settlement.games_settled} games`);
+    if (settlement.signals_settled > 0 || settlement.signals_no_grade > 0) {
+      console.log(`[ingestion] Settlement: ${settlement.signals_settled} graded, ${settlement.signals_no_grade} settled without a grade, across ${settlement.games_settled} games`);
     }
     recordPipelineHealth("settlement", "ok", {
       signals_settled: settlement.signals_settled,
+      signals_no_grade: settlement.signals_no_grade,
       games_settled:   settlement.games_settled,
     });
 

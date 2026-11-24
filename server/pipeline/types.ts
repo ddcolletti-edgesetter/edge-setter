@@ -1,3 +1,4 @@
+import type { GradedSide, NoGradeReason, SettlementState } from "@shared/settlement-grading";
 /**
  * Edge Setter — Live Pipeline Types  (Sprint 7)
  *
@@ -225,6 +226,12 @@ export interface LiveSignal {
   line_movement: LineMovement | null;
   /** line_move only: the market the move is in. See LineMoveMarket. */
   market?: LineMoveMarket | null;
+  /**
+   * The side this signal's card copy claims, set by the handler that writes
+   * the copy; NULL when the copy claims none. Settlement grades only on this.
+   * See shared/settlement-grading.ts.
+   */
+  graded_side?: GradedSide | null;
   injury_designation: string | null; // "OUT" | "Doubtful" | "Questionable" | "IL-60"
   lineup_status: string | null;
   weather_note: string | null;
@@ -271,13 +278,19 @@ export interface Outcome {
   // Result
   home_score: number | null;
   away_score: number | null;
-  market: "spread" | "total" | "moneyline";
+  /** v2 also writes "unknown" | "mixed" | "none" on ungraded rows (see grading-v2.ts OutcomeMarket). */
+  market: "spread" | "total" | "moneyline" | "unknown" | "mixed" | "none";
   line_at_signal: number | null;   // line when Signal was generated
   closing_line: number | null;     // line at game start (for CLV)
   actual_result: number | null;    // final score difference or total
   // Derived (populate later)
   hit: boolean | null;             // did the signal's recommended side win?
   clv: number | null;              // closing line value (+ is good)
+  /** "graded" | "no_grade". A no_grade row always has hit = null. Absent = "graded" (pre-v2 writer). */
+  settlement_state?: SettlementState;
+  no_grade_reason?: NoGradeReason | string | null;
+  /** NULL for rows settled before v2. */
+  grading_version?: string | null;
   // Meta
   recorded_at: string | null;
   created_at: string;

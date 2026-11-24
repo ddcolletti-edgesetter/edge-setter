@@ -208,7 +208,9 @@ describe("the first cycle after the alias lands", () => {
 
     expect(result.games_updated).toBe(FIXTURE_GAMES);
     expect(result.new_finals_deferred).toBe(0);
-    expect(result.signals_settled).toBe(FIXTURE_GAMES * SIGNALS_PER_GAME);
+    // Graded or not, every signal gets an outcome (settlement v2 grades only a
+    // claimed side, so these fixture signals settle as no_grade).
+    expect(result.signals_settled + result.signals_no_grade).toBe(FIXTURE_GAMES * SIGNALS_PER_GAME);
     expect(store.getSettleable()).toHaveLength(0);
   });
 
@@ -236,7 +238,7 @@ describe("the per-cycle cap", () => {
 
     expect(result.games_updated).toBe(25);
     expect(result.new_finals_deferred).toBe(FIXTURE_GAMES - 25);
-    expect(result.signals_settled).toBe(25 * SIGNALS_PER_GAME);
+    expect(result.signals_settled + result.signals_no_grade).toBe(25 * SIGNALS_PER_GAME);
   });
 
   it("logs the remaining backlog", async () => {
@@ -253,7 +255,7 @@ describe("the per-cycle cap", () => {
     let settled = 0;
     while (cycles < 10) {
       const result = await settlement.autoSettleFinishedGames();
-      settled += result.signals_settled;
+      settled += result.signals_settled + result.signals_no_grade;
       cycles++;
       if (result.new_finals_deferred === 0) break;
     }

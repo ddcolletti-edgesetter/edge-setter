@@ -623,6 +623,13 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   //     excluded from every accuracy/calibration query.
   addColumnIfMissing(db, "live_signals", "settlement_expired", "INTEGER NOT NULL DEFAULT 0");
   addColumnIfMissing(db, "outcomes", "excluded_stale", "INTEGER NOT NULL DEFAULT 0");
+  // Settlement v2. settlement_state is "graded" | "no_grade"; a no_grade row
+  // always has hit NULL (enforced in createOutcome), which is what keeps it out
+  // of the accuracy population without touching idx_outcomes_settled_signal.
+  // grading_version is NULL for rows settled before v2 ("v2" after).
+  addColumnIfMissing(db, "outcomes", "settlement_state", "TEXT NOT NULL DEFAULT 'graded'");
+  addColumnIfMissing(db, "outcomes", "no_grade_reason", "TEXT");
+  addColumnIfMissing(db, "outcomes", "grading_version", "TEXT");
 
   // alerted_at was created lazily by alerts.ts on every dispatch (PRAGMA +
   // conditional ALTER). It belongs here so the partial index below can be
@@ -631,6 +638,10 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   // line_move market ("spread" | "total"). No default and no backfill: rows
   // written before this column read NULL, and settlement must not guess one.
   addColumnIfMissing(db, "live_signals", "market", "TEXT");
+  // The side the card copy claims ("home" | "away" | "over" | "under"), set by
+  // the handler that writes the copy. Settlement grades only on this; it never
+  // infers a side. No default, no backfill. See shared/settlement-grading.ts.
+  addColumnIfMissing(db, "live_signals", "graded_side", "TEXT");
 
   // Indexes created here (not in the CREATE-TABLE block) because settlement_expired
   // / is_archived are migration columns added just above — indexing them in the
@@ -2119,6 +2130,7 @@ export type SignalLifecycleState =
   | "MOVED"
   | "SETTLED_WIN"
   | "SETTLED_LOSS"
+  | "SETTLED_NO_GRADE"
   | "VOID"
   | "EXPIRED"
   | "SETTLEMENT_EXPIRED";
@@ -2192,8 +2204,8 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       weather_note,betting_relevance,fantasy_relevance,score,score_band,
       urgency_label,urgency_reason,trust_label,score_explanation,breakdown,
       raw_event_ids,signal_time,first_seen_at,created_at,updated_at,outcome_id,
-      market
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      market,graded_side
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       score=excluded.score,
       score_band=excluded.score_band,
@@ -2220,7 +2232,10 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       confidence=excluded.confidence,
       raw_event_ids=excluded.raw_event_ids,
       signal_time=excluded.signal_time,
-      updated_at=excluded.updated_at
+      updated_at=excluded.updated_at,
+      -- Follows the copy: action_note is overwritten on a merge, so the claim
+      -- the card now shows is the claim that gets graded.
+      graded_side=excluded.graded_side
       -- first_seen_at intentionally omitted: keeps the original insertion time
       -- market intentionally omitted: set once at insert. A line_move only
       -- merges onto a row of the same market (findExistingSignal), so an
@@ -2238,6 +2253,7 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
     JSON.stringify(s.raw_event_ids), s.signal_time, s.first_seen_at ?? null, s.created_at, s.updated_at,
     s.outcome_id,
     s.market ?? null,
+    s.graded_side ?? null,
   );
   const existing = getLiveSignal(s.id);
 
@@ -2471,18 +2487,52 @@ export function createOutcome(o: Omit<Outcome, "id" | "created_at">): Outcome {
   const db = getPipelineDb();
   const now = new Date().toISOString();
   const outcome: Outcome = { id: randomUUID(), ...o, created_at: now };
+  const state = outcome.settlement_state ?? "graded";
+  // The invariant every accuracy query relies on. A no_grade row with a hit
+  // would silently enter the public numbers, so refuse to write one.
+  if (state === "no_grade" && outcome.hit !== null) {
+    throw new Error(`[outcomes] no_grade outcome for ${outcome.signal_id} must have hit = null`);
+  }
   db.prepare(`
     INSERT INTO outcomes (id,signal_id,game_id,home_score,away_score,market,
-      line_at_signal,closing_line,actual_result,hit,clv,recorded_at,created_at)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      line_at_signal,closing_line,actual_result,hit,clv,recorded_at,created_at,
+      settlement_state,no_grade_reason,grading_version)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(
     outcome.id, outcome.signal_id, outcome.game_id,
     outcome.home_score, outcome.away_score, outcome.market,
     outcome.line_at_signal, outcome.closing_line, outcome.actual_result,
     outcome.hit === null ? null : (outcome.hit ? 1 : 0),
     outcome.clv, outcome.recorded_at, outcome.created_at,
+    state, outcome.no_grade_reason ?? null, outcome.grading_version ?? null,
   );
   return outcome;
+}
+
+/**
+ * Every odds snapshot for a game, oldest first, unbounded: settlement v2 needs
+ * the whole history to bound lines by kickoff itself (getSnapshotHistory's
+ * LIMIT keeps the OLDEST rows, which would drop the pregame close).
+ */
+export function getAllOddsSnapshotsForGame(gameId: string): OddsSnapshotRow[] {
+  return getPipelineDb().prepare(`
+    SELECT *
+    FROM odds_snapshots
+    WHERE game_id = ?
+    ORDER BY snapshot_at ASC
+  `).all(gameId) as OddsSnapshotRow[];
+}
+
+/** payload.market of each raw event, in the order given; null where absent or missing. */
+export function getRawEventMarkets(ids: string[]): Array<string | null> {
+  if (ids.length === 0) return [];
+  const stmt = getPipelineDb().prepare(
+    "SELECT json_extract(payload, '$.market') AS market FROM raw_events WHERE id = ?",
+  );
+  return ids.map((id) => {
+    const row = stmt.get(id) as { market: unknown } | undefined;
+    return typeof row?.market === "string" ? row.market : null;
+  });
 }
 
 export function getOutcome(id: string): Outcome | null {
