@@ -1514,8 +1514,15 @@ export const GAMES_ALL_SQL = "SELECT * FROM games ORDER BY game_time ASC";
  * onto a league-slice walk, 0.0ms to 251ms on the ingestion hot path. A 454ms
  * query on a parameter no caller passes is not worth that.
  */
+// INDEXED BY keeps this on the plan request-path-query-plans pins: the
+// one-column league index plus a sort. Without the pin it is a cost tie with
+// idx_live_signals_injury_dedup (also league-leading), and adding columns to
+// live_signals (market, graded_side, injury_designation_source) shifts the
+// row-width estimate enough to flip it. Same seek and sort either way; the
+// pin just stops schema growth from re-planning a statement nobody asked to
+// change. Why this route is knowingly left sorting: see that test.
 export const MVP_SIGNALS_BY_LEAGUE_SQL =
-  "SELECT * FROM live_signals WHERE league=? ORDER BY created_at DESC LIMIT 100";
+  "SELECT * FROM live_signals INDEXED BY idx_live_signals_league WHERE league=? ORDER BY created_at DESC LIMIT 100";
 export const MVP_SIGNALS_ALL_SQL =
   "SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100";
 
