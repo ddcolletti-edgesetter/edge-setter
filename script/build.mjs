@@ -74,6 +74,15 @@ async function buildAll() {
     entryPoints: ["server/pipeline/situations-worker.ts"],
     outfile: "dist/situations-worker.cjs",
   });
+
+  // Operator script for the settlement v2 regrade. Bundled so it runs on Render
+  // with plain `node`: tsx is a devDependency and is not on the box.
+  console.log("building settlement regrade script...");
+  await esbuild({
+    ...serverBundle,
+    entryPoints: ["server/scripts/regrade-settlement-v2.ts"],
+    outfile: "dist/regrade-settlement-v2.cjs",
+  });
 }
 
 buildAll().catch((err) => {
