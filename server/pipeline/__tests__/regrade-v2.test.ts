@@ -32,6 +32,7 @@ vi.mock("../../storage", () => ({
   markSettledOutcomesStale: vi.fn(() => 0),
   countStaleSettledOutcomes: vi.fn(() => 0),
   setStorageBusyTimeoutMs: vi.fn(),
+  clearWithdrawnSettlementAccuracy: vi.fn(() => []),
   insertSettledOutcome: vi.fn((d: any) => {
     if (mirror.has(d.signal_id)) return;
     mirror.set(d.signal_id, {
@@ -307,6 +308,27 @@ describe("applyRegrade (--write)", () => {
     db.prepare("DELETE FROM pipeline_source_accuracy").run();
     await regrade.applyRegrade(regrade.planRegrade(), { pauseMs: 0 });
     expect(count("pipeline_source_accuracy")).toBeGreaterThan(0);
+  });
+});
+
+describe("--write removes the accuracy rows the regrade withdraws", () => {
+  it("per-type rows for injury, lineup and line moves are gone after the write, and the ledger reads fresh", async () => {
+    seedLegacy();
+    settlement.forceAccuracyRecompute(); // the ledger as prod has it: legacy grades
+    const typeRows = () => (store.getPipelineDb()
+      .prepare("SELECT signal_type FROM pipeline_source_accuracy WHERE league = 'NFL' AND signal_type IS NOT NULL ORDER BY signal_type")
+      .all() as Array<{ signal_type: string }>).map((r) => r.signal_type);
+    expect(typeRows()).toEqual(expect.arrayContaining(["injury_update", "lineup_confirm", "line_move"]));
+
+    const r = await regrade.applyRegrade(regrade.planRegrade(), { pauseMs: 0 });
+
+    expect(r.accuracy).not.toBeNull();
+    expect(r.accuracy!.stale_after).toBe(false);
+    expect(r.accuracy!.rows_deleted).toBeGreaterThan(r.accuracy!.rows_written);
+    const left = typeRows();
+    for (const t of ["injury_update", "lineup_confirm", "line_move"]) expect(left).not.toContain(t);
+    // No row from the pre-regrade recompute survives.
+    expect((store.getPipelineDb().prepare("SELECT COUNT(DISTINCT computed_at) c FROM pipeline_source_accuracy").get() as any).c).toBe(1);
   });
 });
 

@@ -176,6 +176,15 @@ async function main(): Promise<void> {
     console.log(`\nRUN ID: ${r.run_id}`);
     console.log(`changed: ${r.changed}   conflicts: ${r.conflicts}   mirror_updated: ${r.mirror_updated}   mirror_missing: ${r.mirror_missing}   mirror_repaired: ${r.mirror_repaired}`);
     console.log(`worst chunk lock-hold: ${r.worst_chunk_ms}ms${r.worst_chunk_ms > BUSY_TIMEOUT_MS / 2 ? "   (over half of busy_timeout: lower --chunk, raise --pause-ms)" : ""}`);
+    if (r.accuracy) {
+      const a = r.accuracy;
+      console.log(
+        `accuracy ledger: deleted ${a.rows_deleted} row(s), wrote ${a.rows_written}   ` +
+        `source_scores withdrawn: ${a.source_scores_cleared ?? 0}   stale after recompute: ${a.stale_after}`,
+      );
+    } else {
+      console.log("accuracy ledger: not recomputed (nothing changed)");
+    }
   };
 
   if (args.reverse) {
