@@ -214,7 +214,6 @@ describe("homepage public story render", () => {
     }
 
     expect(screen.getByText("What happened:")).toBeInTheDocument();
-    expect(screen.getAllByText("Why it matters:").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Watch next:").length).toBeGreaterThan(0);
     expect(screen.getByTestId("homepage-lead-support-stack")).toBeInTheDocument();
     expect(screen.getByText("Game Windows")).toBeInTheDocument();
@@ -222,21 +221,32 @@ describe("homepage public story render", () => {
     expect(screen.getByText("Source Trail")).toBeInTheDocument();
     expect(screen.getByText("Quiet Board Context")).toBeInTheDocument();
     expect(screen.getByText("Latest Verified Notes")).toBeInTheDocument();
-    console.log(domText);
     expect(domText).toContain("Brandon Aiyuk won't play. 49ers has to account for the absence and the plan adjusts from here.");
     expect(domText).toContain("Watch for confirmed beat reports, practice participation, and any official roster adjustments before game time.");
-    expect(domText).toContain("ES Agents monitoring — developing.");
 
-    const watchNextIndex = domText.indexOf("Watch next:");
-    const supportIndex = domText.indexOf("ES Agents monitoring — developing.");
-    const moreContextIndex = domText.indexOf("More impact context");
-    const fantasyIndex = domText.indexOf("Fantasy impact");
-    const bettingIndex = domText.indexOf("Betting/market impact");
-    expect(watchNextIndex).toBeGreaterThanOrEqual(0);
-    expect(supportIndex).toBeGreaterThan(watchNextIndex);
-    expect(moreContextIndex).toBeGreaterThan(supportIndex);
-    expect(fantasyIndex).toBeGreaterThan(moreContextIndex);
-    expect(bettingIndex).toBeGreaterThan(fantasyIndex);
+    // The lead card was stripped to status, line and report count before #117
+    // merged. None of these may come back on it: an agent "count" that is a
+    // confidence threshold, templated "Why it matters", fixed overlay strings,
+    // a "historical pattern match" with no matching behind it, fixed impact
+    // fallbacks, and a timing claim measured off our own row's updated_at.
+    const lead = screen.getByRole("heading", { name: "Brandon Aiyuk — OUT" }).closest("article")!;
+    const leadText = lead.textContent ?? "";
+    expect(leadText).toContain("2 sources tracked");
+    for (const gone of [
+      "ES Agent",
+      "Why it matters",
+      "ES Agents monitoring",
+      "Historical pattern match",
+      "Similar situations have moved markets",
+      "More impact context",
+      "Fantasy impact",
+      "Betting/market impact",
+      "before public confirmation",
+      "⚡",
+    ]) {
+      expect(leadText).not.toContain(gone);
+    }
+    expect(screen.getByTestId("homepage-lead-interim-note").textContent).toBe("Interim display: status, line and report count only.");
 
     expect(screen.queryByRole("heading", { name: "SF availability status is moving" })).not.toBeInTheDocument();
     expect(domText).not.toMatch(/\b[A-Z]{2,4} availability status is moving\b/);
