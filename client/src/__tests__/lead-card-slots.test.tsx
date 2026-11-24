@@ -75,7 +75,7 @@ describe("Matchup", () => {
   });
 });
 
-describe("Headline rule 1 (no official-source flag stored yet, #114)", () => {
+describe("Headline rule 1, unofficial stories (no official source on the row)", () => {
   it("bans certainty words and prefixes 'Report:' on every report headline", () => {
     const s = slots(signal({ headline: "Colton McKivitz — OUT" }));
     expect(s.headline).toBe("Report: Colton McKivitz's availability is in question");
@@ -156,4 +156,38 @@ describe("rail cards", () => {
       expect(text).not.toContain(gone);
     }
   });
+});
+
+describe("Headline rule 1, official-source flag from injury_designation_source", () => {
+  const ESPN_NFL = "api:espn:NFL:payload.designation";
+
+  it("an ESPN-sourced story drops the 'Report:' prefix and prints its headline as stored", () => {
+    const s = slots(signal({ headline: "Colton McKivitz (Lower Leg) — OUT", injury_designation_source: ESPN_NFL } as any));
+    expect(s.headline).toBe("Colton McKivitz (Lower Leg) — OUT");
+    expect(s.headline).not.toMatch(/^Report:/);
+  });
+
+  it("an official story shows its Status fact", () => {
+    const s = slots(signal({ injury_designation_source: ESPN_NFL } as any));
+    expect(s.facts.find((f) => f.label === "Status")).toMatchObject({ value: "OUT" });
+  });
+
+  it("the same story with no source keeps 'Report:' and no Status", () => {
+    const s = slots(signal({ headline: "Colton McKivitz (Lower Leg) — OUT", injury_designation_source: null } as any));
+    expect(s.headline).toBe("Report: Colton McKivitz's availability is in question");
+    expect(s.facts.map((f) => f.label)).not.toContain("Status");
+  });
+
+  for (const source of [
+    "api:espn:CFB:payload.designation",      // ESPN CFB is not on the allowlist
+    "rss:espn:NFL:payload.designation",      // not source_type api
+    "api:rotowire:NFL:payload.designation",  // not an official feed
+    "manual:espn:NFL:payload.designation",   // a manual /ingest naming espn
+  ]) {
+    it(`a non-official source (${source}) keeps 'Report:'`, () => {
+      const s = slots(signal({ headline: "Colton McKivitz — OUT", injury_designation_source: source } as any));
+      expect(s.headline).toMatch(/^Report:/);
+      expect(s.headline).not.toMatch(/out/i);
+    });
+  }
 });
