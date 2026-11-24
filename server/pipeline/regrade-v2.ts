@@ -41,7 +41,7 @@ import { randomUUID } from "crypto";
 import type { League, LiveSignal } from "./types";
 import { getGame, getLiveSignal, getPipelineDb } from "./store";
 import { gradeSignalV2, GRADING_VERSION } from "./grading-v2";
-import { forceAccuracyRecompute, loadGradingInputs } from "./settlement";
+import { accuracyLedgerIsStale, forceAccuracyRecompute, loadGradingInputs, type AccuracyComputeResult } from "./settlement";
 import { getSettledOutcomeGrade, updateSettledOutcomeGrade, type SettledOutcomeGrade } from "../storage";
 
 export const MAX_CHUNK = 500;
@@ -221,6 +221,16 @@ export interface RunResult {
   mirror_repaired: number;
   /** Longest single-chunk transaction on pipeline.db, ms. */
   worst_chunk_ms: number;
+  /**
+   * The accuracy recompute this run triggered, or null when nothing changed (or
+   * recompute: false). stale_after is accuracyLedgerIsStale() read back AFTER
+   * the recompute: false means no leftover accuracy row survived.
+   */
+  accuracy: (AccuracyComputeResult & { stale_after: boolean }) | null;
+}
+
+function recomputeAccuracy(): AccuracyComputeResult & { stale_after: boolean } {
+  return { ...forceAccuracyRecompute(), stale_after: accuracyLedgerIsStale() };
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -271,7 +281,7 @@ function startRun(mode: "write" | "reverse", o: { league?: string | null; note?:
   return runId;
 }
 
-function finishRun(runId: string, r: Omit<RunResult, "run_id" | "worst_chunk_ms">, summary: unknown): void {
+function finishRun(runId: string, r: Omit<RunResult, "run_id" | "worst_chunk_ms" | "accuracy">, summary: unknown): void {
   getPipelineDb().prepare(`
     UPDATE regrade_runs
     SET finished_at = ?, changed = ?, conflicts = ?, mirror_updated = ?, mirror_missing = ?, mirror_repaired = ?, summary_json = ?
@@ -343,8 +353,8 @@ export async function applyRegrade(plan: RegradePlan, opts: ApplyOptions = {}): 
 
   res.mirror_repaired = reconcileMirror();
   finishRun(runId, res, { transitions: plan.transitions, skipped: plan.skipped, accuracy: plan.accuracy, deferred: plan.deferred });
-  if ((res.changed > 0 || res.mirror_repaired > 0) && opts.recompute !== false) forceAccuracyRecompute();
-  return { run_id: runId, ...res, worst_chunk_ms: worst };
+  const accuracy = (res.changed > 0 || res.mirror_repaired > 0) && opts.recompute !== false ? recomputeAccuracy() : null;
+  return { run_id: runId, ...res, worst_chunk_ms: worst, accuracy };
 }
 
 interface AuditRow {
@@ -432,8 +442,8 @@ export async function reverseRun(runId: string, opts: ApplyOptions = {}): Promis
   }
   res.mirror_repaired = reconcileMirror();
   finishRun(reverseId, res, { reverses: runId });
-  if ((res.changed > 0 || res.mirror_repaired > 0) && opts.recompute !== false) forceAccuracyRecompute();
-  return { run_id: reverseId, ...res, worst_chunk_ms: worst };
+  const accuracy = (res.changed > 0 || res.mirror_repaired > 0) && opts.recompute !== false ? recomputeAccuracy() : null;
+  return { run_id: reverseId, ...res, worst_chunk_ms: worst, accuracy };
 }
 
 export function listRuns(limit = 20): Array<Record<string, unknown>> {

@@ -134,7 +134,7 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "accuracy",  label: "Tracked Accuracy" },
   { value: "weight",    label: "Source Agreement" },
   { value: "lead_time", label: "Timing Advantage" },
-  { value: "verified",  label: "Settled Outcomes" },
+  { value: "verified",  label: "Graded Results" },
 ];
 
 const COL = "44px 1fr 150px 130px 95px 75px 82px 72px";
@@ -315,7 +315,11 @@ export function AccuracyPageInner() {
     { label: "Elite Sources",         value: isLoading ? "—" : String(eliteCount),         gold: true },
     // Only show a measured accuracy aggregate once settled outcomes exist.
     { label: "Tracked Accuracy",      value: isLoading ? "—" : (hasSettledData ? `${avgAcc.toFixed(1)}%` : "Pending") },
-    { label: "Settled Outcomes",      value: isLoading ? "—" : String(totalVerified) },
+    // Sum of each source's verified_count: graded rows only (no_grade settlements
+    // are not in it), and a story carrying N sources counts N times. So it is
+    // not a count of settled outcomes, and must not be labelled as one.
+    { label: "Graded Results by Source", value: isLoading ? "—" : String(totalVerified),
+      title: "Graded outcomes credited to each source, added up. A story with several sources counts once per source. Outcomes settled without a grade are not included." },
   ];
 
   return (
@@ -347,7 +351,7 @@ export function AccuracyPageInner() {
           {/* Stats bar */}
           <div className="source-stats-bar" style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
             {stats.map(s => (
-              <div key={s.label} style={{
+              <div key={s.label} title={(s as { title?: string }).title} style={{
                 textAlign: "center", padding: "8px 16px",
                 background: T.surface1,
                 border: `1px solid ${s.gold ? T.goldDim : T.border}`,

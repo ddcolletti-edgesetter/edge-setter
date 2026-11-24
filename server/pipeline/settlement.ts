@@ -38,7 +38,7 @@ import { fetchMLBFinalScores } from "./adapters/mlb-statsapi";
 import { fetchNBAFinalScores } from "./adapters/espn-nba";
 import { fetchNFLFinalScores } from "./adapters/espn-nfl";
 import { fetchCFBFinalScores } from "./adapters/espn-cfb";
-import { storage, insertSettledOutcome, getSettledOutcomesForAccuracy, markSettledOutcomesStale, countStaleSettledOutcomes } from "../storage";
+import { storage, insertSettledOutcome, getSettledOutcomesForAccuracy, markSettledOutcomesStale, countStaleSettledOutcomes, clearWithdrawnSettlementAccuracy } from "../storage";
 import type { LiveSignal, Game, League } from "./types";
 import { computeSpreadOrTotalClv } from "./clv";
 import { gradeSignalV2, GRADING_VERSION, type GradingResult } from "./grading-v2";
@@ -440,10 +440,53 @@ export const maxNewFinalsPerCycle = () =>
 const ACCURACY_DEBOUNCE_MS = 60 * 60 * 1000;
 let lastAccuracyComputeAt = 0;
 
-export function forceAccuracyRecompute(): void {
-  computeSourceAccuracy();
-  syncAccuracyToStorageDb();
+export function forceAccuracyRecompute(): AccuracyComputeResult {
+  const res = computeSourceAccuracy();
+  const { cleared } = syncAccuracyToStorageDb();
   lastAccuracyComputeAt = Date.now();
+  return { ...res, source_scores_cleared: cleared.length };
+}
+
+/**
+ * True when pipeline_source_accuracy no longer describes the current graded
+ * population, by any path: a new graded outcome, a regrade turning grades into
+ * no_grade, a stale flag, or leftover rows from an older recompute.
+ *
+ * WHY THIS EXISTS: the cycle used to recompute only when `signalsSettled > 0`,
+ * and signalsSettled counts graded settlements only (hit !== null). Under v2
+ * nearly everything settles no_grade, so that trigger stops firing and the
+ * stored rows (and source_scores, which agents.ts cites) keep withdrawn
+ * accuracy forever.
+ *
+ * Checks, cheapest first:
+ *   1. Any row whose computed_at differs from the newest one: a leftover.
+ *   2. Per league, the stored overall row's total/wins against
+ *      ACCURACY_OVERALL_SQL, the exact statement computeSourceAccuracy() uses,
+ *      so a fresh recompute always makes this false (no perpetual recompute).
+ * Because a recompute rewrites every row in one transaction, an overall row
+ * that matches implies the per-type and per-source rows match too.
+ */
+export function accuracyLedgerIsStale(): boolean {
+  const db = getPipelineDb();
+  ensureAccuracyTable(db);
+  const leftover = db.prepare(`
+    SELECT 1 FROM pipeline_source_accuracy
+    WHERE computed_at <> (SELECT MAX(computed_at) FROM pipeline_source_accuracy)
+    LIMIT 1
+  `).get();
+  if (leftover) return true;
+
+  const storedOverall = db.prepare(
+    "SELECT total_signals, wins FROM pipeline_source_accuracy WHERE id = ?",
+  );
+  const live = db.prepare(ACCURACY_OVERALL_SQL);
+  for (const league of ["NBA", "MLB", "NFL", "CFB"]) {
+    const cur = live.get(league) as { total: number | null; wins: number | null };
+    const stored = storedOverall.get(`${league}|ALL|ALL`) as { total_signals: number; wins: number } | undefined;
+    if (!stored) return true;
+    if ((cur.total ?? 0) !== stored.total_signals || (cur.wins ?? 0) !== stored.wins) return true;
+  }
+  return false;
 }
 
 export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
@@ -562,11 +605,20 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
     });
   });
 
-  if (signalsSettled > 0 && Date.now() - lastAccuracyComputeAt >= ACCURACY_DEBOUNCE_MS) {
-    await trackJob("settlement:compute-accuracy", async () => {
-      await trackJob("settlement:accuracy-compute", () => computeSourceAccuracy());
-      await trackJob("settlement:accuracy-sync", () => syncAccuracyToStorageDb());
-    });
+  // Recompute when the graded population changed by ANY path, not only when
+  // this cycle graded something: no_grade settlements never bump
+  // signalsSettled, so a regrade or stale flag would otherwise leave withdrawn
+  // accuracy in storage for good. See accuracyLedgerIsStale().
+  if (Date.now() - lastAccuracyComputeAt >= ACCURACY_DEBOUNCE_MS) {
+    const stale = signalsSettled > 0
+      || await trackJob("settlement:accuracy-stale-check", () => accuracyLedgerIsStale());
+    if (stale) {
+      await trackJob("settlement:compute-accuracy", async () => {
+        await trackJob("settlement:accuracy-compute", () => computeSourceAccuracy());
+        await trackJob("settlement:accuracy-sync", () => syncAccuracyToStorageDb());
+      });
+    }
+    // Stamped either way: the check itself runs at most once per debounce window.
     lastAccuracyComputeAt = Date.now();
   }
 
@@ -675,23 +727,54 @@ export const ACCURACY_PER_SOURCE_SQL = `
       WHERE s.league = ? AND o.hit IS NOT NULL AND o.excluded_stale = 0
     `;
 
-export function computeSourceAccuracy(): void {
+export interface AccuracyComputeResult {
+  /** Rows in pipeline_source_accuracy before the recompute, all deleted. */
+  rows_deleted: number;
+  /** Rows written by this recompute. */
+  rows_written: number;
+  /** source_scores rows whose settlement-derived accuracy was withdrawn (set NULL). */
+  source_scores_cleared?: number;
+}
+
+/**
+ * Rebuilds pipeline_source_accuracy from scratch: DELETE every row, then write
+ * the rows the current population supports, in ONE transaction, all stamped
+ * with the same computed_at.
+ *
+ * WHY DELETE, not upsert only: the upsert below only touches keys the current
+ * population produces. A signal_type or source whose graded outcomes have all
+ * gone (the v2 regrade turns injury/lineup/line-move grades into no_grade) used
+ * to keep its old wins/losses/hit_rate forever, with nothing to overwrite it.
+ * Withdrawn accuracy must not sit in storage waiting for a recompute that never
+ * produces its key.
+ *
+ * The shared computed_at is what accuracyLedgerIsStale() checks: any row with a
+ * different stamp is a leftover from an older recompute.
+ */
+export function computeSourceAccuracy(): AccuracyComputeResult {
   const db = getPipelineDb();
   ensureAccuracyTable(db);
+  return db.transaction(() => computeSourceAccuracyInTx(db))();
+}
 
+function computeSourceAccuracyInTx(db: ReturnType<typeof getPipelineDb>): AccuracyComputeResult {
   const leagues = ["NBA", "MLB", "NFL", "CFB"];
+  const computedAt = new Date().toISOString();
+  const rowsDeleted = db.prepare("DELETE FROM pipeline_source_accuracy").run().changes;
+  let rowsWritten = 0;
+  const upsertAccuracy = (...args: UpsertArgs) => { writeAccuracyRow(db, computedAt, ...args); rowsWritten++; };
 
   for (const league of leagues) {
     // ── Pass 1: Overall per league ──────────────────────────
     const overall = db.prepare(ACCURACY_OVERALL_SQL).get(league) as any;
 
-    upsertAccuracy(db, league, null, null, null, null, overall);
+    upsertAccuracy(league, null, null, null, null, overall);
 
     // ── Pass 2: Per signal_type ──────────────────────────────
     const byType = db.prepare(ACCURACY_BY_TYPE_SQL).all(league) as any[];
 
     for (const row of byType) {
-      upsertAccuracy(db, league, row.signal_type, null, null, null, row);
+      upsertAccuracy(league, row.signal_type, null, null, null, row);
     }
 
     // ── Pass 3: Per individual source (beat writer) ──────────
@@ -733,7 +816,7 @@ export function computeSourceAccuracy(): void {
 
     for (const t of Array.from(sourceTally.values())) {
       const total = t.wins + t.losses;
-      upsertAccuracy(db, league, null, t.source_type, t.source_id, t.source_name, {
+      upsertAccuracy(league, null, t.source_type, t.source_id, t.source_name, {
         total,
         wins: t.wins,
         losses: t.losses,
@@ -742,17 +825,26 @@ export function computeSourceAccuracy(): void {
     }
   }
 
-  console.log("[settlement] Source accuracy recomputed (league + signal_type + per-source)");
+  console.log(
+    `[settlement] Source accuracy recomputed (league + signal_type + per-source): ` +
+    `deleted=${rowsDeleted} written=${rowsWritten}`,
+  );
+  return { rows_deleted: rowsDeleted, rows_written: rowsWritten };
 }
 
-function upsertAccuracy(
-  db: ReturnType<typeof getPipelineDb>,
+type UpsertArgs = [
   league: string,
   signalType: string | null,
   sourceType: string | null,
   sourceId: string | null,
   sourceName: string | null,
   row: { total: number; wins: number; losses: number; avg_clv: number | null },
+];
+
+function writeAccuracyRow(
+  db: ReturnType<typeof getPipelineDb>,
+  computedAt: string,
+  ...[league, signalType, sourceType, sourceId, sourceName, row]: UpsertArgs
 ) {
   // Deterministic PK: league | signal_type | source_id (all nullable → "ALL")
   const id = `${league}|${signalType ?? "ALL"}|${sourceId ?? sourceType ?? "ALL"}`;
@@ -778,7 +870,7 @@ function upsertAccuracy(
   `).run(
     id, league, signalType, sourceType, sourceId, sourceName,
     total, wins, losses, hitRate, avgClv,
-    new Date().toISOString(),
+    computedAt,
   );
 }
 
@@ -792,7 +884,9 @@ function upsertAccuracy(
  * Only syncs rows where source_id IS NOT NULL (per-writer rows),
  * since the leaderboard is keyed on source records in storage.db.
  */
-export function syncAccuracyToStorageDb(): void {
+export function syncAccuracyToStorageDb(): { synced: number; cleared: string[] } {
+  let synced = 0;
+  let cleared: string[] = [];
   try {
     // Read from persistent settled_outcomes (not ephemeral pipeline.db)
     const rows = getSettledOutcomesForAccuracy();
@@ -826,7 +920,6 @@ export function syncAccuracyToStorageDb(): void {
       }
     }
 
-    let synced = 0;
     for (const t of Array.from(sourceTally.values())) {
       try {
         const total   = t.wins + t.losses;
@@ -851,9 +944,16 @@ export function syncAccuracyToStorageDb(): void {
     if (synced > 0) {
       console.log(`[settlement] Synced ${synced} source accuracy scores → storage.db (from settled_outcomes)`);
     }
+
+    // Sources that had settlement accuracy and no longer have a graded row.
+    cleared = clearWithdrawnSettlementAccuracy(new Set(sourceTally.keys()));
+    if (cleared.length > 0) {
+      console.log(`[settlement] Withdrew settlement accuracy for ${cleared.length} source(s) with no graded outcome left`);
+    }
   } catch (err: any) {
     console.error("[settlement] syncAccuracyToStorageDb failed:", err.message);
   }
+  return { synced, cleared };
 }
 
 /* ─── One-time backlog migration ──────────────────────────────

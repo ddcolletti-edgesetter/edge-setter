@@ -1512,6 +1512,63 @@ export function getSettledOutcomesForAccuracy(): Array<{
   `).all() as any[];
 }
 
+/**
+ * Withdraws settlement-derived accuracy from source_scores for every source
+ * that appears in settled_outcomes but is NOT in `gradedSourceIds` (the sources
+ * that still have at least one graded, non-stale row). Sets overall_accuracy
+ * and draft_accuracy to NULL; returns the source_ids it cleared.
+ *
+ * WHY: syncAccuracyToStorageDb() only upserts sources present in the graded
+ * tally. Once a source's grades are withdrawn (v2 regrade -> no_grade, or a
+ * stale flag), nothing ever overwrote its old number, and agents.ts kept
+ * reading it as globalAccuracyScore / sourceAccuracyOverride. NULL, not "0":
+ * agents.ts treats a falsy value as "no record" and a "0" string as a measured
+ * 0% (the string is truthy).
+ *
+ * WHICH ROWS: only rows whose LAST writer was syncAccuracyToStorageDb(). That
+ * write always sets draft_accuracy = overall_accuracy and injury/portal/
+ * false-positive/lead-time to 0, so the row has exactly that shape. The seeds
+ * (random per-topic values), seed-cfb-sources (resets overall to a prior on
+ * every boot, leaving draft different) and the claims-based sourceScorerAgent
+ * (false_positive_rate, per-topic accuracies) leave a different shape, and
+ * their numbers are not settlement numbers, so they are left alone. The row is
+ * kept (team_accuracies, insider_score and the name live on it); only the two
+ * accuracy columns are cleared.
+ */
+export function clearWithdrawnSettlementAccuracy(gradedSourceIds: ReadonlySet<string>): string[] {
+  const candidates = sqlite.prepare(`
+    WITH settled_sources AS (
+      SELECT DISTINCT
+        CASE WHEN src.type = 'text' THEN src.value
+             ELSE COALESCE(json_extract(src.value, '$.id'),
+                           json_extract(src.value, '$.source_id'),
+                           json_extract(src.value, '$.name'))
+        END AS sid
+      FROM settled_outcomes so, json_each(so.sources) src
+      WHERE json_valid(so.sources)
+    )
+    SELECT ss.source_id AS source_id
+    FROM source_scores ss
+    JOIN settled_sources x ON x.sid = ss.source_id
+    WHERE ss.overall_accuracy IS NOT NULL
+      AND ss.draft_accuracy = ss.overall_accuracy
+      AND COALESCE(ss.injury_accuracy, 0)           = 0
+      AND COALESCE(ss.portal_accuracy, 0)           = 0
+      AND COALESCE(ss.false_positive_rate, 0)       = 0
+      AND COALESCE(ss.average_lead_time_minutes, 0) = 0
+  `).all() as { source_id: string }[];
+
+  const withdrawn = candidates.map(r => r.source_id).filter(id => !gradedSourceIds.has(id));
+  if (withdrawn.length === 0) return [];
+
+  const clear = sqlite.prepare(
+    `UPDATE source_scores SET overall_accuracy = NULL, draft_accuracy = NULL, updated_at = ? WHERE source_id = ?`,
+  );
+  const stamp = now();
+  sqlite.transaction(() => { for (const id of withdrawn) clear.run(stamp, id); })();
+  return withdrawn;
+}
+
 export function getVerifiedCountBySource(): Map<string, number> {
   const rows = sqlite.prepare(`
     SELECT json_extract(src.value, '$.name') AS src_name, COUNT(*) AS cnt
