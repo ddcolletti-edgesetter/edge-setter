@@ -29,7 +29,7 @@ import { matchConfirmationSource, maybeRecordPublicConfirmation } from "./public
 import { sourceScorerOnOutcome } from "../agents";
 import { storage } from "../storage";
 import { trackJob, yieldToLoop } from "../event-loop-monitor";
-import type { RawEvent, LiveSignal, League, SignalType, LineMovement } from "./types";
+import type { RawEvent, LiveSignal, League, SignalType, LineMovement, LineMoveMarket } from "./types";
 
 /* ─── Helper ────────────────────────────────────────────── */
 
@@ -147,6 +147,23 @@ function handleLineup(raw: RawEvent, isChange: boolean): Partial<LiveSignal> {
   };
 }
 
+/* ─── line_move market ──────────────────────────────────── */
+
+/** payload.market as the odds adapter writes it; anything else is unknown. */
+export function lineMoveMarketOf(value: unknown): LineMoveMarket | null {
+  return value === "spread" || value === "total" ? value : null;
+}
+
+/**
+ * The extra dedup term for a line_move: its market, so a spread move and a
+ * total move for the same home team are separate signals (previously they
+ * folded into one row and the later move overwrote line_movement). Every other
+ * signal type keeps its existing fingerprint.
+ */
+function lineMoveMarketKey(signalType: SignalType, fields: Partial<LiveSignal>): { market?: LineMoveMarket | null } {
+  return signalType === "line_move" ? { market: fields.market ?? null } : {};
+}
+
 /* ─── Handler: line_move ────────────────────────────────── */
 
 function handleLineMove(raw: RawEvent): Partial<LiveSignal> {
@@ -156,6 +173,7 @@ function handleLineMove(raw: RawEvent): Partial<LiveSignal> {
   const delta = Math.abs(currentLine - openLine);
   const direction: LineMovement["direction"] = currentLine > openLine ? "up" : currentLine < openLine ? "down" : "flat";
   const lm: LineMovement = { open: openLine, current: currentLine, delta, direction };
+  const market = lineMoveMarketOf(p.market);
   const isSharp: boolean = p.sharp_money === true || p.sharp_percentage > 60;
   const sharpPct: number | undefined = p.sharp_percentage;
 
@@ -170,6 +188,7 @@ function handleLineMove(raw: RawEvent): Partial<LiveSignal> {
       ? `Professional market activity diverges from public consensus and may confirm a team or game-context change.`
       : `Market movement may be reacting to new sports context before full public confirmation.`,
     line_movement: lm,
+    market,
     betting_relevance: true,
     fantasy_relevance: false,
     confidence: Math.min(90, 60 + delta * 8 + (isSharp ? 10 : 0)),
@@ -306,6 +325,9 @@ function handleOddsOpen(raw: RawEvent): Partial<LiveSignal> {
     action_note: "Opening line only. No confirmed timing advantage yet — watch for source-backed movement from this number.",
     why_it_matters: "Opening lines set the market baseline. Movement away from open is supporting context until tied to team or game news.",
     line_movement: spread !== null ? { open: spread, current: spread, delta: 0, direction: "flat" } : null,
+    // The opener's line_movement is the spread, so that is its market. With no
+    // spread there is no line_movement and no market.
+    market: spread !== null ? "spread" : null,
     betting_relevance: true,
     fantasy_relevance: false,
     confidence: 52,
@@ -506,7 +528,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
       const dedupSince = new Date(Date.now() - dedupLookbackMs(signalType)).toISOString();
       const existingByFingerprint = await trackJob("processor:dedup-lookup", () => (p.signal_id
         ? null
-        : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: dedupSince })));
+        : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: dedupSince, ...lineMoveMarketKey(signalType, fields) })));
       const existingSignal = p.signal_id
         ? await trackJob("processor:dedup-lookup", () => getLiveSignal(p.signal_id))
         : existingByFingerprint;
@@ -533,6 +555,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         confidence: evidence.confidence,
         confirmation_strength: fields.confirmation_strength ?? "Developing",
         line_movement: fields.line_movement ?? null,
+        market: fields.market ?? null,
         injury_designation: fields.injury_designation ?? null,
         lineup_status: fields.lineup_status ?? null,
         weather_note: fields.weather_note ?? null,
@@ -615,7 +638,7 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
     const dedupSince = new Date(Date.now() - dedupLookbackMs(signalType)).toISOString();
     const existingByFingerprint = p.signal_id
       ? null
-      : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: dedupSince });
+      : findExistingSignal({ league, team: raw.team ?? null, player: raw.player ?? null, signal_type: signalType, since: dedupSince, ...lineMoveMarketKey(signalType, fields) });
     const existingSignal = p.signal_id ? getLiveSignal(p.signal_id) : existingByFingerprint;
     const signalId = p.signal_id ?? existingByFingerprint?.id ?? randomUUID();
     const signalFirstSeenAt = existingSignal?.first_seen_at ?? now();
@@ -639,6 +662,7 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
       confidence: evidence.confidence,
       confirmation_strength: fields.confirmation_strength ?? "Developing",
       line_movement: fields.line_movement ?? null,
+      market: fields.market ?? null,
       injury_designation: fields.injury_designation ?? null,
       lineup_status: fields.lineup_status ?? null,
       weather_note: fields.weather_note ?? null,
