@@ -15,8 +15,9 @@ import { badgeableInjuryDesignation as fromBoard } from "@/components/board/boar
  *   - the homepage (headline, change label, tags, implications),
  *   - signalImpact (no "Q" for a missing designation),
  *   - intelligenceSituationsApi buildImplications.
- * QUESTIONABLE stays withheld: rows written before the processor fix still
- * hold the invented default, byte-identical to a real one.
+ * QUESTIONABLE is withheld unless live_signals.injury_designation_source names
+ * an official league feed's structured field (ESPN NFL, ESPN NBA, balldontlie,
+ * MLB StatsAPI). Rows older than the column read NULL and stay withheld.
  */
 
 vi.mock("@/context/AuthContext", () => ({ useAuth: vi.fn() }));
@@ -82,6 +83,29 @@ describe("one gate", () => {
   });
 });
 
+const ESPN_NFL = "api:espn:NFL:payload.designation";
+
+describe("badgeableInjuryDesignation and the source column", () => {
+  it("shows QUESTIONABLE only from an official feed's structured field", () => {
+    expect(fromLib("Questionable", "", ESPN_NFL)).toBe("QUESTIONABLE");
+    expect(fromLib("Questionable", "", "api:balldontlie:NBA:payload.status")).toBe("QUESTIONABLE");
+    expect(fromLib("Questionable", "", null)).toBeUndefined();
+    expect(fromLib("Questionable")).toBeUndefined();
+    expect(fromLib("Questionable", "", "api:espn:CFB:payload.designation")).toBeUndefined();
+    expect(fromLib("Questionable", "", "manual:espn:NFL:payload.designation")).toBeUndefined();
+    expect(fromLib("Questionable", "", "rss:rss_x:NFL:payload.status")).toBeUndefined();
+  });
+
+  it("the prose contradiction check still applies to an official QUESTIONABLE", () => {
+    expect(fromLib("Questionable", "He was removed from the injury report.", ESPN_NFL)).toBeUndefined();
+  });
+
+  it("shows Day-to-day as the feed's words", () => {
+    expect(fromLib("Day-to-day")).toBe("Day-to-day");
+    expect(fromLib("Day-To-Day", "", null)).toBe("Day-to-day");
+  });
+});
+
 describe("homepage", () => {
   const render_ = async (signal: LiveSignal) => {
     vi.mocked(useAuth).mockReturnValue({ email: null, user: null, isPro: false, authLoading: false, login: vi.fn(), logout: vi.fn() } as never);
@@ -125,6 +149,12 @@ describe("signalImpact", () => {
     expect(metric(undefined)).not.toMatch(/^Q/);
   });
 
+  it("keeps an official Questionable", () => {
+    const value = computeImpact({ type: "injury", injuryDesignation: "Questionable", injuryDesignationSource: ESPN_NFL })
+      .dfs?.metrics.find((m) => m.label === "Designation")?.value;
+    expect(value).toBe("QUESTIONABLE");
+  });
+
   it("withholds Questionable and keeps OUT / Doubtful", () => {
     expect(metric("Questionable")).toBe("Not confirmed");
     expect(metric("Q")).toBe("Not confirmed");
@@ -144,5 +174,6 @@ describe("buildImplications", () => {
   });
   it("keeps one the gate passes", () => {
     expect(implications(injury({ injury_designation: "OUT" }))).toContain("Injury designation: OUT.");
+    expect(implications(injury({ injury_designation_source: ESPN_NFL }))).toContain("Injury designation: QUESTIONABLE.");
   });
 });

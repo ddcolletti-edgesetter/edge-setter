@@ -232,7 +232,14 @@ export interface LiveSignal {
    * See shared/settlement-grading.ts.
    */
   graded_side?: GradedSide | null;
-  injury_designation: string | null; // "OUT" | "Doubtful" | "Questionable" | "IL-60"
+  injury_designation: string | null; // "OUT" | "Doubtful" | "Questionable" | "Day-to-day" | "IL-60"
+  /**
+   * Where injury_designation came from: "<source_type>:<source_id>:<league>:payload.<field>"
+   * (shared/injury-designation-source.ts). NULL when there is no designation,
+   * and on every row written before the column existed. Optional so callers
+   * that build a LiveSignal without one (alerts, fixtures) store NULL.
+   */
+  injury_designation_source?: string | null;
   lineup_status: string | null;
   weather_note: string | null;
   betting_relevance: boolean;

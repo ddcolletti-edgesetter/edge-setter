@@ -66,6 +66,8 @@ export interface NFLSignal {
   bettingRelevance?: boolean;
   fantasyRelevance?: boolean;
   injuryDesignation?: "DNP" | "LP" | "FP" | "Q" | "D" | "OUT";
+  /** Provenance of injuryDesignation — live_signals.injury_designation_source. */
+  injuryDesignationSource?: string;
   schemeNote?: string;
   matchupEdge?: string;
   hitRateStub?: null;

@@ -124,6 +124,8 @@ export interface SituationRowData {
    * depending on the tag array's length or order.
    */
   injuryDesignation?: string;
+  /** live_signals.injury_designation_source, carried so the story-card gate can read it. */
+  injuryDesignationSource?: string;
   actionLabel?: string;
   lifecycleLabel?: string;
   lifecycleState?: SituationLifecycleState;

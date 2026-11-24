@@ -52,6 +52,8 @@ export interface LiveSignal {
     direction: string;
   } | null;
   injury_designation: string | null;
+  /** "<source_type>:<source_id>:<league>:payload.<field>"; null on rows older than the column. */
+  injury_designation_source?: string | null;
   lineup_status: string | null;
   weather_note: string | null;
   betting_relevance: boolean;
@@ -382,6 +384,7 @@ export function adaptToNFLSignal(ls: LiveSignal): NFLSignal & { _score: SignalSc
     hitRateStub:          null,
     closingLineValueStub: null,
     injuryDesignation: ls.injury_designation ?? undefined,
+    injuryDesignationSource: ls.injury_designation_source ?? undefined,
     _stub: true as const,
     _score: preScore,
     _live:  true as const,
@@ -430,6 +433,7 @@ export function adaptToCFBSignal(ls: LiveSignal): CFBSignal & { _score: SignalSc
     hitRateStub:          null,
     closingLineValueStub: null,
     injuryDesignation: ls.injury_designation ?? undefined,
+    injuryDesignationSource: ls.injury_designation_source ?? undefined,
     _stub: true as const,
     _score: preScore,
     _live:  true as const,

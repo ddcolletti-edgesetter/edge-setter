@@ -30,6 +30,10 @@ import { sourceScorerOnOutcome } from "../agents";
 import { storage } from "../storage";
 import { trackJob, yieldToLoop } from "../event-loop-monitor";
 import type { RawEvent, LiveSignal, League, SignalType, LineMovement, LineMoveMarket } from "./types";
+import {
+  formatInjuryDesignationSource,
+  isOfficialInjuryDesignationSource,
+} from "../../shared/injury-designation-source";
 
 /* ─── Helper ────────────────────────────────────────────── */
 
@@ -62,36 +66,59 @@ function buildMatchup(team: string | null, game?: { home_team: string; away_team
 /**
  * The designation a payload actually carries, or null. Text-classified
  * producers (sports-rss, x-twitter, 247sports, on3, cfb-school-sid) and the
- * vision agent send neither key; until this change they were stored as
+ * vision agent send neither key; until #113 they were stored as
  * "Questionable", byte-identical to a real one. A blank string is not a status.
  */
 export function payloadInjuryDesignation(payload: unknown): string | null {
+  return payloadInjuryDesignationWithField(payload)?.value ?? null;
+}
+
+/** Same as {@link payloadInjuryDesignation}, plus which payload key supplied it. */
+function payloadInjuryDesignationWithField(
+  payload: unknown,
+): { value: string; field: "designation" | "status" } | null {
   const p = (payload ?? {}) as { designation?: unknown; status?: unknown };
-  for (const value of [p.designation, p.status]) {
-    if (typeof value === "string" && value.trim()) return value.trim();
+  for (const field of ["designation", "status"] as const) {
+    const value = p[field];
+    if (typeof value === "string" && value.trim()) return { value: value.trim(), field };
   }
   return null;
 }
 
+/** The live_signals.injury_designation_source value for a designation read from payload[field]. */
+function designationSource(raw: RawEvent, field: string): string {
+  return formatInjuryDesignationSource({
+    sourceType: raw.source_type,
+    sourceId: raw.source_id,
+    league: raw.league,
+    field,
+  });
+}
+
 /**
- * True when the designation is a structured status field from a league data
- * feed — the producers with source_type "api" (ESPN NFL/NBA/CFB injuries,
- * balldontlie, MLB StatsAPI's transaction wire), which copy the injury report /
- * IL status into payload.designation. Not text classification, not the vision
- * agent, and not the operator /ingest endpoint ("manual"), which takes any
- * payload a caller sends.
+ * True when the designation is a structured status field from one of the
+ * league feeds in OFFICIAL_DESIGNATION_FEEDS — ESPN NFL, ESPN NBA, balldontlie
+ * and MLB StatsAPI, all source_type "api". Not ESPN CFB, not text
+ * classification, not the vision agent, and not the operator /ingest endpoint
+ * ("manual"), which takes any payload a caller sends.
  */
-function hasOfficialStructuredStatus(raw: RawEvent, designation: string | null): boolean {
-  return designation !== null && raw.source_type === "api";
+function hasOfficialStructuredStatus(source: string | null): boolean {
+  return isOfficialInjuryDesignationSource(source);
 }
 
 function handleInjuryUpdate(raw: RawEvent): Partial<LiveSignal> {
   const p = raw.payload as any;
   // No default: a payload without a designation or status stores NULL.
-  const designation = payloadInjuryDesignation(p);
+  const read = payloadInjuryDesignationWithField(p);
+  const designation = read?.value ?? null;
+  const source = read ? designationSource(raw, read.field) : null;
   const bodyPart: string = p.body_part ?? p.injury ?? "undisclosed";
-  const isOut = designation === "OUT" || designation === "IL-60" || designation === "DNP";
-  const defaultConfidence = isOut ? 88 : 65;
+  // DNP is a practice-participation code, not a game status.
+  const isOut = designation === "OUT" || designation === "IL-60";
+  // "confirmed", "Consensus" and 88 are claims only an official injury report
+  // can make. An OUT from anywhere else is reported, not confirmed.
+  const officialOut = isOut && hasOfficialStructuredStatus(source);
+  const defaultConfidence = officialOut ? 88 : 65;
   const player = raw.player ?? "Player";
   const bodyPartKnown = bodyPart !== "undisclosed";
   return {
@@ -107,19 +134,57 @@ function handleInjuryUpdate(raw: RawEvent): Partial<LiveSignal> {
       : designation
         ? `Monitor status. ${designation} designation may change before game time.`
         : `Monitor status. No designation has been reported yet.`,
-    // "confirmed scratch" is a claim only the official injury report can make.
-    why_it_matters: isOut && hasOfficialStructuredStatus(raw, designation)
+    why_it_matters: officialOut
       ? `${player} is a confirmed scratch — direct market impact expected.`
       : isOut
         ? `${player} is reported ${designation}; the official injury report has not confirmed it.`
         : `${player}'s status is uncertain; wait for a final designation before committing.`,
     injury_designation: designation,
+    injury_designation_source: source,
     betting_relevance: true,
     fantasy_relevance: true,
     confidence: p.confidence ?? defaultConfidence,
-    verdict: isOut ? "confirmed" : "likely",
-    confirmation_strength: p.confirmation ?? (isOut ? "Consensus" : "Developing"),
+    verdict: officialOut ? "confirmed" : "likely",
+    confirmation_strength: p.confirmation ?? (officialOut ? "Consensus" : "Developing"),
   };
+}
+
+/**
+ * The designation a merged row keeps.
+ *
+ * An event that carries no designation (every text-classified story) must not
+ * erase one a feed reported: before this change a sports-rss story merged
+ * within the 48h injury window replaced ESPN's "OUT" with NULL. So a NULL
+ * incoming designation keeps the existing designation AND its source.
+ *
+ * A later text story that contradicts the stored designation ("he has been
+ * cleared", "activated off IR") does not overwrite it either: text carries no
+ * designation to overwrite it with, and a classifier's reading of prose is not
+ * an injury report. Instead the story's prose becomes the row's body, and the
+ * client badge gate (DESIGNATION_CONTRADICTIONS in
+ * client/src/lib/injuryDesignation.ts) drops the badge whenever the row's own
+ * text contradicts it. The stored value changes only when a source reports a
+ * designation — the feed's next poll, or any producer that sends one.
+ */
+export function mergeInjuryDesignation(
+  existing: Pick<LiveSignal, "injury_designation" | "injury_designation_source"> | null,
+  incoming: Pick<Partial<LiveSignal>, "signal_type" | "injury_designation" | "injury_designation_source">,
+): { injury_designation: string | null; injury_designation_source: string | null } {
+  // Only injury stories carry a designation forward. A transaction row's NULL
+  // is meaningful — an "IL activation" must not keep the old "IL-60".
+  if (incoming.injury_designation != null || incoming.signal_type !== "injury_update") {
+    return {
+      injury_designation: incoming.injury_designation ?? null,
+      injury_designation_source: incoming.injury_designation_source ?? null,
+    };
+  }
+  if (existing?.injury_designation != null) {
+    return {
+      injury_designation: existing.injury_designation,
+      injury_designation_source: existing.injury_designation_source ?? null,
+    };
+  }
+  return { injury_designation: null, injury_designation_source: null };
 }
 
 /* ─── Handler: lineup_confirm / lineup_change ───────────── */
@@ -298,6 +363,7 @@ function handleTransaction(raw: RawEvent): Partial<LiveSignal> {
   const p = raw.payload as any;
   const txType: string = p.transaction_type ?? "roster move";
   const designation: string | undefined = p.designation ?? p.il_type;
+  const designationField = p.designation != null ? "designation" : p.il_type != null ? "il_type" : null;
   return {
     signal_type: "transaction",
     headline: `${raw.player ?? raw.team ?? "Roster"} — ${txType}`,
@@ -305,6 +371,7 @@ function handleTransaction(raw: RawEvent): Partial<LiveSignal> {
     action_note: p.action_note ?? `Reassess roster, availability, and game context — ${txType} changes expected roles.`,
     why_it_matters: p.why_it_matters ?? `${txType} changes roster availability and may affect downstream market signals.`,
     injury_designation: designation,
+    injury_designation_source: designationField ? designationSource(raw, designationField) : null,
     betting_relevance: true,
     fantasy_relevance: true,
     confidence: p.confidence ?? 85,
@@ -350,6 +417,7 @@ function handleManual(raw: RawEvent): Partial<LiveSignal> {
     action_note: p.action_note ?? "",
     why_it_matters: p.why_it_matters ?? "",
     injury_designation: p.injury_designation,
+    injury_designation_source: p.injury_designation != null ? designationSource(raw, "injury_designation") : null,
     lineup_status: p.lineup_status,
     weather_note: p.weather_note,
     line_movement: p.line_movement ?? null,
@@ -560,7 +628,7 @@ export async function processRawEvents(): Promise<{ processed: number; errors: n
         line_movement: fields.line_movement ?? null,
         market: fields.market ?? null,
         graded_side: fields.graded_side ?? null,
-        injury_designation: fields.injury_designation ?? null,
+        ...mergeInjuryDesignation(existingSignal, fields),
         lineup_status: fields.lineup_status ?? null,
         weather_note: fields.weather_note ?? null,
         betting_relevance: fields.betting_relevance ?? false,
@@ -668,7 +736,7 @@ const scoreInputs = buildScoreInputs(league, mutableFields, raw);
       line_movement: fields.line_movement ?? null,
       market: fields.market ?? null,
       graded_side: fields.graded_side ?? null,
-      injury_designation: fields.injury_designation ?? null,
+      ...mergeInjuryDesignation(existingSignal, fields),
       lineup_status: fields.lineup_status ?? null,
       weather_note: fields.weather_note ?? null,
       betting_relevance: fields.betting_relevance ?? false,

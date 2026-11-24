@@ -660,6 +660,10 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   addColumnIfMissing(db, "live_signals", "is_archived", "INTEGER NOT NULL DEFAULT 0");
   // Migrate live_signals to track when the signal was first observed
   addColumnIfMissing(db, "live_signals", "first_seen_at", "TEXT");
+  // Provenance of injury_designation (shared/injury-designation-source.ts).
+  // No default and no backfill: rows written before it read NULL, and the
+  // badge gate treats NULL as "not an official structured status".
+  addColumnIfMissing(db, "live_signals", "injury_designation_source", "TEXT");
   // Roster-gazetteer candidate (separate from the regex-driven `player` column —
   // never overwrites it). *_confidence is the match-strength flag: "full_name"
   // (high) or "last_name" (low, single-surname fallback).
@@ -1571,8 +1575,15 @@ export const GAMES_ALL_SQL = "SELECT * FROM games ORDER BY game_time ASC";
  * onto a league-slice walk, 0.0ms to 251ms on the ingestion hot path. A 454ms
  * query on a parameter no caller passes is not worth that.
  */
+// INDEXED BY keeps this on the plan request-path-query-plans pins: the
+// one-column league index plus a sort. Without the pin it is a cost tie with
+// idx_live_signals_injury_dedup (also league-leading), and adding columns to
+// live_signals (market, graded_side, injury_designation_source) shifts the
+// row-width estimate enough to flip it. Same seek and sort either way; the
+// pin just stops schema growth from re-planning a statement nobody asked to
+// change. Why this route is knowingly left sorting: see that test.
 export const MVP_SIGNALS_BY_LEAGUE_SQL =
-  "SELECT * FROM live_signals WHERE league=? ORDER BY created_at DESC LIMIT 100";
+  "SELECT * FROM live_signals INDEXED BY idx_live_signals_league WHERE league=? ORDER BY created_at DESC LIMIT 100";
 export const MVP_SIGNALS_ALL_SQL =
   "SELECT * FROM live_signals ORDER BY created_at DESC LIMIT 100";
 
@@ -2261,12 +2272,12 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
     INSERT INTO live_signals (
       id,league,game_id,signal_type,headline,body,action_note,why_it_matters,
       team,player,matchup,sources,source_count,verdict,confidence,
-      confirmation_strength,line_movement,injury_designation,lineup_status,
-      weather_note,betting_relevance,fantasy_relevance,score,score_band,
+      confirmation_strength,line_movement,injury_designation,injury_designation_source,
+      lineup_status,weather_note,betting_relevance,fantasy_relevance,score,score_band,
       urgency_label,urgency_reason,trust_label,score_explanation,breakdown,
       raw_event_ids,signal_time,first_seen_at,created_at,updated_at,outcome_id,
       market,graded_side
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       score=excluded.score,
       score_band=excluded.score_band,
@@ -2281,6 +2292,7 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       why_it_matters=excluded.why_it_matters,
       line_movement=excluded.line_movement,
       injury_designation=excluded.injury_designation,
+      injury_designation_source=excluded.injury_designation_source,
       lineup_status=excluded.lineup_status,
       weather_note=excluded.weather_note,
       verdict=excluded.verdict,
@@ -2307,7 +2319,7 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
     JSON.stringify(s.sources), s.source_count, s.verdict, s.confidence,
     s.confirmation_strength,
     s.line_movement ? JSON.stringify(s.line_movement) : null,
-    s.injury_designation, s.lineup_status, s.weather_note,
+    s.injury_designation, s.injury_designation_source ?? null, s.lineup_status, s.weather_note,
     s.betting_relevance ? 1 : 0, s.fantasy_relevance ? 1 : 0,
     s.score, s.score_band, s.urgency_label, s.urgency_reason,
     s.trust_label, s.score_explanation, JSON.stringify(s.breakdown),
