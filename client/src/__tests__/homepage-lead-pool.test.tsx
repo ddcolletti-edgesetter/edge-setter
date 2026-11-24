@@ -183,13 +183,16 @@ describe("homepage render", () => {
     await waitFor(() => expect(screen.getByText("Coverage status")).toBeInTheDocument());
     expect(screen.queryByText("Lead story")).toBeNull();
     expect(screen.queryByTestId("homepage-lead-interim-note")).toBeNull();
+    // The no-lead state makes no wire-beating claim (cut with the timing banner).
+    await waitFor(() => expect(document.body.textContent).toContain("No story qualifies to lead right now."));
+    expect(document.body.textContent).not.toMatch(/before wire pickup|lands here before/);
   });
 
   it("leads with it while the game is upcoming, with the interim line under the lead", async () => {
     await renderHome([signal()], [game({ id: "hou-ind", status: "scheduled", game_time: iso(20), home_score: null, away_score: null })]);
     await waitFor(() => expect(screen.getByText("Lead story")).toBeInTheDocument());
     const note = screen.getByTestId("homepage-lead-interim-note");
-    expect(note.textContent).toBe("Interim display: status, line and report count only.");
+    expect(note.textContent).toBe("Interim display: line and report count only. Status returns once sourcing is verified (#114).");
     expect(note.textContent).not.toMatch(/edge/i);
   });
 });

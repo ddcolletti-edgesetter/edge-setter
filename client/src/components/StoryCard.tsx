@@ -153,7 +153,7 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
         )}
 
         <p className="text-[0.72rem] text-[#94a3b8]" data-testid="homepage-lead-interim-note">
-          Interim display: status, line and report count only.
+          Interim display: line and report count only. Status returns once sourcing is verified (#114).
         </p>
       </article>
     );
