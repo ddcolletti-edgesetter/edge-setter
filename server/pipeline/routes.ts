@@ -33,6 +33,7 @@ import type { Express, Request, Response } from "express";
 import {
   getLiveSignals, getLiveSignal,
   applyReadTimeUrgency,
+  attachLineMoveFirstReceivedAt,
   getGames, getRawEvents, insertRawEvent,
   createOutcome, getOutcomes,
   getTrackRecord, getPipelineDb,
@@ -261,7 +262,8 @@ export function registerPipelineRoutes(app: Express) {
     if (needsPostFilter) signals = signals.slice(0, limit);
     // Recompute urgency at delivery so a finished/aged game never reads as
     // URGENT/WATCH (stored rows unchanged).
-    return res.json({ signals: applyReadTimeUrgency(signals) });
+    // line_move_first_received_at: see attachLineMoveFirstReceivedAt.
+    return res.json({ signals: attachLineMoveFirstReceivedAt(applyReadTimeUrgency(signals)) });
   });
 
   /**
@@ -275,7 +277,7 @@ export function registerPipelineRoutes(app: Express) {
   app.get("/api/v2/signals/:id", (req: Request, res: Response) => {
     const signal = getLiveSignal(req.params.id as string);
     if (!signal) return res.status(404).json({ error: "Signal not found" });
-    return res.json(applyReadTimeUrgency([signal])[0]);
+    return res.json(attachLineMoveFirstReceivedAt(applyReadTimeUrgency([signal]))[0]);
   });
 
   /**

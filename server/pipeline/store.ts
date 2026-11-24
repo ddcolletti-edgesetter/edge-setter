@@ -233,6 +233,13 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
     -- game/team/pitcher before re-inserting (see lineupConfirmRawEventExists). Partial
     -- index keyed on the combo keeps that an indexed seek over the lineup_confirm rows.
     CREATE INDEX IF NOT EXISTS idx_raw_events_lineup_confirm_combo ON raw_events(game_id, team, player) WHERE event_type='lineup_confirm';
+    -- attachLineMoveFirstReceivedAt reads every line_move raw row for the games in
+    -- one delivery-feed page, newest first. No other raw_events index leads with
+    -- game_id, so without this the lookup walks every odds row. Partial on the
+    -- one event type keeps it to the odds adapter's move rows. BOOT COST: one
+    -- read of raw_events on the first boot after deploy (the WHERE is evaluated
+    -- against every row); IF NOT EXISTS is 0ms after that.
+    CREATE INDEX IF NOT EXISTS idx_raw_events_line_move_game ON raw_events(game_id, received_at) WHERE event_type='line_move';
 
     CREATE TABLE IF NOT EXISTS outcomes (
       id              TEXT PRIMARY KEY,
@@ -844,6 +851,80 @@ export function applyReadTimeUrgency<T extends LiveSignal>(signals: T[]): T[] {
     const u = recomputeUrgency(s, game, now);
     return { ...s, urgency_label: u.label, urgency_reason: u.reason };
   });
+}
+
+/**
+ * How old a line move really is.
+ *
+ * A line_move signal's own timestamps do not say. `signal_time`/`created_at` are
+ * when the signal row was FOUNDED, and the processor folds every later move on
+ * the same game and team into that one row (findExistingSignal), spread and
+ * total alike, so a row founded on Tuesday's first tick still carries Tuesday
+ * after Thursday's move. `updated_at` moves on every re-score, not only on a new
+ * line.
+ *
+ * `line_move_first_received_at` is the first time we received the line the
+ * market is on NOW, for this signal's game and market:
+ *
+ * 1. The market is the `payload.market` of the newest line_move raw row among
+ *    the signal's own raw_event_ids — the row that set the numbers it prints.
+ * 2. Over every line_move raw row for that game and market, newest first, take
+ *    the latest row and walk back through the unbroken run that carries the same
+ *    `current_line`. The earliest `received_at` in that run is the answer. A
+ *    re-poll that re-inserts the same line does not make the move look newer,
+ *    and a line that went 3 → 3.5 → 3 is dated from the second 3, not the first.
+ *
+ * Null when the signal is not a line move, has no game_id, or none of its raw
+ * rows still exist with a market (rows written before payload.market existed).
+ * Null means "unknown", and the homepage treats it that way: it does not fall
+ * back to the founding time.
+ */
+export type WithLineMoveFirstReceivedAt<T> = T & { line_move_first_received_at: string | null };
+
+type LineMoveRawRow = { id: string; game_id: string; received_at: string; market: string | null; current_line: number | null };
+
+export function attachLineMoveFirstReceivedAt<T extends LiveSignal>(
+  signals: T[],
+  db: Database.Database = getPipelineDb(),
+): Array<WithLineMoveFirstReceivedAt<T>> {
+  const gameIds = Array.from(new Set(
+    signals.filter((s) => s.signal_type === "line_move" && s.game_id).map((s) => s.game_id as string),
+  ));
+  const byGame = new Map<string, LineMoveRawRow[]>();
+  for (const chunk of chunkIds(gameIds)) {
+    const rows = db.prepare(`
+      SELECT id, game_id, received_at,
+             json_extract(payload, '$.market') AS market,
+             json_extract(payload, '$.current_line') AS current_line
+      FROM raw_events INDEXED BY idx_raw_events_line_move_game
+      WHERE event_type = 'line_move' AND game_id IN (${chunk.map(() => "?").join(",")})
+      ORDER BY game_id, received_at DESC, id DESC
+    `).all(...chunk) as LineMoveRawRow[];
+    for (const row of rows) {
+      const list = byGame.get(row.game_id) ?? [];
+      list.push(row);
+      byGame.set(row.game_id, list);
+    }
+  }
+  return signals.map((s) => ({ ...s, line_move_first_received_at: lineMoveFirstReceivedAt(s, byGame) }));
+}
+
+function lineMoveFirstReceivedAt(signal: LiveSignal, byGame: Map<string, LineMoveRawRow[]>): string | null {
+  if (signal.signal_type !== "line_move" || !signal.game_id) return null;
+  const rows = byGame.get(signal.game_id);
+  if (!rows?.length) return null;
+  const own = new Set(signal.raw_event_ids ?? []);
+  // rows are newest first, so the first own row with a market is the newest.
+  const market = rows.find((row) => own.has(row.id) && row.market)?.market;
+  if (!market) return null;
+  const run = rows.filter((row) => row.market === market);
+  const latest = run[0];
+  let first = latest.received_at;
+  for (const row of run) {
+    if (row.current_line !== latest.current_line) break;
+    first = row.received_at;
+  }
+  return first;
 }
 
 /* ─── Odds API fetch state (persistent throttle + quota guard) ────────────── */

@@ -125,13 +125,33 @@ export async function fetchIntelligenceSituations(league?: string): Promise<Inte
   return adaptSignalsToSituations(signals).sort((a, b) => b.priority - a.priority);
 }
 
+export type GamesTableRow = NonNullable<GamesResponse["games"]>[number];
+
+/**
+ * The league's whole games table, unwindowed — what the boards keep as
+ * `allGames`. A story's game is often outside the public slate (yesterday's
+ * final, a signal's own game_id), so the finished-game filter in
+ * lib/boardStoryGame needs every row, not the 12 the homepage shows. Each row
+ * is stamped with `league` because that filter only indexes a team's games
+ * when the row says which league it is in.
+ */
+export async function fetchGamesTable(league: "NBA" | "MLB" | "NFL" | "CFB"): Promise<GamesTableRow[]> {
+  const res = await apiRequest("GET", `/api/v2/games?league=${league}`);
+  const data = (await res.json()) as GamesResponse;
+  return (data.games ?? []).map((game) => ({ ...game, league: game.league ?? league }));
+}
+
+/**
+ * @param table The league's rows from {@link fetchGamesTable}, when the caller
+ *   already has them, so the homepage fetches each league once per refresh.
+ */
 export async function fetchLiveGamesForSituations(
   league: "NBA" | "MLB" | "NFL" | "CFB",
   situations: IntelligenceSituation[],
+  table?: GamesTableRow[],
 ): Promise<LiveGameSituation[]> {
-  const res = await apiRequest("GET", `/api/v2/games?league=${league}`);
-  const data = (await res.json()) as GamesResponse;
-  const games = publicGamesForLeague(data.games ?? [], league);
+  const rows = table ?? await fetchGamesTable(league);
+  const games = publicGamesForLeague(rows, league);
 
   return games.slice(0, 12).map((game) => {
     const id = String(game.id ?? game.source_game_id ?? "");

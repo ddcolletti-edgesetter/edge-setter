@@ -4,8 +4,10 @@ import { EscalationBadge } from "@/components/intelligence/SituationCard";
 import { StoryCard, type StoryCardData } from "@/components/StoryCard";
 import {
   adaptSignalsToSituations,
+  fetchGamesTable,
   fetchLiveGamesForSituations,
   type EscalationState,
+  type GamesTableRow,
   type IntelligenceSituation,
   type LiveGameSituation,
 } from "@/lib/intelligenceSituationsApi";
@@ -14,7 +16,7 @@ import { fetchSignals } from "@/lib/signalsApi";
 import { containsPublicInvalidToken, hasCleanPublicTeamIdentity, hasCleanPublicText, publicFallbackLabel } from "@/lib/publicDisplayHygiene";
 import { compareLeadRank } from "@/lib/boardSituations";
 import { publicConfidenceLabel } from "@/lib/storyLanguage";
-import { LEAD_MAX_AGE_HOURS, ageHoursFrom } from "@/lib/leadRanker";
+import { LEAD_MAX_AGE_HOURS, ageHoursFrom, homepageLeadAgeHours, homepageLeadPool } from "@/lib/leadRanker";
 import { badgeableInjuryDesignation } from "@/lib/injuryDesignation";
 import { AlertTriangle, RefreshCw, ShieldCheck, Zap } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -87,6 +89,10 @@ const leagueWorld = {
 export default function LiveIntelligenceHome() {
   const [situations, setSituations] = useState<IntelligenceSituation[]>([]);
   const [games, setGames] = useState<LiveGameSituation[]>([]);
+  // Every league's whole games table, for the lead's finished-game filter
+  // (homepageLeadPool). `games` above is the 12-row public slate per league,
+  // which cannot see yesterday's final.
+  const [gamesTable, setGamesTable] = useState<GamesTableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // League pill tabs navigate between / and the league board routes; the
@@ -108,15 +114,22 @@ export default function LiveIntelligenceHome() {
       setError(null);
 
       const gameResponses = await Promise.allSettled(
-        LEAGUES.map(async (league) => ({
-          league,
-          games: await fetchLiveGamesForSituations(league, nextSituations.filter((situation) => situation.league === league)),
-        })),
+        LEAGUES.map(async (league) => {
+          // One request per league: the slate is cut from the same rows. A
+          // failed table read leaves the slate to fetch its own rows.
+          const table = await fetchGamesTable(league).catch(() => undefined);
+          return {
+            league,
+            table: table ?? [],
+            games: await fetchLiveGamesForSituations(league, nextSituations.filter((situation) => situation.league === league), table),
+          };
+        }),
       );
       setGames(gameResponses.flatMap((result) => {
         if (result.status !== "fulfilled") return [];
         return result.value.games.filter((game) => game.league === result.value.league);
       }));
+      setGamesTable(gameResponses.flatMap((result) => (result.status === "fulfilled" ? result.value.table : [])));
       return true;
     } catch {
       setError("Live feed unavailable. Showing the last loaded state.");
@@ -151,7 +164,7 @@ export default function LiveIntelligenceHome() {
       .sort((a, b) => b.priority - a.priority);
   }, [publicSituations, activeLeague]);
 
-  const featured = selectHomepageLead(visibleSituations, games) ?? selectHomepageLead(publicSituations, games);
+  const featured = selectHomepageLead(visibleSituations, games, gamesTable) ?? selectHomepageLead(publicSituations, games, gamesTable);
   const heroSituation = featured;
   const backdropLeague: typeof LEAGUES[number] = activeLeague === "ALL"
     ? (featured && (LEAGUES as readonly string[]).includes(featured.league) ? featured.league as typeof LEAGUES[number] : "NFL")
@@ -257,7 +270,14 @@ export default function LiveIntelligenceHome() {
                 {featured ? "Lead story" : "Coverage status"}
               </div>
               {featured
-                ? <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" verificationStateEnabled={verificationStateEnabled} />
+                ? (
+                  <>
+                    <StoryCard story={homepageStories.lead} variant="lead" copyVariant="public" verificationStateEnabled={verificationStateEnabled} />
+                    <p className="media-lead-interim-note" data-testid="homepage-lead-interim-note" style={{ fontSize: 12, opacity: 0.75, margin: "6px 0 0" }}>
+                      Interim display: status, line and report count only.
+                    </p>
+                  </>
+                )
                 : <HomepageQuietLead loading={loading} situations={publicSituations} />
               }
               <HomepageSupportStack stories={homepageStories} pressure={livePressure} loading={loading} />
@@ -1120,8 +1140,20 @@ function LiveTicker({ items }: { items: string[] }) {
 // The canonical selectHomepageLead in leadRanker works with CanonicalSituationRecord[].
 // This intelligence-pipeline version operates on IntelligenceSituation[] until
 // the homepage migrates fully to the canonical pipeline.
-function selectHomepageLead(situations: IntelligenceSituation[], games: LiveGameSituation[] = []) {
-  const eligible = situations
+//
+// Two rules come from leadRanker rather than from here:
+// - the pool: homepageLeadPool drops every story whose game is over, with the
+//   boards' own matching (dropStoriesNoLongerLive). Before it, a one-team NFL
+//   injury story could lead the homepage hours after its team's game went final.
+// - the age: homepageLeadAgeHours dates a line move from when its current line
+//   was first received, not from when the signal row was founded.
+export function selectHomepageLead(
+  situations: IntelligenceSituation[],
+  games: LiveGameSituation[] = [],
+  gamesTable: readonly GamesTableRow[] = [],
+  now: number = Date.now(),
+) {
+  const eligible = homepageLeadPool(situations, gamesTable, now)
     .map((situation) => {
       const rawScore = homepageStoryScore(situation, games);
       const inSeason = leagueInSeason(situation.league, games);
@@ -1136,7 +1168,7 @@ function selectHomepageLead(situations: IntelligenceSituation[], games: LiveGame
         : isAvailabilitySituation(situation) && situation.raw.signal_type === "injury_update"
           ? rawScore * 0.4
           : rawScore * 0.7;
-      const ageHours = ageHoursFrom(situation.timing.firstSeen);
+      const ageHours = homepageLeadAgeHours(situation, now);
       return { situation, rawScore, base, ageHours };
     })
     // Filter on the PRE-multiplier rawScore so a hard kill (-1000) can't be

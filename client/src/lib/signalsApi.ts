@@ -77,6 +77,13 @@ export interface LiveSignal {
   created_at: string;
   updated_at: string;
   outcome_id: string | null;
+  /**
+   * line_move only: first time the server received the line this game's market
+   * is on now. Null when unknown. See attachLineMoveFirstReceivedAt in
+   * server/pipeline/store.ts. Optional because mock data and older payloads
+   * do not carry it.
+   */
+  line_move_first_received_at?: string | null;
 }
 
 /* ── API response envelope ───────────────────────────────── */
