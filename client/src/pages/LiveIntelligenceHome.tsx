@@ -26,11 +26,15 @@ const REFRESH_MS = 60_000;
 const BACKOFF_BASE_MS = 5_000;
 const BACKOFF_MAX_MS = 60_000;
 const LEAGUES = ["NBA", "MLB", "NFL", "CFB"] as const;
+// The no-lead box's league tiles. They used to carry fixed notes ("Awaiting
+// lineup confirmations", "Warmup reports pending") that were shown whatever
+// the league's real state, including the MLB offseason. The tile now says
+// only what the page knows: how many stories it is tracking for the league.
 const HERO_FALLBACK_TILES = [
-  { league: "MLB", title: "Awaiting lineup confirmations", note: "Lineup impact still developing" },
-  { league: "NBA", title: "Availability board quiet", note: "Warmup reports pending" },
-  { league: "NFL", title: "Depth charts quiet", note: "Injury impact still developing" },
-  { league: "CFB", title: "Roster board quiet", note: "Transfer impact still developing" },
+  { league: "MLB" },
+  { league: "NBA" },
+  { league: "NFL" },
+  { league: "CFB" },
 ] as const;
 
 
@@ -762,8 +766,7 @@ function HomepageQuietLead({ loading, situations }: { loading: boolean; situatio
               <img src={meta.logo} alt="" aria-hidden="true" width={28} height={28} />
               <div>
                 <strong>{tile.league}</strong>
-                <span>{count > 0 ? `${count} situation${count === 1 ? "" : "s"} tracked` : tile.title}</span>
-                <small>{tile.note}</small>
+                <span>{count > 0 ? `${count} ${count === 1 ? "story" : "stories"} tracked` : "No stories tracked"}</span>
               </div>
             </Link>
           );
@@ -787,28 +790,6 @@ function QuietCoverageCard({ pressure, loading }: { pressure: LivePressureContex
       <strong>{loading ? "Checking live coverage" : pressure.heroHeadline}</strong>
       <span>{loading ? "Stories appear here when evidence clears the visibility threshold." : pressure.heroBody}</span>
     </div>
-  );
-}
-
-function CoverageStatusCard({
-  tile,
-  loading,
-}: {
-  tile: typeof HERO_FALLBACK_TILES[number];
-  loading: boolean;
-}) {
-  const meta = leagueWorld[tile.league];
-  return (
-    <Link href={meta.href}>
-      <article className="media-coverage-status" style={{ "--league-color": meta.color } as CSSProperties}>
-        <img src={meta.logo || "/brand/edgesetter-emblem.png"} alt="" aria-hidden="true" />
-        <div>
-          <span>{tile.league}</span>
-          <strong>{loading ? `${tile.league} scan in progress` : tile.title}</strong>
-          <small>{tile.note}</small>
-        </div>
-      </article>
-    </Link>
   );
 }
 
@@ -913,9 +894,8 @@ function LiveOperationsBand({
         )) : HERO_FALLBACK_TILES.map((tile) => (
           <Link key={tile.league} href={`/${tile.league.toLowerCase()}`}>
             <article>
-              <span>{tile.league} / quiet board</span>
-              <strong>{tile.title}</strong>
-              <small>{tile.note}</small>
+              <span>{tile.league}</span>
+              <strong>No escalating stories</strong>
             </article>
           </Link>
         ))}
@@ -1379,7 +1359,15 @@ function buildLivePressureContext(games: LiveGameSituation[], situations: Intell
     timing: timingLine,
     market: marketCount ? `${marketCount} sports shift${marketCount === 1 ? "" : "s"}` : "impact still developing",
     source: sourceCount ? `${sourceCount} report${sourceCount === 1 ? "" : "s"} attached` : "Awaiting reports",
-    changed: marketCount ? "Team or player news moving before public consensus" : upcoming.length ? "Games entering confirmation window" : buildingCount ? "Confidence building" : "ES Agents monitoring — no verified breaks yet",
+    // "Quiet Board Context" tile: plain counts only. The old first branch
+    // ("news moving before public consensus") claimed a lead over the public
+    // that nothing measures; "Confidence building" read the hardcoded
+    // confidence prior.
+    changed: marketCount
+      ? `${marketCount} ${marketCount === 1 ? "story has" : "stories have"} a line move attached`
+      : upcoming.length
+        ? `${upcoming.length} game${upcoming.length === 1 ? " starts" : "s start"} within 4 hours`
+        : "No line moves attached yet",
     whoReacts: mlbCount ? "Clubhouses, lineup desks, fantasy players, and books are waiting on the same confirmations." : "Teams, report desks, and books are holding for firmer confirmation.",
     next: weatherCount ? "Weather, lineup, and external context may converge before first pitch." : "A late scratch, lineup confirmation, warmup note, or external movement could become the lead.",
     sourceArcTitle: sourceCount ? "Reports active across today's games" : "Awaiting lineup or injury confirmation",

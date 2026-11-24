@@ -183,8 +183,15 @@ This destroys trust. Never do it.
 
 ### 4.2 Timing claims — removed, not deferred
 
-**Status (2026-11-23, PR #117): no surface shows a timing advantage.** Not the lead
-card, not rail cards, not the ticker, not the story page.
+**Status (2026-11-24, PR #117): the homepage shows no timing claim.** Not the lead
+card, not rail cards, not the homepage ticker, not the no-lead box or its tiles.
+
+**Not yet removed — the league boards.** `SituationStoryCard`, `SignalDetailDrawer` and
+the board ticker (`buildBoardTickerItems`) still print "EdgeSetter flagged Xh before
+public confirmation" from `computeDetectionLeadDisplay`. Its fallback measures our first
+source against the first later ESPN/wire/aggregator item, and that first source was
+itself public, so this is the same unverified claim. It is scheduled for removal; until
+then this section's rule is not met on the boards.
 
 The only timing claim that ever shipped ("EdgeSetter flagged Xh before public
 confirmation", and the ticker's "ES Agents verified X — Nh before public
