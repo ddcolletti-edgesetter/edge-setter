@@ -1458,11 +1458,9 @@ function buildTickerItems({ situations, games }: { situations: IntelligenceSitua
     .slice(0, 2)
     .map((item) => `${item.league}: ${cleanShortTeam(item.awayTeam)} @ ${cleanShortTeam(item.homeTeam)} — ${item.activeSituations} situation${item.activeSituations === 1 ? "" : "s"} in progress`);
 
-  const building = situations.some((s) => s.confidence.current >= 70 && s.confidence.current < 90)
-    ? ["Confidence building"]
-    : [];
-
-  return [...items, ...gameItems, ...building]
+  // "Confidence building" removed: it read the hardcoded confidence prior
+  // (the same number as the rail chip cut before #117 merged).
+  return [...items, ...gameItems]
     .filter(Boolean)
     .slice(0, 8);
 }

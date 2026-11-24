@@ -135,7 +135,8 @@ describe("rail cards", () => {
         confidence: situation.confidence, sourceSummary: situation.sourceSummary, timing: situation.timing,
         replay: ["Sources checked", "Timing tracked"],
       },
-      fantasyRelevance: true, bettingRelevance: true, situation,
+      fantasyRelevance: true, bettingRelevance: true, situation, player: "Colton McKivitz",
+      whatChanged: "Colton McKivitz won't play.", whyItMatters: "A load-bearing injury.", watchNext: "Watch for beat reports.",
     };
     const { container } = render(<StoryCard story={story} variant="rail" copyVariant="public" />);
     const text = container.textContent ?? "";
@@ -147,5 +148,12 @@ describe("rail cards", () => {
     expect(container.querySelector(".story-impact-details")).toBeNull();
     expect(container.querySelector(".edge-overlay-top")).toBeNull();
     expect(container.querySelector(".story-card-conf")).toBeNull();
+    // Same cuts as the lead card: no image header, no templated reads.
+    expect(container.querySelector(".story-card-visual")).toBeNull();
+    expect(container.querySelector(".sports-story-visual")).toBeNull();
+    expect(container.querySelector(".story-card-reads")).toBeNull();
+    for (const gone of ["What happened", "Why it matters", "Watch next", "Player focus"]) {
+      expect(text).not.toContain(gone);
+    }
   });
 });

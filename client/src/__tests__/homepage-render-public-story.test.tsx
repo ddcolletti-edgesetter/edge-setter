@@ -219,6 +219,13 @@ describe("homepage public story render", () => {
     expect(screen.getByText("Source Trail")).toBeInTheDocument();
     expect(screen.getByText("Quiet Board Context")).toBeInTheDocument();
     expect(screen.getByText("Latest Verified Notes")).toBeInTheDocument();
+    // Homepage-wide: no hardcoded-confidence ticker line, and no rail card
+    // carries the sections cut from the lead.
+    expect(domText).not.toContain("Confidence building");
+    for (const rail of Array.from(document.querySelectorAll(".story-card-rail"))) {
+      expect(rail.querySelector(".story-card-visual")).toBeNull();
+      expect(rail.textContent ?? "").not.toMatch(/What happened|Why it matters|Watch next|Player focus/);
+    }
     // With a lead on the page too: no claim of beating the public.
     expect(domText).not.toMatch(/before public (consensus|confirmation)|before wire pickup/);
 
