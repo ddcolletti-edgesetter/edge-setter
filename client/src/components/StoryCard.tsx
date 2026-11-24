@@ -160,10 +160,14 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
     return card;
   }
 
-  // ── Non-lead variants (feature / rail / compact) — unchanged ──────────────
+  // ── Non-lead variants (feature / rail / compact) ──────────────────────────
+  // Rail (homepage "Developing now"): the same cuts as the lead card — no image
+  // header, no What happened / Why it matters / Watch next. Not rendered, not
+  // hidden. Feature and compact are unchanged.
+  const isRail = variant === "rail";
   const card = (
     <article className={cn("story-card", `story-card-${variant}`, className)}>
-      <div className="story-card-visual">
+      {!isRail && <div className="story-card-visual">
         <SportsStoryVisual
           league={displayStory.league}
           sport={leagueToSport(displayStory.league)}
@@ -173,11 +177,10 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
           title={displayStory.headline}
           storyType={displayStory.storyType ?? displayStory.label ?? "Developing story"}
           detail={displayStory.detail ?? displayStory.watchNext}
-          size={variant === "compact" || variant === "rail" ? "compact" : "feature"}
+          size={variant === "compact" ? "compact" : "feature"}
           imageAsset={displayStory.imageAsset}
         />
-        {/* North Star: timing advantage — THIS DISPLAY MUST NEVER BE REMOVED. */}
-      </div>
+      </div>}
 
       <div className="story-card-copy">
         <div className="story-card-kicker">
@@ -194,7 +197,7 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
         </div>
         {displayStory.dek && <p>{displayStory.dek}</p>}
 
-        <div className="story-card-reads">
+        {!isRail && <div className="story-card-reads">
           {displayStory.whatChanged && (
             <div>
               <span>{publicCopy ? "What happened: " : "What changed: "}</span>
@@ -213,7 +216,7 @@ export function StoryCard({ story, variant = "feature", className, copyVariant =
               <strong>{displayStory.watchNext}</strong>
             </div>
           )}
-        </div>
+        </div>}
 
         {/* Rail confidence chip ("Strong pattern match") removed: it reads a hardcoded confidence prior. */}
       </div>
