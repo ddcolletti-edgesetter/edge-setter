@@ -170,6 +170,14 @@ export type UrgencyLabel = "LIVE" | "URGENT" | "WATCH" | "NOTE";
 export type ScoreBand = "Elite" | "Strong" | "Watchlist" | "Informational";
 export type TrustLabel = "Consensus" | "Corroborated" | "Developing" | "Unverified";
 
+/**
+ * Which market a line_move signal describes. Set once, by the handler, from the
+ * odds adapter's payload.market; never inferred later. NULL for every other
+ * signal type, for an opener with no spread, and for line_move rows written
+ * before this column existed (their market lives only in raw_events.payload).
+ */
+export type LineMoveMarket = "spread" | "total";
+
 export interface LineMovement {
   open: number;
   current: number;
@@ -215,6 +223,8 @@ export interface LiveSignal {
   confirmation_strength: string;     // "Consensus" | "Corroborated" | "Developing" | "Unverified"
   // Market data
   line_movement: LineMovement | null;
+  /** line_move only: the market the move is in. See LineMoveMarket. */
+  market?: LineMoveMarket | null;
   injury_designation: string | null; // "OUT" | "Doubtful" | "Questionable" | "IL-60"
   lineup_status: string | null;
   weather_note: string | null;

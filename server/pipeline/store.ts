@@ -628,6 +628,9 @@ CREATE INDEX IF NOT EXISTS idx_signal_state_history_signal
   // conditional ALTER). It belongs here so the partial index below can be
   // declared in the same place as the column it depends on.
   addColumnIfMissing(db, "live_signals", "alerted_at", "TEXT");
+  // line_move market ("spread" | "total"). No default and no backfill: rows
+  // written before this column read NULL, and settlement must not guess one.
+  addColumnIfMissing(db, "live_signals", "market", "TEXT");
 
   // Indexes created here (not in the CREATE-TABLE block) because settlement_expired
   // / is_archived are migration columns added just above — indexing them in the
@@ -2188,8 +2191,9 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       confirmation_strength,line_movement,injury_designation,lineup_status,
       weather_note,betting_relevance,fantasy_relevance,score,score_band,
       urgency_label,urgency_reason,trust_label,score_explanation,breakdown,
-      raw_event_ids,signal_time,first_seen_at,created_at,updated_at,outcome_id
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      raw_event_ids,signal_time,first_seen_at,created_at,updated_at,outcome_id,
+      market
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id) DO UPDATE SET
       score=excluded.score,
       score_band=excluded.score_band,
@@ -2218,6 +2222,9 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
       signal_time=excluded.signal_time,
       updated_at=excluded.updated_at
       -- first_seen_at intentionally omitted: keeps the original insertion time
+      -- market intentionally omitted: set once at insert. A line_move only
+      -- merges onto a row of the same market (findExistingSignal), so an
+      -- update can never legitimately change it.
   `).run(
     s.id, s.league, s.game_id, s.signal_type, s.headline, s.body,
     s.action_note, s.why_it_matters, s.team, s.player, s.matchup,
@@ -2230,6 +2237,7 @@ export function upsertLiveSignal(s: LiveSignal): LiveSignal {
     s.trust_label, s.score_explanation, JSON.stringify(s.breakdown),
     JSON.stringify(s.raw_event_ids), s.signal_time, s.first_seen_at ?? null, s.created_at, s.updated_at,
     s.outcome_id,
+    s.market ?? null,
   );
   const existing = getLiveSignal(s.id);
 
@@ -2330,6 +2338,13 @@ export function findExistingSignal(opts: {
   player?: string | null;
   signal_type?: string | null;
   since?: string;  // ISO timestamp — only match signals created at or after this time
+  /**
+   * line_move only. When given (null included), the match is restricted to
+   * rows of exactly this market, so a spread move and a total move for the
+   * same home team stay separate signals. NULL matches only NULL: a new
+   * line_move never merges onto a pre-column row whose market is unknown.
+   */
+  market?: string | null;
 }): LiveSignal | null {
   if (!opts.player && !opts.signal_type && !opts.team) return null;
   const db = getPipelineDb();
@@ -2347,6 +2362,10 @@ export function findExistingSignal(opts: {
   }
   if (opts.signal_type) { conds.push("signal_type=?"); params.push(opts.signal_type); }
   if (opts.since) { conds.push("created_at>=?"); params.push(opts.since); }
+  if (opts.market !== undefined) {
+    if (opts.market === null) conds.push("market IS NULL");
+    else { conds.push("market=?"); params.push(opts.market); }
+  }
   const row = db.prepare(
     `SELECT * FROM live_signals WHERE ${conds.join(" AND ")} ORDER BY created_at DESC LIMIT 1`
   ).get(...params);
