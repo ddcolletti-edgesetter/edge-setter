@@ -564,7 +564,6 @@ function quietNetworkStory(activeLeague: "ALL" | typeof LEAGUES[number], loading
     whatChanged: count
       ? `EdgeSetter agents are tracking ${count} live situation${count === 1 ? "" : "s"} across ${leagueLabel}.`
       : "EdgeSetter agents are scanning team news, lineups, and source agreement across today's games.",
-    whyItMatters: "The first verified break lands here before public confirmation — and a quiet watch confirms what has not changed.",
     watchNext: leagueQuietNote(league),
     overlay: watched ? {
       escalationState: watched.escalationState,
@@ -773,7 +772,9 @@ function HomepageQuietLead({ loading, situations }: { loading: boolean; situatio
       <p className="homepage-quiet-lead-note">
         {loading
           ? "Scanning team news, lineups, injury reports, and source agreement."
-          : "The first verified break lands here before wire pickup — a quiet board confirms what has not changed."}
+          // The old line ("lands here before wire pickup") claimed a wire lead
+          // nothing measures — the same false claim as the removed timing banner.
+          : "No story qualifies to lead right now. Each league board lists what is being tracked."}
       </p>
     </div>
   );

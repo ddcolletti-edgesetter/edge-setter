@@ -89,7 +89,9 @@ function expectStoryContract(story: StoryCardData) {
   expect(story.overlay.sourceSummary).toBeTruthy();
   expect(story.overlay.confidence).toBeTruthy();
   expect(story.whatChanged).toBeTruthy();
-  expect(story.whyItMatters).toBeTruthy();
+  // The quiet story's only whyItMatters was a wire-beating claim nothing
+  // measures; it was cut, and the quiet story never renders as a card anyway.
+  if (story.label !== "Quiet board watch") expect(story.whyItMatters).toBeTruthy();
   expect(story.watchNext).toBeTruthy();
   expect(story.imageAsset?.candidateSrcs.length).toBeGreaterThan(0);
 }
@@ -150,6 +152,7 @@ describe("homepage story contract", () => {
 
     expectStoryContract(model.lead);
     expect(model.lead.label).toBe("Quiet board watch");
+    expect(model.lead.whyItMatters ?? "").not.toMatch(/before (public confirmation|wire pickup)/);
     expect(model.rail).toEqual([]);
     expect(model.games).toEqual([]);
     expect(model.leagues).toEqual([]);

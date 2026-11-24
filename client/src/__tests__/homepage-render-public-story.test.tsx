@@ -261,7 +261,7 @@ describe("homepage public story render", () => {
     expect(lead.querySelector(".edge-overlay")).toBeNull();
     expect(lead.querySelector(".sports-story-visual")).toBeNull();
     expect(lead.querySelector(".conf-journey")).toBeNull();
-    expect(screen.getByTestId("homepage-lead-interim-note").textContent).toBe("Interim display: status, line and report count only.");
+    expect(screen.getByTestId("homepage-lead-interim-note").textContent).toBe("Interim display: line and report count only. Status returns once sourcing is verified (#114).");
 
     expect(screen.queryByRole("heading", { name: "SF availability status is moving" })).not.toBeInTheDocument();
     expect(domText).not.toMatch(/[A-Z]{2,4} availability status is moving/);
