@@ -176,6 +176,10 @@ async function main(): Promise<void> {
     console.log(`\nRUN ID: ${r.run_id}`);
     console.log(`changed: ${r.changed}   conflicts: ${r.conflicts}   mirror_updated: ${r.mirror_updated}   mirror_missing: ${r.mirror_missing}   mirror_repaired: ${r.mirror_repaired}`);
     console.log(`worst chunk lock-hold: ${r.worst_chunk_ms}ms${r.worst_chunk_ms > BUSY_TIMEOUT_MS / 2 ? "   (over half of busy_timeout: lower --chunk, raise --pause-ms)" : ""}`);
+    // The recompute is one transaction regardless of --chunk; neither flag shortens it.
+    console.log(r.accuracy
+      ? `recompute lock-hold: ${r.accuracy.lock_hold_ms}ms${r.accuracy.lock_hold_ms > BUSY_TIMEOUT_MS / 2 ? "   (over half of busy_timeout: other writers may have hit SQLITE_BUSY; check logs)" : ""}`
+      : "recompute lock-hold: n/a (no recompute)");
     if (r.accuracy) {
       const a = r.accuracy;
       console.log(

@@ -325,6 +325,7 @@ describe("--write removes the accuracy rows the regrade withdraws", () => {
     expect(r.accuracy).not.toBeNull();
     expect(r.accuracy!.stale_after).toBe(false);
     expect(r.accuracy!.rows_deleted).toBeGreaterThan(r.accuracy!.rows_written);
+    expect(r.accuracy!.lock_hold_ms).toBeGreaterThanOrEqual(0);
     const left = typeRows();
     for (const t of ["injury_update", "lineup_confirm", "line_move"]) expect(left).not.toContain(t);
     // No row from the pre-regrade recompute survives.

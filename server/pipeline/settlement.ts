@@ -734,6 +734,12 @@ export interface AccuracyComputeResult {
   rows_written: number;
   /** source_scores rows whose settlement-derived accuracy was withdrawn (set NULL). */
   source_scores_cleared?: number;
+  /**
+   * Wall time of the one pipeline.db write transaction (DELETE + rewrite), ms:
+   * how long other writers wait. Same measure as the regrade's per-chunk hold.
+   * The storage.db sync after it is per-statement autocommit, so not included.
+   */
+  lock_hold_ms: number;
 }
 
 /**
@@ -754,10 +760,12 @@ export interface AccuracyComputeResult {
 export function computeSourceAccuracy(): AccuracyComputeResult {
   const db = getPipelineDb();
   ensureAccuracyTable(db);
-  return db.transaction(() => computeSourceAccuracyInTx(db))();
+  const t0 = Date.now();
+  const res = db.transaction(() => computeSourceAccuracyInTx(db))();
+  return { ...res, lock_hold_ms: Date.now() - t0 };
 }
 
-function computeSourceAccuracyInTx(db: ReturnType<typeof getPipelineDb>): AccuracyComputeResult {
+function computeSourceAccuracyInTx(db: ReturnType<typeof getPipelineDb>): Omit<AccuracyComputeResult, "lock_hold_ms"> {
   const leagues = ["NBA", "MLB", "NFL", "CFB"];
   const computedAt = new Date().toISOString();
   const rowsDeleted = db.prepare("DELETE FROM pipeline_source_accuracy").run().changes;
