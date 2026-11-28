@@ -91,6 +91,14 @@ async function buildAll() {
     entryPoints: ["server/scripts/explain-regrade-conflicts.ts"],
     outfile: "dist/explain-regrade-conflicts.cjs",
   });
+
+  // Read-only: what is in both databases for a run's mirror_missing signals.
+  console.log("building mirror-missing probe...");
+  await esbuild({
+    ...serverBundle,
+    entryPoints: ["server/scripts/mirror-missing-probe.ts"],
+    outfile: "dist/mirror-missing-probe.cjs",
+  });
 }
 
 buildAll().catch((err) => {
