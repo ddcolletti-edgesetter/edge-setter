@@ -58,11 +58,13 @@ type StoreMod = typeof import("../store");
 type SettlementMod = typeof import("../settlement");
 type RegradeMod = typeof import("../regrade-v2");
 type CliMod = typeof import("../../scripts/regrade-settlement-v2");
+type ExplainMod = typeof import("../../scripts/explain-regrade-conflicts");
 
 let store: StoreMod;
 let settlement: SettlementMod;
 let regrade: RegradeMod;
 let cli: CliMod;
+let explain: ExplainMod;
 
 const GAME_ID = "NFL_2026-11-22_BUF_KC";
 const KICKOFF = "2026-11-22T18:00:00.000Z";
@@ -74,6 +76,7 @@ beforeAll(async () => {
   settlement = await import("../settlement");
   regrade = await import("../regrade-v2");
   cli = await import("../../scripts/regrade-settlement-v2");
+  explain = await import("../../scripts/explain-regrade-conflicts");
 });
 
 function seedGame() {
@@ -398,6 +401,75 @@ describe("reverseRun (--reverse)", () => {
     const w = await regrade.applyRegrade(regrade.planRegrade(), { pauseMs: 0, recompute: false });
     const r = await regrade.reverseRun(w.run_id, { pauseMs: 0, recompute: false });
     expect(() => regrade.planReverse(r.run_id)).toThrow(/only a write run/);
+  });
+});
+
+describe("explain-regrade-conflicts (read-only)", () => {
+  const args = (o: Partial<import("../../scripts/explain-regrade-conflicts").Args> = {}) =>
+    ({ league: "NFL" as const, maxRows: 200, run: null, recheckMs: 0, samples: 5, ...o });
+  const snapshot = () => store.getPipelineDb().prepare("SELECT * FROM outcomes ORDER BY id").all();
+
+  it("on untouched legacy rows: every predicate matches, no column fails, and it writes nothing", async () => {
+    seedLegacy();
+    const before = snapshot();
+    const d = await explain.diagnose(args());
+    expect(d.planned).toBe(5);
+    expect(d.rows.every((r) => r.id_rows === 1 && r.predicate_matches === 1 && r.failing_columns.length === 0)).toBe(true);
+    expect(d.rows.some((r) => r.holds_after)).toBe(false);
+    expect(d.changed_during_recheck).toEqual([]);
+    expect(snapshot()).toEqual(before);
+    expect(count("regrade_runs")).toBe(0);
+  });
+
+  it("names the column and both values when a row no longer holds its planned before", () => {
+    const ids = seedLegacy();
+    const plan = regrade.planRegrade();
+    store.getPipelineDb().prepare("UPDATE outcomes SET clv = 9.9 WHERE signal_id = ?").run(ids.lineMove);
+    const c = plan.changes.find((x) => x.signal_id === ids.lineMove)!;
+    const r = explain.diagnoseRow(c);
+    expect(r.predicate_matches).toBe(0);
+    expect(r.failing_columns).toHaveLength(1);
+    expect(r.failing_columns[0]).toMatchObject({ column: "clv", stored_type: "real", stored: "9.9" });
+    // And applyRegrade agrees it is a conflict.
+  });
+
+  it("reports a write that landed without an audit row as holding its after grade", () => {
+    const ids = seedLegacy();
+    const plan = regrade.planRegrade();
+    const c = plan.changes.find((x) => x.signal_id === ids.injury)!;
+    store.getPipelineDb().prepare(`
+      UPDATE outcomes SET market = ?, line_at_signal = ?, closing_line = ?, actual_result = ?, hit = ?, clv = ?,
+        settlement_state = ?, no_grade_reason = ?, grading_version = ? WHERE id = ?
+    `).run(...regrade.gradeArgs(c.after), c.outcome_id);
+    const r = explain.diagnoseRow(c);
+    expect(r).toMatchObject({ holds_after: true, predicate_matches: 0 });
+  });
+
+  it("catches a row another writer changes between the first check and the re-check", async () => {
+    const ids = seedLegacy();
+    const timer = setTimeout(() => {
+      store.getPipelineDb().prepare("UPDATE outcomes SET hit = 1 - hit WHERE signal_id = ?").run(ids.lineup);
+    }, 20);
+    const d = await explain.diagnose(args({ recheckMs: 80 }));
+    clearTimeout(timer);
+    const lineupOutcome = outcome(ids.lineup).id;
+    expect(d.changed_during_recheck).toEqual([lineupOutcome]);
+  });
+
+  it("counts the audit rows of a given run, and formats every section", async () => {
+    seedLegacy();
+    const d = await explain.diagnose(args({ run: "rg_nope" }));
+    expect(d.audit_rows_for_run).toBe(0);
+    const text = explain.formatDiagnosis(d, 3);
+    expect(text).toContain("UPDATE predicate matches now: 5   does not: 0");
+    expect(text).toContain("outcome_regrades rows for that run: 0");
+    expect(text).toContain("COLUMNS FAILING");
+  });
+
+  it("parses its flags and refuses unknown ones", () => {
+    expect(explain.parseArgs(["--league", "nfl", "--max-rows", "200", "--run", "rg_x", "--recheck-ms", "0"]))
+      .toMatchObject({ league: "NFL", maxRows: 200, run: "rg_x", recheckMs: 0 });
+    expect(() => explain.parseArgs(["--write"])).toThrow(/Unknown flag/);
   });
 });
 
