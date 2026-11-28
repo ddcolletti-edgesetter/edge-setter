@@ -83,6 +83,14 @@ async function buildAll() {
     entryPoints: ["server/scripts/regrade-settlement-v2.ts"],
     outfile: "dist/regrade-settlement-v2.cjs",
   });
+
+  // Its read-only companion: why a --write counted conflicts. Same reason.
+  console.log("building regrade conflict explainer...");
+  await esbuild({
+    ...serverBundle,
+    entryPoints: ["server/scripts/explain-regrade-conflicts.ts"],
+    outfile: "dist/explain-regrade-conflicts.cjs",
+  });
 }
 
 buildAll().catch((err) => {

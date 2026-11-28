@@ -180,6 +180,16 @@ async function main(): Promise<void> {
     console.log(r.accuracy
       ? `recompute lock-hold: ${r.accuracy.lock_hold_ms}ms${r.accuracy.lock_hold_ms > BUSY_TIMEOUT_MS / 2 ? "   (over half of busy_timeout: other writers may have hit SQLITE_BUSY; check logs)" : ""}`
       : "recompute lock-hold: n/a (no recompute)");
+    if (r.conflict_samples.length) {
+      console.log(`
+CONFLICTS (first ${r.conflict_samples.length} of ${r.conflicts}, read in the same transaction as the UPDATE)`);
+      for (const c of r.conflict_samples) {
+        const cols = c.differing.length
+          ? c.differing.map((d) => `${d.column}: planned ${JSON.stringify(d.planned)} now ${JSON.stringify(d.current)} (${d.current_type})`).join("; ")
+          : "no column differs from the planned before";
+        console.log(`  ${c.outcome_id} update_changes=${c.update_changes} id_rows=${c.id_rows} — ${cols}`);
+      }
+    }
     if (r.accuracy) {
       const a = r.accuracy;
       console.log(
