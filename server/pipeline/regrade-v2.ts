@@ -258,16 +258,27 @@ function reconcileMirror(): number {
   return repaired;
 }
 
-const UPDATE_IF_UNCHANGED_SQL = `
-  UPDATE outcomes
-  SET market = ?, line_at_signal = ?, closing_line = ?, actual_result = ?, hit = ?, clv = ?,
-      settlement_state = ?, no_grade_reason = ?, grading_version = ?
-  WHERE id = ?
+/**
+ * The "row still holds its before grade" condition. Binds: id, then the nine
+ * GRADE_COLUMNS of the before grade. Exported so explain-regrade-conflicts
+ * tests the exact predicate the UPDATE uses, not a copy of it.
+ */
+export const STILL_BEFORE_WHERE = `
+  id = ?
     AND market IS ? AND line_at_signal IS ? AND closing_line IS ? AND actual_result IS ?
     AND hit IS ? AND clv IS ? AND settlement_state IS ? AND no_grade_reason IS ? AND grading_version IS ?
 `;
 
-function gradeArgs(g: GradeFields): unknown[] {
+const UPDATE_IF_UNCHANGED_SQL = `
+  UPDATE outcomes
+  SET market = ?, line_at_signal = ?, closing_line = ?, actual_result = ?, hit = ?, clv = ?,
+      settlement_state = ?, no_grade_reason = ?, grading_version = ?
+  WHERE ${STILL_BEFORE_WHERE}
+`;
+
+export { GRADE_COLUMNS };
+
+export function gradeArgs(g: GradeFields): unknown[] {
   return GRADE_COLUMNS.map((c) => g[c] ?? null);
 }
 
