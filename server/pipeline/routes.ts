@@ -1042,13 +1042,21 @@ export function registerPipelineRoutes(app: Express) {
         `SELECT * FROM pipeline_source_accuracy ${where} ORDER BY league, signal_type NULLS FIRST`
       ).all(...params) as any[];
 
-      const calibration = getStoredCalibration();
+      // Calibration is only "available" beside a ledger that actually graded
+      // something, and only from a calibration row that saw samples. A
+      // calibration row left over from an earlier population (or written with
+      // sample_size 0) next to an empty / all-zero ledger used to read as
+      // calibration_available: true with that stale computed_at.
+      const graded = rows.some((r) => Number(r.total_signals) > 0);
+      const sampled = getStoredCalibration().filter((c) => Number(c.sample_size) > 0);
+      const available = graded && sampled.length > 0;
 
       return res.json({
         count: rows.length,
         ledger: rows,
-        calibration_available: calibration.length > 0,
-        calibration_computed_at: calibration[0]?.computed_at ?? null,
+        calibration_available: available,
+        // getStoredCalibration() is ordered computed_at DESC: newest sampled row.
+        calibration_computed_at: available ? sampled[0].computed_at : null,
       });
     } catch (err: any) {
       return res.status(500).json({ error: err.message });
