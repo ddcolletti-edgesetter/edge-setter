@@ -99,6 +99,14 @@ async function buildAll() {
     entryPoints: ["server/scripts/mirror-missing-probe.ts"],
     outfile: "dist/mirror-missing-probe.cjs",
   });
+
+  // Read-only: NFL Team Story trigger census (the classifier's only caller).
+  console.log("building team story trigger census...");
+  await esbuild({
+    ...serverBundle,
+    entryPoints: ["server/scripts/team-story-trigger-census.ts"],
+    outfile: "dist/team-story-trigger-census.cjs",
+  });
 }
 
 buildAll().catch((err) => {
