@@ -71,6 +71,8 @@ type Entry = {
   /** Sum of the blocks charged to it, and how many there were. */
   blockedMs: number;
   blocks: number;
+  /** The tracked function threw (jobs only). */
+  failed: boolean;
 };
 
 /** Accumulated per step name, for the measurement table and the regression test. */
@@ -81,6 +83,10 @@ export type StepStat = {
   totalWallMs: number;
   maxBlockMs: number;
   blocks: number;
+  /** Calls whose function threw. A step that swallows its own failure counts as
+   *  a success here, so a step that can fail without crashing its caller throws
+   *  inside trackJob and is caught outside it. */
+  failures: number;
 };
 
 const active = new Map<number, Entry>();
@@ -109,7 +115,7 @@ function record(entry: Entry): void {
   const wall = (entry.endedAt ?? Date.now()) - entry.startedAt;
   let stat = stats.get(entry.name);
   if (!stat) {
-    stat = { name: entry.name, calls: 0, maxWallMs: 0, totalWallMs: 0, maxBlockMs: 0, blocks: 0 };
+    stat = { name: entry.name, calls: 0, maxWallMs: 0, totalWallMs: 0, maxBlockMs: 0, blocks: 0, failures: 0 };
     stats.set(entry.name, stat);
   }
   stat.calls++;
@@ -117,6 +123,10 @@ function record(entry: Entry): void {
   if (wall > stat.maxWallMs) stat.maxWallMs = wall;
   if (entry.maxBlockMs > stat.maxBlockMs) stat.maxBlockMs = entry.maxBlockMs;
   stat.blocks += entry.blocks;
+  if (entry.failed) {
+    stat.failures++;
+    console.warn(`[step] ${entry.name} FAILED wall=${wall}ms`);
+  }
 
   if (STEP_LOG_ALL || entry.maxBlockMs >= STEP_REPORT_MS) {
     console.log(
@@ -135,12 +145,15 @@ function record(entry: Entry): void {
 export async function trackJob<T>(name: string, fn: () => Promise<T> | T): Promise<T> {
   const entry: Entry = {
     id: nextId++, name, kind: "job", startedAt: Date.now(), endedAt: null,
-    maxBlockMs: 0, blockedMs: 0, blocks: 0,
+    maxBlockMs: 0, blockedMs: 0, blocks: 0, failed: false,
   };
   active.set(entry.id, entry);
   watchdogJobEvent("start", entry.id, name);
   try {
     return await fn();
+  } catch (err) {
+    entry.failed = true;
+    throw err;
   } finally {
     finish(entry);
     watchdogJobEvent("end", entry.id, name);
@@ -151,7 +164,7 @@ export async function trackJob<T>(name: string, fn: () => Promise<T> | T): Promi
 export function trackRequest(label: string): () => void {
   const entry: Entry = {
     id: nextId++, name: label, kind: "request", startedAt: Date.now(), endedAt: null,
-    maxBlockMs: 0, blockedMs: 0, blocks: 0,
+    maxBlockMs: 0, blockedMs: 0, blocks: 0, failed: false,
   };
   active.set(entry.id, entry);
   watchdogJobEvent("start", entry.id, label);
@@ -239,7 +252,8 @@ export function formatStepStats(): string {
   return rows
     .map((r) =>
       `${r.name.padEnd(pad)}  maxBlock=${String(r.maxBlockMs).padStart(6)}ms` +
-      `  maxWall=${String(r.maxWallMs).padStart(6)}ms  calls=${r.calls}`,
+      `  maxWall=${String(r.maxWallMs).padStart(6)}ms  calls=${r.calls}` +
+      (r.failures > 0 ? `  failures=${r.failures}` : ""),
     )
     .join("\n");
 }

@@ -181,9 +181,15 @@ export async function runFullBackfill(options: BackfillOptions = {}): Promise<Ba
   if (!options.skipSettlement) {
     try {
       computeSourceAccuracy();
-      syncAccuracyToStorageDb();
+      const sync = syncAccuracyToStorageDb();
+      if (!sync.ok) {
+        const msg = `syncAccuracyToStorageDb: ${sync.failed} source(s) failed; ${sync.error}`;
+        console.error(`[backfill] Error — ${msg}`);
+        errors.push(msg);
+      } else {
+        console.log("[backfill] Accuracy ledger recomputed and synced to storage.db");
+      }
       accuracyRecomputed = true;
-      console.log("[backfill] Accuracy ledger recomputed and synced to storage.db");
     } catch (err: any) {
       const msg = `computeSourceAccuracy: ${err.message}`;
       console.error(`[backfill] Error — ${msg}`);
