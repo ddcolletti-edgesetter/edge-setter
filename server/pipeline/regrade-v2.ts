@@ -222,11 +222,42 @@ export interface RunResult {
   /** Longest single-chunk transaction on pipeline.db, ms. */
   worst_chunk_ms: number;
   /**
+   * Evidence for the first MAX_CONFLICT_SAMPLES conflicts, read in the same
+   * transaction as the UPDATE that missed: how many rows hold that id, and
+   * every column whose current value is not `IS` the planned before. A
+   * conflict count alone cannot say why (rg_20261128T063344_055dd89c: 200 of
+   * 200, and nothing left to look at afterwards).
+   */
+  conflict_samples: ConflictSample[];
+  /**
    * The accuracy recompute this run triggered, or null when nothing changed (or
    * recompute: false). stale_after is accuracyLedgerIsStale() read back AFTER
    * the recompute: false means no leftover accuracy row survived.
    */
   accuracy: (AccuracyComputeResult & { stale_after: boolean }) | null;
+}
+
+export const MAX_CONFLICT_SAMPLES = 20;
+
+export interface ConflictSample {
+  outcome_id: string;
+  /** r.changes from the UPDATE: 0 = no row matched, 2+ = more than one did. */
+  update_changes: number;
+  id_rows: number;
+  differing: { column: string; planned: unknown; current: unknown; current_type: string }[];
+}
+
+/** What the row holds now against what the plan expected. Read-only. */
+export function explainConflict(db: ReturnType<typeof getPipelineDb>, c: RegradeChange, updateChanges: number): ConflictSample {
+  const idRows = (db.prepare("SELECT COUNT(*) AS n FROM outcomes WHERE id = ?").get(c.outcome_id) as { n: number }).n;
+  const differing: ConflictSample["differing"] = [];
+  const planned = gradeArgs(c.before);
+  GRADE_COLUMNS.forEach((col, i) => {
+    const r = db.prepare(`SELECT (${col} IS ?) AS eq, ${col} AS v, typeof(${col}) AS t FROM outcomes WHERE id = ? LIMIT 1`)
+      .get(planned[i], c.outcome_id) as { eq: number; v: unknown; t: string } | undefined;
+    if (r && !r.eq) differing.push({ column: col, planned: planned[i], current: r.v, current_type: r.t });
+  });
+  return { outcome_id: c.outcome_id, update_changes: updateChanges, id_rows: idRows, differing };
 }
 
 function recomputeAccuracy(): AccuracyComputeResult & { stale_after: boolean } {
@@ -269,7 +300,7 @@ export const STILL_BEFORE_WHERE = `
     AND hit IS ? AND clv IS ? AND settlement_state IS ? AND no_grade_reason IS ? AND grading_version IS ?
 `;
 
-const UPDATE_IF_UNCHANGED_SQL = `
+export const UPDATE_IF_UNCHANGED_SQL = `
   UPDATE outcomes
   SET market = ?, line_at_signal = ?, closing_line = ?, actual_result = ?, hit = ?, clv = ?,
       settlement_state = ?, no_grade_reason = ?, grading_version = ?
@@ -292,7 +323,7 @@ function startRun(mode: "write" | "reverse", o: { league?: string | null; note?:
   return runId;
 }
 
-function finishRun(runId: string, r: Omit<RunResult, "run_id" | "worst_chunk_ms" | "accuracy">, summary: unknown): void {
+function finishRun(runId: string, r: Omit<RunResult, "run_id" | "worst_chunk_ms" | "accuracy" | "conflict_samples">, summary: unknown): void {
   getPipelineDb().prepare(`
     UPDATE regrade_runs
     SET finished_at = ?, changed = ?, conflicts = ?, mirror_updated = ?, mirror_missing = ?, mirror_repaired = ?, summary_json = ?
@@ -332,6 +363,7 @@ export async function applyRegrade(plan: RegradePlan, opts: ApplyOptions = {}): 
 
   const res = { changed: 0, conflicts: 0, mirror_updated: 0, mirror_missing: 0, mirror_repaired: 0 };
   let worst = 0;
+  const samples: ConflictSample[] = [];
 
   for (let i = 0; i < plan.changes.length; i += chunk) {
     const batch = plan.changes.slice(i, i + chunk);
@@ -342,7 +374,11 @@ export async function applyRegrade(plan: RegradePlan, opts: ApplyOptions = {}): 
         // (stmt.run)(...) keeps better-sqlite3's receiver; a detached
         // `const run = stmt.run` throws "Illegal invocation".
         const r = update.run(...gradeArgs(c.after), c.outcome_id, ...gradeArgs(c.before));
-        if (r.changes !== 1) { res.conflicts++; continue; }
+        if (r.changes !== 1) {
+          res.conflicts++;
+          if (samples.length < MAX_CONFLICT_SAMPLES) samples.push(explainConflict(db, c, r.changes));
+          continue;
+        }
         audit.run(
           randomUUID(), runId, c.outcome_id, c.signal_id, c.game_id, c.league, c.signal_type, c.excluded_stale,
           ...gradeArgs(c.before), ...gradeArgs(c.after), new Date().toISOString(),
@@ -363,9 +399,9 @@ export async function applyRegrade(plan: RegradePlan, opts: ApplyOptions = {}): 
   }
 
   res.mirror_repaired = reconcileMirror();
-  finishRun(runId, res, { transitions: plan.transitions, skipped: plan.skipped, accuracy: plan.accuracy, deferred: plan.deferred });
+  finishRun(runId, res, { transitions: plan.transitions, skipped: plan.skipped, accuracy: plan.accuracy, deferred: plan.deferred, conflict_samples: samples });
   const accuracy = (res.changed > 0 || res.mirror_repaired > 0) && opts.recompute !== false ? recomputeAccuracy() : null;
-  return { run_id: runId, ...res, worst_chunk_ms: worst, accuracy };
+  return { run_id: runId, ...res, worst_chunk_ms: worst, accuracy, conflict_samples: samples };
 }
 
 interface AuditRow {
@@ -454,7 +490,7 @@ export async function reverseRun(runId: string, opts: ApplyOptions = {}): Promis
   res.mirror_repaired = reconcileMirror();
   finishRun(reverseId, res, { reverses: runId });
   const accuracy = (res.changed > 0 || res.mirror_repaired > 0) && opts.recompute !== false ? recomputeAccuracy() : null;
-  return { run_id: reverseId, ...res, worst_chunk_ms: worst, accuracy };
+  return { run_id: reverseId, ...res, worst_chunk_ms: worst, accuracy, conflict_samples: [] };
 }
 
 export function listRuns(limit = 20): Array<Record<string, unknown>> {

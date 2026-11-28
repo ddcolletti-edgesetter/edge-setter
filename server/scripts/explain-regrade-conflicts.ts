@@ -20,15 +20,21 @@
  *   4. Waits as long as step 1 took, then re-checks the predicate. Rows that
  *      matched and then stopped matching were changed by another writer in
  *      that window; rows that never matched point at the read/bind round trip.
+ *   5. With --probe-update: runs the regrade's REAL conditional UPDATE
+ *      (UPDATE_IF_UNCHANGED_SQL, same binds as applyRegrade) for every row,
+ *      records r.changes, and ROLLS BACK. Steps 2-4 only ever SELECT; this is
+ *      the one check of the UPDATE statement itself. It holds the pipeline.db
+ *      write lock for the length of that one transaction (the real run's
+ *      200-row chunk took 2ms).
  *
- * It never writes. (Opening pipeline.db runs the same schema init every
- * process does; on prod those are all IF NOT EXISTS no-ops.)
+ * It never commits a write. (Opening pipeline.db runs the same schema init
+ * every process does; on prod those are all IF NOT EXISTS no-ops.)
  *
  *   node dist/explain-regrade-conflicts.cjs --league NFL --max-rows 200 \
  *        [--run rg_20261128T063344_055dd89c] [--recheck-ms N] [--samples N]
  */
 import { getPipelineDb } from "../pipeline/store";
-import { planRegrade, gradeArgs, GRADE_COLUMNS, STILL_BEFORE_WHERE, type RegradeChange } from "../pipeline/regrade-v2";
+import { planRegrade, gradeArgs, GRADE_COLUMNS, STILL_BEFORE_WHERE, UPDATE_IF_UNCHANGED_SQL, type RegradeChange } from "../pipeline/regrade-v2";
 import type { League } from "../pipeline/types";
 
 const LEAGUES = ["CFB", "NFL", "NBA", "MLB"];
@@ -39,10 +45,11 @@ export interface Args {
   run: string | null;
   recheckMs: number | null;
   samples: number;
+  probeUpdate: boolean;
 }
 
 export function parseArgs(argv: string[]): Args {
-  const a: Args = { league: null, maxRows: 200, run: null, recheckMs: null, samples: 5 };
+  const a: Args = { league: null, maxRows: 200, run: null, recheckMs: null, samples: 5, probeUpdate: false };
   const num = (flag: string, v: string | undefined) => {
     const n = Number(v);
     if (v === undefined || !Number.isFinite(n) || n < 0) throw new Error(`${flag} needs a non-negative number`);
@@ -60,6 +67,7 @@ export function parseArgs(argv: string[]): Args {
       case "--run": a.run = argv[++i] ?? null; break;
       case "--recheck-ms": a.recheckMs = num(f, argv[++i]); break;
       case "--samples": a.samples = num(f, argv[++i]); break;
+      case "--probe-update": a.probeUpdate = true; break;
       default: throw new Error(`Unknown flag ${f}`);
     }
   }
@@ -87,6 +95,35 @@ export interface Diagnosis {
   changed_during_recheck: string[];
   recheck_ms: number;
   audit_rows_for_run: number | null;
+  /** --probe-update: r.changes of the real UPDATE per row, rolled back. null when not probed. */
+  probe: { changes_0: number; changes_1: number; changes_2plus: number; ms: number; rolled_back: boolean } | null;
+}
+
+class ProbeRollback extends Error {}
+
+/**
+ * The real UPDATE, inside a transaction that is always rolled back. better-
+ * sqlite3 rolls a db.transaction() back when its function throws.
+ */
+export function probeUpdate(changes: RegradeChange[]): NonNullable<Diagnosis["probe"]> {
+  const db = getPipelineDb();
+  const update = db.prepare(UPDATE_IF_UNCHANGED_SQL);
+  const out = { changes_0: 0, changes_1: 0, changes_2plus: 0, ms: 0, rolled_back: false };
+  const t0 = Date.now();
+  try {
+    db.transaction(() => {
+      for (const c of changes) {
+        const n = update.run(...gradeArgs(c.after), c.outcome_id, ...gradeArgs(c.before)).changes;
+        if (n === 0) out.changes_0++; else if (n === 1) out.changes_1++; else out.changes_2plus++;
+      }
+      throw new ProbeRollback();
+    })();
+  } catch (err) {
+    if (!(err instanceof ProbeRollback)) throw err;
+    out.rolled_back = true;
+  }
+  out.ms = Date.now() - t0;
+  return out;
 }
 
 function jsType(v: unknown): string {
@@ -152,7 +189,10 @@ export async function diagnose(args: Args): Promise<Diagnosis> {
     audit = (getPipelineDb().prepare("SELECT COUNT(*) AS n FROM outcome_regrades WHERE run_id = ?")
       .get(args.run) as { n: number }).n;
   }
-  return { planned: plan.changes.length, plan_ms: planMs, rows, changed_during_recheck: changedDuringRecheck, recheck_ms: recheckMs, audit_rows_for_run: audit };
+  // Last, so it runs on the same plan the other checks saw, and as soon after
+  // the re-check as the real run's UPDATE ran after its plan.
+  const probe = args.probeUpdate ? probeUpdate(plan.changes) : null;
+  return { planned: plan.changes.length, plan_ms: planMs, rows, changed_during_recheck: changedDuringRecheck, recheck_ms: recheckMs, audit_rows_for_run: audit, probe };
 }
 
 export function formatDiagnosis(d: Diagnosis, samples: number): string {
@@ -164,6 +204,12 @@ export function formatDiagnosis(d: Diagnosis, samples: number): string {
   out.push(`already holding the v2 after grade (landed without audit): ${count((r) => r.holds_after)}`);
   if (d.audit_rows_for_run !== null) out.push(`outcome_regrades rows for that run: ${d.audit_rows_for_run}`);
   out.push(`matched, then stopped matching within ${d.recheck_ms}ms (another writer): ${d.changed_during_recheck.length}`);
+  if (d.probe) {
+    out.push(
+      `real UPDATE, rolled back${d.probe.rolled_back ? "" : " — NOT CONFIRMED"}: changed 1 row: ${d.probe.changes_1}   ` +
+      `0 rows: ${d.probe.changes_0}   2+ rows: ${d.probe.changes_2plus}   (${d.probe.ms}ms in one transaction)`,
+    );
+  }
 
   const byCol: Record<string, number> = {};
   const byShape: Record<string, number> = {};

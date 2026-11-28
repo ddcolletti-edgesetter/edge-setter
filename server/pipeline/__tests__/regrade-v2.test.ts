@@ -276,6 +276,12 @@ describe("applyRegrade (--write)", () => {
     expect(r).toMatchObject({ changed: 4, conflicts: 1 });
     expect(outcome(ids.lineMove).clv).toBe(9.9);
     expect(store.getPipelineDb().prepare("SELECT COUNT(*) AS c FROM outcome_regrades WHERE signal_id = ?").get(ids.lineMove)).toEqual({ c: 0 });
+     // And says why, from inside the transaction: the column, the planned value, and what is there now.
+    expect(r.conflict_samples).toHaveLength(1);
+    expect(r.conflict_samples[0]).toMatchObject({ update_changes: 0, id_rows: 1 });
+    expect(r.conflict_samples[0].differing).toEqual([{ column: "clv", planned: expect.anything(), current: 9.9, current_type: "real" }]);
+    const run = store.getPipelineDb().prepare("SELECT summary_json FROM regrade_runs WHERE run_id = ?").get(r.run_id) as any;
+    expect(JSON.parse(run.summary_json).conflict_samples).toHaveLength(1);
   });
 
   it("chunks are clamped and each one is reported", async () => {
@@ -406,7 +412,7 @@ describe("reverseRun (--reverse)", () => {
 
 describe("explain-regrade-conflicts (read-only)", () => {
   const args = (o: Partial<import("../../scripts/explain-regrade-conflicts").Args> = {}) =>
-    ({ league: "NFL" as const, maxRows: 200, run: null, recheckMs: 0, samples: 5, ...o });
+    ({ league: "NFL" as const, maxRows: 200, run: null, recheckMs: 0, samples: 5, probeUpdate: false, ...o });
   const snapshot = () => store.getPipelineDb().prepare("SELECT * FROM outcomes ORDER BY id").all();
 
   it("on untouched legacy rows: every predicate matches, no column fails, and it writes nothing", async () => {
@@ -466,9 +472,24 @@ describe("explain-regrade-conflicts (read-only)", () => {
     expect(text).toContain("COLUMNS FAILING");
   });
 
+  it("--probe-update runs the real UPDATE, reports one change per row, and rolls every one back", async () => {
+    const ids = seedLegacy();
+    const before = snapshot();
+    const d = await explain.diagnose(args({ probeUpdate: true }));
+    expect(d.probe).toMatchObject({ changes_1: 5, changes_0: 0, changes_2plus: 0, rolled_back: true });
+    expect(snapshot()).toEqual(before);
+    expect(count("regrade_runs")).toBe(0);
+    expect(count("outcome_regrades")).toBe(0);
+    // A moved row is a 0 in the probe, exactly as it would be a conflict in the run.
+    const plan = regrade.planRegrade();
+    store.getPipelineDb().prepare("UPDATE outcomes SET clv = 9.9 WHERE signal_id = ?").run(ids.lineMove);
+    expect(explain.probeUpdate(plan.changes)).toMatchObject({ changes_1: 4, changes_0: 1, rolled_back: true });
+    expect(outcome(ids.injury).grading_version).toBeNull(); // still legacy: rolled back
+  });
+
   it("parses its flags and refuses unknown ones", () => {
-    expect(explain.parseArgs(["--league", "nfl", "--max-rows", "200", "--run", "rg_x", "--recheck-ms", "0"]))
-      .toMatchObject({ league: "NFL", maxRows: 200, run: "rg_x", recheckMs: 0 });
+    expect(explain.parseArgs(["--league", "nfl", "--max-rows", "200", "--run", "rg_x", "--recheck-ms", "0", "--probe-update"]))
+      .toMatchObject({ league: "NFL", maxRows: 200, run: "rg_x", recheckMs: 0, probeUpdate: true });
     expect(() => explain.parseArgs(["--write"])).toThrow(/Unknown flag/);
   });
 });
