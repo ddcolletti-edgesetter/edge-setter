@@ -15,6 +15,7 @@ import {
   findExistingSignal, lineupConfirmRawEventExists, touchLiveSignalUpdatedAt,
 } from "../store";
 import { canonicalGameId, mlbCanonicalTeamCode } from "../canonical-game-id";
+import { classifyMLBTransaction } from "./mlb-transaction-kind";
 
 // Mirrors processor.ts DEFAULT_DEDUP_LOOKBACK_MS (4h) — the window the processor's
 // fingerprint lookup uses for lineup_confirm. We reuse the SAME findExistingSignal
@@ -276,15 +277,9 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
   for (const tx of relevant) {
     if (seenTxIds.has(tx.id)) continue;
 
-    const isActivation =
-      tx.typeCode === "CU" ||
-      (tx.typeCode === "SC" && tx.description.toLowerCase().includes("activated"));
+    // DES is a roster move, not an injury: no designation, event_type "transaction".
+    const { event_type, transaction_type, designation } = classifyMLBTransaction(tx);
     const team = resolveMLBTeamAbbr(tx.toTeam ?? tx.fromTeam ?? tx.team);
-    const desc = tx.description.toLowerCase();
-    const designation = isActivation ? undefined
-      : desc.includes("60-day") ? "IL-60"
-      : desc.includes("15-day") ? "IL-15"
-      : "IL-10";
 
     insertRawEvent({
       source_id: "mlb_statsapi",
@@ -293,9 +288,9 @@ export async function ingestMLBTransactions(): Promise<{ created: number }> {
       game_id: null,
       team,
       player: tx.person.fullName,
-      event_type: isActivation ? "transaction" : "injury_update",
+      event_type,
       payload: {
-        transaction_type: isActivation ? "IL activation" : `${designation} placement`,
+        transaction_type,
         designation,
         notes: tx.description,
         confidence: 92,
