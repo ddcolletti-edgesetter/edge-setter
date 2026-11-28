@@ -196,6 +196,12 @@ CONFLICTS (first ${r.conflict_samples.length} of ${r.conflicts}, read in the sam
         `accuracy ledger: deleted ${a.rows_deleted} row(s), wrote ${a.rows_written}   ` +
         `source_scores withdrawn: ${a.source_scores_cleared ?? 0}   stale after recompute: ${a.stale_after}`,
       );
+      if (a.source_scores_sync && !a.source_scores_sync.ok) {
+        console.log(
+          `accuracy ledger: storage.db SYNC FAILED — ${a.source_scores_sync.synced} synced, ` +
+          `${a.source_scores_sync.failed} source(s) failed; first error: ${a.source_scores_sync.error}`,
+        );
+      }
     } else {
       console.log("accuracy ledger: not recomputed (nothing changed)");
     }

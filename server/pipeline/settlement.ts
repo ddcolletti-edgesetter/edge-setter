@@ -442,9 +442,13 @@ let lastAccuracyComputeAt = 0;
 
 export function forceAccuracyRecompute(): AccuracyComputeResult {
   const res = computeSourceAccuracy();
-  const { cleared } = syncAccuracyToStorageDb();
+  const sync = syncAccuracyToStorageDb();
   lastAccuracyComputeAt = Date.now();
-  return { ...res, source_scores_cleared: cleared.length };
+  return {
+    ...res,
+    source_scores_cleared: sync.cleared.length,
+    source_scores_sync: { ok: sync.ok, synced: sync.synced, failed: sync.failed, error: sync.error },
+  };
 }
 
 /**
@@ -615,7 +619,17 @@ export async function autoSettleFinishedGames(): Promise<AutoSettleResult> {
     if (stale) {
       await trackJob("settlement:compute-accuracy", async () => {
         await trackJob("settlement:accuracy-compute", () => computeSourceAccuracy());
-        await trackJob("settlement:accuracy-sync", () => syncAccuracyToStorageDb());
+        // The sync never throws; a failed one throws HERE, inside trackJob, so
+        // the step is recorded as failed, and is caught right outside it so a
+        // storage.db problem never takes the settlement cycle down with it.
+        await trackJob("settlement:accuracy-sync", () => {
+          const sync = syncAccuracyToStorageDb();
+          if (!sync.ok) throw new AccuracySyncError(sync);
+          return sync;
+        }).catch((err) => {
+          if (!(err instanceof AccuracySyncError)) throw err;
+          // Already logged by syncAccuracyToStorageDb.
+        });
       });
     }
     // Stamped either way: the check itself runs at most once per debounce window.
@@ -734,6 +748,8 @@ export interface AccuracyComputeResult {
   rows_written: number;
   /** source_scores rows whose settlement-derived accuracy was withdrawn (set NULL). */
   source_scores_cleared?: number;
+  /** How the storage.db sync after the recompute went (forceAccuracyRecompute only). */
+  source_scores_sync?: Pick<AccuracySyncResult, "ok" | "synced" | "failed" | "error">;
   /**
    * Wall time of the one pipeline.db write transaction (DELETE + rewrite), ms:
    * how long other writers wait. Same measure as the regrade's per-chunk hold.
@@ -892,8 +908,38 @@ function writeAccuracyRow(
  * Only syncs rows where source_id IS NOT NULL (per-writer rows),
  * since the leaderboard is keyed on source records in storage.db.
  */
-export function syncAccuracyToStorageDb(): { synced: number; cleared: string[] } {
+export interface AccuracySyncResult {
+  /** False when anything failed: one source's upsert, or the sync as a whole. */
+  ok: boolean;
+  /** source_scores rows upserted. */
+  synced: number;
+  /** Sources whose upsert threw. A whole-sync failure leaves this at however
+   *  many had failed before it; `ok` and `error` are what say it failed. */
+  failed: number;
+  /** Sources whose settlement accuracy was withdrawn. */
+  cleared: string[];
+  /** First error message seen, null when ok. */
+  error: string | null;
+}
+
+/** Thrown inside trackJob by the settlement cycle so a failed sync is recorded
+ *  as a failed step; caught right outside it. */
+export class AccuracySyncError extends Error {
+  constructor(readonly result: AccuracySyncResult) {
+    super(`accuracy sync failed: ${result.error}`);
+    this.name = "AccuracySyncError";
+  }
+}
+
+/**
+ * Never throws: every failure is reported in the result instead, so a caller
+ * can tell "failed" from "nothing to sync" without having to catch.
+ */
+export function syncAccuracyToStorageDb(): AccuracySyncResult {
   let synced = 0;
+  let failed = 0;
+  let error: string | null = null;
+  let whole = false;
   let cleared: string[] = [];
   try {
     // Read from persistent settled_outcomes (not ephemeral pipeline.db)
@@ -945,6 +991,8 @@ export function syncAccuracyToStorageDb(): { synced: number; cleared: string[] }
         });
         synced++;
       } catch (err: any) {
+        failed++;
+        error ??= `source ${t.source_id}: ${err?.message ?? String(err)}`;
         console.warn(`[settlement] syncAccuracyToStorageDb: failed for source ${t.source_id}:`, err.message);
       }
     }
@@ -959,9 +1007,16 @@ export function syncAccuracyToStorageDb(): { synced: number; cleared: string[] }
       console.log(`[settlement] Withdrew settlement accuracy for ${cleared.length} source(s) with no graded outcome left`);
     }
   } catch (err: any) {
+    whole = true;
+    error ??= err?.message ?? String(err);
     console.error("[settlement] syncAccuracyToStorageDb failed:", err.message);
   }
-  return { synced, cleared };
+  if (failed > 0) {
+    console.error(
+      `[settlement] syncAccuracyToStorageDb: ${failed} source(s) failed, ${synced} synced; first error: ${error}`,
+    );
+  }
+  return { ok: !whole && failed === 0, synced, failed, cleared, error };
 }
 
 /* ─── One-time backlog migration ──────────────────────────────
