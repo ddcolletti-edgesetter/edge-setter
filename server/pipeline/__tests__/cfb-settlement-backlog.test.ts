@@ -308,6 +308,13 @@ type Run = {
    * assertions are about.
    */
   minGlobalSpanMs: number;
+  /**
+   * Each leaf step's wall clock in every run, not just this one. Which step is
+   * heaviest is a claim about where the cycle's time goes, so it is judged on
+   * medians across runs — never on one run, and never on the first (cold) run
+   * that the worstLeafMs tie-break tends to hand back.
+   */
+  wallByStep: Record<string, number[]>;
   stats: ReturnType<typeof monitor.getStepStats>;
   table: string;
   updated: number;
@@ -349,6 +356,7 @@ async function measureCycle(label: string, cap: string): Promise<Run> {
       worstWallMs: worstWall.maxWallMs,
       worstWallName: worstWall.name,
       minGlobalSpanMs: 0, // filled in once every run is in
+      wallByStep: {}, // filled in once every run is in
       stats,
       table: monitor.formatStepStats(),
       updated: result.games_updated,
@@ -356,16 +364,56 @@ async function measureCycle(label: string, cap: string): Promise<Run> {
   }
 
   const lowest = runs.reduce((a, b) => (b.worstLeafMs < a.worstLeafMs ? b : a));
-  const best: Run = { ...lowest, minGlobalSpanMs: Math.min(...runs.map((r) => r.maxSpanMs)) };
+  const wallByStep: Record<string, number[]> = {};
+  for (const r of runs) {
+    for (const step of leaves(r.stats)) (wallByStep[step.name] ??= []).push(step.maxWallMs);
+  }
+  const best: Run = {
+    ...lowest,
+    minGlobalSpanMs: Math.min(...runs.map((r) => r.maxSpanMs)),
+    wallByStep,
+  };
   console.log(
     `\n[cfb-settle] ${label}: worst attributed block per run ` +
     `${runs.map((r) => `${r.worstLeafMs}ms`).join(", ")} — best ${best.worstLeafMs}ms ` +
     `(${best.worstLeafName}); global worst span that run ${best.maxSpanMs}ms; ` +
     `heaviest step by wall clock ${best.worstWallName} ${best.worstWallMs}ms; ` +
-    `lowest global span across runs ${best.minGlobalSpanMs}ms\n${best.table}`,
+    `lowest global span across runs ${best.minGlobalSpanMs}ms\n` +
+    `${formatWallShare(wallShare(best))}\n${best.table}`,
   );
   return best;
 }
+
+const median = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+};
+
+type WallShare = { settleLinkedMs: number; othersMs: number; perStep: Record<string, number> };
+
+/**
+ * settle-linked's median wall clock against the SUM of every other leaf's
+ * median. Asking "is settle-linked the single heaviest step" lets a step that
+ * is only stubbed fetch() win a tie on scheduling noise (CI, 2026-11-27:
+ * fetch-scores 34ms = settle-linked 34ms, and the strict > reducer picked the
+ * first-listed one). Asking whether settle-linked outweighs everything else
+ * put together is the claim the cap actually rests on, and it has margin.
+ */
+function wallShare(run: Run): WallShare {
+  const perStep: Record<string, number> = {};
+  for (const [name, walls] of Object.entries(run.wallByStep)) perStep[name] = median(walls);
+  const settleLinkedMs = perStep["settlement:settle-linked"] ?? 0;
+  const othersMs = Object.entries(perStep)
+    .filter(([name]) => name !== "settlement:settle-linked")
+    .reduce((sum, [, ms]) => sum + ms, 0);
+  return { settleLinkedMs, othersMs, perStep };
+}
+
+const formatWallShare = (w: WallShare) =>
+  `median wall per step across runs: ` +
+  Object.entries(w.perStep).map(([n, ms]) => `${n.replace("settlement:", "")}=${ms}ms`).join(" ") +
+  ` — settle-linked ${w.settleLinkedMs}ms vs all others ${w.othersMs}ms`;
 
 describe("span budget, at the cap that ships", () => {
   let best: Run;
@@ -392,8 +440,11 @@ describe("span budget, at the cap that ships", () => {
     // Wall clock, not the attributed block: on a fast runner the whole cycle
     // finishes inside the sampler's attribution threshold and every maxBlockMs
     // is 0, so asserting on a block would really be asserting that a block
-    // exists. Measured on a GitHub runner: settle-linked 42ms of a 59ms cycle.
-    expect(best.worstWallName, best.table).toBe("settlement:settle-linked");
+    // exists. Medians across runs, and against the sum of every other step,
+    // not "is it the single max" — see wallShare. Thinnest CI margin seen
+    // (single warm run, before this change): settle-linked 14ms vs 12ms.
+    const share = wallShare(best);
+    expect(share.settleLinkedMs, formatWallShare(share)).toBeGreaterThan(share.othersMs);
     // And if anything DID block, it was that step and nothing else.
     expect(["none", "settlement:settle-linked"], best.table).toContain(best.worstLeafName);
   });
@@ -422,7 +473,8 @@ describe("span budget, uncapped — what the cap is for", () => {
   });
 
   it("the time lands on settle-linked, which is what the cap divides", () => {
-    expect(best.worstWallName, best.table).toBe("settlement:settle-linked");
+    const share = wallShare(best);
+    expect(share.settleLinkedMs, formatWallShare(share)).toBeGreaterThan(share.othersMs);
     expect(["none", "settlement:settle-linked"], best.table).toContain(best.worstLeafName);
   });
 });
